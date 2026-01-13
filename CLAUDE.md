@@ -22,8 +22,20 @@ After each step, update (as applicable):
 - `projects/<slug>/runs/<run_id>/...` for experiments
 
 ## SLURM discipline
+- **CRITICAL**: SLURM is NEVER available locally. ALL SLURM operations (sbatch, squeue, sacct) MUST use remote execution via `scripts/cluster/*`. Never check for or attempt to use local SLURM commands.
 - Never submit a job without creating a run folder and `submit.json`.
 - Always record job IDs and how to reproduce (command, git SHA if available, config snapshot).
+- **Early polling rule**: After submitting a job, set `next_poll_after` to ~60 seconds after submission (not the default 15-minute interval). This catches initialization errors (missing modules, wrong Python version, etc.) quickly. After the early poll succeeds, resume normal polling intervals.
+- **Job verification rule** (`/dispatch` MUST DO FIRST): Before processing any projects, verify all outstanding jobs in `active_runs`:
+  1. Check if jobs marked "running" are actually running via `scripts/cluster/status.sh <job_id>` (remote SLURM)
+  2. If a job is NOT running but status says "running":
+     - Fetch logs via `scripts/cluster/remote_fetch.sh <project_slug>`
+     - Check SLURM logs (`slurm/logs/<job_name>_<job_id>.{out,err}`)
+     - Determine failure reason
+     - Add entry to `documentation/debugging.md` (error, root cause, run_id, job_id, logs, timestamp)
+     - Update `pipeline.json`: move to `completed_runs` with `status: "failed"`, add `failed_at` and `error`
+     - Set `phase=DEBUG` if blocking
+  3. Only after verification complete, proceed with normal dispatch
 
 ## Stopping
 - The repo includes a Stop hook that may block stopping while work is actionable.

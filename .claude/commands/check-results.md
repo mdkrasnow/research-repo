@@ -6,8 +6,8 @@ argument-hint: --project <slug>
 # /check-results
 Check `pipeline.json.active_runs`, query job state, and if completed, write `runs/<run_id>/results.md` and update `results/summary.md`.
 
-## Remote polling on laptops
-If `squeue/sacct` are not available locally:
+## Remote polling (ALWAYS)
+**CRITICAL**: SLURM is NEVER available locally. ALL operations use remote execution:
 1) Ensure SSH session:
    - `scripts/cluster/ensure_session.sh`
 2) If missing, set `needs_user_input` with prompt:
