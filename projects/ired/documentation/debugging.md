@@ -2,7 +2,29 @@
 
 ## Active Issues
 
-### Issue 4: Repository sync - implementation files not on cluster (BLOCKING)
+### Issue 5: Remote repository not updated after git push (BLOCKING)
+**Timestamp**: 2026-01-13T23:18:21Z
+**Run ID**: q004_20260113_231120
+**Job ID**: 55213584
+**Error**: `python: can't open file '/n/home03/mkrasnow/research-repo/experiments/matrix_inversion_mining.py': [Errno 2] No such file or directory`
+**Log files**:
+- `projects/ired/slurm/logs/ired_q004_pilot_55213584.err`
+- `projects/ired/slurm/logs/ired_q004_pilot_55213584.out`
+
+**Root cause**: Files were committed (69c9fcf) and pushed to git successfully, but the remote cluster's repository at `/n/home03/mkrasnow/research-repo` hasn't pulled the latest changes yet.
+
+**Impact**: SLURM jobs run from stale repository checkout without implementation files.
+
+**Required Fix**: Pull latest code on remote cluster:
+```bash
+ssh <cluster> "cd /n/home03/mkrasnow/research-repo && git pull"
+```
+
+**Status**: BLOCKED - requires user to pull on remote cluster
+
+## Resolved
+
+### Issue 4: Repository sync - implementation files not on cluster
 **Timestamp**: 2026-01-13T23:00:29Z
 **Run ID**: q004_20260113_225843
 **Job ID**: 55211671
@@ -24,7 +46,7 @@
 1. Remove the gitlink entry and add files: `git rm --cached projects/ired && git add projects/ired/ && git commit`
 2. Manually sync files to cluster (temporary workaround)
 
-**Status**: BLOCKED - requires user intervention to fix git tracking
+**Status**: RESOLVED - Git tracking fixed (commit 69c9fcf), files now properly tracked and pushed
 
 ## Resolved
 

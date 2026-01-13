@@ -25,6 +25,16 @@ After each step, update (as applicable):
 - **CRITICAL**: SLURM is NEVER available locally. ALL SLURM operations (sbatch, squeue, sacct) MUST use remote execution via `scripts/cluster/*`. Never check for or attempt to use local SLURM commands.
 - Never submit a job without creating a run folder and `submit.json`.
 - Always record job IDs and how to reproduce (command, git SHA if available, config snapshot).
+- **Automated git workflow**:
+  - Each SLURM job automatically clones the repository fresh to `/tmp/project-job-$SLURM_JOB_ID`
+  - The current git commit SHA is captured at submission time and passed via `GIT_SHA` environment variable
+  - Jobs checkout the exact commit, run the experiment, and cleanup automatically
+  - NO manual repository maintenance needed on cluster (no git pull, no rsync of code)
+  - Only `slurm/` directory is synced to remote (for sbatch scripts and log structure)
+- **Partition selection rule**:
+  - For experiments expected to take < 24 hours: Use `--partition=gpu_test` for better priority queue positioning
+  - For experiments expected to take ≥ 24 hours: Use `--partition=gpu`
+  - gpu_test has higher priority but 24-hour time limit; gpu has lower priority but longer time limits
 - **Early polling rule**: After submitting a job, set `next_poll_after` to ~60 seconds after submission (not the default 15-minute interval). This catches initialization errors (missing modules, wrong Python version, etc.) quickly. After the early poll succeeds, resume normal polling intervals.
 - **Job verification rule** (`/dispatch` MUST DO FIRST): Before processing any projects, verify all outstanding jobs in `active_runs`:
   1. Check if jobs marked "running" are actually running via `scripts/cluster/status.sh <job_id>` (remote SLURM)

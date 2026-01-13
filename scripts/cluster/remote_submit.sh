@@ -47,15 +47,21 @@ print(os.path.expanduser(cfg["ssh"]["control_path"]))
 PY
 )"
 
-# Sync the project folder to remote (minimal, excludes runs/results).
+git_url="$(python3 - "$cfg" <<'PY'
+import json,sys
+cfg=json.load(open(sys.argv[1]))
+print(cfg.get("git", {}).get("url", "https://github.com/mdkrasnow/research-repo.git"))
+PY
+)"
+
+# Get current git SHA
+git_sha="$(cd "$root" && git rev-parse HEAD)"
+
+# Sync only the slurm directory to remote (for sbatch scripts and log directory structure).
 rsync -az --delete \
   -e "ssh -p $port -o BatchMode=yes -o ControlPath=$control_path" \
-  --exclude ".git/" \
-  --exclude ".venv/" \
-  --exclude "runs/" \
-  --exclude "results/tmp/" \
-  "$root/projects/$project_slug/" \
-  "$user@$host:$remote_root/projects/$project_slug/"
+  "$root/projects/$project_slug/slurm/" \
+  "$user@$host:$remote_root/projects/$project_slug/slurm/"
 
 # Compute relative path for sbatch script.
 remote_sbatch="$remote_root/projects/$project_slug/$(python3 - "$sbatch_path" "$root/projects/$project_slug" <<'PY'
@@ -64,6 +70,6 @@ print(os.path.relpath(sys.argv[1], sys.argv[2]))
 PY
 )"
 
-# Submit on the cluster.
-jobid="$("$root/scripts/cluster/ssh.sh" "cd $remote_root && sbatch $remote_sbatch" | awk '{print $4}')"
+# Submit on the cluster with environment variables for git clone.
+jobid="$("$root/scripts/cluster/ssh.sh" "cd $remote_root && sbatch --export=GIT_URL=$git_url,GIT_SHA=$git_sha $remote_sbatch" | awk '{print $4}')"
 echo "$jobid"

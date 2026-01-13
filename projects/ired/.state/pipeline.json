@@ -3,15 +3,25 @@
   "phase": "DEBUG",
   "next_action": {
     "command": "manual",
-    "reason": "Implementation files not on remote cluster (git tracking issue)",
-    "hint": "Fix git tracking: git rm --cached projects/ired && git add projects/ired/ && git commit && git push"
+    "reason": "Remote repository needs git pull to get implementation files",
+    "hint": "ssh to cluster and run: cd /n/home03/mkrasnow/research-repo && git pull"
   },
   "needs_user_input": {
     "value": true,
-    "prompt": "The projects/ired directory is tracked as a gitlink (submodule) rather than regular files. Implementation files exist locally but not on the remote cluster. Fix with: (1) git rm --cached projects/ired && git add projects/ired/ && git commit -m 'Add ired implementation files' && git push, OR (2) manually rsync files to cluster. After fixing, rerun /dispatch."
+    "prompt": "Files were committed (69c9fcf) and pushed, but remote cluster repo at /n/home03/mkrasnow/research-repo hasn't pulled the changes yet. SSH to cluster and run: cd /n/home03/mkrasnow/research-repo && git pull. Then rerun /dispatch."
   },
   "active_runs": [],
   "completed_runs": [
+    {
+      "run_id": "q004_20260113_231120",
+      "experiment": "q004_pilot",
+      "job_id": "55213584",
+      "submitted_at": "2026-01-13T23:11:20Z",
+      "status": "failed",
+      "failed_at": "2026-01-13T23:18:21Z",
+      "error": "File not found: remote cluster repo not updated (needs git pull at /n/home03/mkrasnow/research-repo)",
+      "partition": "gpu_test"
+    },
     {
       "run_id": "q004_20260113_225843",
       "experiment": "q004_pilot",
@@ -52,9 +62,9 @@
     }
   ],
   "slurm_wait": {
-    "next_poll_after": "2026-01-13T22:59:43Z",
+    "next_poll_after": "2026-01-13T23:12:20Z",
     "poll_interval_seconds": 900,
-    "last_polled_at": "2026-01-13T22:58:43Z"
+    "last_polled_at": "2026-01-13T23:11:20Z"
   },
   "events": [
     {
@@ -134,6 +144,18 @@
       "ts": "2026-01-13T23:00:29Z",
       "action": "DEBUG",
       "detail": "Job 55211671 FAILED: experiments/matrix_inversion_mining.py not found on remote cluster. Root cause: projects/ired tracked as gitlink (submodule) not regular files. Implementation exists locally but not pushed to remote. Phase=DEBUG, needs_user_input=true."
+    },
+    {
+      "id": "evt-0014",
+      "ts": "2026-01-13T23:11:20Z",
+      "action": "RUN",
+      "detail": "Git tracking fixed (commit 69c9fcf). Submitted Q-004 pilot with all implementation files on remote cluster (job_id: 55213584, run_id: q004_20260113_231120). Early poll in 60s."
+    },
+    {
+      "id": "evt-0015",
+      "ts": "2026-01-13T23:18:21Z",
+      "action": "DEBUG",
+      "detail": "Job 55213584 FAILED: experiments/matrix_inversion_mining.py still not found. Root cause: remote repo at /n/home03/mkrasnow/research-repo needs git pull to get commit 69c9fcf. Phase=DEBUG, needs_user_input=true."
     }
   ]
 }

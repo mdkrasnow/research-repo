@@ -78,7 +78,7 @@ Does adversarial negative mining improve performance on the matrix inversion tas
 ---
 
 ## IN_PROGRESS
-(none - BLOCKED on user input for git tracking fix)
+(none - BLOCKED on user pulling remote repo)
 
 ---
 
@@ -126,6 +126,16 @@ Does adversarial negative mining improve performance on the matrix inversion tas
 - **Error**: File not found - `experiments/matrix_inversion_mining.py` doesn't exist on remote cluster
 - **Root cause**: Git tracking issue - `projects/ired` is tracked as gitlink (submodule) not regular files
 - **Required fix**: `git rm --cached projects/ired && git add projects/ired/ && git commit && git push`
+
+### Q-004: Pilot Test (Debug Run) - ATTEMPT 5
+- **Status**: FAILED
+- **Job ID**: 55213584
+- **Run ID**: q004_20260113_231120
+- **Submitted**: 2026-01-13T23:11:20Z
+- **Failed**: 2026-01-13T23:18:21Z
+- **Error**: File not found - remote cluster repo hasn't pulled latest commit
+- **Root cause**: Files committed and pushed (69c9fcf), but remote repo at `/n/home03/mkrasnow/research-repo` needs `git pull`
+- **Required fix**: SSH to cluster and run `cd /n/home03/mkrasnow/research-repo && git pull`
 
 ---
 
