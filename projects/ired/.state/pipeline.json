@@ -1,0 +1,139 @@
+{
+  "project": "ired",
+  "phase": "DEBUG",
+  "next_action": {
+    "command": "manual",
+    "reason": "Implementation files not on remote cluster (git tracking issue)",
+    "hint": "Fix git tracking: git rm --cached projects/ired && git add projects/ired/ && git commit && git push"
+  },
+  "needs_user_input": {
+    "value": true,
+    "prompt": "The projects/ired directory is tracked as a gitlink (submodule) rather than regular files. Implementation files exist locally but not on the remote cluster. Fix with: (1) git rm --cached projects/ired && git add projects/ired/ && git commit -m 'Add ired implementation files' && git push, OR (2) manually rsync files to cluster. After fixing, rerun /dispatch."
+  },
+  "active_runs": [],
+  "completed_runs": [
+    {
+      "run_id": "q004_20260113_225843",
+      "experiment": "q004_pilot",
+      "job_id": "55211671",
+      "submitted_at": "2026-01-13T22:58:43Z",
+      "status": "failed",
+      "failed_at": "2026-01-13T23:00:29Z",
+      "error": "File not found: experiments/matrix_inversion_mining.py doesn't exist on remote cluster (git tracking issue)",
+      "partition": "gpu_test"
+    },
+    {
+      "run_id": "q004_20260113_225500",
+      "experiment": "q004_pilot",
+      "job_id": "55210815",
+      "submitted_at": "2026-01-13T22:55:00Z",
+      "status": "failed",
+      "failed_at": "2026-01-13T22:56:41Z",
+      "error": "Module not found: python/3.9 doesn't exist on cluster (used python/3.10.13-fasrc01 instead)",
+      "partition": "gpu_test"
+    },
+    {
+      "run_id": "q004_20260113_185013",
+      "experiment": "q004_pilot",
+      "job_id": "55131103",
+      "submitted_at": "2026-01-13T10:51:04Z",
+      "status": "failed",
+      "failed_at": "2026-01-13T22:36:38Z",
+      "error": "python: command not found (module load lines were commented out in sbatch script)"
+    },
+    {
+      "run_id": "q004_20260113_223811",
+      "experiment": "q004_pilot",
+      "job_id": "55208278",
+      "submitted_at": "2026-01-13T22:38:11Z",
+      "status": "cancelled",
+      "cancelled_at": "2026-01-13T22:55:00Z",
+      "error": "Cancelled to redeploy with gpu_test partition (was submitted with old gpu partition)"
+    }
+  ],
+  "slurm_wait": {
+    "next_poll_after": "2026-01-13T22:59:43Z",
+    "poll_interval_seconds": 900,
+    "last_polled_at": "2026-01-13T22:58:43Z"
+  },
+  "events": [
+    {
+      "id": "evt-0001",
+      "ts": "2026-01-13T00:00:00Z",
+      "action": "INIT",
+      "detail": "Project created via /make-project: investigating adversarial negative mining for matrix inversion"
+    },
+    {
+      "id": "evt-0002",
+      "ts": "2026-01-13T00:00:00Z",
+      "action": "DEBATE",
+      "detail": "Conducted internal debate. Decision: Hybrid approach (Position C) - reuse Trainer1D/diffusion infrastructure with custom experiment orchestration"
+    },
+    {
+      "id": "evt-0003",
+      "ts": "2026-01-13T19:00:00Z",
+      "action": "IMPLEMENT",
+      "detail": "Completed T1: Modified GaussianDiffusion1D to support mining_config with three strategies (none, random, adversarial). Updated p_losses method in denoising_diffusion_pytorch_1d.py lines 657-691."
+    },
+    {
+      "id": "evt-0004",
+      "ts": "2026-01-13T19:30:00Z",
+      "action": "TEST",
+      "detail": "Validated implementation: imports work, config loading successful, trainer initialization succeeds. Local MPS testing limited by float64 incompatibility (not a blocker for SLURM CUDA GPUs). Ready for cluster pilot run."
+    },
+    {
+      "id": "evt-0005",
+      "ts": "2026-01-13T10:51:04Z",
+      "action": "RUN",
+      "detail": "Submitted Q-004 pilot run (job_id: 55131103, run_id: q004_20260113_185013). Quick validation: 1000 steps, 10x10 matrices, ~10 min runtime. Early poll set for 60s."
+    },
+    {
+      "id": "evt-0006",
+      "ts": "2026-01-13T11:47:07Z",
+      "action": "CHECK",
+      "detail": "Job verification: 55131103 is PENDING (not yet started by SLURM scheduler). Normal queue wait. Next poll: 2026-01-13T12:02:13Z."
+    },
+    {
+      "id": "evt-0007",
+      "ts": "2026-01-13T22:36:38Z",
+      "action": "DEBUG",
+      "detail": "Job 55131103 FAILED: python command not found. Root cause: module load lines commented out in q004.sbatch. Fixed by uncommenting python/3.9 and cuda/11.7 modules. Phase=DEBUG, ready to resubmit."
+    },
+    {
+      "id": "evt-0008",
+      "ts": "2026-01-13T22:38:44Z",
+      "action": "RUN",
+      "detail": "Resubmitted Q-004 pilot run after fixing module load issue (job_id: 55208278, run_id: q004_20260113_223811). Early poll set for 60s to catch initialization errors."
+    },
+    {
+      "id": "evt-0009",
+      "ts": "2026-01-13T22:50:57Z",
+      "action": "CHECK",
+      "detail": "Job 55208278 status: PENDING (waiting in SLURM queue). Normal queue wait. Next poll: 2026-01-13T23:05:57Z."
+    },
+    {
+      "id": "evt-0010",
+      "ts": "2026-01-13T22:55:00Z",
+      "action": "RUN",
+      "detail": "Cancelled job 55208278 (old gpu partition). Submitted new Q-004 pilot with gpu_test partition (job_id: 55210815, run_id: q004_20260113_225500) for better queue priority. Early poll in 60s."
+    },
+    {
+      "id": "evt-0011",
+      "ts": "2026-01-13T22:56:41Z",
+      "action": "DEBUG",
+      "detail": "Job 55210815 FAILED: python/3.9 module not found. Root cause: cluster uses versioned module names (python/3.10.13-fasrc01, cuda/11.8.0-fasrc01). Fixed all sbatch scripts. Phase=DEBUG, ready to resubmit."
+    },
+    {
+      "id": "evt-0012",
+      "ts": "2026-01-13T22:58:43Z",
+      "action": "RUN",
+      "detail": "Resubmitted Q-004 pilot with corrected module versions (job_id: 55211671, run_id: q004_20260113_225843). Using python/3.10.13-fasrc01 and cuda/11.8.0-fasrc01. Early poll in 60s."
+    },
+    {
+      "id": "evt-0013",
+      "ts": "2026-01-13T23:00:29Z",
+      "action": "DEBUG",
+      "detail": "Job 55211671 FAILED: experiments/matrix_inversion_mining.py not found on remote cluster. Root cause: projects/ired tracked as gitlink (submodule) not regular files. Implementation exists locally but not pushed to remote. Phase=DEBUG, needs_user_input=true."
+    }
+  ]
+}
