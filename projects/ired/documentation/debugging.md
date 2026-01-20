@@ -2,7 +2,67 @@
 
 ## Active Issues
 
-### Issue 5: Remote repository not updated after git push (BLOCKING)
+### Issue 7: Q-001 and Q-002 repeatedly fail with exit code 120 (INVESTIGATING)
+**Timestamp**: 2026-01-14T05:00:00Z
+**Run IDs**: q001_20260114_045800, q002_20260114_045800
+**Job IDs**: 55240899, 55240900
+**Error**: Both jobs failed with exit code 120:0
+**Log files**: MISSING - no output or error logs created
+
+**Symptoms**:
+- Q-001 ran for 1m13s before failing (exit code 120) on holygpu7c26105
+- Q-002 ran for 19s before failing (exit code 120) on holygpu7c26106
+- Different nodes than previous failures, so not node-specific issue
+- Q-004 pilot (job 55240939) SUCCEEDS with same workflow
+
+**Key Differences Between Q-004 (works) and Q-001/Q-002 (fail)**:
+- Resources: Q-004 uses 2 CPUs/8G RAM, Q-001/Q-002 use 4 CPUs/16G RAM
+- Time limit: Q-004 uses 15min, Q-001/Q-002 use 2 hours
+- nvidia-smi check: Q-001 has it (lines 33-37), Q-002 and Q-004 don't
+
+**Investigation Results**:
+1. Partition limits checked: gpu_test allows unlimited CPUs/memory, 12h max time ✓
+2. Git clone tested manually: WORKS ✓
+3. Environment variables tested: WORK ✓
+4. Test job with Q-004 resources (2 CPU/8G) but Q-001 script: SUCCEEDS (job 55241074) ✓
+5. QOS settings: normal QOS shows `cpu=1` limit (unclear if this applies per-job or per-user)
+
+**Hypothesis**: Resource allocation (4 CPUs or 16G RAM) may be triggering QOS limits or causing jobs to be terminated with exit code 120.
+
+**Status**: INVESTIGATING - Need to test Q-001/Q-002 with reduced resources or different QOS
+
+## Resolved
+
+### Issue 6: Q-001 and Q-002 failed due to node failure
+**Timestamp**: 2026-01-14T04:31:24Z (failure), 2026-01-14T04:53:00Z (resolved)
+**Run IDs**: q001_20260114_042054, q002_20260114_042901
+**Job IDs**: 55239690, 55240031
+**Error**: Both jobs failed with exit code 120:0
+**Log files**: MISSING - no output or error logs created
+
+**Symptoms**:
+- Q-001 ran for 8m37s before failing (exit code 120)
+- Q-002 ran for 29s before failing (exit code 120)
+- No SLURM log files created at expected paths
+- Both jobs ended at EXACTLY the same time: 2026-01-13T23:29:43
+- DerivedExitCode is 0:0 (batch script itself exited with 120)
+
+**Root Cause Analysis**:
+- Both jobs were allocated to the same compute node: `holygpu7c26106`
+- Both terminated at the exact same second (23:29:43), despite starting at different times
+- This indicates a node failure or reboot event, NOT a bug in our code
+- Exit code 120:0 is consistent with node-level termination
+- No log files were written because the termination was abrupt (node crash)
+
+**Verification Tests**:
+1. Environment variable passing tested: WORKS (test job 55240665 succeeded)
+2. Git clone workflow tested manually: WORKS
+3. Full Q-001 sbatch script resubmitted manually (job 55240799): RUNNING SUCCESSFULLY on same node
+4. Confirms our workflow is correct - the original failures were due to infrastructure issues
+
+**Status**: RESOLVED - Node has recovered, workflow is correct. Safe to resubmit experiments.
+
+### Issue 5: Remote repository not updated after git push
 **Timestamp**: 2026-01-13T23:18:21Z
 **Run ID**: q004_20260113_231120
 **Job ID**: 55213584
@@ -20,7 +80,9 @@
 ssh <cluster> "cd /n/home03/mkrasnow/research-repo && git pull"
 ```
 
-**Status**: BLOCKED - requires user to pull on remote cluster
+**Status**: RESOLVED - Automated git workflow implemented (commit 9a691f6)
+
+**Solution**: Each SLURM job now automatically clones the repository fresh and checks out the exact commit SHA from submission. No manual intervention needed on cluster.
 
 ## Resolved
 
@@ -112,9 +174,6 @@ ssh <cluster> "cd /n/home03/mkrasnow/research-repo && git pull"
 **Fix**: Uncomment module load lines in q004.sbatch and resubmit job.
 
 **Status**: RESOLVED - Fixed and resubmitted (job 55208278, run q004_20260113_223811)
-
-## Resolved
-(none yet)
 
 ---
 

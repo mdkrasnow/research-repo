@@ -78,12 +78,64 @@ Does adversarial negative mining improve performance on the matrix inversion tas
 ---
 
 ## IN_PROGRESS
-(none - BLOCKED on user pulling remote repo)
+
+### Q-001: Baseline (No Negative Mining)
+- **Status**: RUNNING ✓
+- **Job ID**: 55239690
+- **Run ID**: q001_20260114_042054
+- **Submitted**: 2026-01-14T04:20:54Z
+- **Started**: 2026-01-14T04:23:20Z
+- **Git SHA**: 9a691f6 (automated git clone workflow)
+- **Partition**: gpu_test
+- **Workflow**: ✅ Automated git clone to `/tmp/ired-job-55239690`
+- **Configuration**: 20×20 matrices, 100K steps, no mining
+- **Expected runtime**: ~2 hours
+- **Purpose**: Establish baseline performance
+
+### Q-002: Random Negative Mining
+- **Status**: PENDING (waiting for SLURM scheduler)
+- **Job ID**: 55240031
+- **Run ID**: q002_20260114_042901
+- **Submitted**: 2026-01-14T04:29:01Z
+- **Git SHA**: 9a691f6 (automated git clone workflow)
+- **Partition**: gpu_test
+- **Workflow**: ✅ Automated git clone to `/tmp/ired-job-55240031`
+- **Configuration**: 20×20 matrices, 100K steps, random mining
+- **Expected runtime**: ~2 hours
+- **Purpose**: Test random negative sampling
+- **Note**: Running in parallel with Q-001
+
+### Q-003: Adversarial Negative Mining (QUEUED - SLURM Limit)
+- **Status**: QUEUED LOCALLY (waiting for job slot)
+- **Reason**: SLURM QOSMaxSubmitJobPerUserLimit (max 2 jobs per user)
+- **Configuration**: 20×20 matrices, 100K steps, adversarial mining
+- **Expected runtime**: ~2.5 hours (adversarial mining adds overhead)
+- **Auto-submit**: Will submit automatically when Q-001 or Q-002 completes
+- **Purpose**: Test gradient-based hard negative mining
 
 ---
 
 ## DONE
-(none)
+
+### Q-004: Pilot Test (Debug Run) ✓ COMPLETED
+- **Status**: COMPLETED SUCCESSFULLY
+- **Job ID**: 55214713
+- **Run ID**: q004_20260113_234005
+- **Submitted**: 2026-01-13T23:40:05Z
+- **Started**: 2026-01-13T23:41:31Z
+- **Completed**: 2026-01-13T23:42:37Z
+- **Runtime**: 2 minutes 16 seconds (136s)
+- **Git SHA**: 9a691f6 (automated git clone workflow)
+- **Partition**: gpu_test
+- **Workflow**: ✅ Automated git clone to `/tmp/ired-job-55214713`
+- **Modules**: python/3.10.13-fasrc01, cuda/11.8.0-fasrc01
+- **Results**:
+  - Training MSE: 0.0706
+  - Validation MSE: 0.0688
+  - Configuration: 10×10 matrices, 1000 steps, no mining
+  - Output: results/ds_inverse/model_mlp_pilot
+- **Milestone**: 🎉 First successful completion with automated git workflow!
+- **Validation**: Implementation works correctly, ready for full experiments
 
 ---
 

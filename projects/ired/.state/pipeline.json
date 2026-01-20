@@ -3,15 +3,85 @@
   "phase": "DEBUG",
   "next_action": {
     "command": "manual",
-    "reason": "Remote repository needs git pull to get implementation files",
-    "hint": "ssh to cluster and run: cd /n/home03/mkrasnow/research-repo && git pull"
+    "reason": "Q-001 and Q-002 repeatedly fail with exit code 120. Q-004 succeeds. Likely resource allocation issue.",
+    "hint": "Check debugging.md Issue 7. Test hypothesis: reduce Q-001/Q-002 resources to match Q-004 (2 CPU/8G RAM)."
   },
   "needs_user_input": {
     "value": true,
-    "prompt": "Files were committed (69c9fcf) and pushed, but remote cluster repo at /n/home03/mkrasnow/research-repo hasn't pulled the changes yet. SSH to cluster and run: cd /n/home03/mkrasnow/research-repo && git pull. Then rerun /dispatch."
+    "prompt": "Q-001/Q-002 experiments fail with exit code 120 when requesting 4 CPUs/16G RAM, but Q-004 succeeds with 2 CPUs/8G RAM. Should we: (A) Reduce resources for Q-001/Q-002 to match Q-004, or (B) Investigate QOS/partition limits further?"
   },
   "active_runs": [],
   "completed_runs": [
+    {
+      "run_id": "q001_20260114_045800",
+      "experiment": "q001_baseline",
+      "job_id": "55240899",
+      "submitted_at": "2026-01-14T04:58:00Z",
+      "failed_at": "2026-01-14T04:59:33Z",
+      "status": "failed",
+      "partition": "gpu_test",
+      "node": "holygpu7c26105",
+      "git_sha": "9a691f67f66740852ce7981c982064902934573d",
+      "runtime_seconds": 73,
+      "error": "Exit code 120:0 - Job failed after 1m13s. Hypothesis: 4 CPU/16G RAM allocation may trigger QOS limits."
+    },
+    {
+      "run_id": "q002_20260114_045800",
+      "experiment": "q002_random",
+      "job_id": "55240900",
+      "submitted_at": "2026-01-14T04:58:00Z",
+      "failed_at": "2026-01-14T04:58:46Z",
+      "status": "failed",
+      "partition": "gpu_test",
+      "node": "holygpu7c26106",
+      "git_sha": "9a691f67f66740852ce7981c982064902934573d",
+      "runtime_seconds": 19,
+      "error": "Exit code 120:0 - Job failed after 19s. Hypothesis: 4 CPU/16G RAM allocation may trigger QOS limits."
+    },
+    {
+      "run_id": "q001_20260114_042054",
+      "experiment": "q001_baseline",
+      "job_id": "55239690",
+      "submitted_at": "2026-01-14T04:20:54Z",
+      "started_at": "2026-01-14T04:23:20Z",
+      "failed_at": "2026-01-14T04:31:24Z",
+      "status": "failed",
+      "partition": "gpu_test",
+      "node": "holygpu7c26106",
+      "git_sha": "9a691f67f66740852ce7981c982064902934573d",
+      "runtime_seconds": 517,
+      "error": "Exit code 120:0 - Compute node holygpu7c26106 failed/rebooted. Both Q-001 and Q-002 on same node terminated simultaneously."
+    },
+    {
+      "run_id": "q002_20260114_042901",
+      "experiment": "q002_random",
+      "job_id": "55240031",
+      "submitted_at": "2026-01-14T04:29:01Z",
+      "failed_at": "2026-01-14T04:31:24Z",
+      "status": "failed",
+      "partition": "gpu_test",
+      "node": "holygpu7c26106",
+      "git_sha": "9a691f67f66740852ce7981c982064902934573d",
+      "runtime_seconds": 29,
+      "error": "Exit code 120:0 - Compute node holygpu7c26106 failed/rebooted. Both Q-001 and Q-002 on same node terminated simultaneously."
+    },
+    {
+      "run_id": "q004_20260113_234005",
+      "experiment": "q004_pilot",
+      "job_id": "55214713",
+      "submitted_at": "2026-01-13T23:40:05Z",
+      "started_at": "2026-01-13T23:41:31Z",
+      "completed_at": "2026-01-13T23:42:37Z",
+      "status": "completed",
+      "partition": "gpu_test",
+      "git_sha": "9a691f67f66740852ce7981c982064902934573d",
+      "runtime_seconds": 136,
+      "results": {
+        "train_mse": 0.0705603,
+        "validation_mse": 0.0688446,
+        "output_dir": "results/ds_inverse/model_mlp_pilot"
+      }
+    },
     {
       "run_id": "q004_20260113_231120",
       "experiment": "q004_pilot",
@@ -62,9 +132,9 @@
     }
   ],
   "slurm_wait": {
-    "next_poll_after": "2026-01-13T23:12:20Z",
+    "next_poll_after": "2026-01-14T04:30:01Z",
     "poll_interval_seconds": 900,
-    "last_polled_at": "2026-01-13T23:11:20Z"
+    "last_polled_at": "2026-01-14T04:29:01Z"
   },
   "events": [
     {
@@ -156,6 +226,84 @@
       "ts": "2026-01-13T23:18:21Z",
       "action": "DEBUG",
       "detail": "Job 55213584 FAILED: experiments/matrix_inversion_mining.py still not found. Root cause: remote repo at /n/home03/mkrasnow/research-repo needs git pull to get commit 69c9fcf. Phase=DEBUG, needs_user_input=true."
+    },
+    {
+      "id": "evt-0016",
+      "ts": "2026-01-13T23:40:05Z",
+      "action": "RUN",
+      "detail": "Submitted Q-004 pilot with automated git clone workflow (job_id: 55214713, run_id: q004_20260113_234005, commit: 9a691f6). Job will clone repo to /tmp/ired-job-55214713 and checkout exact commit. Early poll in 60s."
+    },
+    {
+      "id": "evt-0017",
+      "ts": "2026-01-13T23:41:31Z",
+      "action": "CHECK",
+      "detail": "Job 55214713 is RUNNING! Early poll succeeded - automated git clone workflow working. Job has been running for 1m19s. Resuming normal 15-minute polling interval. Expected completion: ~10 minutes total."
+    },
+    {
+      "id": "evt-0018",
+      "ts": "2026-01-14T01:38:14Z",
+      "action": "SUCCESS",
+      "detail": "Job 55214713 COMPLETED successfully! Runtime: 2m16s (136s). Automated git clone workflow validated. Results: train_mse=0.0706, val_mse=0.0688. Ready for full experiments (Q-001, Q-002, Q-003)."
+    },
+    {
+      "id": "evt-0019",
+      "ts": "2026-01-14T04:21:26Z",
+      "action": "RUN",
+      "detail": "Submitted Q-001 baseline experiment (job_id: 55239690, run_id: q001_20260114_042054). No mining strategy. 20x20 matrices, 100K steps, ~2h runtime. Early poll in 60s."
+    },
+    {
+      "id": "evt-0020",
+      "ts": "2026-01-14T04:23:20Z",
+      "action": "CHECK",
+      "detail": "Job 55239690 is RUNNING! Early poll succeeded (2m23s elapsed). Q-001 baseline experiment started successfully. Resuming normal 15-minute polling interval. Expected completion: ~2 hours."
+    },
+    {
+      "id": "evt-0021",
+      "ts": "2026-01-14T04:29:01Z",
+      "action": "RUN",
+      "detail": "Submitted Q-002 random mining experiment (job_id: 55240031, run_id: q002_20260114_042901) to run in parallel with Q-001. Random negative mining strategy. 20x20 matrices, 100K steps, ~2h runtime."
+    },
+    {
+      "id": "evt-0022",
+      "ts": "2026-01-14T04:29:19Z",
+      "action": "INFO",
+      "detail": "Q-003 adversarial mining submission blocked by SLURM QOSMaxSubmitJobPerUserLimit (max 2 jobs per user). Q-003 will be submitted automatically after Q-001 or Q-002 completes. Parallel execution: Q-001 + Q-002 running, Q-003 queued locally."
+    },
+    {
+      "id": "evt-0023",
+      "ts": "2026-01-14T04:31:24Z",
+      "action": "DEBUG",
+      "detail": "Jobs 55239690 (Q-001) and 55240031 (Q-002) both FAILED with exit code 120:0. No log files created. Investigation required to determine root cause."
+    },
+    {
+      "id": "evt-0024",
+      "ts": "2026-01-14T04:53:00Z",
+      "action": "DEBUG",
+      "detail": "Root cause identified: Compute node holygpu7c26106 failed/rebooted at 2026-01-13T23:29:43. Both jobs terminated simultaneously (exit code 120). Workflow verified correct via test jobs (55240665, 55240785, 55240799). Ready to resubmit experiments. Phase=RUN."
+    },
+    {
+      "id": "evt-0025",
+      "ts": "2026-01-14T04:58:00Z",
+      "action": "RUN",
+      "detail": "Resubmitted Q-001 baseline (job_id: 55240899, run_id: q001_20260114_045800) and Q-002 random mining (job_id: 55240900, run_id: q002_20260114_045800). Both with 4 CPUs, 16G RAM. Q-003 blocked by SLURM 2-job limit."
+    },
+    {
+      "id": "evt-0026",
+      "ts": "2026-01-14T04:59:33Z",
+      "action": "DEBUG",
+      "detail": "BOTH jobs FAILED again! Q-001: exit 120 after 1m13s on holygpu7c26105. Q-002: exit 120 after 19s on holygpu7c26106. Different nodes = not node failure. No logs created. Pattern emerging: resource allocation issue suspected."
+    },
+    {
+      "id": "evt-0027",
+      "ts": "2026-01-14T05:00:00Z",
+      "action": "TEST",
+      "detail": "Submitted Q-004 pilot (job_id: 55240939) with 2 CPUs/8G RAM: SUCCEEDED. Test job (55241074) with Q-004 resources but Q-001 script: SUCCEEDED. Hypothesis confirmed: 4 CPUs/16G RAM allocation causes failures."
+    },
+    {
+      "id": "evt-0028",
+      "ts": "2026-01-14T05:05:00Z",
+      "action": "DEBUG",
+      "detail": "Created Issue 7 in debugging.md. QOS shows cpu=1 limit (unclear meaning). Phase=DEBUG, needs_user_input=true. Decision needed: reduce resources to 2 CPU/8G RAM or investigate QOS limits further."
     }
   ]
 }
