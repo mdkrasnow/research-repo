@@ -112,8 +112,10 @@ class HessianAnalyzer:
 
         # Prepare data as (inputs, targets) tuple for PyHessian
         # PyHessian requires data parameter as (input_batch, target_batch)
-        inputs = torch.cat([x.unsqueeze(0), y.unsqueeze(0)], dim=-1)
-        targets = torch.zeros_like(y).unsqueeze(0)
+        # x and y are already single samples, just concatenate and add batch dim
+        inp = torch.cat([x, y], dim=-1)  # Concatenate input and output
+        inputs = inp.unsqueeze(0)  # Add batch dimension: [1, 800]
+        targets = torch.zeros(1, x.shape[-1]).to(x.device)  # Dummy target: [1, 400]
         data_batch = (inputs, targets)
 
         # Create criterion function that returns scalar
