@@ -17,7 +17,7 @@ from pathlib import Path
 from datetime import datetime
 
 from models import EBM, DiffusionWrapper
-from dataset import Inverse, MatrixAdd
+from dataset import Inverse, Addition
 from analysis.hessian_analysis import HessianAnalyzer
 
 
@@ -66,7 +66,7 @@ def generate_test_problems(
     if task == "inverse":
         dataset = Inverse(split="test", rank=rank, ood=False)
     elif task == "add":
-        dataset = MatrixAdd(split="test", rank=rank, ood=False)
+        dataset = Addition(split="test", rank=rank, ood=False)
     else:
         raise ValueError(f"Unknown task: {task}")
 
@@ -75,7 +75,7 @@ def generate_test_problems(
     y_samples = []
 
     for i in range(min(num_samples, len(dataset))):
-        x, y, _ = dataset[i]
+        x, y = dataset[i]
         x_samples.append(x)
         y_samples.append(y)
 
