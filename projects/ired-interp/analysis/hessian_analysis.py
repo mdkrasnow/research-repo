@@ -134,12 +134,13 @@ class HessianAnalyzer:
         )
 
         # Get top eigenvalues
-        eigenvalues, eigenvectors = hessian_comp.eigenvalues(
-            top_n=self.n_eigenvalues,
-            return_eigenvector=compute_eigenvectors
+        # Note: PyHessian eigenvalues() only returns eigenvalues, not eigenvectors
+        eigenvalues = hessian_comp.eigenvalues(
+            top_n=self.n_eigenvalues
         )
 
         eigenvalues = np.array(eigenvalues)
+        eigenvectors = None  # PyHessian doesn't provide eigenvector computation via eigenvalues()
 
         # Compute analysis metrics
         condition_number = eigenvalues[0] / eigenvalues[-1] if eigenvalues[-1] > 1e-10 else np.inf
