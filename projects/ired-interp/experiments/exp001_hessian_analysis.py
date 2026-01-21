@@ -76,8 +76,8 @@ def generate_test_problems(
 
     for i in range(min(num_samples, len(dataset))):
         x, y = dataset[i]
-        x_samples.append(x)
-        y_samples.append(y)
+        x_samples.append(torch.from_numpy(x).float())
+        y_samples.append(torch.from_numpy(y).float())
 
     x_samples = torch.stack(x_samples)
     y_samples = torch.stack(y_samples)
