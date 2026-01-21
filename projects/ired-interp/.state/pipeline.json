@@ -2,9 +2,9 @@
   "project": "ired-interp",
   "phase": "RUN",
   "next_action": {
-    "command": "resubmit_exp001",
-    "reason": "Git commit issue resolved. Project now committed with SHA 2594b75. Ready to resubmit EXP-001 with correct git SHA.",
-    "hint": "Submit exp001_hessian.sbatch with GIT_SHA=2594b75"
+    "command": "commit_and_resubmit",
+    "reason": "Import error fixed in exp001_hessian_analysis.py (line 20 now imports from 'dataset' instead of 'reasoning_dataset'). Need to commit this fix to git and resubmit EXP-001.",
+    "hint": "Run git commit for the import fix, then resubmit exp001 with new git SHA"
   },
   "needs_user_input": {
     "value": false,
@@ -35,10 +35,22 @@
       "error": "Project directory 'projects/ired-interp' not found in git repository. Directory exists locally but is not committed. Job failed at 'cd projects/ired-interp' (exit 1:0, 2 seconds runtime). Root cause: entire ired-interp project is untracked in git.",
       "runtime_seconds": 2,
       "description": "Hessian eigenspectrum analysis across annealing levels"
+    },
+    {
+      "run_id": "exp001_20260121_130045",
+      "experiment": "exp001_hessian",
+      "job_id": "56186619",
+      "git_sha": "2594b750cbe3d2c70a32f671829ace8332ad6e86",
+      "submitted_at": "2026-01-21T13:01:27Z",
+      "failed_at": "2026-01-21T13:03:11Z",
+      "status": "failed",
+      "error": "ImportError: cannot import name 'Inverse' from 'reasoning_dataset' (/tmp/ired-interp-job-56186619/repo/projects/ired-interp/reasoning_dataset.py). The 'Inverse' and 'MatrixAdd' classes exist in 'dataset.py', not 'reasoning_dataset.py'. Incorrect import statement on line 20 of exp001_hessian_analysis.py.",
+      "runtime_seconds": 104,
+      "description": "Hessian eigenspectrum analysis across annealing levels (third submission with git fix)"
     }
   ],
   "slurm_wait": {
-    "next_poll_after": "2026-01-21T12:56:27Z",
+    "next_poll_after": "2026-01-21T13:02:27Z",
     "poll_interval_seconds": 900,
     "last_polled_at": null
   },
@@ -78,6 +90,24 @@
       "ts": "2026-01-21T12:57:05Z",
       "action": "JOB_FAILED",
       "detail": "EXP-001 failed AGAIN (job 56186252, exit 1:0, 2s runtime). Root cause identified: ENTIRE ired-interp project directory is NOT COMMITTED TO GIT. Job successfully cloned repo and checked out commit 7770702, but 'cd projects/ired-interp' failed because directory doesn't exist in that commit. Git status shows 'projects/ired-interp/' as untracked. This is a critical oversight - all subsequent jobs will fail until project is committed. Phase set to DEBUG, needs_user_input=true. Must commit project to git before any experiments can succeed."
+    },
+    {
+      "id": "evt-0007",
+      "ts": "2026-01-21T13:01:27Z",
+      "action": "GIT_COMMIT_FIX",
+      "detail": "CRITICAL FIX APPLIED: Committed entire ired-interp project to git (SHA 2594b75). Project now exists in repository and will be available when SLURM jobs clone. This resolves the root cause of all previous failures. Resubmitted EXP-001 (job 56186619) with new git SHA. Run: exp001_20260121_130045. Phase changed to WAIT_SLURM. Early poll scheduled for 13:02:27Z (60s after submission) to verify initialization succeeds this time."
+    },
+    {
+      "id": "evt-0008",
+      "ts": "2026-01-21T13:03:50Z",
+      "action": "JOB_FAILED",
+      "detail": "EXP-001 FAILED AGAIN (job 56186619, exit 1:0, 104s runtime). GOOD NEWS: Git fix worked - job progressed much further (1m44s vs 2-4s). Successfully cloned repo, checked out commit, set up Python environment, installed all dependencies (PyTorch, Geomstats, PyHessian), and started running experiment. NEW ERROR: ImportError at line 20 of exp001_hessian_analysis.py - trying to import 'Inverse' from 'reasoning_dataset.py' but it's actually in 'dataset.py'. Simple fix: change import statement. Phase changed to IMPLEMENT. This is a straightforward code fix."
+    },
+    {
+      "id": "evt-0009",
+      "ts": "2026-01-21T13:03:50Z",
+      "action": "IMPORT_FIX",
+      "detail": "Fixed ImportError in exp001_hessian_analysis.py line 20. Changed 'from reasoning_dataset import Inverse, MatrixAdd' to 'from dataset import Inverse, MatrixAdd'. This resolves job 56186619 failure. Phase changed to RUN. Next step: commit fix to git and resubmit EXP-001 with new git SHA."
     }
   ]
 }
