@@ -5,7 +5,7 @@
 #SBATCH --time=02:00:00
 #SBATCH --partition=gpu_test
 #SBATCH --gres=gpu:1
-#SBATCH --cpus-per-task=4
+#SBATCH --cpus-per-task=2
 #SBATCH --mem=16G
 
 set -euo pipefail
@@ -29,6 +29,12 @@ echo "Work directory: $WORK_DIR"
 # Load modules
 module load python/3.10.13-fasrc01
 module load cuda/11.8.0-fasrc01
+
+# Verify GPU availability
+if command -v nvidia-smi &> /dev/null; then
+    echo "GPU info:"
+    nvidia-smi
+fi
 
 # Clone repository
 echo "Cloning repository..."
