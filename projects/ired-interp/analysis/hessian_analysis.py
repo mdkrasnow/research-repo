@@ -95,6 +95,21 @@ class HessianAnalyzer:
         except ImportError:
             raise ImportError("PyHessian not installed. Run: pip install pyhessian")
 
+        # Create wrapper model that adapts forward signature for PyHessian
+        # IRED model expects forward(x, t) but PyHessian calls forward(x)
+        class ModelWrapper(torch.nn.Module):
+            def __init__(self, model, t_value):
+                super().__init__()
+                self.model = model
+                self.t = t_value
+
+            def forward(self, x):
+                # PyHessian passes single input tensor
+                # IRED model expects (x, t) where t is annealing timestep
+                return self.model(x, self.t)
+
+        wrapped_model = ModelWrapper(self.model, t)
+
         # Prepare data as (inputs, targets) tuple for PyHessian
         # PyHessian requires data parameter as (input_batch, target_batch)
         inputs = torch.cat([x.unsqueeze(0), y.unsqueeze(0)], dim=-1)
@@ -106,10 +121,10 @@ class HessianAnalyzer:
         def criterion(output, target):
             return output.mean()
 
-        # Compute Hessian using PyHessian API
+        # Compute Hessian using PyHessian API with wrapped model
         # API: hessian(model, criterion, data=None, dataloader=None, cuda=True)
         hessian_comp = pyhessian_hessian(
-            self.model,
+            wrapped_model,
             criterion,
             data=data_batch,
             dataloader=None,
