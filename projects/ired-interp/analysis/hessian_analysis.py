@@ -95,17 +95,24 @@ class HessianAnalyzer:
         except ImportError:
             raise ImportError("PyHessian not installed. Run: pip install pyhessian")
 
-        # Create energy function wrapper
-        def energy_fn():
-            # Concatenate input and output for EBM
-            inp = torch.cat([x, y], dim=-1)
-            energy = self.model(inp, t)
-            return energy.sum()  # Must be scalar
+        # Prepare data as (inputs, targets) tuple for PyHessian
+        # PyHessian requires data parameter as (input_batch, target_batch)
+        inputs = torch.cat([x.unsqueeze(0), y.unsqueeze(0)], dim=-1)
+        targets = torch.zeros_like(y).unsqueeze(0)
+        data_batch = (inputs, targets)
 
-        # Compute Hessian
+        # Create criterion function that returns scalar
+        # PyHessian calls criterion(model_output, target)
+        def criterion(output, target):
+            return output.mean()
+
+        # Compute Hessian using PyHessian API
+        # API: hessian(model, criterion, data=None, dataloader=None, cuda=True)
         hessian_comp = pyhessian_hessian(
             self.model,
-            energy_fn,
+            criterion,
+            data=data_batch,
+            dataloader=None,
             cuda=(self.device == "cuda")
         )
 
