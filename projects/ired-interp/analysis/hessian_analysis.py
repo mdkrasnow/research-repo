@@ -139,7 +139,9 @@ class HessianAnalyzer:
             top_n=self.n_eigenvalues
         )
 
-        eigenvalues = np.array(eigenvalues)
+        # PyHessian returns nested structure - extract first element
+        # The eigenvalues() method returns a list of eigenvalue sets, we need the first one
+        eigenvalues = np.array(eigenvalues[0])
         eigenvectors = None  # PyHessian doesn't provide eigenvector computation via eigenvalues()
 
         # Compute analysis metrics
