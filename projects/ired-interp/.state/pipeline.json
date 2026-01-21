@@ -1,0 +1,83 @@
+{
+  "project": "ired-interp",
+  "phase": "DEBUG",
+  "next_action": {
+    "command": "commit_to_git",
+    "reason": "CRITICAL: Project directory 'projects/ired-interp' is not committed to git. All SLURM jobs fail because cloned repository doesn't contain this project. Must commit entire project before any experiments can run.",
+    "hint": "Run: git add projects/ired-interp/ && git commit -m 'Add ired-interp project' && git push"
+  },
+  "needs_user_input": {
+    "value": true,
+    "prompt": "The ired-interp project directory is not committed to git, causing all SLURM jobs to fail. Should I commit this project to the repository? This will add ~30 files including code, configs, documentation, and SLURM scripts."
+  },
+  "active_runs": [],
+  "completed_runs": [
+    {
+      "run_id": "exp001_20260121_074154",
+      "experiment": "exp001_hessian",
+      "job_id": "56185132",
+      "git_sha": "7770702133ed39020ae4a0424e6b600ec7a10c4b",
+      "submitted_at": "2026-01-21T12:41:54Z",
+      "failed_at": "2026-01-21T12:41:58Z",
+      "status": "failed",
+      "error": "SLURM log directory not found. Relative path 'slurm/logs/' resolved from repo root instead of project directory. Job failed during initialization (exit 1:0, 4 seconds runtime).",
+      "runtime_seconds": 4,
+      "description": "Hessian eigenspectrum analysis across annealing levels"
+    },
+    {
+      "run_id": "exp001_20260121_125527",
+      "experiment": "exp001_hessian",
+      "job_id": "56186252",
+      "git_sha": "7770702133ed39020ae4a0424e6b600ec7a10c4b",
+      "submitted_at": "2026-01-21T12:55:27Z",
+      "failed_at": "2026-01-21T12:55:29Z",
+      "status": "failed",
+      "error": "Project directory 'projects/ired-interp' not found in git repository. Directory exists locally but is not committed. Job failed at 'cd projects/ired-interp' (exit 1:0, 2 seconds runtime). Root cause: entire ired-interp project is untracked in git.",
+      "runtime_seconds": 2,
+      "description": "Hessian eigenspectrum analysis across annealing levels"
+    }
+  ],
+  "slurm_wait": {
+    "next_poll_after": "2026-01-21T12:56:27Z",
+    "poll_interval_seconds": 900,
+    "last_polled_at": null
+  },
+  "events": [
+    {
+      "id": "evt-0001",
+      "ts": "2026-01-21T09:00:00Z",
+      "action": "INIT",
+      "detail": "Project created: IRED energy field interpretability research. Cloned official IRED codebase from https://github.com/yilundu/ired_code_release. Research focus: energy landscape analysis, sparse autoencoders, Riemannian geometry on matrix manifolds."
+    },
+    {
+      "id": "evt-0002",
+      "ts": "2026-01-21T09:05:00Z",
+      "action": "SETUP",
+      "detail": "Implemented full interpretability analysis framework: (1) Hessian eigenspectrum analysis with PyHessian/Lanczos, (2) Grassmannian geometry with Geomstats (distances, principal angles, tangent/normal decomposition), (3) Sparse autoencoders for gradient feature discovery, (4) Experiment infrastructure (exp001-010 planned). Created documentation: research-plan.md, implementation-todo.md, queue.md, debugging.md, README_INTERPRETABILITY.md. Ready for EXP-001."
+    },
+    {
+      "id": "evt-0003",
+      "ts": "2026-01-21T12:41:54Z",
+      "action": "SUBMIT_JOB",
+      "detail": "Submitted EXP-001 (Hessian eigenspectrum analysis) to cluster. Job ID: 56185132. Git SHA: 7770702. Run: exp001_20260121_074154. Config: matrix inverse task, rank 2, 20 samples, annealing levels [1,3,5,7,10]. Resources: gpu_test partition, 1 A100 GPU, 2 CPUs, 16GB RAM. Early poll at 60 seconds to catch initialization errors."
+    },
+    {
+      "id": "evt-0004",
+      "ts": "2026-01-21T12:48:01Z",
+      "action": "JOB_FAILED",
+      "detail": "EXP-001 failed (job 56185132, exit 1:0, 4s runtime). Root cause: SLURM output directive uses relative path 'slurm/logs/exp001_%j.out' but sbatch runs from repo root, not project directory. SLURM couldn't create log directory and failed during initialization. No logs generated. Fix: Update sbatch script to use absolute path 'projects/ired-interp/slurm/logs/exp001_%j.out'."
+    },
+    {
+      "id": "evt-0005",
+      "ts": "2026-01-21T12:55:27Z",
+      "action": "SUBMIT_JOB",
+      "detail": "Resubmitted EXP-001 (Hessian eigenspectrum analysis) after fixing SLURM log paths. Job ID: 56186252. Git SHA: 7770702. Run: exp001_20260121_125527. Config: matrix inverse task, rank 2, 20 samples, annealing levels [1,3,5,7,10]. Resources: gpu_test partition, 1 A100 GPU, 2 CPUs, 16GB RAM, 4h time limit. Phase changed to WAIT_SLURM. Early poll scheduled for 12:56:27Z (60s after submission)."
+    },
+    {
+      "id": "evt-0006",
+      "ts": "2026-01-21T12:57:05Z",
+      "action": "JOB_FAILED",
+      "detail": "EXP-001 failed AGAIN (job 56186252, exit 1:0, 2s runtime). Root cause identified: ENTIRE ired-interp project directory is NOT COMMITTED TO GIT. Job successfully cloned repo and checked out commit 7770702, but 'cd projects/ired-interp' failed because directory doesn't exist in that commit. Git status shows 'projects/ired-interp/' as untracked. This is a critical oversight - all subsequent jobs will fail until project is committed. Phase set to DEBUG, needs_user_input=true. Must commit project to git before any experiments can succeed."
+    }
+  ]
+}
