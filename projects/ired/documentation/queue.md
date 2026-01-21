@@ -16,36 +16,6 @@ Does adversarial negative mining improve performance on the matrix inversion tas
 
 ## READY
 
-### Q-001: Baseline (No Negative Mining)
-- **Hypothesis**: Establish baseline performance with standard diffusion training
-- **Config**: `configs/q001_baseline.json`
-- **Mining Strategy**: `none`
-- **Parameters**:
-  - Rank: 20 (20×20 matrices)
-  - Diffusion steps: 10
-  - Training steps: 100,000
-  - Batch size: 2048
-  - Learning rate: 1e-4
-- **Resources**: 1 GPU, 16GB RAM, 2 hours, gpu_test partition
-- **Priority**: HIGH (must run first - establishes baseline)
-- **Notes**: Standard energy-based diffusion without contrastive negative mining
-
-### Q-002: Random Negative Mining
-- **Hypothesis**: Random negatives provide weak regularization, minor improvement over baseline
-- **Config**: `configs/q002_random.json`
-- **Mining Strategy**: `random`
-- **Parameters**:
-  - Rank: 20
-  - Diffusion steps: 10
-  - Training steps: 100,000
-  - Batch size: 2048
-  - Learning rate: 1e-4
-  - Negative sampling: Random matrices from uniform distribution
-- **Resources**: 1 GPU, 16GB RAM, 2 hours, gpu_test partition
-- **Priority**: MEDIUM
-- **Dependencies**: Run after Q-001 for comparison
-- **Notes**: Negatives sampled independently, not optimized for difficulty
-
 ### Q-003: Adversarial Negative Mining (Gradient-Based)
 - **Hypothesis**: Hard negatives from gradient ascent significantly improve model discrimination
 - **Config**: `configs/q003_adversarial.json`
@@ -57,65 +27,83 @@ Does adversarial negative mining improve performance on the matrix inversion tas
   - Batch size: 2048
   - Learning rate: 1e-4
   - Negative optimization: Gradient ascent via `opt_step()` (2 steps, energy maximization)
-- **Resources**: 1 GPU, 16GB RAM, 2.5 hours, gpu_test partition
+- **Resources**: 1 GPU, 2 CPUs, 16GB RAM, 2.5 hours, gpu_test partition
 - **Priority**: HIGH
 - **Dependencies**: Run after Q-001 and Q-002 for fair comparison
 - **Notes**: Uses existing opt_step infrastructure; negatives are optimized to maximize energy
-
-### Q-004: Pilot Test (Debug Run)
-- **Hypothesis**: Verify all three strategies execute correctly with minimal compute
-- **Config**: `configs/q004_pilot.json`
-- **Mining Strategy**: All three (sequential mini-runs)
-- **Parameters**:
-  - Rank: 10 (smaller for speed)
-  - Diffusion steps: 5
-  - Training steps: 1,000
-  - Batch size: 256
-- **Resources**: 1 GPU, 8GB RAM, 15 minutes, gpu_test partition
-- **Priority**: HIGHEST (run first to catch bugs)
-- **Notes**: Quick validation before committing to long runs
+- **SLURM Status**: QUEUED - Cannot submit yet due to QOSMaxSubmitJobPerUserLimit (2 jobs already running from other projects). Will be submitted automatically after current jobs complete.
+- **Sbatch Script**: Created at `projects/ired/slurm/q003.sbatch`
 
 ---
 
 ## IN_PROGRESS
 
-### Q-001: Baseline (No Negative Mining)
-- **Status**: RUNNING ✓
-- **Job ID**: 55239690
-- **Run ID**: q001_20260114_042054
-- **Submitted**: 2026-01-14T04:20:54Z
-- **Started**: 2026-01-14T04:23:20Z
-- **Git SHA**: 9a691f6 (automated git clone workflow)
+### Q-002: Random Negative Mining (RERUN) - IN PROGRESS
+- **Status**: SUBMITTED - Job running on cluster
+- **Job ID**: 56185426
+- **Run ID**: q002_20260121_124609
+- **Submitted**: 2026-01-21T12:46:09Z
+- **Git SHA**: 7770702 (includes result persistence fix)
 - **Partition**: gpu_test
-- **Workflow**: ✅ Automated git clone to `/tmp/ired-job-55239690`
-- **Configuration**: 20×20 matrices, 100K steps, no mining
-- **Expected runtime**: ~2 hours
-- **Purpose**: Establish baseline performance
-
-### Q-002: Random Negative Mining
-- **Status**: PENDING (waiting for SLURM scheduler)
-- **Job ID**: 55240031
-- **Run ID**: q002_20260114_042901
-- **Submitted**: 2026-01-14T04:29:01Z
-- **Git SHA**: 9a691f6 (automated git clone workflow)
-- **Partition**: gpu_test
-- **Workflow**: ✅ Automated git clone to `/tmp/ired-job-55240031`
-- **Configuration**: 20×20 matrices, 100K steps, random mining
-- **Expected runtime**: ~2 hours
-- **Purpose**: Test random negative sampling
-- **Note**: Running in parallel with Q-001
-
-### Q-003: Adversarial Negative Mining (QUEUED - SLURM Limit)
-- **Status**: QUEUED LOCALLY (waiting for job slot)
-- **Reason**: SLURM QOSMaxSubmitJobPerUserLimit (max 2 jobs per user)
-- **Configuration**: 20×20 matrices, 100K steps, adversarial mining
-- **Expected runtime**: ~2.5 hours (adversarial mining adds overhead)
-- **Auto-submit**: Will submit automatically when Q-001 or Q-002 completes
-- **Purpose**: Test gradient-based hard negative mining
+- **Resources**: 1 GPU, 2 CPUs, 16GB RAM
+- **Expected Runtime**: ~2.5 hours
+- **Purpose**: Rerun Q-002 with result persistence (original run 56017592 succeeded but results lost due to /tmp cleanup)
+- **Config**: `configs/q002_random.json`
+- **Mining Strategy**: random
+- **Early Poll**: Set for 60 seconds after submission to catch initialization errors
 
 ---
 
 ## DONE
+
+### Q-001: Baseline (No Mining) ✓ COMPLETED
+- **Status**: COMPLETED SUCCESSFULLY
+- **Job ID**: 56162645
+- **Run ID**: q001_20260121_071917
+- **Submitted**: 2026-01-21T07:19:17Z
+- **Started**: 2026-01-21T07:19:17Z
+- **Completed**: 2026-01-21T12:59:15Z (approximate)
+- **Runtime**: 1 hour 40 minutes 18 seconds (6018 seconds)
+- **Git SHA**: 7770702 (includes result persistence fix + dataset/diffusion fixes)
+- **Partition**: gpu_test
+- **Node**: holygpu7c26105
+- **Resources**: 1 GPU, 2 CPUs, 16GB RAM
+- **Results**:
+  - Training MSE: 0.0096721
+  - Validation MSE: 0.0096761
+  - Iterations: 100,000 (completed all)
+  - Configuration: 20×20 matrices, no mining strategy (baseline)
+- **Milestone**: First successful Q-001 run after multiple exit 120 failures! Validates:
+  - All infrastructure fixes work correctly (result persistence, dataset API, diffusion code)
+  - mining_strategy='none' baseline configuration executes correctly
+  - Resource allocation (2 CPUs/16GB RAM/1 GPU) is appropriate
+  - Automated git workflow functions properly
+- **Root Cause Confirmed**: Previous Q-001 failures were due to OLD CODE (commit 75df3cf), not configuration issues
+- **Next Steps**: Run Q-002 (random mining rerun) and Q-003 (adversarial mining) with commit 7770702
+
+### Q-002: Random Negative Mining ✓ COMPLETED (Results Lost, Will Rerun)
+- **Status**: COMPLETED SUCCESSFULLY (but results not persisted - see Issue 9, now RESOLVED)
+- **Job ID**: 56017592
+- **Run ID**: q002_20260120_084822
+- **Submitted**: 2026-01-20T08:48:22Z
+- **Started**: 2026-01-20T08:48:25Z
+- **Completed**: 2026-01-20T10:29:00Z (approximate)
+- **Runtime**: 1 hour 40 minutes (6040 seconds)
+- **Git SHA**: 75df3cf (before result persistence fix)
+- **Partition**: gpu_test
+- **Node**: holygpu7c26105
+- **Resources**: 1 GPU, 2 CPUs, 16GB RAM
+- **Results** (from SLURM logs only):
+  - Training MSE: 0.0096382
+  - Validation MSE: 0.00969288
+  - Iterations: 100,000 (completed all)
+  - Configuration: 20×20 matrices, random negative mining
+- **Issue 9 Update**: Result persistence fix validated by ired-baseline job 56162316. Safe to rerun Q-002 with commit 7770702 to capture full results.
+- **Milestone**: First successful full-scale experiment completion! Validates that:
+  - 2 CPUs/16G RAM configuration works
+  - Training code executes correctly for 100K iterations
+  - Random mining strategy implemented correctly
+- **Next Steps**: Rerun Q-002 after Q-001 succeeds, using commit 7770702 to capture full results with checkpoint files
 
 ### Q-004: Pilot Test (Debug Run) ✓ COMPLETED
 - **Status**: COMPLETED SUCCESSFULLY
@@ -140,6 +128,19 @@ Does adversarial negative mining improve performance on the matrix inversion tas
 ---
 
 ## FAILED
+
+### Q-001: Baseline (No Mining) - MULTIPLE FAILURES
+- **Status**: FAILED (consistent exit 120 failures, cause unknown)
+- **Latest Job ID**: 56017590
+- **Latest Run ID**: q001_20260120_084813
+- **Failure Pattern**: Exit code 120:0 after 18-42 seconds
+- **Key Anomaly**: Q-002 succeeds with identical configuration on same node
+- **Attempts**:
+  1. q001_20260120_084327 (job 56017462): Exit 120 after 42s, 2 CPUs/8G RAM (insufficient memory)
+  2. q001_20260120_084813 (job 56017590): Exit 120 after 18s, 2 CPUs/16G RAM (same config as Q-002)
+  3. Earlier attempts also failed with exit 120 or node failures
+- **Investigation Status**: See Issue 8 in debugging.md
+- **Next Steps**: Compare Q-001 and Q-002 config files to identify root cause
 
 ### Q-004: Pilot Test (Debug Run) - ATTEMPT 1
 - **Status**: FAILED

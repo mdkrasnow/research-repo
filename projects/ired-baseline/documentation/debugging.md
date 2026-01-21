@@ -2,11 +2,41 @@
 
 ## Active Issues
 
-(none yet)
+### Issue #2: Missing Matplotlib Dependency
+- **Job ID**: 56185047
+- **Run ID**: q002_20260121_074043
+- **Failed At**: 2026-01-21T12:42:39Z
+- **Runtime**: 1 minute 56 seconds
+- **Exit Code**: 1:0 (Python error)
+- **Error Message**: `ModuleNotFoundError: No module named 'matplotlib'`
+- **Root Cause**: dataset.py imports matplotlib.pyplot at line 1, but matplotlib was not included in the pip install command in sbatch scripts
+- **Analysis**:
+  - Environment setup succeeded: Python 3.10.13, CUDA 11.8.0, PyTorch 2.7.1+cu118, einops, numpy, scipy all installed successfully
+  - Job failed during Python import phase when run_baseline.py tried to import dataset.py
+  - matplotlib import appears to be unused (no plt. calls found in dataset.py - likely leftover from development)
+- **Logs**:
+  - `slurm/logs/q002_56185047.err`: Contains Python traceback with ModuleNotFoundError
+  - `slurm/logs/q002_56185047.out`: Shows successful environment setup up to the point of failure
+- **Resolution Plan**: Add matplotlib to pip install in all sbatch scripts (both q001_pilot.sbatch and q002_baseline.sbatch)
+- **Status**: IN PROGRESS - awaiting fix implementation
 
 ## Resolved
 
-(none yet)
+### Issue #1: Git Push Workflow - Commit Not Available on Remote
+- **Job ID**: 56162042
+- **Run ID**: q001_20260121_160000
+- **Failed At**: 2026-01-21T16:07:27Z
+- **Runtime**: 3 seconds
+- **Exit Code**: 128:0 (git error)
+- **Error Message**: `fatal: reference is not a tree: 7770702133ed39020ae4a0424e6b600ec7a10c4b`
+- **Root Cause**: Automated SLURM job clones repository and checks out commit by SHA, but commit 7770702 wasn't pushed to remote origin/main before job submission
+- **Logs**:
+  - `slurm/logs/q001_pilot_56162042.err`: Contains git checkout failure
+  - `slurm/logs/q001_pilot_56162042.out`: Shows job initialization sequence
+- **Resolution**: Commits a2edff8 (dataset API fix) and 7770702 (result persistence fix) pushed to origin/main. All required code now available on remote.
+- **Prevention**: Ensure `git push` completes before submitting SLURM jobs when using automated git checkout workflow
+- **Status**: FULLY RESOLVED AND VALIDATED
+- **Validation**: Job 56162316 successfully completed (2026-01-21T16:12:40Z) with all commits properly available on remote. Git workflow confirmed operational.
 
 ---
 
