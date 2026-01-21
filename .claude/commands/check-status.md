@@ -46,3 +46,15 @@ With `--detailed` flag, also shows:
 # Deep dive into a project's state
 /check-status --project ired-baseline --detailed
 ```
+
+## Error Handling
+
+- **No projects found**: Returns "No projects in projects/ directory"
+- **Project not found**: Returns "Project <slug> not found in projects/"
+- **Invalid pipeline.json**: Returns error message with file path
+
+## Related Skills
+
+- **`/status`**: System-wide overview (simpler, faster)
+- **`/dispatch`**: Advance projects based on their current state
+- **`/dispatch-results`**: See what the last dispatch changed
