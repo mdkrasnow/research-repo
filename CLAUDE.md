@@ -25,6 +25,13 @@ After each step, update (as applicable):
 - **CRITICAL**: SLURM is NEVER available locally. ALL SLURM operations (sbatch, squeue, sacct) MUST use remote execution via `scripts/cluster/*`. Never check for or attempt to use local SLURM commands.
 - Never submit a job without creating a run folder and `submit.json`.
 - Always record job IDs and how to reproduce (command, git SHA if available, config snapshot).
+- **CPU vs GPU usage rule**:
+  - **Local execution**: ALWAYS use CPU only. Never use GPU resources for local development or testing.
+  - **Cluster execution**: ALWAYS use GPU resources (typically A100s). Configure SLURM scripts with:
+    - `--gres=gpu:1` (or more if needed)
+    - `module load cuda/11.8.0-fasrc01` (or appropriate CUDA version)
+    - GPU verification check using `nvidia-smi`
+  - All SLURM batch scripts MUST be GPU-configured; never submit CPU-only jobs to the cluster
 - **Automated git workflow**:
   - Each SLURM job automatically clones the repository fresh to `/tmp/project-job-$SLURM_JOB_ID`
   - The current git commit SHA is captured at submission time and passed via `GIT_SHA` environment variable
