@@ -47,6 +47,17 @@ python projects/ired/experiments/matrix_inversion_mining.py \
 
 echo "Experiment completed at $(date)"
 
+# Copy results to persistent storage before cleanup
+REPO_ROOT="/n/home03/mkrasnow/research-repo"
+echo "Copying results to persistent storage..."
+if [ -d "$WORK_DIR/projects/ired/results" ]; then
+    mkdir -p "$REPO_ROOT/projects/ired/results"
+    rsync -av "$WORK_DIR/projects/ired/results/" "$REPO_ROOT/projects/ired/results/"
+    echo "Results copied to $REPO_ROOT/projects/ired/results/"
+else
+    echo "Warning: No results directory found at $WORK_DIR/projects/ired/results"
+fi
+
 # Cleanup
 echo "Cleaning up work directory..."
 cd /

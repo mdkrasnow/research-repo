@@ -48,6 +48,17 @@ python projects/ired-baseline/experiments/run_baseline.py \
 
 echo "Pilot test completed at $(date)"
 
+# Copy results to persistent storage before cleanup
+REPO_ROOT="/n/home03/mkrasnow/research-repo"
+echo "Copying results to persistent storage..."
+if [ -d "$WORK_DIR/projects/ired-baseline/runs" ]; then
+    mkdir -p "$REPO_ROOT/projects/ired-baseline/runs"
+    rsync -av "$WORK_DIR/projects/ired-baseline/runs/" "$REPO_ROOT/projects/ired-baseline/runs/"
+    echo "Results copied to $REPO_ROOT/projects/ired-baseline/runs/"
+else
+    echo "Warning: No runs directory found at $WORK_DIR/projects/ired-baseline/runs"
+fi
+
 # Cleanup
 echo "Cleaning up work directory..."
 cd /
