@@ -68,7 +68,7 @@ source venv/bin/activate
 echo "Installing dependencies..."
 pip install --upgrade pip
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
-pip install einops numpy scipy matplotlib
+pip install numpy scipy pandas einops tqdm tabulate ema-pytorch accelerate Pillow ipdb ipython matplotlib
 
 # Verify installations
 python -c "import torch; print(f'PyTorch version: {torch.__version__}')"
@@ -102,8 +102,7 @@ echo "Running Q-002 baseline experiment..."
 echo "Configuration: 100k steps, rank=20, batch_size=2048"
 python experiments/run_baseline.py \
     --config configs/q002_baseline.json \
-    --run_dir "$RUN_DIR" \
-    --gpu 0
+    --output-dir "$RUN_DIR"
 
 # Check if results were saved
 if [ -f "$RUN_DIR/results.json" ]; then
