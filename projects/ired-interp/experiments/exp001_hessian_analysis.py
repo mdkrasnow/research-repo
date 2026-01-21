@@ -47,7 +47,7 @@ def load_model(checkpoint_path: str, device: str = "cuda") -> torch.nn.Module:
 
 def generate_test_problems(
     task: str = "inverse",
-    rank: int = 2,
+    rank: int = 20,
     num_samples: int = 10,
     matrix_size: int = 20
 ):
