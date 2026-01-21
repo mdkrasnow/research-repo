@@ -49,9 +49,27 @@ If cluster is not configured, the tool will:
 - ✗ **Session Missing**: No configuration found, shows bootstrap instructions
 - ✗ **Session Failed**: Configuration exists but SSH connection failed, shows troubleshooting tips
 
-## Note
+## Error Handling
 
-This command is automatically run by `/dispatch` before any cluster operations. You typically only need to run it manually if:
-- Cluster access has been revoked/changed
+| Issue | Resolution |
+|-------|-----------|
+| SSH key not found | Run `scripts/cluster/ssh_bootstrap.sh` for key setup |
+| 2FA timeout | Retry with `/ensure-session --verify` and complete 2FA quickly |
+| Wrong remote path | Run `/ensure-session --init` to reconfigure |
+| Network unreachable | Check VPN/network connectivity, then retry |
+
+## When to Use Manually
+
+This command is automatically run by `/dispatch` before cluster operations. Run manually if:
+
+- Cluster access has been revoked or changed
 - SSH keys have been rotated
-- You're setting up a new machine for dispatch operations
+- Setting up a new machine for dispatch operations
+- Network connectivity issues need diagnosis
+- Reconfiguring cluster connection parameters
+
+## Related Skills
+
+- **`/dispatch`**: Main orchestrator (auto-calls this before SLURM operations)
+- **`/run-experiments`**: Requires active session to submit jobs
+- **`/check-results`**: Requires active session to poll job status

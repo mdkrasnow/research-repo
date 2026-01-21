@@ -37,24 +37,24 @@ Next Action: Poll job status and process results
 - `--compare-last`: Show before/after state (diffs of pipeline.json)
 - `--json`: Output as structured JSON (useful for monitoring/alerts)
 
-## Integration with Workflow
+## What It Shows
 
-Typical sequence:
+For each project touched by dispatch:
+
+- **Phase transition** — Current phase (e.g., RUN → CHECK)
+- **Files modified** — Which documentation files were updated
+- **Git status** — Staged vs. committed changes
+- **Active runs** — Jobs submitted with IDs and timing info
+- **Next poll time** — When SLURM status will be checked
+- **Next action** — What dispatch will do on next run
+
+## Typical Workflow
+
 ```bash
 /dispatch                  # Run dispatch
 /dispatch-results          # See what changed
-/check-status              # Monitor ongoing jobs
+/check-status              # Monitor ongoing jobs (optional)
 ```
-
-## What It Shows
-
-For each project:
-- **Phase transition** (if any occurred)
-- **Files modified** (which docs were updated)
-- **Git status** (staged vs. committed changes)
-- **Active runs** (jobs submitted, with IDs and timing)
-- **Next poll time** (when SLURM status will be checked)
-- **Next action** (what dispatch will do on next run)
 
 ## Performance
 
@@ -62,6 +62,12 @@ For each project:
 - Compares against git working tree if `--compare-last` used
 - Scans up to last 5 projects in pipeline (respects batch_size)
 - Typical runtime: <1 second
+
+## Error Handling
+
+- **No recent dispatch**: Returns "No dispatch run found in last 24 hours"
+- **Project not found**: Returns "Project <slug> not in recent dispatch results"
+- **Invalid JSON output**: Falls back to human-readable format
 
 ## Examples
 
@@ -78,3 +84,9 @@ For each project:
 # Focus on specific project
 /dispatch-results --project ired-baseline
 ```
+
+## Related Skills
+
+- **`/dispatch`**: Run dispatch to advance projects
+- **`/check-status`**: Monitor all projects in real-time
+- **`/check-results`**: Poll individual SLURM job results
