@@ -1,30 +1,54 @@
 ---
-description: Main orchestrator: advance up to batch_size projects by one step each and update pipeline/todo/debugging/queue.
+description: Main orchestrator for advancing projects through their pipeline phases.
 allowed-tools: Read, Bash, Task
 argument-hint: [--project <slug>] [--dry-run] [--verbose]
 ---
 # /dispatch
 
-Advance up to `batch_size` projects (from `.claude/ralph/config.json`) by **one step each**.
+Advance up to `batch_size` projects by one step each, orchestrating all code modifications and state updates.
 
-## Quick Start
+## Usage
 
 ```bash
-/check-status           # See current state of all projects
-/ensure-session         # Verify cluster access
-/dispatch --dry-run     # Preview what dispatch will do
-/dispatch               # Execute dispatch actions
+/dispatch                          # Process up to batch_size projects
+/dispatch --project my-experiment  # Process single project
+/dispatch --dry-run                # Preview changes without executing
+/dispatch --verbose                # Show detailed orchestration logs
+```
+
+## Quick Start Workflow
+
+```bash
+/check-status           # ① See current state of all projects
+/ensure-session         # ② Verify cluster access (if needed)
+/dispatch --dry-run     # ③ Preview what will happen
+/dispatch               # ④ Execute dispatch
+/dispatch-results       # ⑤ See what changed
 ```
 
 ## Options
 
-- `--project <slug>`: Only dispatch single project (ignores batch_size)
-- `--dry-run`: Preview actions without executing (shows plan, doesn't modify files)
-- `--verbose`: Show detailed subagent prompts and communication
+| Flag | Purpose |
+|------|---------|
+| `--project <slug>` | Process single project (ignores batch_size) |
+| `--dry-run` | Preview without modifying files or submitting jobs |
+| `--verbose` | Show detailed subagent communication and context |
 
-## Architecture: Subagent-Driven Code Execution
+## Architecture: Subagent-Driven Execution
 
-**CRITICAL**: This orchestrator MUST ALWAYS use the Task tool with specialized subagents for any code modifications. The main agent is a coordinator only.
+**CRITICAL**: Dispatch delegates ALL code modifications to specialized subagents. Main orchestrator is coordinator only.
+
+### How Dispatch Works
+
+```
+Main Orchestrator
+├── ① Verify SLURM jobs (Bash)
+├── ② Acquire project lock (Bash)
+├── ③ Read pipeline state (Read)
+├── ④ Delegate modifications → Task(Subagent)
+├── ⑤ Execute cluster operations (Bash + scripts/cluster/*)
+└── ⑥ Release project lock (Bash)
+```
 
 ### Delegation Rules
 
@@ -52,9 +76,9 @@ Advance up to `batch_size` projects (from `.claude/ralph/config.json`) by **one 
    - Use Bash for ssh.sh, status.sh, submit.sh, etc.
    - Do NOT attempt to manage cluster state in main orchestrator
 
-### Subagent Communication
+### Subagent Context Template
 
-When launching subagents, use this context template:
+Launch subagents with this structured context:
 
 ```
 PROJECT: <slug>
@@ -76,68 +100,103 @@ FILES TO MODIFY:
 
 AFTER COMPLETING CHANGES:
 1. Return summary of modifications
-2. Confirm lock is still held by main orchestrator (do NOT release)
-3. List any validation issues or warnings
+2. Confirm lock is still held
+3. List any warnings or validation issues
 ```
 
-Best practices:
-- Always include full pipeline.json content (gives subagent complete context)
-- Include git SHA (important for experiment reproducibility)
-- Specify exact files to modify (prevents unintended changes)
-- Request explicit confirmation of changes (safety check)
-- Subagent must NOT release the lock (main orchestrator handles this)
+**Critical Best Practices:**
 
-## Dry-Run Mode (`--dry-run`)
+- ✓ Include full pipeline.json (gives subagent complete context)
+- ✓ Include git SHA (for reproducibility)
+- ✓ Specify exact files to modify (prevents unintended changes)
+- ✓ Request explicit confirmation of changes
+- ✗ Subagent must NOT release lock (main orchestrator does this)
 
-When `--dry-run` is enabled:
+## Dry-Run Mode
 
-1. **Skip all file modifications** - No changes to pipeline.json, docs, or git
-2. **Skip all SLURM operations** - No job submissions, cancellations, or status checks
-3. **Show dispatch plan**:
-   - List all projects that would be processed (up to batch_size)
-   - For each project:
-     - Current phase and next_action
-     - What will be executed (e.g., "Dispatch subagent to analyze logs and update pipeline")
-     - Estimated impact (files modified, phase transitions)
-     - Any blockers (e.g., "Blocked: needs_user_input=true")
-4. **No git operations** - Subagents are not launched, nothing is committed
+Preview all dispatch actions without making any changes:
 
-Typical workflow:
 ```bash
-/check-status --detailed    # Understand current state
-/dispatch --dry-run         # See what will happen
-# Review the plan...
-/dispatch                   # Execute if plan looks good
+/dispatch --dry-run     # See what WOULD happen
 ```
 
-Cluster-aware rule:
-- **CRITICAL**: SLURM is NEVER available locally. ALL SLURM operations MUST use remote execution via `scripts/cluster/*`.
-- If `phase` implies SLURM actions (RUN / WAIT_SLURM / CHECK), use remote execution via `scripts/cluster/*`.
-- If no SSH session exists (checked via `scripts/cluster/ensure_session.sh`), set `needs_user_input=true` with prompt:
-  "Run scripts/cluster/ssh_bootstrap.sh (interactive SSH+2FA) then rerun /dispatch"
-  and DO NOT spin.
+**What Dry-Run Does:**
 
-## Job Verification (MUST DO FIRST)
+| Operation | Behavior |
+|-----------|----------|
+| File modifications | **Skipped** — No changes to pipeline.json, docs |
+| SLURM operations | **Skipped** — No jobs submitted/cancelled |
+| Subagent launches | **Skipped** — No code executed |
+| Git operations | **Skipped** — No commits |
+| Plan output | **Shown** — Full preview of what WOULD run |
+
+**Dry-Run Output:**
+
+```
+DISPATCH PLAN (DRY-RUN)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Project: my-experiment
+Current Phase: IMPLEMENT
+Action: Run implementation tasks
+Files Modified: pipeline.json, implementation-todo.md
+Next Phase: TEST (if all tasks complete)
+
+Project: baseline
+Current Phase: WAIT_SLURM
+Action: Poll job status
+Job ID: 55241234
+Next Poll: In 5 minutes
+```
+
+**Typical Workflow:**
+
+```bash
+/check-status --detailed    # ① Understand current state
+/dispatch --dry-run         # ② Preview what will happen
+# Review the output...
+/dispatch                   # ③ Execute if plan looks good
+/dispatch-results           # ④ See what changed
+```
+
+## Remote SLURM Execution
+
+**CRITICAL**: SLURM is NEVER available locally. ALL operations use remote execution via `scripts/cluster/*`.
+
+Remote execution rules:
+
+- If `phase` implies SLURM actions (RUN / WAIT_SLURM / CHECK), use `scripts/cluster/*`
+- If SSH session missing, set `needs_user_input=true` with bootstrap prompt
+- Return without executing dispatch; user must bootstrap first
+
+## Job Verification (Step 1)
+
 Before processing any projects, verify all outstanding SLURM jobs:
-1. For each project with `active_runs` in pipeline.json:
-   - Use Bash to check if jobs are running: `scripts/cluster/status.sh <job_id>`
-   - If job is NOT running but status says "running":
-     - Use Bash to fetch logs: `scripts/cluster/remote_fetch.sh <project_slug>`
-     - Logs will be in `slurm/logs/<job_name>_<job_id>.{out,err}`
-     - **Dispatch a subagent** to analyze logs and update pipeline:
-       - Subagent reads log files and determines failure reason
-       - Subagent adds detailed entry to `documentation/debugging.md` with:
-         - Error message from logs
-         - Root cause analysis
-         - Run ID and job ID
-         - Log file paths
-         - Timestamp
-       - Subagent updates `pipeline.json`:
-         - Moves job from `active_runs` to `completed_runs` with `status: "failed"`
-         - Adds `failed_at` timestamp
-         - Adds `error` field with failure summary
-       - Subagent sets `phase=DEBUG` if blocking, otherwise continues
-2. Only after all jobs verified and subagent updates complete, proceed with normal dispatch
+
+```
+For each project with active_runs:
+  1. Check if job is actually running via scripts/cluster/status.sh
+  2. If NOT running but marked "running":
+     a. Fetch logs via scripts/cluster/remote_fetch.sh
+     b. Dispatch subagent to analyze and diagnose
+     c. Update debugging.md with error details
+     d. Move to completed_runs with status="failed"
+  3. If running: skip to next project
+```
+
+**Subagent Responsibilities (on failed job):**
+
+- Parse SLURM logs to determine failure reason
+- Write detailed entry to `documentation/debugging.md`
+- Update `pipeline.json`:
+  - Move from `active_runs` → `completed_runs` with `status: "failed"`
+  - Add `failed_at` timestamp
+  - Add `error` summary
+- Set `phase=DEBUG` if blocking, else continue
+
+**Only after all jobs verified**, proceed with normal dispatch.
+
+## Dispatch Execution (Step 2)
 
 For each touched project:
 
@@ -159,110 +218,96 @@ For each touched project:
      - run ledger updates under `runs/<run_id>/`
    - Wait for subagent completion
 
-4. **Orchestrate Based on Phase**:
-   - DEBUG: Subagent analyzes logs, updates pipeline with diagnosis
-   - IMPLEMENT: Subagent creates code changes per specification
-   - TEST: Subagent runs tests, documents results, updates pipeline
-   - RUN: Use Bash directly to run `scripts/cluster/remote_submit.sh`
-   - CHECK/POLL: Use Bash to check status via `scripts/cluster/status.sh`
-   - DEBATE: Subagent conducts analysis, documents decision
+4. **Execute Based on Phase**:
+
+| Phase | Action | Tool |
+|-------|--------|------|
+| DEBUG | Analyze failed logs, diagnose issue | Subagent |
+| IMPLEMENT | Create code changes per specification | Subagent |
+| TEST | Run tests, document results | Subagent |
+| RUN | Submit job to SLURM cluster | Bash + scripts/cluster/* |
+| CHECK/POLL | Check job status remotely | Bash + scripts/cluster/* |
+| DEBATE | Conduct structured debate | Subagent |
 
 5. **Release Lock**:
    - `scripts/ralph/lock.sh release projects/<slug>`
 
 ### Main Orchestrator Responsibilities
 
-The main orchestrator:
-- ✓ Reads project state (Read tool only)
-- ✓ Coordinates subagent execution via Task tool
-- ✓ Runs cluster commands via Bash (scripts/cluster/*)
-- ✗ Does NOT modify code directly
-- ✗ Does NOT perform code searches (delegates to Explore subagent)
-- ✗ Does NOT create/edit project files
+**What Main Orchestrator Does:**
 
-Hybrid SLURM waiting:
-- If a job is RUNNING and `next_poll_after` is in the future, skip it and work on other projects.
-- If nothing actionable, exit (Stop hook will then allow stopping).
+- ✓ Read project state via Read tool
+- ✓ Coordinate subagent execution via Task tool
+- ✓ Run cluster commands via Bash (scripts/cluster/*)
+- ✓ Manage locks (acquire/release)
+- ✓ Verify SLURM job status
+- ✓ Make phase transition decisions
 
-## Error Handling & Common Scenarios
+**What Main Orchestrator Does NOT Do:**
 
-### SSH Session Missing
-**Symptom**: dispatch fails with "SSH session not configured"
-**Recovery**:
+- ✗ Modify code directly (delegates to subagents)
+- ✗ Perform code searches (delegates to Explore subagent)
+- ✗ Create/edit project files (subagents do this)
+
+### Hybrid SLURM Waiting
+
+**Intelligent job polling strategy:**
+
+- If job is RUNNING and `next_poll_after` in future → skip, work on other projects
+- If job is RUNNING and poll time due → check status, update polling schedule
+- If nothing actionable across all projects → exit dispatch (Stop hook allows stopping)
+- If some projects blocked on user input → exit dispatch
+
+## Error Handling
+
+| Symptom | Cause | Recovery |
+|---------|-------|----------|
+| "SSH session not configured" | Cluster access not configured | `/ensure-session --init`, then retry |
+| "Failed to acquire lock" | Another dispatch running or stale lock | Check with `scripts/ralph/lock.sh status`, force release if stale |
+| "Subagent failed" | Error during pipeline update | `/check-status`, fix issue, `--dry-run`, retry |
+| "SLURM status uncertain" | Cluster connectivity issue | `/ensure-session --verify`, `--verbose` for details |
+| "No active projects" | All projects completed or blocked | Check with `/status` for overall state |
+
+## Troubleshooting Workflow
+
+**When dispatch isn't working as expected:**
+
+1. **Check current state**: `/check-status --detailed`
+2. **Preview actions**: `/dispatch --dry-run`
+3. **Enable diagnostics**: `/dispatch --verbose`
+4. **Verify cluster**: `/ensure-session --verify`
+5. **Review rules**: Check `CLAUDE.md` for authoritative constraints
+6. **Debug specific project**: `/check-status --project <slug>`
+
+## Related Skills
+
+Dispatch works within an ecosystem of complementary skills:
+
+| Skill | When to Use |
+|-------|-------------|
+| **`/check-status`** | Before dispatch — understand current state |
+| **`/status`** | Quick system-wide overview of all projects |
+| **`/ensure-session`** | Verify cluster connectivity before RUN/CHECK phases |
+| **`/dispatch-results`** | After dispatch — see what changed |
+| **`/check-results`** | Poll individual SLURM job results |
+| **`/run-experiments`** | Manual job submission (dispatch calls this) |
+| **`/parallel-implement`** | Parallelize tasks within single project |
+| **`/make-project`** | Create new project (dispatch advances it) |
+| **`/debate`** | Structured decision-making (dispatch calls this) |
+
+## Typical Workflow
+
 ```bash
-/ensure-session --init     # Configure or reconfigure cluster access
-/dispatch --dry-run        # Preview again
-/dispatch                  # Proceed
+/check-status                   # ① Understand current state
+/ensure-session                 # ② Verify cluster access
+/dispatch --dry-run             # ③ Preview all actions
+# [review the plan]
+/dispatch                       # ④ Execute dispatch
+/dispatch-results               # ⑤ See what changed
+# [wait for jobs to complete]
+/check-results --project <slug> # ⑥ Poll job status
+# [repeat as needed]
 ```
-
-### Lock Acquisition Failure
-**Symptom**: "Failed to acquire lock for projects/ired"
-**Cause**: Another dispatch is running or lock file is stale
-**Recovery**:
-```bash
-scripts/ralph/lock.sh status projects/ired  # Check lock status
-scripts/ralph/lock.sh release projects/ired # Force release if stale (CAREFUL!)
-/dispatch                                   # Retry
-```
-
-### Subagent Failure
-**Symptom**: Subagent reports error during pipeline.json update
-**Recovery**:
-```bash
-/check-status --project <slug>  # Verify current state
-# Manually fix the issue if needed
-/dispatch --dry-run             # Preview retry
-/dispatch                       # Retry dispatch
-```
-
-### SLURM Job Status Uncertain
-**Symptom**: Job shows "running" but can't verify on cluster
-**Recovery**:
-```bash
-/ensure-session --verify        # Verify cluster connectivity
-/dispatch --verbose             # Show detailed status checks
-```
-
-## Troubleshooting
-
-1. **Always run `/check-status` first** to understand current state
-2. **Use `--dry-run` before executing** to preview changes
-3. **Use `--verbose` to see subagent context** and debug communication
-4. **Check `CLAUDE.md`** for authoritative dispatch rules and constraints
-5. **Review recent events** in pipeline.json to understand context
-
-## Integration with Other Skills
-
-### Recommended Workflow
-
-```bash
-# Step 1: Check what's happening
-/check-status
-
-# Step 2: Ensure cluster is ready
-/ensure-session
-
-# Step 3: Preview dispatch actions
-/dispatch --dry-run
-
-# Step 4: Review the plan
-# ... manually review output
-
-# Step 5: Execute dispatch
-/dispatch
-
-# Step 6: Monitor progress
-/check-status --detailed
-
-# Repeat as needed based on phase transitions
-```
-
-### Skill Relationships
-
-- **`/check-status`**: Use before `/dispatch` to understand current state
-- **`/ensure-session`**: Use before any dispatch that involves SLURM operations
-- **`/dispatch --dry-run`**: Safe preview of all planned changes
-- **`/status`** (system-wide): Shows overall project pipeline state
 
 ## Performance Notes
 
