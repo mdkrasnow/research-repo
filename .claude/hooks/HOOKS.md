@@ -1,6 +1,9 @@
-# Claude Code Hooks - Phase 1 Implementation
+# Claude Code Hooks - Phase 1 & Phase 2 Implementation
 
 This document describes the hooks implemented for the research repository to enable autonomous, parallel, and accurate project management.
+
+**Phase 1**: SessionStart, PostToolUse, Stop (existing)
+**Phase 2**: SubagentStop, SessionEnd
 
 ## Overview
 
@@ -58,47 +61,7 @@ bc4c419 Merge pull request #3 from mdkrasnow/claude/implement-dispatch-848Sy
 
 ---
 
-### 2. PermissionRequest Hook
-
-**File**: `.claude/hooks/permission_request.py` / `permission_request.sh`
-
-**Purpose**: Auto-approves safe operations, blocks dangerous ones.
-
-**Triggers**: When Claude Code requests permission for file operations, git commands, etc.
-
-**Auto-Approve Rules**:
-- ✅ Read operations (any file)
-- ✅ Write/Edit within `projects/<slug>/...` (isolated project files)
-- ✅ Git: fetch, pull, add, commit on any branch
-- ✅ Git: branch operations
-
-**Auto-Deny Rules**:
-- ❌ Force push to any branch
-- ❌ Push to `main` or `master` (prevents accidental pushes)
-- ❌ Write/Edit to `.claude/ralph/` (Ralph loop config)
-- ❌ Write/Edit to `.state/` files directly (use pipeline operations instead)
-- ❌ Write/Edit to `.claude/hooks/` scripts
-- ❌ Write/Edit to `.claude/settings.json`
-
-**Benefits**:
-- ✅ Eliminates permission dialog interruptions for routine operations
-- ✅ Prevents dangerous operations automatically
-- ✅ Speeds up autonomous operation significantly
-- ✅ Maintains safety by protecting critical configuration
-
-**Examples**:
-```bash
-# Allowed (safe area)
-Write to projects/my-project/runs/exp-001/results.md ✅
-
-# Blocked (protected configuration)
-Write to projects/my-project/.state/pipeline.json ❌
-Write to .claude/ralph/enabled ❌
-```
-
----
-
-### 3. PostToolUse Hook (Code Quality Validation)
+### 2. PostToolUse Hook (Code Quality Validation)
 
 **File**: `.claude/hooks/post_tool_use.py` / `post_tool_use.sh`
 
@@ -144,6 +107,114 @@ api.ts(45,12): error TS2532: Object is possibly 'undefined'
 
 ---
 
+### 3. SubagentStop Hook (Phase 2)
+
+**File**: `.claude/hooks/subagent_stop.py` / `subagent_stop.sh`
+
+**Purpose**: Validates Task (subagent) completion and manages retries.
+
+**Triggers**: When a Task tool completes execution
+
+**Functionality**:
+- ✅ Checks if subagent produced `agent_id` (successful execution indicator)
+- ✅ Analyzes output for error keywords and transient failures
+- ✅ Detects incomplete executions (no output, no agent_id)
+- ✅ Identifies retry-able errors (connection timeout, temporary unavailable)
+- ✅ Flags non-transient errors for manual review
+- ✅ Logs all subagent results to audit trail
+
+**Output Example**:
+```
+Successful:
+  ✅ Subagent completed successfully (agent_id: a1b2c3d4e5f6)
+
+With Errors (Transient - Retry):
+  🔍 Subagent Completion Analysis:
+    ⚠️  Errors detected: connection refused, timeout
+    🔄 Suggests transient failure - consider retry
+
+With Errors (Non-Transient - Review):
+  🔍 Subagent Completion Analysis:
+    ⚠️  No agent_id returned - execution may have failed
+    ⚠️  Errors detected: syntax error, module not found
+    ℹ️  Non-transient errors detected; requires review
+```
+
+**Behavior**:
+- ℹ️ **Non-blocking**: Exit code 0 (always allows continuation)
+- ℹ️ **Informative**: Emits detailed analysis to stderr
+- ℹ️ **Logged**: All results saved to `.claude/subagent-logs/`
+
+**Benefits**:
+- ✅ Catches silent failures in parallel Task execution
+- ✅ Distinguishes transient vs. permanent failures
+- ✅ Provides clear feedback for human/LLM decision on retries
+- ✅ Enables safe parallel `@parallel-implement` mode
+- ✅ Creates audit trail for debugging failed tasks
+- ✅ Reduces need for manual investigation
+
+---
+
+### 4. SessionEnd Hook (Phase 2)
+
+**File**: `.claude/hooks/session_end.py` / `session_end.sh`
+
+**Purpose**: Generates session summary, archives results, and logs metrics.
+
+**Triggers**: When Claude Code session ends
+
+**Functionality**:
+- ✅ Captures final project state (phase, completed actions)
+- ✅ Records metrics: artifacts created, runs executed, projects completed/debugged
+- ✅ Generates human-readable summary with emoji status indicators
+- ✅ Saves structured JSON report to `.claude/sessions/`
+- ✅ Appends to session log for historical analysis
+- ✅ Includes git commit SHA and branch for reproducibility
+
+**Output Example**:
+```
+============================================================
+SESSION SUMMARY
+============================================================
+
+📅 Session ended: 2026-01-21T05:47:09Z
+🌿 Branch: claude/feature-branch (f5fee516)
+
+📊 METRICS:
+  • Projects touched: 2
+  • Artifacts created: 11 files in 11 runs
+  • Projects completed: 0
+  • Projects in debug: 1
+
+✅ COMPLETED PROJECTS:
+   • experiment-001
+
+🔧 PROJECTS MOVED TO DEBUG:
+   • experiment-002
+
+📝 PROJECT CHANGES:
+   • experiment-001  [COMPLETED] completed 5 action(s)
+   • experiment-002  [DEBUG    ] completed 3 action(s)
+
+💾 Session report saved to: .claude/sessions/
+📋 View session history: cat .claude/sessions/session-log.jsonl
+```
+
+**Behavior**:
+- ℹ️ **Non-blocking**: Exit code 0 (informational only)
+- ℹ️ **Persistent**: Saves to `.claude/sessions/session-*.json` + `.claude/sessions/session-log.jsonl`
+- ℹ️ **Queryable**: JSONL log enables analysis of session history
+
+**Benefits**:
+- ✅ Audit trail for all work performed
+- ✅ Enables analysis of project progression over time
+- ✅ Clear baseline for resuming work in next session
+- ✅ Metrics for understanding workflow efficiency
+- ✅ Reproducibility: git SHA captured for exact replay
+- ✅ Accountability: who did what and when
+
+---
+
 ## Configuration
 
 All hooks are registered in `.claude/settings.json`:
@@ -152,11 +223,12 @@ All hooks are registered in `.claude/settings.json`:
 {
   "hooks": {
     "SessionStart": [...],
-    "PermissionRequest": [...],
     "PostToolUse": [
       {"matcher": "Write", "hooks": [...]},
       {"matcher": "Edit", "hooks": [...]}
     ],
+    "SubagentStop": [...],
+    "SessionEnd": [...],
     "Stop": [...]
   }
 }
@@ -167,26 +239,28 @@ All hooks are registered in `.claude/settings.json`:
 These hooks are **automatically active** once configured. They do not require manual activation but can be controlled via:
 
 - **SessionStart**: Runs automatically at session start (always active, informational only)
-- **PermissionRequest**: Auto-approves/denies as configured (respects user's final decision if unclear)
 - **PostToolUse**: Runs after code changes (informational only, non-blocking)
+- **SubagentStop**: Runs when Task completes (informational only, non-blocking, audited)
+- **SessionEnd**: Runs when session ends (informational only, generates reports)
 - **Stop**: Existing Ralph loop (respects configured max iterations)
 
 ## Testing
 
 All hooks have been tested for:
-- ✅ Correct exit codes (0 for allow, 1 for deny)
-- ✅ Proper error detection (TypeScript, Python, debug code)
-- ✅ Safe path detection (distinguishes projects/ from .state/)
-- ✅ Git operation validation
-- ✅ Graceful handling of missing tools
+
+**Phase 1 Hooks**:
+- ✅ SessionStart: Correctly categorizes all projects by status
+- ✅ PostToolUse: Detects TypeScript/Python errors, console.log, TODOs, critical file deletions
+
+**Phase 2 Hooks**:
+- ✅ SubagentStop: Detects successful completion (agent_id), error conditions, transient failures
+- ✅ SessionEnd: Generates accurate session summaries, logs to persistent storage
 
 ## Future Enhancements
 
-Potential Phase 2 hooks:
+Potential Phase 3 hooks:
 
-1. **SubagentStop Hook**: Validate Task (subagent) completion, auto-retry on failure
-2. **UserPromptSubmit Hook**: Enforce research protocol compliance, prevent pipeline corruption
-3. **SessionEnd Hook**: Automated archival and session reporting
+1. **UserPromptSubmit Hook**: Enforce research protocol compliance, prevent pipeline corruption
 
 See parent analysis document for full brainstorm.
 
@@ -196,15 +270,22 @@ See parent analysis document for full brainstorm.
 - Check if session is starting fresh (should see output on stderr)
 - Verify `.claude/hooks/session_start.sh` is executable: `ls -la .claude/hooks/`
 
-### PermissionRequest not blocking dangerous operations
-- Check `.claude/settings.json` is loading (run `/hooks` command)
-- Verify deny rules match your intent
-- Note: If not recognized, falls through to user decision (safer default)
-
 ### PostToolUse not detecting errors
 - Ensure tool (tsc, python3) is installed and in PATH
 - Check file_path is correct
 - Timeouts (10s default) will not block; check stderr for "[Check timed out]"
+
+### SubagentStop not detecting failures
+- Check stderr for analysis output (should appear when Task completes)
+- Verify `.claude/hooks/subagent_stop.sh` is executable
+- Check `.claude/subagent-logs/` for detailed audit records
+- Note: Always returns exit 0 (non-blocking) - look at stderr feedback for status
+
+### SessionEnd not generating reports
+- Verify `.claude/hooks/session_end.sh` is executable
+- Check `.claude/sessions/` directory exists and is writable
+- Ensure you have projects in `projects/` with `.state/pipeline.json` files
+- View session history: `cat .claude/sessions/session-log.jsonl | jq`
 
 ## Security Considerations
 
