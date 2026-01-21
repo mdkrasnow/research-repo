@@ -17,7 +17,7 @@ from pathlib import Path
 from datetime import datetime
 
 from models import EBM, DiffusionWrapper
-from reasoning_dataset import Inverse, MatrixAdd
+from dataset import Inverse, MatrixAdd
 from analysis.hessian_analysis import HessianAnalyzer
 
 
