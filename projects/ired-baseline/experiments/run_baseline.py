@@ -60,8 +60,9 @@ def create_dataset(config):
 
     if task == 'inverse':
         rank = dataset_cfg.get('rank', 10)
-        num_samples = dataset_cfg.get('num_samples', 10000)
-        dataset = Inverse(rank=rank, num_samples=num_samples)
+        ood = dataset_cfg.get('ood', False)
+        split = 'train'  # Default to train split
+        dataset = Inverse(split=split, rank=rank, ood=ood)
     else:
         raise ValueError(f"Unknown task: {task}")
 
@@ -78,7 +79,7 @@ def create_diffusion(model, config):
     # Create diffusion model
     diffusion = GaussianDiffusion1D(
         model=model,
-        image_size=config['dataset']['rank'] ** 2,  # Flattened matrix
+        seq_length=config['dataset']['rank'] ** 2,  # Flattened matrix
         timesteps=steps,
         beta_schedule=beta_schedule
     )
