@@ -5,19 +5,26 @@ argument-hint: "<research-question>" --slug <project-slug>
 ---
 # /make-project
 
-Create a complete research project structure by:
-1. Understanding the research question through structured questioning
-2. Analyzing the existing codebase to identify relevant patterns and code
-3. Using internal debate to determine optimal experiment design
-4. Generating all required files, configs, and documentation per the project contract
+Create a complete research project with full structure, templates, and documentation in one command.
 
 ## Usage
 
 ```bash
 /make-project "Does technique X improve Y?" --slug my-experiment
+/make-project "Compare model architectures" --slug arch-comparison
 ```
 
-## Process
+## What It Does
+
+1. **Analyzes** the codebase to find relevant patterns and code
+2. **Asks** clarifying questions about your research goals
+3. **Debates** optimal experiment design approaches
+4. **Generates** all required project files and directories
+5. **Initializes** pipeline state and documentation
+
+## Process Overview
+
+The command runs 5 sequential phases:
 
 ### Phase 1: Codebase Analysis
 Launch parallel exploration tasks to understand relevant code:
@@ -38,35 +45,30 @@ Launch parallel exploration tasks to understand relevant code:
    - Identify output formats and result processing
 
 ### Phase 2: Question Refinement
-Use AskUserQuestion to gather critical context. Your questions are up to you to choose what you want clarifications you need from the user.  
+
+Ask critical questions to refine project parameters:
+
+- Research timeline and constraints
+- Computational resources available (GPU/CPU, time limits)
+- Baseline models/data already available
+- Success metrics for the research question
+- Desired number of experiment variations  
 
 
-### Phase 3: Internal Debate - Project Structure Design
+### Phase 3: Internal Debate
 
-Using the gathered information, conduct a structured debate on:
+Debate optimal project structure and approach:
 
-**Position A: Minimal Adaptation**
-- Reuse existing experiment scripts with minimal modification
-- Copy-paste proven patterns from other projects
-- Pros: Fast setup, proven to work
-- Cons: May not fit research question perfectly, technical debt
+| Approach | Description | Pros | Cons |
+|----------|-------------|------|------|
+| **Minimal Adaptation** | Reuse existing scripts with minimal changes | Fast setup, proven patterns | May not fit perfectly, technical debt |
+| **Custom Design** | Build tailored structure from scratch | Clean, purpose-built, extensible | More upfront work, potential bugs |
+| **Hybrid** | Reuse core infrastructure, custom experiment logic | Balance speed & quality | Requires careful interface design |
 
-**Position B: Custom Design**
-- Design experiment structure tailored to specific research question
-- Create new abstractions for clear, reproducible experiments
-- Pros: Clean, purpose-built, easier to extend
-- Cons: More upfront work, potential for bugs
-
-**Position C: Hybrid Approach**
-- Reuse core infrastructure (data loading, training)
-- Create custom experiment logic and configs
-- Pros: Balance speed and quality
-- Cons: Requires careful interface design
-
-**Decision Criteria:**
+Decision based on:
 - Complexity of research question
 - Time constraints
-- Likelihood of iteration/extension
+- Likelihood of future iterations
 - Similarity to existing projects
 
 ### Phase 4: File Generation
@@ -397,7 +399,17 @@ After creation, report to user:
 
 ## Error Handling
 
-- If slug already exists: ask user to confirm overwrite or choose new name
-- If codebase search finds nothing relevant: use minimal template with warnings
-- If user cancels during questions: abort gracefully without creating partial structure
-- If debate cannot reach consensus: default to hybrid approach with explanation
+| Error | Resolution |
+|-------|-----------|
+| Slug already exists | Prompts to confirm overwrite or choose new name |
+| Codebase search finds nothing | Uses minimal template with warnings |
+| User cancels questions | Aborts gracefully, no partial structure created |
+| Debate cannot reach consensus | Defaults to hybrid approach with explanation |
+| Invalid research question | Requests reformulation as clear hypothesis |
+
+## Related Skills
+
+- **`/dispatch`**: Start project through pipeline phases after creation
+- **`/project-init`**: Quick project initialization without questions
+- **`/parallel-implement`**: Parallelize implementation tasks during IMPLEMENT phase
+- **`/check-status`**: Monitor project progress after creation
