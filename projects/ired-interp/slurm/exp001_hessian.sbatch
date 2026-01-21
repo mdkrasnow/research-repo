@@ -84,7 +84,7 @@ echo "Running Hessian analysis..."
 python experiments/exp001_hessian_analysis.py \
     --checkpoint checkpoints/matrix_inverse.pt \
     --task inverse \
-    --rank 2 \
+    --rank 20 \
     --num_samples 20 \
     --device cuda \
     --output_dir "$RESULTS_DIR"
