@@ -1,8 +1,119 @@
 # Debugging — Adversarial Negative Mining for Matrix Inversion
 
+## Active Investigation: Results Analysis
+
+### Finding: Adversarial Mining Underperforms Baseline [COMPLETED]
+**Timestamp**: 2026-01-21T16:51:32Z (experiments completed)
+**Analysis Updated**: 2026-01-21T18:00:00Z
+**Run IDs**: q001_20260121_071917 (baseline), q002_20260121_124609 (random), q003_20260121_143232 (adversarial)
+**Job IDs**: 56162645 (baseline), 56185426 (random), 56194269 (adversarial)
+
+**Final Results from Completed Experiments**:
+- **Q-001 Baseline (no mining)**: train_mse = 0.0096721, validation_mse = 0.0096761
+- **Q-002 Random mining**: train_mse = 0.00968831, validation_mse = 0.00968396 (+0.08% vs baseline)
+- **Q-003 Adversarial mining**: train_mse = 0.00980961, validation_mse = 0.00982675 (+1.56% vs baseline)
+
+**Key Findings**:
+1. **Random ≈ Baseline** (difference of 0.08% is within noise, needs multi-seed validation)
+2. **Adversarial is clearly worse** (+1.56% MSE increase on validation, +1.47% on training)
+3. **Training stability varies**: Baseline and random show stable convergence; adversarial shows slight instability
+4. **Adversarial hyperparameters**: mining_opt_steps=2, mining_noise_scale=3.0 (from q003_adversarial.json)
+
+**Why This Matters**:
+- Adversarial negative mining was expected to improve performance by forcing the model to learn from hard examples
+- Instead, it degraded performance significantly
+- This is a **known failure mode** in contrastive learning literature when:
+  - Hard negatives are actually **false negatives** (too similar to positives)
+  - Negatives become **pathologically hard** (ill-conditioned matrices for inversion)
+  - Hard negatives create **gradient artifacts** or optimization instability
+  - **Diversity is lost** (hard negatives collapse to narrow region)
+
+**Investigation Plan** (see queue.md and implementation-todo.md for details):
+
+#### Phase 1: Validate Results (HIGH PRIORITY) - INFRASTRUCTURE READY ✓
+- **Status**: Infrastructure complete as of 2026-01-21T18:30:00Z
+- **Q-101/102/103**: Run 10 seeds per strategy for confidence intervals
+  - ✓ Added --seed parameter to experiments/matrix_inversion_mining.py
+  - ✓ Created configs: q101/q102/q103_multiseed_{baseline,random,adversarial}.json
+  - ✓ Created SLURM array jobs: q101/q102/q103_multiseed.sbatch (--array=0-9)
+  - Ready for submission via /dispatch or scripts/cluster/submit.sh
+- **Q-104**: Track learning curves with frequent checkpointing
+- **Goal**: Confirm adversarial consistently underperforms across seeds
+- **Compute**: 45 GPU-hours total (30 jobs × 1.5h), ~1.5-6h wall-clock time
+
+#### Phase 2: Diagnose Root Cause (HIGH PRIORITY)
+- **Q-201**: Matrix conditioning analysis
+  - Hypothesis: Adversarial negatives are near-singular (high condition number)
+  - Check distribution of det(A), cond(A), σ_min for pos vs neg samples
+- **Q-202**: Energy gap profiling
+  - Hypothesis: Adversarial negatives collapse to narrow region, losing diversity
+  - Track E(pos) - E(neg), gradient norms, false negative rate
+
+#### Phase 3: Fix Adversarial Mining (MEDIUM PRIORITY)
+- **Q-301**: Sweep mining_opt_steps [1, 3, 5, 10, 20]
+  - Find optimal hardness level
+- **Q-302/303**: Sweep ascent LR and noise scale
+  - Control hardness and add diversity
+- **Q-304**: Mixed strategy (70% random + 30% adversarial)
+  - Balance diversity with challenge
+
+#### Phase 4: Training Stability (HIGH PRIORITY)
+- **Q-401**: Add cosine LR decay + grad clipping + EMA
+  - Fix late-stage divergence observed in validation run
+- **Q-402**: Early stopping based on best validation checkpoint
+  - Prevent performance degradation in late training
+
+**Literature Support**:
+- **False negatives harm learning**: Debiased Contrastive Learning (Chuang et al., NeurIPS 2020), False Negative Cancellation (Huynh et al., WACV 2022)
+- **Hard negatives need careful tuning**: Hard Negative Mixing (Kalantidis et al., NeurIPS 2020), Contrastive learning with hard negative samples (Robinson et al., 2020)
+- **EBM training instability**: Improved Contrastive Divergence Training (Du et al., 2021), Learning EBMs with Adversarial Training (Yin et al., ECCV 2022)
+
+**Expected Outcomes**:
+1. **Multi-seed validation** will confirm adversarial consistently underperforms (or reveal it's just noise)
+2. **Conditioning analysis** will likely show adversarial negatives have pathologically high condition numbers
+3. **Hyperparameter sweeps** may rescue adversarial mining (or prove it's fundamentally flawed for this task)
+4. **Stability fixes** will improve all strategies, especially late training
+5. **Publishable result**: "Harder ≠ better for matrix inversion EBMs due to task geometry"
+
+**Status**: ACTIVE - Investigation phase started, implementation tasks defined
+
+---
+
 ## Active Issues
 
-No active issues.
+### Issue 10: Multi-seed validation jobs failed - missing --seed parameter in commit 294cd74
+**Timestamp**: 2026-01-21T16:13:00Z (failure detected), 2026-01-23T18:18:09Z (RESUBMITTED)
+**Original Run IDs**: q101_20260121_124610, q102_20260121_124613, q103_20260121_124900 (FAILED)
+**Original Job IDs**: 56216344, 56216358, 56216364 (FAILED - exit code 2:0)
+**New Run IDs**: q101_20260123_181809, q102_20260123_181809, q103_20260123_181809
+**New Job IDs**: 56540906, 56540909, 56540911
+**Error**: Exit code 2:0 - "unrecognized arguments: --seed 0"
+
+**Root Cause**:
+- Sbatch scripts (q101/q102/q103_multiseed.sbatch) correctly pass `--seed $SLURM_ARRAY_TASK_ID` to matrix_inversion_mining.py
+- However, commit 294cd74 (checked out in sbatch jobs) does NOT have the --seed parameter implemented in argparse
+- The current working tree (untracked in 294cd74) has the --seed parameter
+- Code mismatch: sbatch scripts written to use feature not yet committed
+
+**Fix Applied**:
+- Commit c11bf8d: Added --seed parameter to matrix_inversion_mining.py with full seed setting:
+  - Added argparse argument: `parser.add_argument('--seed', type=int, default=None, ...)`
+  - Added seed initialization in run_experiment(): torch.manual_seed(), np.random.seed(), random.seed(), cuda.manual_seed_all()
+  - Seed can be provided via --seed CLI flag or config file
+  - CLI seed overrides config file seed if both provided
+- Updated pipeline.json: moved 3 failed runs to completed_runs with failure documentation
+- Resubmitted on 2026-01-23T18:18:09Z with git_sha c11bf8d
+
+**Resubmission Details**:
+- Q-101 baseline (job_id: 56540906, run_id: q101_20260123_181809)
+- Q-102 random mining (job_id: 56540909, run_id: q102_20260123_181809)
+- Q-103 adversarial mining (job_id: 56540911, run_id: q103_20260123_181809)
+- Each array job: 10 seeds (--array=0-9%2, throttled to 2 concurrent)
+- Estimated runtime: 45 GPU-hours total, 7.5h wall-clock (if sequential batches), ~1.5h if parallel
+- Phase transition: DEBUG → WAIT_SLURM
+- Early poll scheduled for 2026-01-23T18:19:09Z (60s after submission)
+
+**Status**: RESUBMITTED - Awaiting early poll confirmation that jobs are running
 
 ## Resolved
 
