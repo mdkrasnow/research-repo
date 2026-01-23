@@ -23,6 +23,7 @@ sys.path.insert(0, str(ired_dir))
 
 import torch
 import numpy as np
+import random
 from dataset import Inverse
 from models import EBM, DiffusionWrapper
 from diffusion_lib.denoising_diffusion_pytorch_1d import GaussianDiffusion1D, Trainer1D
@@ -49,7 +50,7 @@ def load_config(config_path):
 def run_experiment(config):
     """
     Run matrix inversion experiment with specified mining strategy.
-    
+
     Args:
         config: Dictionary containing experiment configuration
             - mining_strategy: 'none', 'random', or 'adversarial'
@@ -58,8 +59,19 @@ def run_experiment(config):
             - batch_size: Training batch size
             - train_steps: Total training iterations
             - learning_rate: Optimizer learning rate
+            - seed: Random seed for reproducibility (optional)
             - output_dir: Directory for results and checkpoints
     """
+    # Set random seed if provided
+    seed = config.get('seed', None)
+    if seed is not None:
+        print(f"Setting random seed: {seed}")
+        torch.manual_seed(seed)
+        np.random.seed(seed)
+        random.seed(seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(seed)
+
     print(f"Starting experiment with mining strategy: {config['mining_strategy']}")
     print(f"Configuration: {json.dumps(config, indent=2)}")
     
@@ -178,7 +190,11 @@ def main():
                         help='Number of gradient steps for adversarial mining')
     parser.add_argument('--mining-noise-scale', type=float, default=3.0,
                         help='Noise scale for negative sample initialization')
-    
+
+    # Reproducibility
+    parser.add_argument('--seed', type=int, default=None,
+                        help='Random seed for reproducibility')
+
     # Output
     parser.add_argument('--output-dir', type=str, default=None,
                         help='Output directory for results (auto-generated if not specified)')
@@ -189,6 +205,9 @@ def main():
     if args.config:
         print(f"Loading configuration from: {args.config}")
         config = load_config(args.config)
+        # Allow command-line seed to override config file seed
+        if args.seed is not None:
+            config['seed'] = args.seed
     else:
         # Build config from command-line arguments
         config = {
@@ -201,8 +220,9 @@ def main():
             'learning_rate': args.learning_rate,
             'mining_opt_steps': args.mining_opt_steps,
             'mining_noise_scale': args.mining_noise_scale,
+            'seed': args.seed,
         }
-    
+
     # Set output directory
     if args.output_dir:
         config['output_dir'] = args.output_dir
