@@ -81,39 +81,41 @@
 
 ## Active Issues
 
-### Issue 10: Multi-seed validation jobs failed - missing --seed parameter in commit 294cd74
-**Timestamp**: 2026-01-21T16:13:00Z (failure detected), 2026-01-23T18:18:09Z (RESUBMITTED)
-**Original Run IDs**: q101_20260121_124610, q102_20260121_124613, q103_20260121_124900 (FAILED)
-**Original Job IDs**: 56216344, 56216358, 56216364 (FAILED - exit code 2:0)
-**New Run IDs**: q101_20260123_181809, q102_20260123_181809, q103_20260123_181809
-**New Job IDs**: 56540906, 56540909, 56540911
-**Error**: Exit code 2:0 - "unrecognized arguments: --seed 0"
+### Issue 11: Multi-seed validation jobs failed - config file mismatch (c11bf8d vs fef8849)
+**Timestamp**: 2026-01-23T18:18:31Z (failure detected)
+**Run IDs**: q101_20260123_181809 (FAILED), q102_20260123_181809 (FAILED), q103_20260123_181809 (FAILED)
+**Job IDs**: 56540906 (FAILED - 22s), 56540909 (FAILED - 105s), 56540911 (FAILED - 22s)
+**Error**: FileNotFoundError: [Errno 2] No such file or directory: 'projects/ired/configs/q10{1,2,3}_multiseed_{baseline,random,adversarial}.json'
 
 **Root Cause**:
-- Sbatch scripts (q101/q102/q103_multiseed.sbatch) correctly pass `--seed $SLURM_ARRAY_TASK_ID` to matrix_inversion_mining.py
-- However, commit 294cd74 (checked out in sbatch jobs) does NOT have the --seed parameter implemented in argparse
-- The current working tree (untracked in 294cd74) has the --seed parameter
-- Code mismatch: sbatch scripts written to use feature not yet committed
+- Jobs were submitted with git_sha=c11bf8d which contains --seed parameter implementation
+- Config files (q101_multiseed_baseline.json, q102_multiseed_random.json, q103_multiseed_adversarial.json) were added in commit fef8849
+- Commit c11bf8d does NOT include these config files
+- Current HEAD is fef8849 (verified with git rev-parse HEAD)
+- Timeline: c11bf8d (2026-01-23) → fef8849 (reorg commit, later)
+- Jobs checkout c11bf8d and immediately fail when sbatch tries to read missing config files
 
-**Fix Applied**:
-- Commit c11bf8d: Added --seed parameter to matrix_inversion_mining.py with full seed setting:
-  - Added argparse argument: `parser.add_argument('--seed', type=int, default=None, ...)`
-  - Added seed initialization in run_experiment(): torch.manual_seed(), np.random.seed(), random.seed(), cuda.manual_seed_all()
-  - Seed can be provided via --seed CLI flag or config file
-  - CLI seed overrides config file seed if both provided
-- Updated pipeline.json: moved 3 failed runs to completed_runs with failure documentation
-- Resubmitted on 2026-01-23T18:18:09Z with git_sha c11bf8d
+**Verification**:
+- Config files verified to exist in current directory (glob search successful):
+  - /Users/mkrasnow/Desktop/research-repo/projects/ired/configs/q101_multiseed_baseline.json ✓
+  - /Users/mkrasnow/Desktop/research-repo/projects/ired/configs/q102_multiseed_random.json ✓
+  - /Users/mkrasnow/Desktop/research-repo/projects/ired/configs/q103_multiseed_adversarial.json ✓
+- Current HEAD commit: fef8849 (verified)
+- All config files present in HEAD
 
-**Resubmission Details**:
-- Q-101 baseline (job_id: 56540906, run_id: q101_20260123_181809)
-- Q-102 random mining (job_id: 56540909, run_id: q102_20260123_181809)
-- Q-103 adversarial mining (job_id: 56540911, run_id: q103_20260123_181809)
-- Each array job: 10 seeds (--array=0-9%2, throttled to 2 concurrent)
-- Estimated runtime: 45 GPU-hours total, 7.5h wall-clock (if sequential batches), ~1.5h if parallel
-- Phase transition: DEBUG → WAIT_SLURM
-- Early poll scheduled for 2026-01-23T18:19:09Z (60s after submission)
+**Solution**:
+- Resubmit Q-101/102/103 with git_sha=fef8849 (current HEAD)
+- fef8849 contains both:
+  1. --seed parameter support (from c11bf8d)
+  2. All three config files (added in fef8849)
+- No code changes needed, just specify correct git_sha
 
-**Status**: RESUBMITTED - Awaiting early poll confirmation that jobs are running
+**Next Steps**:
+- Resubmit with current HEAD (fef8849) via /dispatch or /run-experiments
+- Phase transition: DEBUG → WAIT_SLURM after successful resubmission
+- Early poll scheduled for 60s after resubmission to catch any initialization errors
+
+**Status**: BLOCKED - Waiting for user confirmation to resubmit with correct git_sha
 
 ## Resolved
 
