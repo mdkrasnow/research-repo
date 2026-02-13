@@ -1,7 +1,7 @@
 {
   "project": "ired",
-  "phase": "RUN",
-  "next_action": "poll_multiseed_jobs",
+  "phase": "COMPLETE",
+  "next_action": "document_findings",
   "needs_user_input": {
     "value": false,
     "prompt": ""
@@ -20,6 +20,65 @@
       "learning_rate": 0.0001
     },
     "next_steps": "Phase 1: Multi-seed validation (Q-101/102/103) to confirm statistical significance of results"
+  },
+  "multiseed_analysis_complete": {
+    "timestamp": "2026-02-13T10:53:00Z",
+    "summary": "Multi-seed validation completed with 10 seeds per strategy (30 total runs). Results confirm baseline strategy performs statistically significantly better than adversarial mining (p<0.0001), with random mining performing similarly to baseline.",
+    "baseline_stats": {
+      "mean": 0.00969245,
+      "std": 2.153e-05,
+      "min": 0.00966487,
+      "max": 0.00973317,
+      "n": 10
+    },
+    "random_stats": {
+      "mean": 0.00973053,
+      "std": 5.962e-05,
+      "min": 0.00966493,
+      "max": 0.00984372,
+      "n": 10
+    },
+    "adversarial_stats": {
+      "mean": 0.00977702,
+      "std": 2.325e-05,
+      "min": 0.00973886,
+      "max": 0.00981204,
+      "n": 10
+    },
+    "statistical_tests": {
+      "baseline_vs_random": {
+        "t_stat": -1.8025485483129355,
+        "p_value": 0.08822895810483242,
+        "significant": false,
+        "effect_size_percent": 0.004,
+        "conclusion": "No significant difference (p=0.088). Baseline and Random perform similarly."
+      },
+      "baseline_vs_adversarial": {
+        "t_stat": -8.008045986282061,
+        "p_value": 2.41587767503841e-07,
+        "significant": true,
+        "effect_size_percent": 0.008,
+        "conclusion": "HIGHLY SIGNIFICANT difference (p<0.0001). Baseline outperforms Adversarial by 0.8% in MSE."
+      },
+      "random_vs_adversarial": {
+        "t_stat": -2.1795524076491564,
+        "p_value": 0.04281532186103871,
+        "significant": true,
+        "effect_size_percent": 0.005,
+        "conclusion": "SIGNIFICANT difference (p=0.043). Random outperforms Adversarial by 0.5% in MSE."
+      }
+    },
+    "key_findings": [
+      "Baseline (no mining) validation MSE: 0.009692 ± 0.000022 (very low variance)",
+      "Random mining validation MSE: 0.009731 ± 0.000060 (moderate variance)",
+      "Adversarial mining validation MSE: 0.009777 ± 0.000023 (low variance)",
+      "Adversarial mining is 0.8% WORSE than baseline (highly significant, p<0.0001)",
+      "Random mining is 0.4% worse than baseline (NOT significant, p=0.088)",
+      "Adversarial mining has tighter variance than baseline and random",
+      "Mining configuration: adversarial used mining_opt_steps=2, mining_noise_scale=3.0"
+    ],
+    "hypothesis_result": "REJECTED - Adversarial negative mining does NOT improve matrix inversion performance. In fact, it significantly degrades performance.",
+    "next_steps": "Investigation phase needed: (1) Analyze why negative mining fails, (2) Test alternative mining configs (different opt_steps, noise_scale), (3) Examine if mining examples are out-of-distribution"
   },
   "multiseed_validation_plan": {
     "timestamp": "2026-01-21T18:30:00Z",
@@ -60,51 +119,56 @@
       "Output directories per seed: results/ds_inverse/q10{1,2,3}_seed{0-9}"
     ]
   },
-  "active_runs": [
-    {
-      "run_id": "q101_20260123_202500",
-      "experiment": "q101_multiseed_baseline",
-      "job_id": "56602458",
-      "submitted_at": "2026-01-23T20:25:00Z",
-      "status": "submitted",
-      "partition": "gpu",
-      "git_sha": "fef8849",
-      "array_spec": "0-9%2",
-      "num_seeds": 10,
-      "strategy": "none",
-      "expected_runtime_per_seed": "1.5h",
-      "expected_gpu_hours": 15.0
-    },
-    {
-      "run_id": "q102_20260123_202500",
-      "experiment": "q102_multiseed_random",
-      "job_id": "56602475",
-      "submitted_at": "2026-01-23T20:25:00Z",
-      "status": "submitted",
-      "partition": "gpu",
-      "git_sha": "fef8849",
-      "array_spec": "0-9%2",
-      "num_seeds": 10,
-      "strategy": "random",
-      "expected_runtime_per_seed": "1.5h",
-      "expected_gpu_hours": 15.0
-    },
+  "active_runs": [],
+  "completed_runs": [
     {
       "run_id": "q103_20260123_202500",
       "experiment": "q103_multiseed_adversarial",
       "job_id": "56602491",
       "submitted_at": "2026-01-23T20:25:00Z",
-      "status": "submitted",
+      "completed_at": "2026-02-13T10:30:00Z",
+      "status": "completed",
       "partition": "gpu",
       "git_sha": "fef8849",
       "array_spec": "0-9%2",
       "num_seeds": 10,
       "strategy": "adversarial",
       "expected_runtime_per_seed": "1.5h",
-      "expected_gpu_hours": 15.0
-    }
-  ],
-  "completed_runs": [
+      "expected_gpu_hours": 15.0,
+      "note": "All 10 array tasks completed with exit code 0"
+    },
+    {
+      "run_id": "q102_20260123_202500",
+      "experiment": "q102_multiseed_random",
+      "job_id": "56602475",
+      "submitted_at": "2026-01-23T20:25:00Z",
+      "completed_at": "2026-02-13T10:30:00Z",
+      "status": "completed",
+      "partition": "gpu",
+      "git_sha": "fef8849",
+      "array_spec": "0-9%2",
+      "num_seeds": 10,
+      "strategy": "random",
+      "expected_runtime_per_seed": "1.5h",
+      "expected_gpu_hours": 15.0,
+      "note": "All 10 array tasks completed with exit code 0"
+    },
+    {
+      "run_id": "q101_20260123_202500",
+      "experiment": "q101_multiseed_baseline",
+      "job_id": "56602458",
+      "submitted_at": "2026-01-23T20:25:00Z",
+      "completed_at": "2026-02-13T10:30:00Z",
+      "status": "completed",
+      "partition": "gpu",
+      "git_sha": "fef8849",
+      "array_spec": "0-9%2",
+      "num_seeds": 10,
+      "strategy": "none",
+      "expected_runtime_per_seed": "1.5h",
+      "expected_gpu_hours": 15.0,
+      "note": "All 10 array tasks completed with exit code 0"
+    },
     {
       "run_id": "q103_20260123_181809",
       "experiment": "q103_multiseed_adversarial",
@@ -423,10 +487,10 @@
     }
   ],
   "slurm_wait": {
-    "next_poll_after": "2026-01-23T20:41:00Z",
+    "next_poll_after": null,
     "poll_interval_seconds": 900,
-    "last_polled_at": "2026-01-23T20:26:00Z",
-    "note": "Early poll successful. All 3 jobs PENDING in queue (normal queue wait, no errors). Transitioning to normal 15-minute polling interval. Job IDs: 56602458, 56602475, 56602491. Array jobs: --array=0-9%2 (10 seeds, 2 concurrent per job). Wall-clock: ~7.5h (30 tasks × 1.5h/task). GPU-hours: 45h."
+    "last_polled_at": "2026-02-13T10:30:00Z",
+    "note": "All multiseed validation jobs completed successfully. Job IDs: 56602458 (baseline), 56602475 (random), 56602491 (adversarial). Each array job completed all 10 tasks with exit code 0. Total GPU-hours used: 45h. Phase transition: RUN → ANALYSIS. All active_runs moved to completed_runs. Ready to compile and analyze results."
   },
   "events": [
     {
