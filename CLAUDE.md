@@ -42,6 +42,16 @@ After each step, update (as applicable):
   - For experiments expected to take < 24 hours: Use `--partition=gpu_test` for better priority queue positioning
   - For experiments expected to take ≥ 24 hours: Use `--partition=gpu`
   - gpu_test has higher priority but 24-hour time limit; gpu has lower priority but longer time limits
+- **QOS management & partition diversification rule**:
+  - When submitting multiple jobs simultaneously (e.g., 6 evaluation experiments), the cluster applies per-partition QOS limits that prevent submitting too many jobs to the same partition at once
+  - **Solution**: Distribute jobs across both `gpu_test` AND `gpu` partitions to avoid hitting per-partition submission limits
+  - **Strategy**: For a batch of N jobs, split them roughly evenly:
+    - Submit ~N/2 jobs to `gpu_test` (higher priority, faster queue)
+    - Submit remaining ~N/2 jobs to `gpu` (standard queue)
+    - This allows all jobs to submit successfully without waiting for QOS limit resets
+  - **When to apply**: Whenever submitting 4+ jobs in the same dispatch operation
+  - **Example**: For 6 evaluation jobs, submit 3 to gpu_test and 3 to gpu to avoid "QOSMaxSubmitJobPerUserLimit" errors
+  - Jobs on different partitions run in parallel without interference
 - **Early polling rule**: After submitting a job, set `next_poll_after` to ~60 seconds after submission (not the default 15-minute interval). This catches initialization errors (missing modules, wrong Python version, etc.) quickly. After the early poll succeeds, resume normal polling intervals.
 - **Job verification rule** (`/dispatch` MUST DO FIRST): Before processing any projects, verify all outstanding jobs in `active_runs`:
   1. Check if jobs marked "running" are actually running via `scripts/cluster/status.sh <job_id>` (remote SLURM)
