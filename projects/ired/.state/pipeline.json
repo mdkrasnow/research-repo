@@ -1,10 +1,43 @@
 {
   "project": "ired",
-  "phase": "COMPLETE",
-  "next_action": "document_findings",
+  "phase": "IMPLEMENT",
+  "current_investigation": "ired-cd",
+  "next_action": "submit_cd_experiments",
   "needs_user_input": {
     "value": false,
     "prompt": ""
+  },
+  "ired_cd_investigation": {
+    "status": "READY_TO_SUBMIT",
+    "timestamp": "2026-02-16T00:00:00Z",
+    "description": "IRED-CD: Corrected CD-style training with Langevin sampling, timestep-bucketed replay buffer, and false-negative filtering",
+    "target_baseline_mse": 0.00969245,
+    "target_improvement": "1-5% (MSE < 0.0096)",
+    "configs_created": [
+      "q201_baseline.json",
+      "q202_cd_langevin.json",
+      "q203_cd_replay.json",
+      "q204_cd_full.json"
+    ],
+    "implementation_tasks": {
+      "langevin_sampling": "completed",
+      "replay_buffer": "completed",
+      "cd_loss": "completed",
+      "residual_filter": "completed",
+      "energy_schedule": "completed",
+      "sbatch_scripts": "completed"
+    },
+    "experiments_planned": {
+      "q201_baseline": {"status": "pending", "seeds": 10, "ablation": "baseline (current NCE)", "strategy": "adversarial"},
+      "q202_cd_langevin": {"status": "pending", "seeds": 10, "ablation": "CD loss + Langevin", "strategy": "cd_langevin"},
+      "q203_cd_replay": {"status": "pending", "seeds": 10, "ablation": "+ Replay buffer", "strategy": "cd_langevin_replay"},
+      "q204_cd_full": {"status": "pending", "seeds": 10, "ablation": "+ Residual filter + Schedule", "strategy": "cd_full"}
+    },
+    "expected_compute": "60 GPU-hours (40 experiments × 1.5h)",
+    "plan_documents": [
+      "documentation/ired-dcd-plan.md (original)",
+      "documentation/ired-cd-implementation-fixed.md (corrected)"
+    ]
   },
   "analysis_complete": {
     "timestamp": "2026-01-21T18:00:00Z",
@@ -864,6 +897,12 @@
       "ts": "2026-01-23T20:26:00Z",
       "action": "CHECK",
       "detail": "Early poll successful for jobs 56602458, 56602475, 56602491. All 3 array jobs PENDING in SLURM queue (normal queue wait, no initialization errors detected). Successfully passed setup phase: repository cloning, checkout, and environment initialization. Transitioning to normal 15-minute polling interval. Expected completion: ~7.5h wall-clock time (30 tasks × 1.5h/task, 2 concurrent). Next poll: 2026-01-23T20:41:00Z."
+    },
+    {
+      "id": "evt-0063",
+      "ts": "2026-02-16T12:10:00Z",
+      "action": "IMPLEMENT",
+      "detail": "IRED-CD implementation COMPLETE. All 6 components verified: (1) Langevin sampler with wrapper gradient, (2) Timestep-bucketed replay buffer, (3) CD-style energy loss with corrected gradient flow, (4) Residual filtering for false negatives, (5) Energy loss scheduling with warmup + timestep range, (6) Array sbatch scripts (q201-q204) for multi-seed runs. Sbatch scripts updated with --array=0-9%2, --seed $SLURM_ARRAY_TASK_ID, partition diversification (q201/202 on gpu_test, q203/204 on gpu). Ready to submit experiments."
     }
   ]
 }
