@@ -1,14 +1,14 @@
 {
   "project": "ired",
-  "phase": "IMPLEMENT",
+  "phase": "WAIT_SLURM",
   "current_investigation": "ired-cd",
-  "next_action": "submit_cd_experiments",
+  "next_action": "poll_cd_experiments",
   "needs_user_input": {
     "value": false,
     "prompt": ""
   },
   "ired_cd_investigation": {
-    "status": "READY_TO_SUBMIT",
+    "status": "RUNNING",
     "timestamp": "2026-02-16T00:00:00Z",
     "description": "IRED-CD: Corrected CD-style training with Langevin sampling, timestep-bucketed replay buffer, and false-negative filtering",
     "target_baseline_mse": 0.00969245,
@@ -152,7 +152,64 @@
       "Output directories per seed: results/ds_inverse/q10{1,2,3}_seed{0-9}"
     ]
   },
-  "active_runs": [],
+  "active_runs": [
+    {
+      "run_id": "q201_20260216_121500",
+      "experiment": "q201_baseline",
+      "job_id": "60619264",
+      "submitted_at": "2026-02-16T12:15:00Z",
+      "status": "running",
+      "partition": "gpu",
+      "git_sha": "d2b8bc4",
+      "array_spec": "0-9%2",
+      "num_seeds": 10,
+      "strategy": "adversarial",
+      "expected_runtime_per_seed": "1.5h",
+      "expected_gpu_hours": 15.0
+    },
+    {
+      "run_id": "q202_20260216_121500",
+      "experiment": "q202_cd_langevin",
+      "job_id": "60619276",
+      "submitted_at": "2026-02-16T12:15:00Z",
+      "status": "running",
+      "partition": "gpu",
+      "git_sha": "d2b8bc4",
+      "array_spec": "0-9%2",
+      "num_seeds": 10,
+      "strategy": "cd_langevin",
+      "expected_runtime_per_seed": "1.5h",
+      "expected_gpu_hours": 15.0
+    },
+    {
+      "run_id": "q203_20260216_121500",
+      "experiment": "q203_cd_replay",
+      "job_id": "60619287",
+      "submitted_at": "2026-02-16T12:15:00Z",
+      "status": "running",
+      "partition": "gpu",
+      "git_sha": "d2b8bc4",
+      "array_spec": "0-9%2",
+      "num_seeds": 10,
+      "strategy": "cd_langevin_replay",
+      "expected_runtime_per_seed": "1.5h",
+      "expected_gpu_hours": 15.0
+    },
+    {
+      "run_id": "q204_20260216_121500",
+      "experiment": "q204_cd_full",
+      "job_id": "60619298",
+      "submitted_at": "2026-02-16T12:15:00Z",
+      "status": "running",
+      "partition": "gpu",
+      "git_sha": "d2b8bc4",
+      "array_spec": "0-9%2",
+      "num_seeds": 10,
+      "strategy": "cd_full",
+      "expected_runtime_per_seed": "1.5h",
+      "expected_gpu_hours": 15.0
+    }
+  ],
   "completed_runs": [
     {
       "run_id": "q103_20260123_202500",
@@ -520,10 +577,10 @@
     }
   ],
   "slurm_wait": {
-    "next_poll_after": null,
+    "next_poll_after": "2026-02-16T20:56:22Z",
     "poll_interval_seconds": 900,
-    "last_polled_at": "2026-02-13T10:30:00Z",
-    "note": "All multiseed validation jobs completed successfully. Job IDs: 56602458 (baseline), 56602475 (random), 56602491 (adversarial). Each array job completed all 10 tasks with exit code 0. Total GPU-hours used: 45h. Phase transition: RUN → ANALYSIS. All active_runs moved to completed_runs. Ready to compile and analyze results."
+    "last_polled_at": "2026-02-16T20:41:22Z",
+    "note": "All 4 IRED-CD array jobs RUNNING (~17-21min runtime). Jobs healthy with 0:0 exit codes. Expected completion: ~1.5h total per seed (40 total experiments). Next poll in ~15 minutes."
   },
   "events": [
     {
@@ -903,6 +960,18 @@
       "ts": "2026-02-16T12:10:00Z",
       "action": "IMPLEMENT",
       "detail": "IRED-CD implementation COMPLETE. All 6 components verified: (1) Langevin sampler with wrapper gradient, (2) Timestep-bucketed replay buffer, (3) CD-style energy loss with corrected gradient flow, (4) Residual filtering for false negatives, (5) Energy loss scheduling with warmup + timestep range, (6) Array sbatch scripts (q201-q204) for multi-seed runs. Sbatch scripts updated with --array=0-9%2, --seed $SLURM_ARRAY_TASK_ID, partition diversification (q201/202 on gpu_test, q203/204 on gpu). Ready to submit experiments."
+    },
+    {
+      "id": "evt-0064",
+      "ts": "2026-02-16T12:15:00Z",
+      "action": "RUN",
+      "detail": "Submitted IRED-CD experiments: q201 baseline (60619264), q202 cd_langevin (60619276), q203 cd_replay (60619287), q204 cd_full (60619298). All array jobs with --array=0-9%2 on gpu partition. Git SHA: d2b8bc4. Total: 40 tasks × 1.5h = 60 GPU-hours. Early poll in 60s."
+    },
+    {
+      "id": "evt-0065",
+      "ts": "2026-02-16T12:16:30Z",
+      "action": "CHECK",
+      "detail": "Early poll: All 4 IRED-CD jobs PENDING (Priority). Queue behind 4 running algebra-ebm eval jobs (~60min runtime so far). No initialization errors. Normal queue wait. Next poll in ~1h when GPU slots should free up."
     }
   ]
 }
