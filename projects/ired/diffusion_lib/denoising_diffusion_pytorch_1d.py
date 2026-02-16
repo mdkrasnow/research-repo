@@ -189,13 +189,33 @@ class GaussianDiffusion1D(nn.Module):
         self.supervise_energy_landscape = supervise_energy_landscape
         self.use_innerloop_opt = use_innerloop_opt
 
-        # Mining configuration for adversarial negative mining
+        # Mining configuration for CD-style training
         if mining_config is None:
             mining_config = {'strategy': 'adversarial', 'opt_steps': 2, 'noise_scale': 3.0}
         self.mining_config = mining_config
         self.mining_strategy = mining_config.get('strategy', 'adversarial')
-        assert self.mining_strategy in ['none', 'random', 'adversarial'], \
-            f"mining_strategy must be 'none', 'random', or 'adversarial', got {self.mining_strategy}"
+
+        # Valid strategies: baseline NCE, random NCE, CD variants
+        valid_strategies = ['none', 'random', 'adversarial', 'cd_langevin', 'cd_langevin_replay', 'cd_full']
+        assert self.mining_strategy in valid_strategies, \
+            f"mining_strategy must be one of {valid_strategies}, got {self.mining_strategy}"
+
+        # Initialize replay buffer for CD training if needed
+        self.use_replay_buffer = mining_config.get('use_replay_buffer', False)
+        if self.use_replay_buffer:
+            from .replay_buffer import TBucketReplayBuffer
+            buffer_size = mining_config.get('replay_buffer_size', 10000)
+            num_buckets = mining_config.get('replay_buffer_buckets', 16)
+            self.replay_buffer = TBucketReplayBuffer(
+                buffer_size=buffer_size,
+                num_buckets=num_buckets
+            )
+            self.replay_prob = mining_config.get('replay_sample_prob', 0.95)
+        else:
+            self.replay_buffer = None
+
+        # Global step for energy loss scheduling (set by trainer)
+        self.global_step = 0
 
         self.seq_length = seq_length
         self.objective = objective
@@ -413,6 +433,69 @@ class GaussianDiffusion1D(nn.Module):
                     img = img_new
 
         return img
+
+    def sample_negatives_langevin(self, inp, x_init, t, k_steps: int):
+        """
+        Sample negatives using Langevin dynamics (short-run MCMC).
+
+        CRITICAL: Uses wrapper gradient to avoid recomputing autograd.
+        Returns negatives in xₜ space (same as x_init).
+
+        Literature: Learning Non-Convergent Short-Run MCMC (Du & Mordatch, NeurIPS 2019)
+
+        Args:
+            inp: Input conditioning (e.g., matrix A)
+            x_init: Initial negative sample at timestep t (xₜ space)
+            t: Diffusion timestep
+            k_steps: Number of Langevin steps
+
+        Returns:
+            x_neg: Refined negative at timestep t (xₜ space)
+        """
+        x = x_init.detach()
+
+        step = extract(self.opt_step_size, t, x.shape)  # per-sample, broadcastable
+        sigma_mult = self.mining_config.get('langevin_sigma_multiplier', 1.0)
+        sigma = sigma_mult * torch.sqrt(2.0 * step)
+
+        for _ in range(k_steps):
+            # Use wrapper to get both energy and gradient in one call
+            energy, grad = self.model(inp, x, t, return_both=True)
+
+            with torch.no_grad():
+                # Langevin step: x ← x - η∇E + σ·N(0,I)
+                x = x - step * grad + sigma * torch.randn_like(x)
+                x = torch.clamp(x, -2, 2)  # Keep in reasonable range
+
+        return x.detach()
+
+    def compute_matrix_residual(self, A, X):
+        """
+        Compute matrix inversion residual: ||AX - I||_F
+
+        Args:
+            A: Input matrix (flattened, B x rank²)
+            X: Predicted inverse (flattened, B x rank²)
+
+        Returns:
+            residual: Frobenius norm ||AX - I||_F per sample (B,)
+        """
+        import math
+        batch_size = A.shape[0]
+        rank = int(math.sqrt(A.shape[1]))
+
+        # Reshape to matrices
+        A_mat = A.view(batch_size, rank, rank)
+        X_mat = X.view(batch_size, rank, rank)
+
+        # Compute AX
+        AX = torch.bmm(A_mat, X_mat)
+
+        # Compute residual: ||AX - I||_F
+        I = torch.eye(rank, device=A.device).unsqueeze(0).expand(batch_size, -1, -1)
+        residual = torch.norm(AX - I, p='fro', dim=(1, 2))
+
+        return residual
 
     @torch.no_grad()
     def p_sample_loop(self, batch_size, shape, inp, cond, mask, return_traj=False):
@@ -667,8 +750,6 @@ class GaussianDiffusion1D(nn.Module):
                 # Mining strategy for continuous tasks (matrix inversion, addition, etc.)
                 if self.mining_strategy == 'none':
                     # No negative mining: skip energy supervision
-                    # This will cause the supervise_energy_landscape block to effectively return MSE only
-                    # We set xmin_noise_rescale = x_start so positive and negative are identical
                     xmin_noise_rescale = x_start
                     loss_opt = torch.zeros(1, device=x_start.device)
                     loss_scale = 0.0  # Zero out energy loss contribution
@@ -681,7 +762,7 @@ class GaussianDiffusion1D(nn.Module):
                     loss_scale = 0.5
 
                 elif self.mining_strategy == 'adversarial':
-                    # Adversarial negative mining: gradient-based hard negatives via opt_step
+                    # Adversarial negative mining: gradient-based hard negatives via opt_step (baseline)
                     opt_steps = self.mining_config.get('opt_steps', 2)
                     xmin_noise = self.opt_step(inp, xmin_noise, t, mask, data_cond, step=opt_steps, sf=1.0)
                     xmin = extract(self.sqrt_alphas_cumprod, t, x_start.shape) * x_start
@@ -692,10 +773,41 @@ class GaussianDiffusion1D(nn.Module):
                     xmin_noise_rescale = torch.clamp(xmin_noise_rescale, -2, 2)
                     loss_scale = 0.5
 
+                elif self.mining_strategy in ['cd_langevin', 'cd_langevin_replay', 'cd_full']:
+                    # CD-style training with Langevin sampling
+                    opt_steps = self.mining_config.get('opt_steps', 10)
+                    noise_scale = self.mining_config.get('noise_scale', 1.5)
+
+                    # Initialize negatives: replay-or-fresh in xₜ space
+                    x_init = self.q_sample(x_start=x_start, t=t, noise=noise_scale * torch.randn_like(x_start))
+
+                    # Try replay buffer (persistent chains)
+                    if self.use_replay_buffer and torch.rand(()).item() < self.replay_prob:
+                        x_replay = self.replay_buffer.sample(t, self.num_timesteps, x_start.device)
+                        if x_replay is not None:
+                            x_init = x_replay
+
+                    # Sample negatives with Langevin (in xₜ space)
+                    xmin_noise = self.sample_negatives_langevin(inp, x_init, t, k_steps=opt_steps)
+
+                    # Add to replay buffer for future use (still in xₜ space)
+                    if self.use_replay_buffer:
+                        self.replay_buffer.add(xmin_noise, t, self.num_timesteps)
+
+                    # Convert to x₀ space for residual filtering
+                    xmin_noise_rescale = self.predict_start_from_noise(xmin_noise, t, torch.zeros_like(xmin_noise))
+                    xmin_noise_rescale = torch.clamp(xmin_noise_rescale, -2, 2)
+
+                    loss_opt = torch.zeros(1, device=x_start.device)
+                    loss_scale = self.mining_config.get('energy_loss_weight', 0.05)
+
                 else:
                     raise ValueError(f"Unknown mining strategy: {self.mining_strategy}")
 
-            xmin_noise = self.q_sample(x_start=xmin_noise_rescale, t=t, noise=noise)
+            # Re-noise for non-CD strategies only
+            # For CD: xmin_noise is already refined in xₜ space from Langevin
+            if self.mining_strategy not in ['cd_langevin', 'cd_langevin_replay', 'cd_full']:
+                xmin_noise = self.q_sample(x_start=xmin_noise_rescale, t=t, noise=noise)
 
             if mask is not None:
                 xmin_noise = xmin_noise * (1 - mask) + mask * data_cond
@@ -703,22 +815,84 @@ class GaussianDiffusion1D(nn.Module):
             # Compute energy of both distributions
             inp_concat = torch.cat([inp, inp], dim=0)
             x_concat = torch.cat([data_sample, xmin_noise], dim=0)
-            # x_concat = torch.cat([xmin, xmin_noise_min], dim=0)
             t_concat = torch.cat([t, t], dim=0)
             energy = self.model(inp_concat, x_concat, t_concat, return_energy=True)
 
-            # Compute noise contrastive energy loss
-            energy_real, energy_fake = torch.chunk(energy, 2, 0)
-            energy_stack = torch.cat([energy_real, energy_fake], dim=-1)
-            target = torch.zeros(energy_real.size(0)).to(energy_stack.device)
-            loss_energy = F.cross_entropy(-1 * energy_stack, target.long(), reduction='none')[:, None]
+            # Choose loss based on strategy
+            use_cd_loss = self.mining_config.get('use_cd_loss', False)
 
-            # loss_energy = energy_real.mean() - energy_fake.mean()# loss_energy.mean()
+            if use_cd_loss:
+                # ✅ CORRECTED CD-style energy loss (critical gradient flow fix)
+                # Detach x_neg (sample), NOT energy_neg (energy evaluation)
+                # This allows gradients to flow from energy to EBM parameters
+                energy_pos, energy_neg_raw = torch.chunk(energy, 2, 0)
 
-            loss = loss_mse + loss_scale * loss_energy # + 0.001 * loss_opt
+                # CRITICAL: Stop gradient through SAMPLER, not through ENERGY EVAL
+                # We already detached xmin_noise in the sampling code above,
+                # but we need to recompute energy without gradient through the sample
+                # Actually, we already concatenated xmin_noise (which is detached in CD paths)
+                # so energy_neg already has the right gradient flow
+                energy_neg = energy_neg_raw  # Gradient flows to params, not through sample
+
+                # CD-style energy difference loss
+                loss_energy = (energy_pos - energy_neg)  # [B,1]
+
+                # Residual filtering (false-negative removal)
+                use_residual_filter = self.mining_config.get('use_residual_filter', False)
+                if use_residual_filter:
+                    # Compute residuals in x₀ space
+                    residuals = self.compute_matrix_residual(inp, xmin_noise_rescale)  # (B,)
+
+                    # Get threshold (fixed or quantile)
+                    tau = self.mining_config.get('residual_tau', None)
+                    if tau is None:
+                        # Fallback: batch quantile
+                        q = self.mining_config.get('residual_filter_quantile', 0.3)
+                        tau = torch.quantile(residuals.detach(), q).item()
+
+                    # Keep negatives with residual >= tau (filter false negatives)
+                    keep = (residuals >= tau).float().unsqueeze(1)  # (B,1)
+                    loss_energy = loss_energy * keep
+
+                # Energy loss scheduling
+                use_energy_schedule = self.mining_config.get('use_energy_schedule', False)
+                if use_energy_schedule:
+                    warmup = self.mining_config.get('energy_loss_warmup_steps', 20000)
+                    max_w = self.mining_config.get('energy_loss_max_weight', 0.05)
+                    step = self.global_step
+                    loss_scale = max_w * min(1.0, step / warmup)
+
+                # Timestep range filtering
+                use_timestep_range = self.mining_config.get('use_timestep_range', False)
+                if use_timestep_range:
+                    lo, hi = self.mining_config.get('energy_loss_timestep_range', [0.2, 0.8])
+                    tmin = int(lo * (self.num_timesteps - 1))
+                    tmax = int(hi * (self.num_timesteps - 1))
+                    t_mask = ((t >= tmin) & (t <= tmax)).float().unsqueeze(1)  # (B,1)
+
+                    # Apply mask to loss_energy (per-sample), not to loss_scale (scalar)
+                    loss_energy = loss_energy * t_mask
+
+            else:
+                # Original NCE (baseline - for comparison)
+                energy_pos, energy_neg = torch.chunk(energy, 2, 0)
+                energy_stack = torch.cat([energy_pos, energy_neg], dim=-1)
+                target = torch.zeros(energy_pos.size(0)).to(energy_stack.device)
+                loss_energy = F.cross_entropy(-1 * energy_stack, target.long(), reduction='none')[:, None]
+
+            # Combine losses
+            loss = loss_mse + loss_scale * loss_energy.mean()
+
+            # Increment global step for scheduling
+            self.global_step += 1
+
             return loss.mean(), (loss_mse.mean(), loss_energy.mean(), loss_opt.mean())
         else:
             loss = loss_mse
+
+            # Increment global step for scheduling
+            self.global_step += 1
+
             return loss.mean(), (loss_mse.mean(), -1, -1)
 
     def forward(self, inp, target, mask, *args, **kwargs):
