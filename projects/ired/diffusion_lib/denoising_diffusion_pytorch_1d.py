@@ -814,7 +814,8 @@ class GaussianDiffusion1D(nn.Module):
 
             # Compute energy of both distributions
             inp_concat = torch.cat([inp, inp], dim=0)
-            x_concat = torch.cat([data_sample, xmin_noise], dim=0)
+            # CRITICAL: Detach negative samples to prevent gradient flow through sampler
+            x_concat = torch.cat([data_sample, xmin_noise.detach()], dim=0)
             t_concat = torch.cat([t, t], dim=0)
             energy = self.model(inp_concat, x_concat, t_concat, return_energy=True)
 
