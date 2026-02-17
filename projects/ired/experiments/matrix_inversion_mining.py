@@ -95,9 +95,35 @@ def run_experiment(config):
     # NOTE: This will require modifications to GaussianDiffusion1D (Task T1)
     # For now, we pass mining_strategy through kwargs
     mining_config = {
+        # Core parameters
         'strategy': mining_strategy,
         'opt_steps': config.get('mining_opt_steps', 2),
-        'noise_scale': config.get('mining_noise_scale', 3.0)
+        'noise_scale': config.get('mining_noise_scale', 3.0),
+
+        # CD core features
+        'use_cd_loss': config.get('use_cd_loss', False),
+        'use_langevin': config.get('use_langevin', False),
+        'langevin_sigma_multiplier': config.get('langevin_sigma_multiplier', 1.0),
+        'energy_loss_weight': config.get('energy_loss_weight', 0.05),
+
+        # Replay buffer
+        'use_replay_buffer': config.get('use_replay_buffer', False),
+        'replay_buffer_size': config.get('replay_buffer_size', 10000),
+        'replay_buffer_buckets': config.get('replay_buffer_buckets', 16),
+        'replay_sample_prob': config.get('replay_sample_prob', 0.95),
+
+        # Residual filtering
+        'use_residual_filter': config.get('use_residual_filter', False),
+        'residual_filter_quantile': config.get('residual_filter_quantile', 0.3),
+
+        # Energy scheduling
+        'use_energy_schedule': config.get('use_energy_schedule', False),
+        'energy_loss_warmup_steps': config.get('energy_loss_warmup_steps', 20000),
+        'energy_loss_max_weight': config.get('energy_loss_max_weight', 0.05),
+
+        # Timestep range filtering
+        'use_timestep_range': config.get('use_timestep_range', False),
+        'energy_loss_timestep_range': config.get('energy_loss_timestep_range', [0.2, 0.8])
     }
     
     diffusion = GaussianDiffusion1D(
