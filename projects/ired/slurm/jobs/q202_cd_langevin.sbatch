@@ -58,12 +58,12 @@ echo "Experiment completed at $(date)"
 # Copy results to persistent storage before cleanup
 REPO_ROOT="/n/home03/mkrasnow/research-repo"
 echo "Copying results to persistent storage..."
-if [ -d "$WORK_DIR/projects/ired/results" ]; then
+if [ -d "$WORK_DIR/results" ]; then
     mkdir -p "$REPO_ROOT/projects/ired/results"
-    rsync -av "$WORK_DIR/projects/ired/results/" "$REPO_ROOT/projects/ired/results/"
+    rsync -av "$WORK_DIR/results/" "$REPO_ROOT/projects/ired/results/"
     echo "Results copied to $REPO_ROOT/projects/ired/results/"
 else
-    echo "Warning: No results directory found at $WORK_DIR/projects/ired/results"
+    echo "Warning: No results directory found at $WORK_DIR/results"
 fi
 
 # Cleanup
