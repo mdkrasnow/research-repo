@@ -1,15 +1,17 @@
 {
   "project": "ired",
-  "phase": "WAIT_SLURM",
+  "phase": "DEBUG",
   "current_investigation": "ired-cd",
-  "next_action": "poll_cd_experiments",
+  "next_action": "cancel_and_resubmit_ired_cd",
   "needs_user_input": {
-    "value": false,
-    "prompt": ""
+    "value": true,
+    "prompt": "CRITICAL BUG DISCOVERED: All 40 running IRED-CD experiments are testing BROKEN code (Issue 12). The mining_config dictionary was missing 12 of 15 required parameters, causing ALL CD features to be disabled. Fix committed in bfbc5a0. Need to: (1) Cancel all 4 running jobs (60619264, 60619276, 60619287, 60619298), (2) Resubmit with fixed code (git_sha=bfbc5a0). Ready to proceed?"
   },
   "ired_cd_investigation": {
-    "status": "RUNNING",
+    "status": "BLOCKED",
     "timestamp": "2026-02-16T00:00:00Z",
+    "blocked_at": "2026-02-17T01:30:00Z",
+    "block_reason": "CRITICAL BUG: mining_config missing 12 of 15 required parameters (Issue 12). All CD features disabled in q202/q203/q204. Fix committed in bfbc5a0. All 40 running experiments INVALID and must be cancelled/rerun.",
     "description": "IRED-CD: Corrected CD-style training with Langevin sampling, timestep-bucketed replay buffer, and false-negative filtering",
     "target_baseline_mse": 0.00969245,
     "target_improvement": "1-5% (MSE < 0.0096)",
@@ -25,19 +27,30 @@
       "cd_loss": "completed",
       "residual_filter": "completed",
       "energy_schedule": "completed",
-      "sbatch_scripts": "completed"
+      "sbatch_scripts": "completed",
+      "mining_config_parameters": "CRITICAL BUG FIXED (bfbc5a0): Was passing 3/15 params, now passes all 15"
     },
     "experiments_planned": {
-      "q201_baseline": {"status": "pending", "seeds": 10, "ablation": "baseline (current NCE)", "strategy": "adversarial"},
-      "q202_cd_langevin": {"status": "pending", "seeds": 10, "ablation": "CD loss + Langevin", "strategy": "cd_langevin"},
-      "q203_cd_replay": {"status": "pending", "seeds": 10, "ablation": "+ Replay buffer", "strategy": "cd_langevin_replay"},
-      "q204_cd_full": {"status": "pending", "seeds": 10, "ablation": "+ Residual filter + Schedule", "strategy": "cd_full"}
+      "q201_baseline": {"status": "needs_rerun", "seeds": 10, "ablation": "baseline (current NCE)", "strategy": "adversarial", "note": "Running with broken code (d2b8bc4)"},
+      "q202_cd_langevin": {"status": "needs_rerun", "seeds": 10, "ablation": "CD loss + Langevin", "strategy": "cd_langevin", "note": "CD features were disabled, needs rerun with bfbc5a0"},
+      "q203_cd_replay": {"status": "needs_rerun", "seeds": 10, "ablation": "+ Replay buffer", "strategy": "cd_langevin_replay", "note": "CD features were disabled, needs rerun with bfbc5a0"},
+      "q204_cd_full": {"status": "needs_rerun", "seeds": 10, "ablation": "+ Residual filter + Schedule", "strategy": "cd_full", "note": "CD features were disabled, needs rerun with bfbc5a0"}
     },
     "expected_compute": "60 GPU-hours (40 experiments × 1.5h)",
     "plan_documents": [
       "documentation/ired-dcd-plan.md (original)",
       "documentation/ired-cd-implementation-fixed.md (corrected)"
-    ]
+    ],
+    "critical_bug_discovered": {
+      "issue_id": "Issue 12",
+      "discovered_at": "2026-02-17T01:30:00Z",
+      "git_sha_broken": "d2b8bc4",
+      "git_sha_fixed": "bfbc5a0",
+      "summary": "mining_config only passed 3/15 parameters, disabling all CD features",
+      "impact": "All 40 running experiments invalid (identical code for q202/q203/q204)",
+      "wasted_gpu_hours": "~11h (18% of 60h total)",
+      "requires_action": "Cancel all 4 jobs (60619264, 60619276, 60619287, 60619298) and resubmit with bfbc5a0"
+    }
   },
   "analysis_complete": {
     "timestamp": "2026-01-21T18:00:00Z",
@@ -1012,6 +1025,12 @@
       "ts": "2026-02-16T12:16:30Z",
       "action": "CHECK",
       "detail": "Early poll: All 4 IRED-CD jobs PENDING (Priority). Queue behind 4 running algebra-ebm eval jobs (~60min runtime so far). No initialization errors. Normal queue wait. Next poll in ~1h when GPU slots should free up."
+    },
+    {
+      "id": "evt-0066",
+      "ts": "2026-02-17T01:30:00Z",
+      "action": "DEBUG",
+      "detail": "CRITICAL BUG DISCOVERED (Issue 12): All 40 running IRED-CD experiments are testing BROKEN code. Root cause: matrix_inversion_mining.py (lines 97-101) only passes 3 of 15 required parameters to mining_config dictionary. Missing parameters: use_cd_loss, use_langevin, langevin_sigma_multiplier, energy_loss_weight, use_replay_buffer, replay_buffer_size, replay_buffer_buckets, replay_sample_prob, use_residual_filter, residual_filter_quantile, use_energy_schedule, energy_loss_warmup_steps, energy_loss_max_weight, use_timestep_range, energy_loss_timestep_range. Impact: ALL CD features disabled across q202/q203/q204, explaining identical MSE results (0.00972367, 0.00976373). Investigation triggered by user noticing identical results. Deep code analysis revealed experiment code reads JSON configs but never passes CD flags to diffusion model. Fix committed in bfbc5a0: Expanded mining_config to pass all 15 parameters organized into 5 groups. Phase transition: WAIT_SLURM → DEBUG. Status: All 4 jobs (60619264, 60619276, 60619287, 60619298) running with git_sha=d2b8bc4 (broken) must be cancelled and rerun with bfbc5a0 (fixed). Wasted GPU-hours: ~11h (18% of 60h total). next_action: cancel_and_resubmit_ired_cd. needs_user_input=true for confirmation to cancel/resubmit."
     }
   ]
 }
