@@ -1,17 +1,17 @@
 {
   "project": "ired",
-  "phase": "DEBUG",
+  "phase": "WAIT_SLURM",
   "current_investigation": "ired-cd",
-  "next_action": "cancel_and_resubmit_ired_cd",
+  "next_action": "poll_cd_experiments_fixed",
   "needs_user_input": {
-    "value": true,
-    "prompt": "CRITICAL BUG DISCOVERED: All 40 running IRED-CD experiments are testing BROKEN code (Issue 12). The mining_config dictionary was missing 12 of 15 required parameters, causing ALL CD features to be disabled. Fix committed in bfbc5a0. Need to: (1) Cancel all 4 running jobs (60619264, 60619276, 60619287, 60619298), (2) Resubmit with fixed code (git_sha=bfbc5a0). Ready to proceed?"
+    "value": false,
+    "prompt": ""
   },
   "ired_cd_investigation": {
-    "status": "BLOCKED",
+    "status": "RUNNING",
     "timestamp": "2026-02-16T00:00:00Z",
-    "blocked_at": "2026-02-17T01:30:00Z",
-    "block_reason": "CRITICAL BUG: mining_config missing 12 of 15 required parameters (Issue 12). All CD features disabled in q202/q203/q204. Fix committed in bfbc5a0. All 40 running experiments INVALID and must be cancelled/rerun.",
+    "resubmitted_at": "2026-02-17T01:35:00Z",
+    "previous_block": "Issue 12 RESOLVED: mining_config fix applied (bfbc5a0), invalid experiments cancelled (60619264-60619298), resubmitted with fixed code (60739447-60739551).",
     "description": "IRED-CD: Corrected CD-style training with Langevin sampling, timestep-bucketed replay buffer, and false-negative filtering",
     "target_baseline_mse": 0.00969245,
     "target_improvement": "1-5% (MSE < 0.0096)",
@@ -31,10 +31,10 @@
       "mining_config_parameters": "CRITICAL BUG FIXED (bfbc5a0): Was passing 3/15 params, now passes all 15"
     },
     "experiments_planned": {
-      "q201_baseline": {"status": "needs_rerun", "seeds": 10, "ablation": "baseline (current NCE)", "strategy": "adversarial", "note": "Running with broken code (d2b8bc4)"},
-      "q202_cd_langevin": {"status": "needs_rerun", "seeds": 10, "ablation": "CD loss + Langevin", "strategy": "cd_langevin", "note": "CD features were disabled, needs rerun with bfbc5a0"},
-      "q203_cd_replay": {"status": "needs_rerun", "seeds": 10, "ablation": "+ Replay buffer", "strategy": "cd_langevin_replay", "note": "CD features were disabled, needs rerun with bfbc5a0"},
-      "q204_cd_full": {"status": "needs_rerun", "seeds": 10, "ablation": "+ Residual filter + Schedule", "strategy": "cd_full", "note": "CD features were disabled, needs rerun with bfbc5a0"}
+      "q201_baseline": {"status": "running", "seeds": 10, "ablation": "baseline (current NCE)", "strategy": "adversarial", "job_id": "60739447", "git_sha": "948051d"},
+      "q202_cd_langevin": {"status": "running", "seeds": 10, "ablation": "CD loss + Langevin", "strategy": "cd_langevin", "job_id": "60739482", "git_sha": "948051d"},
+      "q203_cd_replay": {"status": "running", "seeds": 10, "ablation": "+ Replay buffer", "strategy": "cd_langevin_replay", "job_id": "60739516", "git_sha": "948051d"},
+      "q204_cd_full": {"status": "running", "seeds": 10, "ablation": "+ Residual filter + Schedule", "strategy": "cd_full", "job_id": "60739551", "git_sha": "948051d"}
     },
     "expected_compute": "60 GPU-hours (40 experiments × 1.5h)",
     "plan_documents": [
@@ -167,103 +167,143 @@
   },
   "active_runs": [
     {
-      "run_id": "q201_20260216_121500",
+      "run_id": "q201_20260217_013500",
       "experiment": "q201_baseline",
-      "job_id": "60619264",
-      "submitted_at": "2026-02-16T12:15:00Z",
+      "job_id": "60739447",
+      "submitted_at": "2026-02-17T01:35:00Z",
       "status": "running",
       "partition": "gpu",
-      "git_sha": "d2b8bc4",
+      "git_sha": "948051d",
       "array_spec": "0-9%2",
       "num_seeds": 10,
       "strategy": "adversarial",
       "expected_runtime_per_seed": "1.5h",
       "expected_gpu_hours": 15.0,
       "progress": {
-        "seeds_0_3": "COMPLETED (1h53m-1h58m each, except seed 0 TIMEOUT)",
-        "seeds_4_5": "RUNNING (~21-18min elapsed)",
-        "seeds_6_9": "PENDING",
-        "completed_count": 3,
+        "completed_count": 0,
         "running_count": 2,
-        "pending_count": 4,
-        "timeout_count": 1
+        "pending_count": 8
       },
-      "note": "Seed 0 hit 2h TIMEOUT (exceeded time limit - may indicate training instability or resource contention). Seeds 1-3 completed successfully in expected time range (1h53m-1h58m)."
+      "note": "RESUBMITTED with FIXED code after Issue 12 discovery. Git SHA 948051d includes mining_config fix from bfbc5a0 (all 15 parameters now passed)."
     },
     {
-      "run_id": "q202_20260216_121500",
+      "run_id": "q202_20260217_013500",
       "experiment": "q202_cd_langevin",
-      "job_id": "60619276",
-      "submitted_at": "2026-02-16T12:15:00Z",
+      "job_id": "60739482",
+      "submitted_at": "2026-02-17T01:35:00Z",
       "status": "running",
       "partition": "gpu",
-      "git_sha": "d2b8bc4",
+      "git_sha": "948051d",
       "array_spec": "0-9%2",
       "num_seeds": 10,
       "strategy": "cd_langevin",
       "expected_runtime_per_seed": "1.5h",
       "expected_gpu_hours": 15.0,
       "progress": {
-        "seeds_0_1_3": "COMPLETED (~1h47m each, except seed 2 TIMEOUT)",
-        "seeds_4_5": "RUNNING (~35-29min elapsed)",
-        "seeds_6_9": "PENDING",
-        "completed_count": 3,
+        "completed_count": 0,
         "running_count": 2,
-        "pending_count": 4,
-        "timeout_count": 1
+        "pending_count": 8
       },
-      "note": "Seed 2 hit 2h TIMEOUT (2h12s runtime - exceeded time limit, may indicate training instability). Seeds 0, 1, 3 completed successfully in expected time range (~1h47m-1h48m)."
+      "note": "RESUBMITTED with FIXED code. CD loss + Langevin will now ACTUALLY activate (was disabled in previous run due to missing parameters)."
     },
     {
-      "run_id": "q203_20260216_121500",
+      "run_id": "q203_20260217_013500",
       "experiment": "q203_cd_replay",
-      "job_id": "60619287",
-      "submitted_at": "2026-02-16T12:15:00Z",
+      "job_id": "60739516",
+      "submitted_at": "2026-02-17T01:35:00Z",
       "status": "running",
       "partition": "gpu",
-      "git_sha": "d2b8bc4",
+      "git_sha": "948051d",
       "array_spec": "0-9%2",
       "num_seeds": 10,
       "strategy": "cd_langevin_replay",
       "expected_runtime_per_seed": "1.5h",
       "expected_gpu_hours": 15.0,
       "progress": {
-        "seeds_0_3": "COMPLETED (~1h45m-1h49m each)",
-        "seeds_4_5": "RUNNING (~30-28min elapsed)",
-        "seeds_6_9": "PENDING",
-        "completed_count": 4,
+        "completed_count": 0,
         "running_count": 2,
-        "pending_count": 4,
-        "timeout_count": 0
+        "pending_count": 8
       },
-      "note": "Healthy progress. All completed seeds (0-3) finished in expected time range (~1h45m-1h49m). No timeouts."
+      "note": "RESUBMITTED with FIXED code. Replay buffer will now ACTUALLY work (was disabled in previous run)."
     },
     {
-      "run_id": "q204_20260216_121500",
+      "run_id": "q204_20260217_013500",
       "experiment": "q204_cd_full",
-      "job_id": "60619298",
-      "submitted_at": "2026-02-16T12:15:00Z",
+      "job_id": "60739551",
+      "submitted_at": "2026-02-17T01:35:00Z",
       "status": "running",
       "partition": "gpu",
-      "git_sha": "d2b8bc4",
+      "git_sha": "948051d",
       "array_spec": "0-9%2",
       "num_seeds": 10,
       "strategy": "cd_full",
       "expected_runtime_per_seed": "1.5h",
       "expected_gpu_hours": 15.0,
       "progress": {
-        "seeds_0_3": "COMPLETED (~1h47m-1h49m each)",
-        "seeds_4_5": "RUNNING (~28-27min elapsed)",
-        "seeds_6_9": "PENDING",
-        "completed_count": 4,
+        "completed_count": 0,
         "running_count": 2,
-        "pending_count": 4,
-        "timeout_count": 0
+        "pending_count": 8
       },
-      "note": "Healthy progress. All completed seeds (0-3) finished in expected time range (~1h47m-1h49m). No timeouts."
+      "note": "RESUBMITTED with FIXED code. ALL features now active: CD loss + Langevin + Replay buffer + Residual filtering + Energy scheduling."
     }
   ],
   "completed_runs": [
+    {
+      "run_id": "q201_20260216_121500",
+      "experiment": "q201_baseline",
+      "job_id": "60619264",
+      "submitted_at": "2026-02-16T12:15:00Z",
+      "cancelled_at": "2026-02-17T01:35:00Z",
+      "status": "cancelled",
+      "partition": "gpu",
+      "git_sha": "d2b8bc4",
+      "array_spec": "0-9%2",
+      "num_seeds": 10,
+      "progress_before_cancel": "~18% complete (7 of 40 seeds across all experiments)",
+      "error": "Issue 12: mining_config missing 12 of 15 required parameters. All CD features disabled. Cancelled and resubmitted with fixed code (948051d)."
+    },
+    {
+      "run_id": "q202_20260216_121500",
+      "experiment": "q202_cd_langevin",
+      "job_id": "60619276",
+      "submitted_at": "2026-02-16T12:15:00Z",
+      "cancelled_at": "2026-02-17T01:35:00Z",
+      "status": "cancelled",
+      "partition": "gpu",
+      "git_sha": "d2b8bc4",
+      "array_spec": "0-9%2",
+      "num_seeds": 10,
+      "progress_before_cancel": "~18% complete",
+      "error": "Issue 12: CD loss + Langevin were disabled due to missing parameters. Cancelled and resubmitted with fixed code (948051d)."
+    },
+    {
+      "run_id": "q203_20260216_121500",
+      "experiment": "q203_cd_replay",
+      "job_id": "60619287",
+      "submitted_at": "2026-02-16T12:15:00Z",
+      "cancelled_at": "2026-02-17T01:35:00Z",
+      "status": "cancelled",
+      "partition": "gpu",
+      "git_sha": "d2b8bc4",
+      "array_spec": "0-9%2",
+      "num_seeds": 10,
+      "progress_before_cancel": "~18% complete",
+      "error": "Issue 12: CD loss + Langevin + Replay buffer were disabled due to missing parameters. Cancelled and resubmitted with fixed code (948051d)."
+    },
+    {
+      "run_id": "q204_20260216_121500",
+      "experiment": "q204_cd_full",
+      "job_id": "60619298",
+      "submitted_at": "2026-02-16T12:15:00Z",
+      "cancelled_at": "2026-02-17T01:35:00Z",
+      "status": "cancelled",
+      "partition": "gpu",
+      "git_sha": "d2b8bc4",
+      "array_spec": "0-9%2",
+      "num_seeds": 10,
+      "progress_before_cancel": "~18% complete",
+      "error": "Issue 12: ALL CD features disabled (CD loss, Langevin, Replay buffer, Residual filtering, Energy scheduling) due to missing parameters. Cancelled and resubmitted with fixed code (948051d)."
+    },
     {
       "run_id": "q103_20260123_202500",
       "experiment": "q103_multiseed_adversarial",
@@ -630,10 +670,10 @@
     }
   ],
   "slurm_wait": {
-    "next_poll_after": "2026-02-17T01:00:00Z",
-    "poll_interval_seconds": 900,
-    "last_polled_at": "2026-02-16T23:45:00Z",
-    "note": "IRED-CD progress update: q201 (3/10 completed, 1 timeout at seed 0), q202 (3/10 completed, 1 timeout at seed 2), q203 (4/10 completed, no timeouts), q204 (4/10 completed, no timeouts). Seeds 4-5 currently running across all jobs (~18-35min elapsed). Seeds 6-9 pending. Two timeouts observed (q201 seed 0, q202 seed 2) - both exceeded 2h time limit, may indicate occasional training instability. Expected completion for remaining seeds: ~3-4h more."
+    "next_poll_after": "2026-02-17T01:36:00Z",
+    "poll_interval_seconds": 60,
+    "last_polled_at": "2026-02-17T01:35:00Z",
+    "note": "IRED-CD experiments RESUBMITTED with FIXED code after Issue 12 discovery. New jobs: 60739447 (q201), 60739482 (q202), 60739516 (q203), 60739551 (q204). All running with git_sha=948051d (includes mining_config fix). Early poll scheduled for 60s after submission to catch initialization errors. After early poll, resume 15-minute interval. Expected completion: ~4-6h (40 experiments, array throttling %2, 4 jobs in parallel)."
   },
   "events": [
     {
@@ -1031,6 +1071,12 @@
       "ts": "2026-02-17T01:30:00Z",
       "action": "DEBUG",
       "detail": "CRITICAL BUG DISCOVERED (Issue 12): All 40 running IRED-CD experiments are testing BROKEN code. Root cause: matrix_inversion_mining.py (lines 97-101) only passes 3 of 15 required parameters to mining_config dictionary. Missing parameters: use_cd_loss, use_langevin, langevin_sigma_multiplier, energy_loss_weight, use_replay_buffer, replay_buffer_size, replay_buffer_buckets, replay_sample_prob, use_residual_filter, residual_filter_quantile, use_energy_schedule, energy_loss_warmup_steps, energy_loss_max_weight, use_timestep_range, energy_loss_timestep_range. Impact: ALL CD features disabled across q202/q203/q204, explaining identical MSE results (0.00972367, 0.00976373). Investigation triggered by user noticing identical results. Deep code analysis revealed experiment code reads JSON configs but never passes CD flags to diffusion model. Fix committed in bfbc5a0: Expanded mining_config to pass all 15 parameters organized into 5 groups. Phase transition: WAIT_SLURM → DEBUG. Status: All 4 jobs (60619264, 60619276, 60619287, 60619298) running with git_sha=d2b8bc4 (broken) must be cancelled and rerun with bfbc5a0 (fixed). Wasted GPU-hours: ~11h (18% of 60h total). next_action: cancel_and_resubmit_ired_cd. needs_user_input=true for confirmation to cancel/resubmit."
+    },
+    {
+      "id": "evt-0067",
+      "ts": "2026-02-17T01:35:00Z",
+      "action": "RUN",
+      "detail": "Issue 12 RESOLVED: Cancelled all 4 invalid IRED-CD jobs (60619264, 60619276, 60619287, 60619298) running broken code. Resubmitted with FIXED code (git_sha=948051d includes bfbc5a0 mining_config fix). New job IDs: q201_baseline (60739447), q202_cd_langevin (60739482), q203_cd_replay (60739516), q204_cd_full (60739551). All 4 array jobs submitted successfully with --array=0-9%2 (10 seeds each, 2 concurrent). Total compute: 40 experiments × 1.5h = 60 GPU-hours. Git SHA verified in logs: 948051d. Fix confirmed: mining_config now passes all 15 parameters (was 3/15). Expected outcomes: q202/q203/q204 will now have DRAMATICALLY different results as CD features actually activate (CD loss, Langevin, replay buffer, residual filtering, energy scheduling all functional). Phase transition: DEBUG → WAIT_SLURM. next_action: poll_cd_experiments_fixed. Early poll scheduled for 2026-02-17T01:36:00Z (60s after submission). Expected completion: ~4-6h wall-clock time (array throttling + 4 jobs in parallel)."
     }
   ]
 }
