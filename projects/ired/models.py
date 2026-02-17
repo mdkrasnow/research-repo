@@ -797,7 +797,11 @@ class DiffusionWrapper(nn.Module):
             assert self.ebm.is_ebm, 'DiffusionWrapper only works for EBMs'
 
     def forward(self, inp, opt_out, t, return_energy=False, return_both=False):
-        opt_out.requires_grad_(True)
+        # CRITICAL: Don't modify requires_grad in-place for energy-only evaluation
+        # This would re-attach computational graph to detached samples (undoes .detach())
+        if not (return_energy and not return_both):
+            opt_out.requires_grad_(True)
+
         opt_variable = torch.cat([inp, opt_out], dim=-1)
 
         energy = self.ebm(opt_variable, t)
@@ -821,7 +825,10 @@ class GNNDiffusionWrapper(nn.Module):
         self.out_dim = ebm.out_dim
 
     def forward(self, inp, opt_out, t, return_energy=False, return_both=False):
-        opt_out.requires_grad_(True)
+        # CRITICAL: Don't modify requires_grad in-place for energy-only evaluation
+        if not (return_energy and not return_both):
+            opt_out.requires_grad_(True)
+
         energy = self.ebm(inp, opt_out, t)
         if return_energy:
             return energy
@@ -845,7 +852,10 @@ class GNNConvDiffusionWrapper(nn.Module):
         self.out_dim = ebm.out_dim
 
     def forward(self, inp, opt_out, t, return_energy=False, return_both=False):
-        opt_out.requires_grad_(True)
+        # CRITICAL: Don't modify requires_grad in-place for energy-only evaluation
+        if not (return_energy and not return_both):
+            opt_out.requires_grad_(True)
+
         energy = self.ebm(inp, opt_out, t)
         if return_energy:
             return energy
@@ -868,7 +878,10 @@ class GNNConv1DV2DiffusionWrapper(nn.Module):
         self.out_dim = ebm.out_dim
 
     def forward(self, inp, opt_out, t, return_energy=False, return_both=False):
-        opt_out.requires_grad_(True)
+        # CRITICAL: Don't modify requires_grad in-place for energy-only evaluation
+        if not (return_energy and not return_both):
+            opt_out.requires_grad_(True)
+
         energy = self.ebm(inp, opt_out, t)
         if return_energy:
             return energy
