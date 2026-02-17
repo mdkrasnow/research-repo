@@ -883,7 +883,9 @@ class GaussianDiffusion1D(nn.Module):
                 loss_energy = F.cross_entropy(-1 * energy_stack, target.long(), reduction='none')[:, None]
 
             # Combine losses
-            loss = loss_mse + loss_scale * loss_energy.mean()
+            # CRITICAL FIX: Combine element-wise [B] + [B], not [B] + scalar
+            # This ensures energy gradients have magnitude loss_scale (0.05), not loss_scale/batch_size
+            loss = loss_mse + loss_scale * loss_energy.squeeze(1)
 
             # Increment global step for scheduling
             self.global_step += 1
