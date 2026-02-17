@@ -835,7 +835,8 @@ class GaussianDiffusion1D(nn.Module):
                 energy_neg = energy_neg_raw  # Gradient flows to params, not through sample
 
                 # CD-style energy difference loss
-                loss_energy = (energy_pos - energy_neg)  # [B,1]
+                # CRITICAL: Minimize (E_neg - E_pos) to push E_pos UP, E_neg DOWN
+                loss_energy = (energy_neg - energy_pos)  # [B,1]
 
                 # Residual filtering (false-negative removal)
                 use_residual_filter = self.mining_config.get('use_residual_filter', False)
