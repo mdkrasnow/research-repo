@@ -22,6 +22,66 @@
 
 ---
 
+## URGENT - CRITICAL BUG FIX REQUIRED
+
+### IRED-CD Experiments - ALL RUNNING JOBS INVALID (Issue 12)
+**Status**: ⚠️ CRITICAL - All 40 running experiments testing BROKEN code
+**Discovery**: 2026-02-17T01:30:00Z
+**Root Cause**: `mining_config` dictionary missing 12 of 15 required parameters
+**Impact**: ALL CD features disabled across all experiments (q202, q203, q204)
+**Fix**: Committed in bfbc5a0 (expanded mining_config to pass all 15 parameters)
+
+**Current Running Jobs (ALL INVALID)**:
+- q201_baseline (job 60619264): 10 seeds, git_sha=d2b8bc4 (broken)
+- q202_cd_langevin (job 60619276): 10 seeds, git_sha=d2b8bc4 (broken)
+- q203_cd_replay (job 60619287): 10 seeds, git_sha=d2b8bc4 (broken)
+- q204_cd_full (job 60619298): 10 seeds, git_sha=d2b8bc4 (broken)
+
+**Progress Before Discovery**: ~18% complete (7-8 of 40 seeds completed)
+**Wasted GPU Time**: ~11 GPU-hours so far
+
+**Required Actions**:
+1. ✓ **Fix committed** (bfbc5a0): Expanded mining_config to pass all 15 parameters
+2. **CANCEL** all 4 running jobs (60619264, 60619276, 60619287, 60619298)
+3. **RESUBMIT** all 4 experiments with git_sha=bfbc5a0 (fixed code)
+4. **EXPECT** dramatically different results:
+   - q202: CD loss + Langevin will actually activate
+   - q203: + Replay buffer will actually work
+   - q204: + Residual filtering + energy scheduling will activate
+   - Previous identical MSE results (0.00972367, 0.00976373) were due to all CD features being disabled
+
+**Compute Requirements (Re-run)**:
+- Total: 40 experiments × 1.5h = 60 GPU-hours
+- Wall-clock: ~4-6h (with array throttling %2 and 4 jobs in parallel)
+- Partition strategy: Distribute across gpu_test and gpu to avoid QOS limits
+
+**Expected Outcomes After Fix**:
+- q201_baseline: Should be unchanged (only missing langevin_sigma_multiplier, minor)
+- q202_cd_langevin: Should differ significantly from baseline (CD loss + Langevin active)
+- q203_cd_replay: Should differ from q202 (replay buffer active)
+- q204_cd_full: Should be best performer (all features active)
+
+**Next Steps**:
+```bash
+# 1. Cancel all running jobs
+scripts/cluster/cancel.sh 60619264 60619276 60619287 60619298
+
+# 2. Verify fix is in current HEAD
+git log -1 --oneline  # Should show bfbc5a0
+
+# 3. Resubmit with fixed code
+GIT_SHA=bfbc5a0 scripts/cluster/submit.sh projects/ired q201_baseline
+GIT_SHA=bfbc5a0 scripts/cluster/submit.sh projects/ired q202_cd_langevin
+GIT_SHA=bfbc5a0 scripts/cluster/submit.sh projects/ired q203_cd_replay
+GIT_SHA=bfbc5a0 scripts/cluster/submit.sh projects/ired q204_cd_full
+```
+
+**Documentation**:
+- See Issue 12 in debugging.md for complete technical details
+- See commit bfbc5a0 for fix details and parameter mapping
+
+---
+
 ## READY
 
 ### Phase 1: Validate Results (Multi-Seed Replication)

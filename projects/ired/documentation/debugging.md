@@ -81,6 +81,73 @@
 
 ## Active Issues
 
+### Issue 12: CRITICAL - mining_config missing 12 of 15 required parameters (ALL CD features disabled)
+**Timestamp**: 2026-02-17T01:30:00Z (discovered during investigation)
+**Affected Experiments**: ALL IRED-CD experiments (q201-q204, 40 running jobs)
+**Run IDs**: q201_20260216_121500, q202_20260216_121500, q203_20260216_121500, q204_20260216_121500
+**Job IDs**: 60619264, 60619276, 60619287, 60619298 (all running with BROKEN code)
+**Git SHA (broken)**: d2b8bc4
+**Git SHA (fixed)**: bfbc5a0
+
+**Critical Finding**:
+The experiment code in `matrix_inversion_mining.py` (lines 97-101) only passes 3 of 15 required parameters from JSON configs to the diffusion model's `mining_config` dictionary. This causes ALL contrastive divergence features to be disabled across all experiments.
+
+**Parameters Passed (only 3)**:
+- `strategy` - Mining strategy name
+- `opt_steps` - Gradient ascent steps
+- `noise_scale` - Noise multiplier
+
+**Parameters MISSING (12)**:
+- CD core: `use_cd_loss`, `use_langevin`, `langevin_sigma_multiplier`, `energy_loss_weight`
+- Replay buffer: `use_replay_buffer`, `replay_buffer_size`, `replay_buffer_buckets`, `replay_sample_prob`
+- Residual filtering: `use_residual_filter`, `residual_filter_quantile`
+- Energy scheduling: `use_energy_schedule`, `energy_loss_warmup_steps`, `energy_loss_max_weight`
+- Timestep range: `use_timestep_range`, `energy_loss_timestep_range`
+
+**Impact**:
+- **q201_baseline**: Missing `langevin_sigma_multiplier` (minor, still tests baseline correctly)
+- **q202_cd_langevin**: ALL 5 CD features disabled (use_cd_loss, use_langevin, langevin_sigma_multiplier, energy_loss_weight + 3 false flags)
+- **q203_cd_replay**: ALL 9 features disabled (q202 + 4 replay buffer params)
+- **q204_cd_full**: ALL 12 features disabled (q203 + residual filtering + energy scheduling + timestep range)
+
+**Explains Observed Results**:
+- q202/q203/q204 have IDENTICAL MSE values (0.00972367, 0.00976373 across all seeds)
+- All three experiments ran identical code with ALL CD features disabled
+- Only difference between q201 and q202/q203/q204 is `opt_steps` change (2→10)
+- The ~3.7% improvement over baseline is real but NOT from CD features - just from more gradient steps
+
+**Root Cause**:
+Incomplete implementation in `projects/ired/experiments/matrix_inversion_mining.py` lines 97-101:
+```python
+mining_config = {
+    'strategy': mining_strategy,
+    'opt_steps': config.get('mining_opt_steps', 2),
+    'noise_scale': config.get('mining_noise_scale', 3.0)
+    # MISSING: All 12 CD feature flags!
+}
+```
+
+The diffusion model code (`denoising_diffusion_pytorch_1d.py`) IS ready to use these parameters - it checks for them with `.get()` calls throughout lines 204-868. Since the experiment never passes them, all `.get()` calls return their default values (False for booleans, preventing any CD features from activating).
+
+**Fix Applied (commit bfbc5a0)**:
+Expanded `mining_config` dictionary to pass all 15 parameters from JSON configs to diffusion model:
+- Organized into 5 logical groups (core, CD features, replay buffer, residual filtering, energy scheduling)
+- Added comments for readability
+- All parameters now use `.get()` with appropriate defaults matching diffusion code expectations
+
+**Verification**:
+- Diffusion code verified to expect all 15 parameters (grep search confirmed)
+- JSON configs verified to contain all ablation-specific flags
+- Fix committed with detailed explanation in commit message
+
+**Next Steps**:
+1. **CANCEL** all 40 running jobs (60619264, 60619276, 60619287, 60619298) - they're testing nothing
+2. **RESUBMIT** all 4 experiments with commit bfbc5a0 (fixed implementation)
+3. **EXPECT** dramatically different results for q202/q203/q204 (CD features will actually activate)
+4. **TIMELINE**: ~60 GPU-hours to re-run all 40 experiments (10 seeds × 4 configs × 1.5h)
+
+**Status**: CRITICAL - All currently running experiments are INVALID and must be cancelled/rerun
+
 ### Issue 11: Multi-seed validation jobs failed - config file mismatch (c11bf8d vs fef8849)
 **Timestamp**: 2026-01-23T18:18:31Z (failure detected)
 **Run IDs**: q101_20260123_181809 (FAILED), q102_20260123_181809 (FAILED), q103_20260123_181809 (FAILED)
