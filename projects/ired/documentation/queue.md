@@ -181,6 +181,38 @@
 
 ---
 
+## PROGRESS CHECKPOINTS
+
+### IRED-CD Experiments - Partial Completion (2026-02-16T23:03:17Z)
+- **Checkpoint Time**: 2026-02-16T23:03:17Z
+- **Jobs**: q201 (60619264), q202 (60619276), q203 (60619287), q204 (60619298)
+- **Status Summary**:
+  - **q201_baseline**: 1 seed COMPLETED (seed 1: 1h53m), 1 seed TIMEOUT (seed 0: 2h), 2 seeds RUNNING (seeds 2-3: 35min), 6 seeds PENDING
+  - **q202_cd_langevin**: 2 seeds COMPLETED (seeds 0-1: ~1h47m each), 2 seeds RUNNING (seeds 2-3: 33-52min), 6 seeds PENDING
+  - **q203_cd_replay**: 2 seeds COMPLETED (seeds 0-1: ~1h47m each), 2 seeds RUNNING (seeds 2-3: 33min), 6 seeds PENDING
+  - **q204_cd_full**: 2 seeds COMPLETED (seeds 0-1: ~1h47m each), 2 seeds RUNNING (seeds 2-3: 33min), 6 seeds PENDING
+- **Total Progress**: 7 of 40 seeds completed (17.5%), 8 seeds running, 24 seeds pending, 1 timeout
+- **Completed Results Available On Cluster**:
+  - `/n/home03/mkrasnow/research-repo/projects/ired/results/ds_inverse/q201_seed1/results.json`
+  - `/n/home03/mkrasnow/research-repo/projects/ired/results/ds_inverse/q202_seed{0,1}/results.json`
+  - `/n/home03/mkrasnow/research-repo/projects/ired/results/ds_inverse/q203_seed{0,1}/results.json`
+  - `/n/home03/mkrasnow/research-repo/projects/ired/results/ds_inverse/q204_seed{0,1}/results.json`
+- **Concerns**:
+  - q201 seed 0 TIMEOUT (2h runtime exceeds expected 1.5h): May indicate resource contention, training instability, or baseline strategy issue. Requires investigation after completion.
+  - All other completed seeds finished in expected time range (1h47m-1h53m)
+- **Estimated Completion**: ~4-6 hours remaining
+  - Array throttle (%2) means 2 seeds run concurrently per experiment
+  - Remaining: 4 batches of 2 seeds × ~1.75h = ~7h sequential time
+  - With 4 experiments in parallel: ~7h wall-clock time (conservative estimate)
+  - Optimistic: 4-5h if cluster resources available
+- **Next Actions**:
+  - Continue monitoring every 15 minutes
+  - After all jobs complete, fetch results and analyze partial seed data
+  - Investigate q201 seed 0 timeout (check logs for OOM, training divergence, or resource issues)
+- **Next Poll**: 2026-02-16T23:18:17Z
+
+---
+
 ## IN_PROGRESS
 
 ### Q-101: Multi-seed baseline validation (RUNNING)
