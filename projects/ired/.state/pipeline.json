@@ -167,13 +167,13 @@
   },
   "active_runs": [
     {
-      "run_id": "q201_20260217_144500",
+      "run_id": "q201_20260218_000000",
       "experiment": "q201_baseline",
-      "job_id": "60790481",
-      "submitted_at": "2026-02-17T14:45:00Z",
+      "job_id": "60967395",
+      "submitted_at": "2026-02-18T00:00:00Z",
       "status": "pending",
       "partition": "gpu_test",
-      "git_sha": "e069fbe",
+      "git_sha": "b3eced0",
       "array_spec": "0-9%2",
       "num_seeds": 10,
       "strategy": "adversarial",
@@ -184,16 +184,16 @@
         "running_count": 0,
         "pending_count": 10
       },
-      "note": "RESUBMITTED with ALL 4 CD bug fixes (CD-001: sign, CD-002: detachment, CD-003: requires_grad, CD-004: shape mismatch). Previous job 60788685 cancelled due to IRED-CD-004 (energy gradient dilution bug)."
+      "note": "COMPLETE FIX deployed: All 9 CD bugs fixed (CD-001 to CD-009) + 5 literature-validated improvements (energy reg, grad clip, param freezing, 30 Langevin steps, Adam beta1=0). Git SHA b3eced0 includes both Claude's bug fixes and user's literature improvements."
     },
     {
-      "run_id": "q202_20260217_144500",
+      "run_id": "q202_20260218_000000",
       "experiment": "q202_cd_langevin",
-      "job_id": "60790510",
-      "submitted_at": "2026-02-17T14:45:00Z",
+      "job_id": "60967408",
+      "submitted_at": "2026-02-18T00:00:00Z",
       "status": "pending",
       "partition": "gpu",
-      "git_sha": "e069fbe",
+      "git_sha": "b3eced0",
       "array_spec": "0-9%2",
       "num_seeds": 10,
       "strategy": "cd_langevin",
@@ -204,16 +204,16 @@
         "running_count": 0,
         "pending_count": 10
       },
-      "note": "RESUBMITTED with ALL 4 CD bug fixes. CD loss + Langevin will now work correctly with proper energy gradient magnitude (0.05, not 0.05/32). Previous job 60788697 cancelled."
+      "note": "COMPLETE FIX: CD loss + Langevin with proper gradient flow, batch-size independence, energy regularization, and gradient clipping. Expected to show significant improvement over baseline."
     },
     {
-      "run_id": "q203_20260217_144500",
+      "run_id": "q203_20260218_000000",
       "experiment": "q203_cd_replay",
-      "job_id": "60790546",
-      "submitted_at": "2026-02-17T14:45:00Z",
+      "job_id": "60967409",
+      "submitted_at": "2026-02-18T00:00:00Z",
       "status": "pending",
       "partition": "gpu_test",
-      "git_sha": "e069fbe",
+      "git_sha": "b3eced0",
       "array_spec": "0-9%2",
       "num_seeds": 10,
       "strategy": "cd_langevin_replay",
@@ -224,10 +224,52 @@
         "running_count": 0,
         "pending_count": 10
       },
-      "note": "RESUBMITTED with ALL 4 CD bug fixes. Replay buffer + CD loss will now work with correct energy gradient magnitude. Previous job 60788751 cancelled."
+      "note": "COMPLETE FIX: Replay buffer with restored requires_grad, plus all CD improvements. Persistent chains should now refine negatives properly."
     }
   ],
   "completed_runs": [
+    {
+      "run_id": "q201_20260217_144500",
+      "experiment": "q201_baseline",
+      "job_id": "60790481",
+      "submitted_at": "2026-02-17T14:45:00Z",
+      "failed_at": "2026-02-17T14:45:26Z",
+      "status": "failed",
+      "partition": "gpu_test",
+      "git_sha": "e069fbe",
+      "array_spec": "0-9%2",
+      "num_seeds": 10,
+      "runtime_seconds": 26,
+      "error": "FAILED after 26 seconds. Missing CD-006 through CD-009 fixes (batch-size gradients, Langevin graph accumulation, replay buffer requires_grad, wasteful init). Resubmitted with complete fix (b3eced0)."
+    },
+    {
+      "run_id": "q202_20260217_144500",
+      "experiment": "q202_cd_langevin",
+      "job_id": "60790510",
+      "submitted_at": "2026-02-17T14:45:00Z",
+      "failed_at": "2026-02-17T14:45:27Z",
+      "status": "failed",
+      "partition": "gpu",
+      "git_sha": "e069fbe",
+      "array_spec": "0-9%2",
+      "num_seeds": 10,
+      "runtime_seconds": 27,
+      "error": "FAILED after 27 seconds. Missing CD-006 through CD-009 fixes. Resubmitted with complete fix (b3eced0)."
+    },
+    {
+      "run_id": "q203_20260217_144500",
+      "experiment": "q203_cd_replay",
+      "job_id": "60790546",
+      "submitted_at": "2026-02-17T14:45:00Z",
+      "failed_at": "2026-02-17T14:45:27Z",
+      "status": "failed",
+      "partition": "gpu_test",
+      "git_sha": "e069fbe",
+      "array_spec": "0-9%2",
+      "num_seeds": 10,
+      "runtime_seconds": 27,
+      "error": "FAILED after 27 seconds. Missing CD-006 through CD-009 fixes. Resubmitted with complete fix (b3eced0)."
+    },
     {
       "run_id": "q201_20260217_013500",
       "experiment": "q201_baseline",
