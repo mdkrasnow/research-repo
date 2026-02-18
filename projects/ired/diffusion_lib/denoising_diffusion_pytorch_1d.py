@@ -458,6 +458,11 @@ class GaussianDiffusion1D(nn.Module):
         sigma_mult = self.mining_config.get('langevin_sigma_multiplier', 1.0)
         sigma = sigma_mult * torch.sqrt(2.0 * step)
 
+        # Freeze model parameters during Langevin sampling (Du & Mordatch 2019)
+        # Only input x needs gradients; model params should not accumulate graphs
+        for p in self.model.parameters():
+            p.requires_grad_(False)
+
         for _ in range(k_steps):
             # Use wrapper to get both energy and gradient in one call
             energy, grad = self.model(inp, x, t, return_both=True)
@@ -465,9 +470,17 @@ class GaussianDiffusion1D(nn.Module):
             with torch.no_grad():
                 # Detach gradient to prevent graph accumulation
                 grad_detached = grad.detach()
+                # Gradient clipping for Langevin stability (Du & Mordatch 2019; UvA DL Tutorial 8)
+                langevin_grad_clip = self.mining_config.get('langevin_grad_clip', 0.01)
+                if langevin_grad_clip > 0:
+                    grad_detached = grad_detached.clamp(-langevin_grad_clip, langevin_grad_clip)
                 # Langevin step: x ← x - η∇E + σ·N(0,I)
                 x = x - step * grad_detached + sigma * torch.randn_like(x)
                 x = torch.clamp(x, -2, 2)  # Keep in reasonable range
+
+        # Re-enable model parameter gradients for training
+        for p in self.model.parameters():
+            p.requires_grad_(True)
 
         return x.detach()
 
@@ -837,8 +850,15 @@ class GaussianDiffusion1D(nn.Module):
                 energy_neg = energy_neg_raw  # Gradient flows to params, not through sample
 
                 # CD-style energy difference loss
-                # CRITICAL: Minimize (E_neg - E_pos) to push E_pos UP, E_neg DOWN
+                # Minimize (E_neg - E_pos) to push E_pos DOWN, E_neg UP
                 loss_energy = (energy_neg - energy_pos)  # [B,1]
+
+                # Energy magnitude regularization (Du & Mordatch 2019; UvA DL Tutorial 8)
+                # Prevents energy values from diverging to arbitrary magnitudes
+                # Applied separately from loss_energy so it is NOT zeroed out by
+                # residual filtering or timestep masking (regularization is unconditional)
+                energy_reg_weight = self.mining_config.get('energy_reg_weight', 0.1)
+                loss_energy_reg = energy_reg_weight * (energy_pos.pow(2) + energy_neg.pow(2))  # [B,1]
 
                 # Residual filtering (false-negative removal)
                 use_residual_filter = self.mining_config.get('use_residual_filter', False)
@@ -888,6 +908,9 @@ class GaussianDiffusion1D(nn.Module):
             # This ensures energy gradients have magnitude loss_scale (0.05), not loss_scale/batch_size
             # loss_mse shape: [B, 400], loss_energy shape: [B, 1] → broadcasts to [B, 400]
             loss = loss_mse + loss_scale * loss_energy
+            # Add energy regularization unconditionally (not affected by filtering/masking)
+            if use_cd_loss:
+                loss = loss + loss_scale * loss_energy_reg
 
             # Increment global step for scheduling
             self.global_step += 1

@@ -104,7 +104,9 @@ def run_experiment(config):
         'use_cd_loss': config.get('use_cd_loss', False),
         'use_langevin': config.get('use_langevin', False),
         'langevin_sigma_multiplier': config.get('langevin_sigma_multiplier', 1.0),
+        'langevin_grad_clip': config.get('langevin_grad_clip', 0.01),
         'energy_loss_weight': config.get('energy_loss_weight', 0.05),
+        'energy_reg_weight': config.get('energy_reg_weight', 0.1),
 
         # Replay buffer
         'use_replay_buffer': config.get('use_replay_buffer', False),
@@ -144,6 +146,11 @@ def run_experiment(config):
     # Check if GPU is available for fp16
     use_fp16 = torch.cuda.is_available()
 
+    # Adam betas: UvA DL Tutorial 8 recommends beta1=0 for EBM training because
+    # gradient directions change significantly across training steps.
+    adam_betas_cfg = config.get('adam_betas', None)
+    adam_betas = tuple(adam_betas_cfg) if adam_betas_cfg is not None else (0.9, 0.99)
+
     trainer = Trainer1D(
         diffusion,
         dataset,
@@ -154,6 +161,7 @@ def run_experiment(config):
         gradient_accumulate_every=1,
         ema_update_every=10,
         ema_decay=0.995,
+        adam_betas=adam_betas,
         save_and_sample_every=1000,
         results_folder=output_dir,
         metric='mse',

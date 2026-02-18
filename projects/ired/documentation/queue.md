@@ -22,63 +22,61 @@
 
 ---
 
-## URGENT - CRITICAL BUG FIX REQUIRED
+## CRITICAL - CD TRAINING BUG FIX (4th Iteration)
 
-### IRED-CD Experiments - ALL RUNNING JOBS INVALID (Issue 12)
-**Status**: ⚠️ CRITICAL - All 40 running experiments testing BROKEN code
-**Discovery**: 2026-02-17T01:30:00Z
-**Root Cause**: `mining_config` dictionary missing 12 of 15 required parameters
-**Impact**: ALL CD features disabled across all experiments (q202, q203, q204)
-**Fix**: Committed in bfbc5a0 (expanded mining_config to pass all 15 parameters)
+### IRED-CD Experiments - Jobs Resubmitted with Complete Fix (IRED-CD-004)
+**Status**: ✓ RESUBMITTED - 4th bug found and fixed, all CD features now working correctly
+**Latest Discovery**: 2026-02-17T14:45:00Z (IRED-CD-004)
+**Previous Bugs**: CD-001 (wrong sign), CD-002 (missing detachment), CD-003 (requires_grad in-place)
+**Current Bug**: IRED-CD-004 - Energy gradient dilution (shape mismatch)
+**Fix**: Committed in e069fbe (squeeze instead of mean for energy loss)
 
-**Current Running Jobs (ALL INVALID)**:
-- q201_baseline (job 60619264): 10 seeds, git_sha=d2b8bc4 (broken)
-- q202_cd_langevin (job 60619276): 10 seeds, git_sha=d2b8bc4 (broken)
-- q203_cd_replay (job 60619287): 10 seeds, git_sha=d2b8bc4 (broken)
-- q204_cd_full (job 60619298): 10 seeds, git_sha=d2b8bc4 (broken)
+**Root Cause of IRED-CD-004**:
+```python
+# BROKEN (line 886 in diffusion_lib/denoising_diffusion_pytorch_1d.py):
+loss = loss_mse + loss_scale * loss_energy.mean()  # Shape [32,1] -> scalar, then scale
+# Energy gradients 32x too weak (0.05/32 instead of 0.05)
 
-**Progress Before Discovery**: ~18% complete (7-8 of 40 seeds completed)
-**Wasted GPU Time**: ~11 GPU-hours so far
-
-**Required Actions**:
-1. ✓ **Fix committed** (bfbc5a0): Expanded mining_config to pass all 15 parameters
-2. **CANCEL** all 4 running jobs (60619264, 60619276, 60619287, 60619298)
-3. **RESUBMIT** all 4 experiments with git_sha=bfbc5a0 (fixed code)
-4. **EXPECT** dramatically different results:
-   - q202: CD loss + Langevin will actually activate
-   - q203: + Replay buffer will actually work
-   - q204: + Residual filtering + energy scheduling will activate
-   - Previous identical MSE results (0.00972367, 0.00976373) were due to all CD features being disabled
-
-**Compute Requirements (Re-run)**:
-- Total: 40 experiments × 1.5h = 60 GPU-hours
-- Wall-clock: ~4-6h (with array throttling %2 and 4 jobs in parallel)
-- Partition strategy: Distribute across gpu_test and gpu to avoid QOS limits
-
-**Expected Outcomes After Fix**:
-- q201_baseline: Should be unchanged (only missing langevin_sigma_multiplier, minor)
-- q202_cd_langevin: Should differ significantly from baseline (CD loss + Langevin active)
-- q203_cd_replay: Should differ from q202 (replay buffer active)
-- q204_cd_full: Should be best performer (all features active)
-
-**Next Steps**:
-```bash
-# 1. Cancel all running jobs
-scripts/cluster/cancel.sh 60619264 60619276 60619287 60619298
-
-# 2. Verify fix is in current HEAD
-git log -1 --oneline  # Should show bfbc5a0
-
-# 3. Resubmit with fixed code
-GIT_SHA=bfbc5a0 scripts/cluster/submit.sh projects/ired q201_baseline
-GIT_SHA=bfbc5a0 scripts/cluster/submit.sh projects/ired q202_cd_langevin
-GIT_SHA=bfbc5a0 scripts/cluster/submit.sh projects/ired q203_cd_replay
-GIT_SHA=bfbc5a0 scripts/cluster/submit.sh projects/ired q204_cd_full
+# FIXED:
+loss = loss_mse + loss_scale * loss_energy.squeeze(1)  # Shape [32,1] -> [32]
+# Energy gradients at correct magnitude (0.05)
 ```
 
+**Impact**: Energy loss was being computed but had negligible effect on training (32x dilution). This explains why MSE stayed stuck at ~3.98 even after fixing CD-001, CD-002, CD-003.
+
+**Current Running Jobs (FIXED CODE)**:
+- q201_baseline (job 60790481): 10 seeds, git_sha=e069fbe, partition=gpu_test
+- q202_cd_langevin (job 60790510): 10 seeds, git_sha=e069fbe, partition=gpu
+- q203_cd_replay (job 60790546): 10 seeds, git_sha=e069fbe, partition=gpu_test
+- q204_cd_full: NOT resubmitted (focusing on core 3 experiments first)
+
+**Cancelled Jobs (Broken with only CD-001/002/003 fixes)**:
+- q201_baseline (job 60788685): Cancelled 2026-02-17T14:45:00Z, git_sha=b394635
+- q202_cd_langevin (job 60788697): Cancelled 2026-02-17T14:45:00Z, git_sha=b394635
+- q203_cd_replay (job 60788751): Cancelled 2026-02-17T14:45:00Z, git_sha=b394635
+
+**Complete Fix History**:
+1. CD-001: Wrong gradient sign in energy loss (fixed)
+2. CD-002: Missing gradient detachment in replay buffer (fixed)
+3. CD-003: In-place modification of tensor with requires_grad=True (fixed)
+4. CD-004: Shape mismatch causing 32x gradient dilution (fixed)
+
+**Compute Requirements (Current Run)**:
+- Total: 30 experiments × 1.5h = 45 GPU-hours
+- Wall-clock: ~4-5h (with array throttling %2 and 3 jobs in parallel)
+- Partition strategy: q201/q203 on gpu_test, q202 on gpu (QOS diversification)
+
+**Expected Outcomes with Complete Fix**:
+- CD training should now work correctly with energy gradients at proper magnitude
+- MSE should improve from baseline (~0.0097) instead of getting stuck at ~3.98
+- CD features (Langevin sampling, replay buffer) should show measurable impact
+- Training curves should show gradual improvement, not plateau
+
+**Next Poll**: 2026-02-17T14:46:00Z (60s early poll to catch initialization errors)
+
 **Documentation**:
-- See Issue 12 in debugging.md for complete technical details
-- See commit bfbc5a0 for fix details and parameter mapping
+- See debugging.md for complete technical details on all 4 CD bugs
+- Git SHA e069fbe contains all 4 fixes
 
 ---
 

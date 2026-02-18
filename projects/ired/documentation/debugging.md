@@ -464,6 +464,46 @@ else:
 
 **Status**: All 9 bugs fixed as of commit d6eb7c3. Jobs need to be cancelled and resubmitted.
 
+### IRED-CD Literature Validation Fixes (5 improvements)
+**Timestamp**: 2026-02-18
+**Source**: Comprehensive literature review against Du & Mordatch 2019, UvA DL Tutorial 8, Grathwohl JEM 2020, Du et al. Improved CD 2021
+
+**Fixes applied**:
+
+1. **Energy magnitude regularization** (HIGH priority)
+   - **Issue**: No regularization on energy magnitudes; network can assign arbitrarily large energies to maximize the gap, causing training divergence
+   - **Fix**: Added `energy_reg_weight * (E_pos² + E_neg²)` as unconditional regularization term (not affected by residual filtering or timestep masking)
+   - **Literature**: UvA DL Tutorial 8 uses `alpha * (real_out**2 + fake_out**2).mean()` with alpha=1.0; Du & Mordatch 2019 regularizes energy magnitudes
+   - **Default**: `energy_reg_weight=0.1`
+   - **Location**: `denoising_diffusion_pytorch_1d.py` lines 856-862, 912-913
+
+2. **Langevin gradient clipping** (MEDIUM priority)
+   - **Issue**: No gradient clipping in Langevin dynamics; outlier gradients can send samples to boundary instantly
+   - **Fix**: Added configurable element-wise clamping on detached gradients before Langevin update
+   - **Literature**: Du & Mordatch 2019 clips to [-0.03, 0.03]; UvA Tutorial uses `inp_imgs.grad.data.clamp_(-0.03, 0.03)`
+   - **Default**: `langevin_grad_clip=0.01` (tighter than image EBMs, appropriate for matrix domain)
+   - **Location**: `denoising_diffusion_pytorch_1d.py` lines 473-476
+
+3. **Model parameter freezing during Langevin** (MEDIUM priority)
+   - **Issue**: Model parameters accumulate intermediate computation graphs during Langevin loop (create_graph=True in wrapper)
+   - **Fix**: Disable `requires_grad` on model params before Langevin loop, re-enable after
+   - **Literature**: Du & Mordatch 2019, UvA Tutorial, Grathwohl JEM 2020 all freeze params during sampling
+   - **Location**: `denoising_diffusion_pytorch_1d.py` lines 461-464, 481-483
+
+4. **Increased Langevin steps 10→30** (LOW-MEDIUM priority)
+   - **Issue**: 10 steps too few for meaningful negative refinement
+   - **Fix**: Increased to 30 (compromise between Du 2019's 60 and compute budget)
+   - **Literature**: Du & Mordatch 2019 uses 60 steps; Du et al. Improved CD 2021 uses 40; Nijkamp 2019 uses 100-200
+   - **Location**: configs q202/q203/q204 `mining_opt_steps: 30`
+
+5. **Adam beta1=0** (LOW priority)
+   - **Issue**: Default Adam beta1=0.9 causes stale momentum for EBM training where gradient directions change rapidly
+   - **Fix**: Made adam_betas configurable; set to (0.0, 0.999) for CD experiments
+   - **Literature**: UvA DL Tutorial 8: "We use Adam with a beta1 of 0 instead of the default 0.9"
+   - **Location**: `matrix_inversion_mining.py` lines 148-151, configs `adam_betas: [0.0, 0.999]`
+
+**Review bug caught**: Energy regularization was initially added to `loss_energy` before filtering/masking, which would zero it out for filtered samples. Fixed to be added as a separate unconditional term at the final loss combination step.
+
 ---
 
 ### Issue 11: Multi-seed validation jobs failed - config file mismatch (c11bf8d vs fef8849)
