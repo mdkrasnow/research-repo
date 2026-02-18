@@ -463,8 +463,10 @@ class GaussianDiffusion1D(nn.Module):
             energy, grad = self.model(inp, x, t, return_both=True)
 
             with torch.no_grad():
+                # Detach gradient to prevent graph accumulation
+                grad_detached = grad.detach()
                 # Langevin step: x ← x - η∇E + σ·N(0,I)
-                x = x - step * grad + sigma * torch.randn_like(x)
+                x = x - step * grad_detached + sigma * torch.randn_like(x)
                 x = torch.clamp(x, -2, 2)  # Keep in reasonable range
 
         return x.detach()
@@ -779,13 +781,12 @@ class GaussianDiffusion1D(nn.Module):
                     noise_scale = self.mining_config.get('noise_scale', 1.5)
 
                     # Initialize negatives: replay-or-fresh in xₜ space
-                    x_init = self.q_sample(x_start=x_start, t=t, noise=noise_scale * torch.randn_like(x_start))
-
-                    # Try replay buffer (persistent chains)
                     if self.use_replay_buffer and torch.rand(()).item() < self.replay_prob:
-                        x_replay = self.replay_buffer.sample(t, self.num_timesteps, x_start.device)
-                        if x_replay is not None:
-                            x_init = x_replay
+                        x_init = self.replay_buffer.sample(t, self.num_timesteps, x_start.device)
+                        if x_init is None:
+                            x_init = self.q_sample(x_start=x_start, t=t, noise=noise_scale * torch.randn_like(x_start))
+                    else:
+                        x_init = self.q_sample(x_start=x_start, t=t, noise=noise_scale * torch.randn_like(x_start))
 
                     # Sample negatives with Langevin (in xₜ space)
                     xmin_noise = self.sample_negatives_langevin(inp, x_init, t, k_steps=opt_steps)

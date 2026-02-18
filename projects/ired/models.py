@@ -809,7 +809,7 @@ class DiffusionWrapper(nn.Module):
         if return_energy:
             return energy
 
-        opt_grad = torch.autograd.grad([energy.sum()], [opt_out], create_graph=True)[0]
+        opt_grad = torch.autograd.grad([energy.sum()], [opt_out], create_graph=True)[0] / energy.shape[0]
 
         if return_both:
             return energy, opt_grad
@@ -833,7 +833,7 @@ class GNNDiffusionWrapper(nn.Module):
         if return_energy:
             return energy
 
-        opt_grad = torch.autograd.grad([energy.sum()], [opt_out], create_graph=True)[0]
+        opt_grad = torch.autograd.grad([energy.sum()], [opt_out], create_graph=True)[0] / energy.shape[0]
         if return_both:
             return energy, opt_grad
         else:
@@ -860,7 +860,7 @@ class GNNConvDiffusionWrapper(nn.Module):
         if return_energy:
             return energy
 
-        opt_grad = torch.autograd.grad([energy.sum()], [opt_out], create_graph=True)[0]
+        opt_grad = torch.autograd.grad([energy.sum()], [opt_out], create_graph=True)[0] / energy.shape[0]
         if return_both:
             return energy, opt_grad
         else:
@@ -886,7 +886,7 @@ class GNNConv1DV2DiffusionWrapper(nn.Module):
         if return_energy:
             return energy
 
-        opt_grad = torch.autograd.grad([energy.sum()], [opt_out], create_graph=True)[0]
+        opt_grad = torch.autograd.grad([energy.sum()], [opt_out], create_graph=True)[0] / energy.shape[0]
         if return_both:
             return energy, opt_grad
         else:

@@ -69,7 +69,9 @@ class TBucketReplayBuffer:
             j = torch.randint(0, len(bucket), (1,)).item()
             out.append(bucket[j])
 
-        return torch.stack(out).to(device)
+        samples = torch.stack(out).to(device)
+        samples.requires_grad_(True)
+        return samples
 
     def __len__(self):
         return sum(len(b) for b in self.buckets)
