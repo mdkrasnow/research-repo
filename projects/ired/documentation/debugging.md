@@ -464,6 +464,73 @@ else:
 
 **Status**: All 9 bugs fixed as of commit d6eb7c3. Jobs need to be cancelled and resubmitted.
 
+---
+
+### IRED-CD-010: CD Loss Sign Error **[CRITICAL]** - IRED-CD-001 Was Wrong!
+**Timestamp**: 2026-02-18T11:00:00Z
+**Git SHA (broken)**: All commits from d6eb7c3 (has wrong sign from IRED-CD-001 "fix")
+**Git SHA (fixed)**: TBD (current fix being committed)
+**Symptom**: MSE stuck at ~3.43 despite broadcasting fix, energy loss large and negative (-4.6)
+
+**Bug Location**: `diffusion_lib/denoising_diffusion_pytorch_1d.py:854`
+**Root Cause**: IRED-CD-001 "fix" actually BROKE the sign by reversing it incorrectly
+
+**Critical Discovery**: The IRED-CD-001 bug fix was WRONG. It changed the sign from the CORRECT formulation to an INCORRECT one.
+
+**What IRED-CD-001 Did (INCORRECT)**:
+```python
+# They thought THIS was broken:
+loss_energy = (energy_pos - energy_neg)  # Actually CORRECT!
+
+# And "fixed" it to THIS:
+loss_energy = (energy_neg - energy_pos)  # Actually WRONG!
+```
+
+**Why This Is Wrong**:
+- Minimizing (E_neg - E_pos) pushes E_neg DOWN and E_pos UP
+- This trains the model to give real data HIGH energy and fake data LOW energy
+- Exactly opposite of what EBMs should do!
+
+**Literature Confirms**:
+From `ired-cd-literature-validation.md` (comprehensive literature review):
+```python
+# CD-style energy difference loss
+loss_energy = (E_pos - E_neg)  # [B,1]
+```
+- Du & Mordatch 2019
+- UvA DL Tutorial 8
+- Grathwohl JEM 2020
+- ALL use (E_pos - E_neg)
+
+**Physical/Mathematical Reasoning**:
+- Goal: LOW energy for real data (pos), HIGH energy for fake data (neg)
+- Loss L = E_pos - E_neg
+- Minimizing: ∂L/∂θ = ∂E_pos/∂θ - ∂E_neg/∂θ
+- Gradient descent: θ ← θ - α(∂E_pos/∂θ - ∂E_neg/∂θ)
+- Result: DECREASES E_pos, INCREASES E_neg ✓
+
+**Explains All Observed Failures**:
+- Energy loss consistently negative (-4.6) → E_pos > E_neg (model learned backwards!)
+- MSE doesn't improve (~3.43 stuck) → Energy loss fighting against denoising loss
+- Training worse than baseline → Actively learning wrong energy landscape
+- All 9 previous bug fixes couldn't help → Fundamental sign was wrong the whole time
+
+**Correct Fix**:
+```python
+# CORRECT (matches literature):
+loss_energy = (energy_pos - energy_neg)  # [B,1]
+```
+
+**Impact**: This bug affected ALL CD training since IRED-CD-001. All jobs with commits after 1828820 (when IRED-CD-001 was "fixed") trained with inverted energy landscape.
+
+**Next Steps**:
+1. Commit this fix
+2. Cancel all running CD jobs (they're training backwards)
+3. Resubmit with correct sign
+4. Expect MSE to finally decrease below baseline
+
+---
+
 ### IRED-CD Literature Validation Fixes (5 improvements)
 **Timestamp**: 2026-02-18
 **Source**: Comprehensive literature review against Du & Mordatch 2019, UvA DL Tutorial 8, Grathwohl JEM 2020, Du et al. Improved CD 2021
