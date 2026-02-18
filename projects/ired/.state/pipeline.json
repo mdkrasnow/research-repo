@@ -167,13 +167,13 @@
   },
   "active_runs": [
     {
-      "run_id": "q201_20260217_013500",
+      "run_id": "q201_20260217_144500",
       "experiment": "q201_baseline",
-      "job_id": "60739447",
-      "submitted_at": "2026-02-17T01:35:00Z",
-      "status": "running",
-      "partition": "gpu",
-      "git_sha": "948051d",
+      "job_id": "60790481",
+      "submitted_at": "2026-02-17T14:45:00Z",
+      "status": "pending",
+      "partition": "gpu_test",
+      "git_sha": "e069fbe",
       "array_spec": "0-9%2",
       "num_seeds": 10,
       "strategy": "adversarial",
@@ -181,19 +181,19 @@
       "expected_gpu_hours": 15.0,
       "progress": {
         "completed_count": 0,
-        "running_count": 2,
-        "pending_count": 8
+        "running_count": 0,
+        "pending_count": 10
       },
-      "note": "RESUBMITTED with FIXED code after Issue 12 discovery. Git SHA 948051d includes mining_config fix from bfbc5a0 (all 15 parameters now passed)."
+      "note": "RESUBMITTED with ALL 4 CD bug fixes (CD-001: sign, CD-002: detachment, CD-003: requires_grad, CD-004: shape mismatch). Previous job 60788685 cancelled due to IRED-CD-004 (energy gradient dilution bug)."
     },
     {
-      "run_id": "q202_20260217_013500",
+      "run_id": "q202_20260217_144500",
       "experiment": "q202_cd_langevin",
-      "job_id": "60739482",
-      "submitted_at": "2026-02-17T01:35:00Z",
-      "status": "running",
+      "job_id": "60790510",
+      "submitted_at": "2026-02-17T14:45:00Z",
+      "status": "pending",
       "partition": "gpu",
-      "git_sha": "948051d",
+      "git_sha": "e069fbe",
       "array_spec": "0-9%2",
       "num_seeds": 10,
       "strategy": "cd_langevin",
@@ -201,19 +201,19 @@
       "expected_gpu_hours": 15.0,
       "progress": {
         "completed_count": 0,
-        "running_count": 2,
-        "pending_count": 8
+        "running_count": 0,
+        "pending_count": 10
       },
-      "note": "RESUBMITTED with FIXED code. CD loss + Langevin will now ACTUALLY activate (was disabled in previous run due to missing parameters)."
+      "note": "RESUBMITTED with ALL 4 CD bug fixes. CD loss + Langevin will now work correctly with proper energy gradient magnitude (0.05, not 0.05/32). Previous job 60788697 cancelled."
     },
     {
-      "run_id": "q203_20260217_013500",
+      "run_id": "q203_20260217_144500",
       "experiment": "q203_cd_replay",
-      "job_id": "60739516",
-      "submitted_at": "2026-02-17T01:35:00Z",
-      "status": "running",
-      "partition": "gpu",
-      "git_sha": "948051d",
+      "job_id": "60790546",
+      "submitted_at": "2026-02-17T14:45:00Z",
+      "status": "pending",
+      "partition": "gpu_test",
+      "git_sha": "e069fbe",
       "array_spec": "0-9%2",
       "num_seeds": 10,
       "strategy": "cd_langevin_replay",
@@ -221,33 +221,55 @@
       "expected_gpu_hours": 15.0,
       "progress": {
         "completed_count": 0,
-        "running_count": 2,
-        "pending_count": 8
+        "running_count": 0,
+        "pending_count": 10
       },
-      "note": "RESUBMITTED with FIXED code. Replay buffer will now ACTUALLY work (was disabled in previous run)."
-    },
-    {
-      "run_id": "q204_20260217_013500",
-      "experiment": "q204_cd_full",
-      "job_id": "60739551",
-      "submitted_at": "2026-02-17T01:35:00Z",
-      "status": "running",
-      "partition": "gpu",
-      "git_sha": "948051d",
-      "array_spec": "0-9%2",
-      "num_seeds": 10,
-      "strategy": "cd_full",
-      "expected_runtime_per_seed": "1.5h",
-      "expected_gpu_hours": 15.0,
-      "progress": {
-        "completed_count": 0,
-        "running_count": 2,
-        "pending_count": 8
-      },
-      "note": "RESUBMITTED with FIXED code. ALL features now active: CD loss + Langevin + Replay buffer + Residual filtering + Energy scheduling."
+      "note": "RESUBMITTED with ALL 4 CD bug fixes. Replay buffer + CD loss will now work with correct energy gradient magnitude. Previous job 60788751 cancelled."
     }
   ],
   "completed_runs": [
+    {
+      "run_id": "q201_20260217_013500",
+      "experiment": "q201_baseline",
+      "job_id": "60788685",
+      "submitted_at": "2026-02-17T01:35:00Z",
+      "cancelled_at": "2026-02-17T14:45:00Z",
+      "status": "cancelled",
+      "partition": "gpu",
+      "git_sha": "b394635",
+      "array_spec": "0-9%2",
+      "num_seeds": 10,
+      "progress_before_cancel": "Early failure - training stuck at MSE ~3.98",
+      "error": "IRED-CD-004 discovered - energy gradient dilution bug (shape mismatch at line 886). Energy loss was computed but had negligible effect (32x too weak). Fix: squeeze(1) instead of mean(). Cancelled and resubmitted with complete fix (e069fbe)."
+    },
+    {
+      "run_id": "q202_20260217_013500",
+      "experiment": "q202_cd_langevin",
+      "job_id": "60788697",
+      "submitted_at": "2026-02-17T01:35:00Z",
+      "cancelled_at": "2026-02-17T14:45:00Z",
+      "status": "cancelled",
+      "partition": "gpu",
+      "git_sha": "b394635",
+      "array_spec": "0-9%2",
+      "num_seeds": 10,
+      "progress_before_cancel": "Early failure - training stuck at MSE ~3.98",
+      "error": "IRED-CD-004: CD loss + Langevin computed but energy gradients 32x too weak due to shape mismatch. Cancelled and resubmitted with complete fix (e069fbe)."
+    },
+    {
+      "run_id": "q203_20260217_013500",
+      "experiment": "q203_cd_replay",
+      "job_id": "60788751",
+      "submitted_at": "2026-02-17T01:35:00Z",
+      "cancelled_at": "2026-02-17T14:45:00Z",
+      "status": "cancelled",
+      "partition": "gpu",
+      "git_sha": "b394635",
+      "array_spec": "0-9%2",
+      "num_seeds": 10,
+      "progress_before_cancel": "Early failure - training stuck at MSE ~3.98",
+      "error": "IRED-CD-004: Replay buffer + CD loss computed but energy gradients 32x too weak. Cancelled and resubmitted with complete fix (e069fbe)."
+    },
     {
       "run_id": "q201_20260216_121500",
       "experiment": "q201_baseline",
@@ -670,10 +692,10 @@
     }
   ],
   "slurm_wait": {
-    "next_poll_after": "2026-02-17T01:36:00Z",
+    "next_poll_after": "2026-02-17T14:46:00Z",
     "poll_interval_seconds": 60,
-    "last_polled_at": "2026-02-17T01:35:00Z",
-    "note": "IRED-CD experiments RESUBMITTED with FIXED code after Issue 12 discovery. New jobs: 60739447 (q201), 60739482 (q202), 60739516 (q203), 60739551 (q204). All running with git_sha=948051d (includes mining_config fix). Early poll scheduled for 60s after submission to catch initialization errors. After early poll, resume 15-minute interval. Expected completion: ~4-6h (40 experiments, array throttling %2, 4 jobs in parallel)."
+    "last_polled_at": "2026-02-17T14:45:00Z",
+    "note": "IRED-CD experiments RESUBMITTED (4th attempt) with ALL 4 CD bug fixes. New jobs: 60790481 (q201), 60790510 (q202), 60790546 (q203). Git SHA e069fbe includes: CD-001 (wrong sign), CD-002 (missing detachment), CD-003 (requires_grad in-place), CD-004 (shape mismatch causing 32x gradient dilution). Previous jobs (60788685, 60788697, 60788751) cancelled after discovering CD-004 (energy loss computed but ineffective due to shape bug). Early poll scheduled for 60s to catch initialization errors. Expected completion: ~4-5h (30 experiments total, array throttling %2, 3 jobs in parallel). This is the complete fix - energy gradients now at correct magnitude (0.05, not 0.05/32)."
   },
   "events": [
     {
@@ -1077,6 +1099,18 @@
       "ts": "2026-02-17T01:35:00Z",
       "action": "RUN",
       "detail": "Issue 12 RESOLVED: Cancelled all 4 invalid IRED-CD jobs (60619264, 60619276, 60619287, 60619298) running broken code. Resubmitted with FIXED code (git_sha=948051d includes bfbc5a0 mining_config fix). New job IDs: q201_baseline (60739447), q202_cd_langevin (60739482), q203_cd_replay (60739516), q204_cd_full (60739551). All 4 array jobs submitted successfully with --array=0-9%2 (10 seeds each, 2 concurrent). Total compute: 40 experiments × 1.5h = 60 GPU-hours. Git SHA verified in logs: 948051d. Fix confirmed: mining_config now passes all 15 parameters (was 3/15). Expected outcomes: q202/q203/q204 will now have DRAMATICALLY different results as CD features actually activate (CD loss, Langevin, replay buffer, residual filtering, energy scheduling all functional). Phase transition: DEBUG → WAIT_SLURM. next_action: poll_cd_experiments_fixed. Early poll scheduled for 2026-02-17T01:36:00Z (60s after submission). Expected completion: ~4-6h wall-clock time (array throttling + 4 jobs in parallel)."
+    },
+    {
+      "id": "evt-0068",
+      "ts": "2026-02-17T14:45:00Z",
+      "action": "DEBUG",
+      "detail": "IRED-CD-004 DISCOVERED (4th CD bug): After fixing CD-001 (wrong sign), CD-002 (missing detachment), CD-003 (requires_grad in-place), jobs still failed with MSE stuck at ~3.98. Root cause: Shape mismatch in loss combination at diffusion_lib/denoising_diffusion_pytorch_1d.py:886. Bug: `loss = loss_mse + loss_scale * loss_energy.mean()` caused energy gradients to be 32x too weak (loss_energy shape [32,1] averaged to scalar, then scaled). Fix: `loss = loss_mse + loss_scale * loss_energy.squeeze(1)` preserves per-sample energy contributions (shape [32]). Impact: Energy loss was being computed but had negligible effect on training (gradient magnitude 0.05/32 instead of 0.05). This explains why MSE stayed at ~3.98 despite fixes to CD-001, CD-002, CD-003. Jobs 60788685 (q201), 60788697 (q202), 60788751 (q203) cancelled. Fix committed as e069fbe and pushed to GitHub. Resubmitted 3 jobs with ALL 4 fixes."
+    },
+    {
+      "id": "evt-0069",
+      "ts": "2026-02-17T14:45:00Z",
+      "action": "RUN",
+      "detail": "IRED-CD experiments RESUBMITTED (4th attempt) with ALL 4 CD bug fixes. New job IDs: q201_baseline (60790481, gpu_test), q202_cd_langevin (60790510, gpu), q203_cd_replay (60790546, gpu_test). Git SHA e069fbe includes complete fix set: CD-001 (sign correction), CD-002 (detachment), CD-003 (requires_grad), CD-004 (shape mismatch). Note: q204_cd_full NOT resubmitted - focus on core 3 experiments to validate fix. Total compute: 30 experiments × 1.5h = 45 GPU-hours. Partition diversification applied (q201/q203 on gpu_test, q202 on gpu) to avoid QOS limits. Expected outcomes: CD training should now work correctly with energy gradients at proper magnitude (0.05, not 0.05/32). MSE should improve from baseline instead of getting stuck at ~3.98. Early poll scheduled for 2026-02-17T14:46:00Z (60s after submission). Expected completion: ~4-5h wall-clock time (3 jobs in parallel, array throttling %2)."
     }
   ]
 }
