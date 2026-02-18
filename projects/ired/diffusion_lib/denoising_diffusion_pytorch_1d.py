@@ -850,8 +850,8 @@ class GaussianDiffusion1D(nn.Module):
                 energy_neg = energy_neg_raw  # Gradient flows to params, not through sample
 
                 # CD-style energy difference loss
-                # Minimize (E_neg - E_pos) to push E_pos DOWN, E_neg UP
-                loss_energy = (energy_neg - energy_pos)  # [B,1]
+                # Minimize (E_pos - E_neg) to push E_pos DOWN, E_neg UP
+                loss_energy = (energy_pos - energy_neg)  # [B,1]
 
                 # Energy magnitude regularization (Du & Mordatch 2019; UvA DL Tutorial 8)
                 # Prevents energy values from diverging to arbitrary magnitudes
