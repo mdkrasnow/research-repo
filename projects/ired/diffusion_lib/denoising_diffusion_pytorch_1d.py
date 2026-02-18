@@ -904,13 +904,19 @@ class GaussianDiffusion1D(nn.Module):
                 loss_energy = F.cross_entropy(-1 * energy_stack, target.long(), reduction='none')[:, None]
 
             # Combine losses
-            # CRITICAL FIX: Broadcast [B,1] to [B,400], not reduce to scalar
-            # This ensures energy gradients have magnitude loss_scale (0.05), not loss_scale/batch_size
-            # loss_mse shape: [B, 400], loss_energy shape: [B, 1] → broadcasts to [B, 400]
-            loss = loss_mse + loss_scale * loss_energy
-            # Add energy regularization unconditionally (not affected by filtering/masking)
+            # CRITICAL FIX: Reduce both losses to [B] shape first to avoid broadcasting bug
+            # Without this, broadcasting [B,1] energy loss to [B,400] MSE loss creates
+            # 400 copies of the energy loss, effectively multiplying its weight by 400x!
+            loss_mse_reduced = reduce(loss_mse, 'b ... -> b', 'mean')  # [B, 400] → [B]
+            loss_energy_reduced = loss_energy.squeeze(-1)  # [B, 1] → [B]
+
+            # Now combine with correct weighting
+            loss = loss_mse_reduced + loss_scale * loss_energy_reduced  # [B]
+
+            # Add energy regularization (not affected by filtering/masking)
             if use_cd_loss:
-                loss = loss + loss_scale * loss_energy_reg
+                loss_reg_reduced = loss_energy_reg.squeeze(-1)  # [B, 1] → [B]
+                loss = loss + loss_scale * loss_reg_reduced
 
             # Increment global step for scheduling
             self.global_step += 1
