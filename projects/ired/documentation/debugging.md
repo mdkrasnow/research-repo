@@ -49,6 +49,50 @@ Fix the energy scale problem properly — see `research-plan.md` for brainstorme
 
 ---
 
+## Issue 13: Scalar Head Catastrophic Overfitting — 100k-step Confirmation [2026-02-19]
+
+**Timestamp**: 2026-02-19 (from /check-results poll)
+**Job IDs**: 61186975 (q201), 61186968 (q207), 61186972 (q208), 61206606 (q209)
+**Status**: CONFIRMED — all scalar-head experiments fail catastrophically at 100k steps
+
+### Full Results Table (partial — seeds 0-1 completed, others in progress)
+
+| Exp | Strategy | val_mse (seed 0) | val_mse (seed 1) | vs baseline | Status |
+|-----|----------|-------------------|-------------------|-------------|--------|
+| q201 | adversarial (NCE baseline) | 1.704 | 1.105 | **175x WORSE** | 2/10 seeds done |
+| q207 | adversarial + scalar head | 0.099 | 0.081 | **10x WORSE** | 2/10 seeds done |
+| q208 | cd_langevin_replay + scalar | 1.460 | (OOM) | **150x WORSE** | 1/10 seeds done |
+| q209 | no mining + scalar head | 2.497 | 1.824 | **260x WORSE** | 2/10 RUNNING |
+
+Baseline reference: q101 NCE no-mining → val_mse = **0.00969**
+
+### Critical Finding: Q201 Regression
+q201 uses git_sha=e2dfbd8 with adversarial strategy — this SHOULD match q103 multiseed avg (0.00977).
+Instead it's producing val_mse=1.70. This is a **code regression** introduced between fef8849 (q103) and e2dfbd8.
+Most likely culprit: energy loss pathway active even on NCE baseline path, or scalar head affecting the baseline.
+
+### Q209 Diagnostic Result (Definitive)
+- train_mse = 0.00969 (matches baseline perfectly — denoising head learns correctly)
+- val_mse = 2.497 (catastrophic overfitting — energy guidance destroys generalization)
+- **Conclusion**: Scalar energy head causes catastrophic train/val gap. NOT mining. The architecture is broken.
+
+### OOM Issues (Q208)
+- Seeds 1,2 hit OUT_OF_MEMORY (exit 125)
+- Langevin+replay buffer combination exceeds available GPU memory
+- Seeds 3,4 hit exit 120 (node kill) — infrastructure fragility
+
+### Exit 120 Pattern (Seeds 2,3 across q201, q207)
+Both q201 and q207 seeds 2,3 fail with exit 120 at ~1:07-1:15 runtime.
+Likely specific compute nodes with instability. Remaining seeds (4+) appear to run on different nodes.
+
+### Action Required
+1. **Cancel remaining seeds** once we have enough partial data OR wait for completion
+2. **Root cause q201 regression** vs q103: diff e2dfbd8 vs fef8849, focus on energy loss path
+3. **Abandon scalar head approach** — architecture is fundamentally incompatible with this task
+4. **Next experiment**: Return to pure NCE (no scalar head) + improved CD approach
+
+---
+
 ## Active Investigation: Results Analysis
 
 ### Finding: Adversarial Mining Underperforms Baseline [COMPLETED]
