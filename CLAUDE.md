@@ -4,6 +4,10 @@
 - Only modify files inside the target project directory: `projects/<slug>/...`
 - Do NOT mix outputs between projects. Never write to another project's `runs/`, `results/`, `slurm/`, or `.state/`.
 
+## Commit message discipline
+- **Always include key metric results in commit messages** when committing after observing experimental outcomes. Example: "Resubmit q202-q204 with fixed sign (CD MSE 3.42 @ 100K steps, baseline 0.55)". This makes `git log` a searchable record of what worked and what didn't, without needing to re-fetch cluster logs.
+- When cancelling and resubmitting jobs, note in the commit message what the last observed MSE was and why.
+
 ## Authoritative state
 - `projects/<slug>/.state/pipeline.json` is the source of truth for what happens next.
 - Every command must:
