@@ -85,7 +85,8 @@ def run_experiment(config):
     print(f"Input dimension: {dataset.inp_dim}, Output dimension: {dataset.out_dim}")
     
     # Initialize model
-    model = EBM(inp_dim=dataset.inp_dim, out_dim=dataset.out_dim, is_ebm=True)
+    use_scalar_energy = config.get('use_scalar_energy', False)
+    model = EBM(inp_dim=dataset.inp_dim, out_dim=dataset.out_dim, is_ebm=True, use_scalar_energy=use_scalar_energy)
     model = DiffusionWrapper(model)
     
     # Initialize diffusion model with mining configuration
