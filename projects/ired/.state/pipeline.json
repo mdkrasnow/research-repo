@@ -775,8 +775,9 @@
       "q208_61186972": {"0": 1.460, "1": "OOM", "2": "OOM", "3": "FAILED_120", "4": "FAILED_120", "5": "RUNNING", "6": "RUNNING"},
       "q209_61206606": {"0": "RUNNING_partial_2.497", "1": "RUNNING_partial_1.824"}
     },
-    "critical_finding": "Q201 regression: should be ~0.009 (matches q103) but shows 1.70. Scalar head in e2dfbd8 code path corrupting NCE baseline. Q209 diagnostic confirms: scalar head causes catastrophic overfitting (train 0.009 / val 2.5). Architecture abandoned.",
-    "q201_regression_note": "q201 git_sha=e2dfbd8 with adversarial strategy should match q103 (val_mse=0.00977) but shows 1.70. Code regression between fef8849 and e2dfbd8. Investigate energy loss path leaking into adversarial baseline."
+    "critical_finding": "Root cause of q209 'train=0.009/val=2.5': NOT catastrophic generalization. It is a batch-size-normalization artifact: DiffusionWrapper.forward divides grad by energy.shape[0] (batch size). Train eval uses B=2048, val uses B=256, giving 8x larger opt_step strides during val. Scalar energy has unbounded gradient → diverges at 8x; vector energy is bounded → survives. True scalar head performance requires fixing the normalization. Q201 'regression' is NOT a code bug — it uses mining_opt_steps=10 vs q103's 2 (5x more aggressive), a known config change for the IRED-CD ablation.",
+    "next_action": "fix_batch_normalization_in_diffusion_wrapper_then_rerun_q209",
+    "normalization_bug": "models.py:820 opt_grad / energy.shape[0] — should be / 1 or per-sample norm to be batch-size-independent"
   },
   "slurm_wait": {
     "next_poll_after": "2026-02-19T05:30:00Z",

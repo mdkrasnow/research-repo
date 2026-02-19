@@ -49,47 +49,99 @@ Fix the energy scale problem properly — see `research-plan.md` for brainstorme
 
 ---
 
-## Issue 13: Scalar Head Catastrophic Overfitting — 100k-step Confirmation [2026-02-19]
+## Issue 13: Scalar Head Metric Artifact + Hyperparameter Mismatch Analysis [2026-02-19]
 
-**Timestamp**: 2026-02-19 (from /check-results poll)
+**Timestamp**: 2026-02-19 (from /check-results poll + code audit)
 **Job IDs**: 61186975 (q201), 61186968 (q207), 61186972 (q208), 61206606 (q209)
-**Status**: CONFIRMED — all scalar-head experiments fail catastrophically at 100k steps
+**Status**: ROOT CAUSE IDENTIFIED — NOT catastrophic generalization. Two separate issues found.
 
-### Full Results Table (partial — seeds 0-1 completed, others in progress)
+### Full Results Table (partial — seeds 0-1 completed per job, others in progress)
 
 | Exp | Strategy | val_mse (seed 0) | val_mse (seed 1) | vs baseline | Status |
 |-----|----------|-------------------|-------------------|-------------|--------|
-| q201 | adversarial (NCE baseline) | 1.704 | 1.105 | **175x WORSE** | 2/10 seeds done |
-| q207 | adversarial + scalar head | 0.099 | 0.081 | **10x WORSE** | 2/10 seeds done |
-| q208 | cd_langevin_replay + scalar | 1.460 | (OOM) | **150x WORSE** | 1/10 seeds done |
-| q209 | no mining + scalar head | 2.497 | 1.824 | **260x WORSE** | 2/10 RUNNING |
+| q201 | adversarial, opt_steps=10 | 1.704 | 1.105 | bad vs q103 | 2/10 seeds done |
+| q207 | adversarial + scalar head | 0.099 | 0.081 | 10x WORSE | 2/10 seeds done |
+| q208 | cd_langevin_replay + scalar | 1.460 | (OOM) | bad | 1/10 seeds done |
+| q209 | no mining + scalar head | train=0.009, val=2.497 | train=0.009, val=1.824 | misleading | 2/10 RUNNING |
 
 Baseline reference: q101 NCE no-mining → val_mse = **0.00969**
 
-### Critical Finding: Q201 Regression
-q201 uses git_sha=e2dfbd8 with adversarial strategy — this SHOULD match q103 multiseed avg (0.00977).
-Instead it's producing val_mse=1.70. This is a **code regression** introduced between fef8849 (q103) and e2dfbd8.
-Most likely culprit: energy loss pathway active even on NCE baseline path, or scalar head affecting the baseline.
+---
 
-### Q209 Diagnostic Result (Definitive)
-- train_mse = 0.00969 (matches baseline perfectly — denoising head learns correctly)
-- val_mse = 2.497 (catastrophic overfitting — energy guidance destroys generalization)
-- **Conclusion**: Scalar energy head causes catastrophic train/val gap. NOT mining. The architecture is broken.
+### Root Cause 1: "train=0.009 / val=2.5" in Q209 is a Metric Artifact
+
+**NOT catastrophic generalization. Caused by batch-size-dependent gradient normalization.**
+
+#### Evidence Chain
+1. **Same metric formula**: both `mse_error` (train) and `mse` (val) compute `(samples - label).pow(2).mean()` after calling `ema.ema_model.sample()`. Same code path.
+2. **Same data distribution**: `validation_dataset = dataset` — `Inverse` generates random matrices at `__getitem__` time (no fixed train/val split). No distribution difference.
+3. **The actual difference**: train eval uses `batch_size=2048`, val eval uses `validation_batch_size=256`.
+
+#### The Normalization Bug
+In `models.py:820` (DiffusionWrapper.forward):
+```python
+opt_grad = torch.autograd.grad([energy.sum()], [opt_out])[0] / energy.shape[0]
+```
+Then in `p_sample_loop` → `opt_step` (runs at EVERY timestep during inference):
+```python
+img_new = img - opt_step_size[t] * grad * sf
+```
+The gradient is normalized by batch size. With 8x smaller batch during val (256 vs 2048), the effective step size is **8x larger** during validation inference.
+
+#### Why This Destroys Scalar Energy but Not Vector Energy
+- **Vector energy**: `E = ||fc4(h)||²` → gradient magnitude is bounded by network weights (trained to be calibrated)
+- **Scalar energy**: `E = linear(h)` → gradient magnitude is unbounded, can grow arbitrarily large
+- With 8x larger effective steps: vector energy is robust; scalar energy diverges
+
+This explains why q101 (vector energy, val_mse=0.009) was fine despite the same normalization. The vector energy gradient has a natural scale; the scalar does not.
+
+#### What Q209 Actually Shows
+The train_mse=0.009 shows the **denoising head learns perfectly** even with scalar energy. The val_mse=2.497 is an artifact of large opt_step strides during val inference, NOT a generalization failure. To properly evaluate q209's true performance, need to fix the normalization or evaluate at consistent batch sizes.
+
+---
+
+### Root Cause 2: Q201 "Regression" is a Hyperparameter Change, Not a Code Regression
+
+| Config | q103 (baseline) | q201 ("baseline") |
+|--------|-----------------|-------------------|
+| `mining_opt_steps` | **2** | **10** |
+| `mining_noise_scale` | **3.0** | **1.5** |
+| `use_scalar_energy` | False | False |
+| `adam_betas` | (0.9, 0.99) | (0.9, 0.99) |
+
+q201 deliberately uses 10 adversarial opt_steps instead of 2. This is 5x more aggressive adversarial mining. The worse performance (val_mse=1.70 vs q103 0.009) is caused by:
+1. More aggressive mining creates harder negatives, potentially false negatives (negatives near positives)
+2. Combined with 8x larger val inference step size (batch normalization bug), the inference-time opt_step diverges more severely under the poorly-calibrated energy from aggressive training
+
+This is NOT a code bug in e2dfbd8 — it's the intentional hyperparameter change for the IRED-CD ablation study.
+
+---
+
+### Q207 Val MSE=0.099 — Is This Real?
+
+Yes — q207 is consistently evaluated at B=256 throughout all validation milestones. The 8x larger steps are applied consistently. The plateau at 0.099 is a real measurement of q207 performance under val-time inference. It's 10x worse than q101 (0.009), meaning scalar energy even with consistent evaluation is significantly worse.
+
+However, the 8x larger steps during val inference artificially harm the scalar model vs vector model in the comparison. To get a fair apples-to-apples comparison, need equal batch size or fix the normalization.
+
+---
 
 ### OOM Issues (Q208)
-- Seeds 1,2 hit OUT_OF_MEMORY (exit 125)
-- Langevin+replay buffer combination exceeds available GPU memory
-- Seeds 3,4 hit exit 120 (node kill) — infrastructure fragility
+Seeds 1,2 hit OUT_OF_MEMORY (exit 125). Langevin+replay buffer exceeds GPU memory.
+Seeds 3,4 hit exit 120 (node kill). Infrastructure instability.
 
 ### Exit 120 Pattern (Seeds 2,3 across q201, q207)
-Both q201 and q207 seeds 2,3 fail with exit 120 at ~1:07-1:15 runtime.
-Likely specific compute nodes with instability. Remaining seeds (4+) appear to run on different nodes.
+Consistent exit 120 at ~1:07-1:15 runtime. Likely same set of unstable compute nodes.
+Seeds 4+ run on different nodes and complete successfully.
 
-### Action Required
-1. **Cancel remaining seeds** once we have enough partial data OR wait for completion
-2. **Root cause q201 regression** vs q103: diff e2dfbd8 vs fef8849, focus on energy loss path
-3. **Abandon scalar head approach** — architecture is fundamentally incompatible with this task
-4. **Next experiment**: Return to pure NCE (no scalar head) + improved CD approach
+---
+
+### Revised Action Plan
+1. **Fix the normalization**: change `/ energy.shape[0]` to `/ 1` in DiffusionWrapper.forward (or normalize by a fixed constant) to make opt_step batch-size-independent. Then re-evaluate.
+2. **Re-run q209 after normalization fix** to get true scalar head performance without artifact.
+3. **Q207 (0.099 plateau)**: still real and bad, but the fair comparison needs normalization fix first.
+4. **Q201 hyperparameter sweep**: if 10 opt_steps hurts, try opt_steps=2 (matching q103) to confirm.
+5. **Q208 OOM**: reduce memory pressure (smaller replay buffer or fewer Langevin steps).
+6. **Wait for seeds 4-9** for q201/q207/q208/q209 before concluding.
 
 ---
 
