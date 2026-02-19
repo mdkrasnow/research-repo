@@ -69,8 +69,10 @@ class TBucketReplayBuffer:
             j = torch.randint(0, len(bucket), (1,)).item()
             out.append(bucket[j])
 
+        # Return without requires_grad: the Langevin sampler calls x_init.detach()
+        # at entry, which would strip requires_grad anyway. The model wrapper sets
+        # requires_grad_(True) on x inside sample_negatives_langevin as needed.
         samples = torch.stack(out).to(device)
-        samples.requires_grad_(True)
         return samples
 
     def __len__(self):

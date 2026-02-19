@@ -146,8 +146,15 @@ def run_experiment(config):
     # Check if GPU is available for fp16
     use_fp16 = torch.cuda.is_available()
 
-    # Adam betas: UvA DL Tutorial 8 recommends beta1=0 for EBM training because
-    # gradient directions change significantly across training steps.
+    # Adam beta1=0 for CD-style EBM training.
+    # UvA DL Tutorial 8 (Lippe 2022) sets beta1=0 when training EBMs with MCMC
+    # because momentum accumulates gradient direction from past steps, but in EBM
+    # training the gradient direction changes substantially each step (the negative
+    # phase samples a new set of negatives every iteration). Carrying stale momentum
+    # from a previous negative set biases the parameter update. beta1=0 makes the
+    # first-moment estimate equal to the current gradient, disabling this momentum.
+    # For the baseline (no CD loss), beta1=0.9 is standard; the config overrides this
+    # only for CD experiments (q202-q204 set "adam_betas": [0.0, 0.999]).
     adam_betas_cfg = config.get('adam_betas', None)
     adam_betas = tuple(adam_betas_cfg) if adam_betas_cfg is not None else (0.9, 0.99)
 
