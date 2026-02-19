@@ -795,11 +795,18 @@ class GNNConv1DReverse(nn.Module):
 
 
 class DiffusionWrapper(nn.Module):
-    def __init__(self, ebm):
+    def __init__(self, ebm, grad_norm_ref=None):
         super(DiffusionWrapper, self).__init__()
         self.ebm = ebm
         self.inp_dim = ebm.inp_dim
         self.out_dim = ebm.out_dim
+        # Fixed batch-size reference for gradient normalisation.
+        # When set, grad = ∂E.sum()/∂y / grad_norm_ref — the same constant is used
+        # at every call site (training forward, opt_step, Langevin), so the effective
+        # step size is invariant to whether the current batch has 256 or 2048 samples.
+        # When None (legacy), falls back to energy.shape[0] (the old batch-dependent
+        # behaviour: grad / B produces 8× larger steps at val-time B=256 vs train B=2048).
+        self.grad_norm_ref = grad_norm_ref
 
         if hasattr(self.ebm, 'is_ebm'):
             assert self.ebm.is_ebm, 'DiffusionWrapper only works for EBMs'
@@ -817,7 +824,8 @@ class DiffusionWrapper(nn.Module):
         if return_energy:
             return energy
 
-        opt_grad = torch.autograd.grad([energy.sum()], [opt_out], create_graph=True)[0] / energy.shape[0]
+        B_norm = self.grad_norm_ref if self.grad_norm_ref is not None else energy.shape[0]
+        opt_grad = torch.autograd.grad([energy.sum()], [opt_out], create_graph=True)[0] / B_norm
 
         if return_both:
             return energy, opt_grad

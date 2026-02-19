@@ -87,7 +87,13 @@ def run_experiment(config):
     # Initialize model
     use_scalar_energy = config.get('use_scalar_energy', False)
     model = EBM(inp_dim=dataset.inp_dim, out_dim=dataset.out_dim, is_ebm=True, use_scalar_energy=use_scalar_energy)
-    model = DiffusionWrapper(model)
+    # Fix batch-size-invariant gradient normalisation: pin the divisor to the training
+    # batch size so that opt_step and Langevin step sizes are the same whether the
+    # current forward pass has B=256 (val) or B=2048 (train).  Legacy behaviour
+    # (grad / B) is used when the config does not set batch_size, but new experiments
+    # should always set it so that val and train see identical effective step sizes.
+    grad_norm_ref = config.get('batch_size', None)
+    model = DiffusionWrapper(model, grad_norm_ref=grad_norm_ref)
     
     # Initialize diffusion model with mining configuration
     diffusion_steps = config.get('diffusion_steps', 10)
