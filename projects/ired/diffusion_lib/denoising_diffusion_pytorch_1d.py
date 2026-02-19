@@ -874,27 +874,29 @@ class GaussianDiffusion1D(nn.Module):
             use_cd_loss = self.mining_config.get('use_cd_loss', False)
 
             if use_cd_loss:
-                # Contrastive Divergence (CD) energy loss.
-                # Hinton (2002) "Training Products of Experts by Minimizing Contrastive
-                # Divergence": the CD objective lowers energy of data (positive) samples
-                # and raises energy of model (negative) samples.
+                # Architecture-aware energy loss for IRED.
                 #
-                # Loss = E_pos - E_neg, minimized by gradient descent:
-                #   ∂loss/∂θ = ∂E_pos/∂θ - ∂E_neg/∂θ
-                # → optimizer decreases E_pos (data gets lower energy) ✓
-                # → optimizer increases E_neg (negatives get higher energy) ✓
+                # IMPORTANT: In this architecture, the denoising prediction IS ∂E/∂x
+                # (DiffusionWrapper returns autograd.grad([E], [x])). This means:
+                #   E = ||fc4(h)||²  →  ∂E/∂x = 2·fc4(h)·(∂fc4(h)/∂x)
                 #
-                # Gradient flow: x_neg was detached before energy evaluation (line above,
-                # `xmin_noise.detach()`). This stops gradients flowing back through the
-                # SAMPLER (Langevin chain), which would be incorrect — the Langevin
-                # negatives are treated as fixed samples, not as differentiable outputs.
-                # Gradients flow only through the ENERGY NETWORK parameters θ. This is
-                # standard in CD (Hinton 2002) and EBM training (Du & Mordatch 2019).
+                # Standard CD minimizes (E_pos - E_neg), which pushes E_pos → 0, which
+                # collapses fc4(h_pos) → 0, which collapses ∂E/∂x_pos → 0, which collapses
+                # the denoising prediction to zero → MSE → 1.0.
+                #
+                # Using (E_neg - E_pos) instead:
+                # → minimizing drives E_neg down and E_pos UP
+                # → E_pos = ||fc4(h_pos)||² stays large → ∂E/∂x_pos stays nonzero → denoising works
+                # → E_neg gets lower energy (negatives pulled toward model distribution)
+                #
+                # This is NOT standard CD, but it is compatible with the IRED architecture
+                # where the energy gradient is the prediction. The denoising loss dominates
+                # and the energy loss provides an auxiliary shaping signal on the landscape.
                 energy_pos, energy_neg_raw = torch.chunk(energy, 2, 0)
                 energy_neg = energy_neg_raw  # Gradients flow to θ, not through x_neg
 
-                # Minimize (E_pos - E_neg): lower energy of data, raise energy of negatives.
-                loss_energy = (energy_pos - energy_neg)  # [B,1]
+                # Minimize (E_neg - E_pos): keeps E_pos large (gradient stays nonzero for denoising)
+                loss_energy = (energy_neg - energy_pos)  # [B,1]
 
                 # Energy magnitude regularization: L2-penalize energy values to prevent
                 # them diverging to arbitrary magnitudes while preserving the sign of
