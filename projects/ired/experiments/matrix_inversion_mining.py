@@ -125,7 +125,11 @@ def run_experiment(config):
 
         # Timestep range filtering
         'use_timestep_range': config.get('use_timestep_range', False),
-        'energy_loss_timestep_range': config.get('energy_loss_timestep_range', [0.2, 0.8])
+        'energy_loss_timestep_range': config.get('energy_loss_timestep_range', [0.2, 0.8]),
+
+        # IRED-style contrastive loss
+        'use_ired_contrastive_loss': config.get('use_ired_contrastive_loss', False),
+        'contrastive_temperature': config.get('contrastive_temperature', 1.0)
     }
     
     diffusion = GaussianDiffusion1D(
