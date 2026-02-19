@@ -32,18 +32,21 @@
 | 61186972 | q208 scalar CD | 0 | 5,6 | 1-2(OOM),3-4(120) | val_mse=1.46 — catastrophic |
 | 61206606 | q209 scalar nm | — | 0,1 | — | train=0.009,val=2.5 — **diagnostic answered** |
 
-### DIAGNOSTIC ANSWERED (Q209 Result)
-**Q**: Is q207 plateau caused by mining or the scalar head?
-**A**: SCALAR HEAD. Q209 (no mining) shows train_mse=0.009 but val_mse=2.5 → catastrophic overfitting.
-The architecture is fundamentally broken. Mining strategy is irrelevant.
+### Metric Artifact Identified (Q209 "train=0.009 / val=2.5")
+**NOT catastrophic overfitting.** Root cause: `DiffusionWrapper.forward` normalizes grad by batch size
+(`/ energy.shape[0]`). Train eval uses B=2048, val eval uses B=256 → 8x larger opt_step strides
+during val inference. Scalar energy (unbounded gradient) diverges; vector energy (bounded) does not.
+True q209 performance unknown until normalization is fixed or consistent batch size used.
 
-### Q201 Regression
-q201 expected val_mse ~0.009 (identical to q103 multiseed) but shows 1.70.
-Code diff: fef8849 (q103, working) → e2dfbd8 (q201, broken). Energy loss leaks into NCE baseline.
+### Q201 "Regression" Explained
+q201 uses `mining_opt_steps=10` vs q103's `2` — intentionally different hyperparameters for IRED-CD
+ablation. Not a code regression. 5x more aggressive mining + batch normalization artifact → bad val MSE.
 
-### DECISION: Abandon Scalar Energy Head
-All scalar head experiments (q207, q208, q209) show catastrophic failure.
-Next step: Diagnose q201 regression to understand what broke, then proceed with NCE-only architecture.
+### Revised Next Steps
+1. Fix `/ energy.shape[0]` normalization in DiffusionWrapper.forward (use fixed constant or per-sample norm)
+2. Re-evaluate scalar head after fix (q209 may be fine; q207 plateau may narrow)
+3. Wait for seeds 4-9 for statistical significance on current experiments
+4. Q208 OOM: reduce memory pressure
 
 ---
 
