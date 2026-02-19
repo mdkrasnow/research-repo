@@ -738,8 +738,14 @@ class GaussianDiffusion1D(nn.Module):
         loss_mse = loss
 
         if self.supervise_energy_landscape:
-            noise = torch.randn_like(x_start)
-            data_sample = self.q_sample(x_start = x_start, t = t, noise = noise)
+            use_ired_contrastive = self.mining_config.get('use_ired_contrastive_loss', False)
+            if use_ired_contrastive:
+                # Reuse the same noisy sample from the denoising path to reduce variance
+                data_sample = x
+                noise = torch.randn_like(x_start)  # still needed for negative init below
+            else:
+                noise = torch.randn_like(x_start)
+                data_sample = self.q_sample(x_start = x_start, t = t, noise = noise)
 
             if mask is not None:
                 data_cond = self.q_sample(x_start = x_start, t = t, noise = torch.zeros_like(noise))
@@ -872,8 +878,26 @@ class GaussianDiffusion1D(nn.Module):
 
             # Choose loss based on strategy
             use_cd_loss = self.mining_config.get('use_cd_loss', False)
+            use_ired_contrastive = self.mining_config.get('use_ired_contrastive_loss', False)
 
-            if use_cd_loss:
+            if use_ired_contrastive:
+                # IRED-style contrastive loss: softplus(E_pos - E_neg)
+                # Enforces E_pos < E_neg via a stable logistic form.
+                # Unlike the CD (E_neg - E_pos) term which fights the architecture,
+                # this directly pushes positives to lower energy than negatives.
+                energy_pos, energy_neg = torch.chunk(energy, 2, 0)
+
+                temp = self.mining_config.get('contrastive_temperature', 1.0)
+                e_pos = energy_pos.squeeze(-1)  # [B]
+                e_neg = energy_neg.squeeze(-1)  # [B]
+                logits = (e_pos - e_neg) / temp  # want e_pos < e_neg
+                loss_energy = F.softplus(logits).unsqueeze(-1)  # [B, 1]
+
+                # Energy magnitude regularization (same as CD path)
+                energy_reg_weight = self.mining_config.get('energy_reg_weight', 0.1)
+                loss_energy_reg = energy_reg_weight * (energy_pos.pow(2) + energy_neg.pow(2))  # [B,1]
+
+            elif use_cd_loss:
                 # Architecture-aware energy loss for IRED.
                 #
                 # IMPORTANT: In this architecture, the denoising prediction IS ∂E/∂x
@@ -970,30 +994,29 @@ class GaussianDiffusion1D(nn.Module):
             # residual filter or timestep range, since magnitude bounding should
             # apply regardless of which samples are selected as hard negatives).
             # Effective weight = loss_scale * energy_reg_weight (e.g. 0.05 * 0.1 = 0.005).
-            if use_cd_loss:
+            if use_cd_loss or use_ired_contrastive:
                 loss_reg_reduced = loss_energy_reg.squeeze(-1)  # [B, 1] → [B]
                 loss = loss + loss_scale * loss_reg_reduced
 
             # Increment global step for scheduling
             self.global_step += 1
 
-            # === CD DIAGNOSTIC LOGGING ===
+            # === ENERGY DIAGNOSTIC LOGGING ===
             # Log every 100 steps to stdout so it appears in SLURM .out logs.
-            # Helps diagnose: (1) energy scale, (2) CD vs MSE loss balance,
-            # (3) Langevin effectiveness, (4) negative distinctness.
             if self.global_step % 100 == 0:
                 with torch.no_grad():
                     e_pos_mean = energy_pos.mean().item()
                     e_neg_mean = energy_neg.mean().item()
-                    cd_raw = (energy_pos - energy_neg).mean().item()
+                    margin = (e_neg_mean - e_pos_mean)
                     mse_val = loss_mse_reduced.mean().item()
-                    cd_weighted = (loss_scale * loss_energy_reduced).mean().item()
+                    energy_wtd = (loss_scale * loss_energy_reduced).mean().item()
                     neg_dist = (xmin_noise - data_sample).norm(dim=-1).mean().item()
                     diag = getattr(self, '_langevin_diag', {})
+                    tag = "IRED-CL" if use_ired_contrastive else "CD"
                     print(
-                        f"[CD-DIAG step={self.global_step}] "
+                        f"[{tag}-DIAG step={self.global_step}] "
                         f"E_pos={e_pos_mean:.4f} E_neg={e_neg_mean:.4f} "
-                        f"CD_raw={cd_raw:.4f} CD_wtd={cd_weighted:.6f} "
+                        f"margin={margin:.4f} E_wtd={energy_wtd:.6f} "
                         f"MSE={mse_val:.6f} "
                         f"neg_dist={neg_dist:.4f} "
                         f"lang_grad0={diag.get('grad_norm_first',0):.4f} "
@@ -1003,7 +1026,7 @@ class GaussianDiffusion1D(nn.Module):
                         f"sigma={diag.get('sigma_mean',0):.4f}",
                         flush=True
                     )
-            # === END CD DIAGNOSTIC LOGGING ===
+            # === END ENERGY DIAGNOSTIC LOGGING ===
 
             return loss.mean(), (loss_mse.mean(), loss_energy.mean(), loss_opt.mean())
         else:
