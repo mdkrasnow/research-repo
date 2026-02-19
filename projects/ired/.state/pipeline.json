@@ -1,8 +1,8 @@
 {
   "project": "ired",
-  "phase": "DEBUG",
+  "phase": "WAIT_SLURM",
   "current_investigation": "ired-cd",
-  "next_action": "user_input_required",
+  "next_action": "poll_q206_contrastive",
   "needs_user_input": {
     "value": false,
     "prompt": ""
@@ -165,7 +165,21 @@
       "Output directories per seed: results/ds_inverse/q10{1,2,3}_seed{0-9}"
     ]
   },
-  "active_runs": [],
+  "active_runs": [
+    {
+      "run_id": "q206_20260219_000000",
+      "experiment": "q206_ired_contrastive",
+      "job_id": "61166742",
+      "submitted_at": "2026-02-19T00:00:00Z",
+      "status": "running",
+      "partition": "gpu",
+      "git_sha": "77652e7",
+      "array_spec": "0-9%2",
+      "num_seeds": 10,
+      "strategy": "cd_langevin_replay",
+      "note": "IRED-style contrastive loss: softplus(E_pos - E_neg). Replaces CD objective. Previous q201-q205 jobs cancelled."
+    }
+  ],
   "completed_runs": [
     {
       "run_id": "q201_20260218_000000",
@@ -715,10 +729,10 @@
     }
   ],
   "slurm_wait": {
-    "next_poll_after": "2026-02-17T14:46:00Z",
+    "next_poll_after": "2026-02-19T00:01:00Z",
     "poll_interval_seconds": 60,
-    "last_polled_at": "2026-02-17T14:45:00Z",
-    "note": "IRED-CD experiments RESUBMITTED (4th attempt) with ALL 4 CD bug fixes. New jobs: 60790481 (q201), 60790510 (q202), 60790546 (q203). Git SHA e069fbe includes: CD-001 (wrong sign), CD-002 (missing detachment), CD-003 (requires_grad in-place), CD-004 (shape mismatch causing 32x gradient dilution). Previous jobs (60788685, 60788697, 60788751) cancelled after discovering CD-004 (energy loss computed but ineffective due to shape bug). Early poll scheduled for 60s to catch initialization errors. Expected completion: ~4-5h (30 experiments total, array throttling %2, 3 jobs in parallel). This is the complete fix - energy gradients now at correct magnitude (0.05, not 0.05/32)."
+    "last_polled_at": "2026-02-19T00:00:00Z",
+    "note": "q206 IRED contrastive loss submitted (job 61166742, git 77652e7). softplus(E_pos - E_neg) objective with Langevin + replay buffer. 10 seeds, array %2 throttle, gpu partition. All previous CD jobs (q201-q205) cancelled. Early poll in 60s."
   },
   "events": [
     {
