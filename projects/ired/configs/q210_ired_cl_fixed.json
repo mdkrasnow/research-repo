@@ -1,0 +1,39 @@
+{
+  "experiment_name": "q210_ired_cl_fixed",
+  "description": "IRED-CL with three literature-backed fixes: (1) energy L2 reg to prevent scale blowup and keep softplus active, (2) fewer Langevin steps to avoid boundary saturation, (3) Langevin now uses energy.mean() grad removing B_norm dependency from the MCMC kernel.",
+  "investigation": "ired-cd",
+  "ablation_stage": "scalar_contrastive_fixed",
+  "mining_strategy": "cd_langevin_replay",
+  "rank": 20,
+  "ood": false,
+  "diffusion_steps": 10,
+  "batch_size": 2048,
+  "train_steps": 100000,
+  "learning_rate": 0.0001,
+
+  "use_scalar_energy": true,
+  "use_ired_contrastive_loss": true,
+  "contrastive_temperature": 1.0,
+
+  "use_langevin": true,
+  "mining_opt_steps": 3,
+  "mining_noise_scale": 1.5,
+  "langevin_sigma_multiplier": 0.1,
+
+  "use_replay_buffer": true,
+  "replay_buffer_size": 10000,
+  "replay_buffer_buckets": 16,
+  "replay_sample_prob": 0.95,
+
+  "use_cd_loss": false,
+
+  "energy_loss_weight": 0.05,
+  "energy_reg_weight": 0.01,
+
+  "use_residual_filter": false,
+  "use_energy_schedule": false,
+
+  "adam_betas": [0.0, 0.999],
+  "output_dir": "results/ds_inverse/q210_ired_cl_fixed",
+  "notes": "Three fixes vs q208: (1) energy_reg_weight=0.01 — L2 penalty on |E_pos|^2+|E_neg|^2 keeps energy scale bounded so softplus logit (e_pos-e_neg)/T stays in [-10,10] rather than [-60000,60000] where gradient vanishes. (2) mining_opt_steps=3 (was 10) — fewer Langevin steps reduces per-step displacement from ~3.4 to ~1.0, keeping negatives off the [-2,2] boundary. (3) Langevin now computes grad via autograd.grad(energy.mean(), x) directly, not via DiffusionWrapper's return_both which divides by B_norm=2048 (training constant that should not enter the MCMC kernel). With energy.mean(), the drift is proportional to the per-sample gradient at natural scale; sigma_mult=0.1 is a consistent temperature parameter for this scale."
+}

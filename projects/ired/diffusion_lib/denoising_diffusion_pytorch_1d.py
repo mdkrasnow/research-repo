@@ -439,77 +439,68 @@ class GaussianDiffusion1D(nn.Module):
         Sample negatives using Langevin dynamics (short-run MCMC).
 
         Implements the overdamped Langevin update:
-            x_{k+1} = x_k - η·∇_x E(x_k) + sqrt(2η)·ε,  ε ~ N(0, I)
-        where η = opt_step_size[t] (timestep-dependent, calibrated to diffusion betas).
+            x_{k+1} = x_k - η·∇_x E(x_k) + sqrt(2ηT)·ε,  ε ~ N(0, I)
+        where η = opt_step_size[t] and T is an effective temperature.
 
-        This is short-run MCMC as in Du & Mordatch (NeurIPS 2019), "Implicit Generation
-        and Generalization in Energy-Based Models": run k steps from a fixed init rather
-        than waiting for convergence. The negatives don't need to be exact samples from
-        the model distribution; they only need to be "better" than random noise for the
-        CD gradient to provide useful signal.
+        Gradient convention: we compute ∂(E.mean())/∂x rather than routing
+        through DiffusionWrapper's return_both path (which returns
+        ∂E.sum()/∂x / B_norm — a training-specific normalization that should
+        not enter the MCMC kernel). Using energy.mean() keeps the gradient
+        scale independent of the fixed B_norm constant, so the drift/noise
+        ratio is determined solely by the model's natural energy scale and the
+        temperature parameter (langevin_sigma_multiplier), not by batch size.
 
-        Signal-to-noise considerations (critical for working Langevin):
-        - The UvA DL Tutorial 8 uses step_size=10, clip=0.03, sigma=0.005, giving SNR=60.
-        - DO NOT add per-element gradient clipping here. Du & Mordatch 2019 clips the
-          ADAM TRAINING gradients (via 3-sigma rule on 2nd moment), not the Langevin
-          step gradient. Clipping the Langevin gradient at a small value (e.g. 0.01)
-          while sigma=sqrt(2*step)~0.30 collapses SNR to ~0.001, making the chain a
-          pure random walk that generates no useful negatives.
-        - The sigma multiplier (default 0.1) scales down noise to maintain SNR > 1
-          without decoupling sigma from the theoretically motivated sqrt(2*eta) formula.
+        create_graph=False: no second-order computation needed during sampling.
 
-        Parameter freeze: Du & Mordatch 2019 freeze model parameters during sampling
-        so that autograd only computes ∇_x E, not ∇_θ E. This prevents the sampling
-        graph from accumulating into the training graph.
+        Parameter freeze: model weights are frozen so autograd only computes
+        ∇_x E, not ∇_θ E (Du & Mordatch 2019).
 
         Returns negatives in xₜ space (same as x_init).
         """
         x = x_init.detach()
 
         step = extract(self.opt_step_size, t, x.shape)  # η: per-sample, broadcastable
-        # sigma = sqrt(2η) per overdamped Langevin theory (fluctuation-dissipation theorem).
-        # langevin_sigma_multiplier (default 0.1) scales this down so that
-        # sigma << step * |∇E|, keeping gradient updates larger than noise (SNR > 1).
-        # With step~0.045 and multiplier=0.1: sigma~0.03, comparable to a typical
-        # gradient step of 0.045*|grad|~0.045 (for |grad|~1).
+        # sigma = T_mult * sqrt(2η).  T_mult (langevin_sigma_multiplier, default 0.1)
+        # is a temperature parameter: T_eff = T_mult².  It governs how broadly the
+        # chain explores relative to the drift field of energy.mean().  Keeping it
+        # < 1 maintains SNR > 1 so the chain is drift-dominated, not a random walk.
         sigma_mult = self.mining_config.get('langevin_sigma_multiplier', 0.1)
         sigma = sigma_mult * torch.sqrt(2.0 * step)
 
         # Freeze model parameters during Langevin sampling (Du & Mordatch 2019).
-        # Autograd only tracks gradients w.r.t. x (the sample), not model weights,
-        # preventing sampling graphs from leaking into the training backward pass.
         for p in self.model.parameters():
             p.requires_grad_(False)
 
-        x_init_ref = x.clone()  # Keep reference to measure how far Langevin moves
+        x_init_ref = x.clone()
         grad_norms = []
 
         for k in range(k_steps):
-            # Compute energy and ∇_x E in one forward pass via the wrapper.
-            energy, grad = self.model(inp, x, t, return_both=True)
+            # Explicitly enable grad on x — required because return_energy=True
+            # does NOT set requires_grad internally (unlike return_both).
+            x_g = x.requires_grad_(True)
+
+            # Raw energy, no B_norm division.
+            energy = self.model(inp, x_g, t, return_energy=True)  # [B, 1]
+
+            # ∂(E.mean())/∂x = (1/B) * ∂E.sum()/∂x  — per-sample gradient at
+            # natural scale, independent of B_norm.  create_graph=False: the
+            # sampling graph must not accumulate into the training backward pass.
+            grad = torch.autograd.grad(
+                energy.mean(), x_g, create_graph=False
+            )[0]  # [B, D]
 
             with torch.no_grad():
-                grad_detached = grad.detach()
-                # NO per-element gradient clipping here. The opt_step (adversarial mining)
-                # uses no clipping either. Clipping at small values would collapse the
-                # gradient signal relative to sigma and turn the chain into a random walk.
-                # If NaN/Inf gradients appear, investigate the energy function scale, not
-                # the Langevin clip.
-
-                # Langevin step: x ← x - η·∇E + σ·ε
-                x = x - step * grad_detached + sigma * torch.randn_like(x)
-                # Clamp to keep in xₜ-space range consistent with q_sample outputs.
+                # Langevin step: x ← x - η·∇(E.mean()) + σ·ε
+                x = x_g.detach() - step * grad.detach() + sigma * torch.randn_like(x)
                 x = torch.clamp(x, -2, 2)
 
-                # Diagnostic: track gradient norms on first and last step
                 if k == 0 or k == k_steps - 1:
-                    grad_norms.append(grad_detached.norm(dim=-1).mean().item())
+                    grad_norms.append(grad.detach().norm(dim=-1).mean().item())
 
         # Re-enable model parameter gradients for training.
         for p in self.model.parameters():
             p.requires_grad_(True)
 
-        # Store diagnostics for logging in p_losses
         self._langevin_diag = {
             'grad_norm_first': grad_norms[0] if grad_norms else 0.0,
             'grad_norm_last': grad_norms[-1] if len(grad_norms) > 1 else grad_norms[0] if grad_norms else 0.0,
