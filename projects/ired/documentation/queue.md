@@ -22,6 +22,31 @@
 
 ---
 
+## SCALAR HEAD INVESTIGATION — PARTIAL RESULTS [2026-02-19]
+
+### Current Active Jobs
+| Job | Exp | Seeds Done | Seeds Running | Seeds Failed | Key Finding |
+|-----|-----|-----------|---------------|--------------|-------------|
+| 61186975 | q201 baseline | 0,1 | 4,5 | 2(120),3(120) | val_mse=1.70,1.10 — **regression vs q103** |
+| 61186968 | q207 scalar adv | 0,1 | 4,5 | 2(120),3(120) | val_mse=0.099,0.081 — plateau confirmed |
+| 61186972 | q208 scalar CD | 0 | 5,6 | 1-2(OOM),3-4(120) | val_mse=1.46 — catastrophic |
+| 61206606 | q209 scalar nm | — | 0,1 | — | train=0.009,val=2.5 — **diagnostic answered** |
+
+### DIAGNOSTIC ANSWERED (Q209 Result)
+**Q**: Is q207 plateau caused by mining or the scalar head?
+**A**: SCALAR HEAD. Q209 (no mining) shows train_mse=0.009 but val_mse=2.5 → catastrophic overfitting.
+The architecture is fundamentally broken. Mining strategy is irrelevant.
+
+### Q201 Regression
+q201 expected val_mse ~0.009 (identical to q103 multiseed) but shows 1.70.
+Code diff: fef8849 (q103, working) → e2dfbd8 (q201, broken). Energy loss leaks into NCE baseline.
+
+### DECISION: Abandon Scalar Energy Head
+All scalar head experiments (q207, q208, q209) show catastrophic failure.
+Next step: Diagnose q201 regression to understand what broke, then proceed with NCE-only architecture.
+
+---
+
 ## CRITICAL - CD TRAINING BUG FIX (4th Iteration)
 
 ### IRED-CD Experiments - Jobs Resubmitted with Complete Fix (IRED-CD-004)

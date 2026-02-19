@@ -767,11 +767,22 @@
       "error": "Cancelled to redeploy with gpu_test partition (was submitted with old gpu partition)"
     }
   ],
+  "partial_results_2026_02_19": {
+    "polled_at": "2026-02-19T03:30:00Z",
+    "seeds_done": {
+      "q201_61186975": {"0": 1.704, "1": 1.105, "2": "FAILED_120", "3": "FAILED_120", "4": "RUNNING", "5": "RUNNING"},
+      "q207_61186968": {"0": 0.0990, "1": 0.0807, "2": "FAILED_120", "3": "FAILED_120", "4": "RUNNING", "5": "RUNNING"},
+      "q208_61186972": {"0": 1.460, "1": "OOM", "2": "OOM", "3": "FAILED_120", "4": "FAILED_120", "5": "RUNNING", "6": "RUNNING"},
+      "q209_61206606": {"0": "RUNNING_partial_2.497", "1": "RUNNING_partial_1.824"}
+    },
+    "critical_finding": "Q201 regression: should be ~0.009 (matches q103) but shows 1.70. Scalar head in e2dfbd8 code path corrupting NCE baseline. Q209 diagnostic confirms: scalar head causes catastrophic overfitting (train 0.009 / val 2.5). Architecture abandoned.",
+    "q201_regression_note": "q201 git_sha=e2dfbd8 with adversarial strategy should match q103 (val_mse=0.00977) but shows 1.70. Code regression between fef8849 and e2dfbd8. Investigate energy loss path leaking into adversarial baseline."
+  },
   "slurm_wait": {
-    "next_poll_after": "2026-02-19T00:01:00Z",
-    "poll_interval_seconds": 60,
-    "last_polled_at": "2026-02-19T00:00:00Z",
-    "note": "q206 IRED contrastive loss submitted (job 61166742, git 77652e7). softplus(E_pos - E_neg) objective with Langevin + replay buffer. 10 seeds, array %2 throttle, gpu partition. All previous CD jobs (q201-q205) cancelled. Early poll in 60s."
+    "next_poll_after": "2026-02-19T05:30:00Z",
+    "poll_interval_seconds": 3600,
+    "last_polled_at": "2026-02-19T03:30:00Z",
+    "note": "q201/q207/q208/q209 partially complete. Seeds 0-3 done/failed for q201/q207. Key finding: scalar head catastrophic failure confirmed. Q209 diagnostic answered. Waiting for remaining seeds to complete for full 10-seed stats."
   },
   "events": [
     {
