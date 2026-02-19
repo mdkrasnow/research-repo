@@ -438,47 +438,67 @@ class GaussianDiffusion1D(nn.Module):
         """
         Sample negatives using Langevin dynamics (short-run MCMC).
 
-        CRITICAL: Uses wrapper gradient to avoid recomputing autograd.
+        Implements the overdamped Langevin update:
+            x_{k+1} = x_k - η·∇_x E(x_k) + sqrt(2η)·ε,  ε ~ N(0, I)
+        where η = opt_step_size[t] (timestep-dependent, calibrated to diffusion betas).
+
+        This is short-run MCMC as in Du & Mordatch (NeurIPS 2019), "Implicit Generation
+        and Generalization in Energy-Based Models": run k steps from a fixed init rather
+        than waiting for convergence. The negatives don't need to be exact samples from
+        the model distribution; they only need to be "better" than random noise for the
+        CD gradient to provide useful signal.
+
+        Signal-to-noise considerations (critical for working Langevin):
+        - The UvA DL Tutorial 8 uses step_size=10, clip=0.03, sigma=0.005, giving SNR=60.
+        - DO NOT add per-element gradient clipping here. Du & Mordatch 2019 clips the
+          ADAM TRAINING gradients (via 3-sigma rule on 2nd moment), not the Langevin
+          step gradient. Clipping the Langevin gradient at a small value (e.g. 0.01)
+          while sigma=sqrt(2*step)~0.30 collapses SNR to ~0.001, making the chain a
+          pure random walk that generates no useful negatives.
+        - The sigma multiplier (default 0.1) scales down noise to maintain SNR > 1
+          without decoupling sigma from the theoretically motivated sqrt(2*eta) formula.
+
+        Parameter freeze: Du & Mordatch 2019 freeze model parameters during sampling
+        so that autograd only computes ∇_x E, not ∇_θ E. This prevents the sampling
+        graph from accumulating into the training graph.
+
         Returns negatives in xₜ space (same as x_init).
-
-        Literature: Learning Non-Convergent Short-Run MCMC (Du & Mordatch, NeurIPS 2019)
-
-        Args:
-            inp: Input conditioning (e.g., matrix A)
-            x_init: Initial negative sample at timestep t (xₜ space)
-            t: Diffusion timestep
-            k_steps: Number of Langevin steps
-
-        Returns:
-            x_neg: Refined negative at timestep t (xₜ space)
         """
         x = x_init.detach()
 
-        step = extract(self.opt_step_size, t, x.shape)  # per-sample, broadcastable
-        sigma_mult = self.mining_config.get('langevin_sigma_multiplier', 1.0)
+        step = extract(self.opt_step_size, t, x.shape)  # η: per-sample, broadcastable
+        # sigma = sqrt(2η) per overdamped Langevin theory (fluctuation-dissipation theorem).
+        # langevin_sigma_multiplier (default 0.1) scales this down so that
+        # sigma << step * |∇E|, keeping gradient updates larger than noise (SNR > 1).
+        # With step~0.045 and multiplier=0.1: sigma~0.03, comparable to a typical
+        # gradient step of 0.045*|grad|~0.045 (for |grad|~1).
+        sigma_mult = self.mining_config.get('langevin_sigma_multiplier', 0.1)
         sigma = sigma_mult * torch.sqrt(2.0 * step)
 
-        # Freeze model parameters during Langevin sampling (Du & Mordatch 2019)
-        # Only input x needs gradients; model params should not accumulate graphs
+        # Freeze model parameters during Langevin sampling (Du & Mordatch 2019).
+        # Autograd only tracks gradients w.r.t. x (the sample), not model weights,
+        # preventing sampling graphs from leaking into the training backward pass.
         for p in self.model.parameters():
             p.requires_grad_(False)
 
         for _ in range(k_steps):
-            # Use wrapper to get both energy and gradient in one call
+            # Compute energy and ∇_x E in one forward pass via the wrapper.
             energy, grad = self.model(inp, x, t, return_both=True)
 
             with torch.no_grad():
-                # Detach gradient to prevent graph accumulation
                 grad_detached = grad.detach()
-                # Gradient clipping for Langevin stability (Du & Mordatch 2019; UvA DL Tutorial 8)
-                langevin_grad_clip = self.mining_config.get('langevin_grad_clip', 0.01)
-                if langevin_grad_clip > 0:
-                    grad_detached = grad_detached.clamp(-langevin_grad_clip, langevin_grad_clip)
-                # Langevin step: x ← x - η∇E + σ·N(0,I)
-                x = x - step * grad_detached + sigma * torch.randn_like(x)
-                x = torch.clamp(x, -2, 2)  # Keep in reasonable range
+                # NO per-element gradient clipping here. The opt_step (adversarial mining)
+                # uses no clipping either. Clipping at small values would collapse the
+                # gradient signal relative to sigma and turn the chain into a random walk.
+                # If NaN/Inf gradients appear, investigate the energy function scale, not
+                # the Langevin clip.
 
-        # Re-enable model parameter gradients for training
+                # Langevin step: x ← x - η·∇E + σ·ε
+                x = x - step * grad_detached + sigma * torch.randn_like(x)
+                # Clamp to keep in xₜ-space range consistent with q_sample outputs.
+                x = torch.clamp(x, -2, 2)
+
+        # Re-enable model parameter gradients for training.
         for p in self.model.parameters():
             p.requires_grad_(True)
 
@@ -837,26 +857,37 @@ class GaussianDiffusion1D(nn.Module):
             use_cd_loss = self.mining_config.get('use_cd_loss', False)
 
             if use_cd_loss:
-                # ✅ CORRECTED CD-style energy loss (critical gradient flow fix)
-                # Detach x_neg (sample), NOT energy_neg (energy evaluation)
-                # This allows gradients to flow from energy to EBM parameters
+                # Contrastive Divergence (CD) energy loss.
+                # Hinton (2002) "Training Products of Experts by Minimizing Contrastive
+                # Divergence": the CD objective lowers energy of data (positive) samples
+                # and raises energy of model (negative) samples.
+                #
+                # Loss = E_pos - E_neg, minimized by gradient descent:
+                #   ∂loss/∂θ = ∂E_pos/∂θ - ∂E_neg/∂θ
+                # → optimizer decreases E_pos (data gets lower energy) ✓
+                # → optimizer increases E_neg (negatives get higher energy) ✓
+                #
+                # Gradient flow: x_neg was detached before energy evaluation (line above,
+                # `xmin_noise.detach()`). This stops gradients flowing back through the
+                # SAMPLER (Langevin chain), which would be incorrect — the Langevin
+                # negatives are treated as fixed samples, not as differentiable outputs.
+                # Gradients flow only through the ENERGY NETWORK parameters θ. This is
+                # standard in CD (Hinton 2002) and EBM training (Du & Mordatch 2019).
                 energy_pos, energy_neg_raw = torch.chunk(energy, 2, 0)
+                energy_neg = energy_neg_raw  # Gradients flow to θ, not through x_neg
 
-                # CRITICAL: Stop gradient through SAMPLER, not through ENERGY EVAL
-                # We already detached xmin_noise in the sampling code above,
-                # but we need to recompute energy without gradient through the sample
-                # Actually, we already concatenated xmin_noise (which is detached in CD paths)
-                # so energy_neg already has the right gradient flow
-                energy_neg = energy_neg_raw  # Gradient flows to params, not through sample
-
-                # CD-style energy difference loss
-                # Minimize (E_pos - E_neg) to push E_pos DOWN, E_neg UP
+                # Minimize (E_pos - E_neg): lower energy of data, raise energy of negatives.
                 loss_energy = (energy_pos - energy_neg)  # [B,1]
 
-                # Energy magnitude regularization (Du & Mordatch 2019; UvA DL Tutorial 8)
-                # Prevents energy values from diverging to arbitrary magnitudes
-                # Applied separately from loss_energy so it is NOT zeroed out by
-                # residual filtering or timestep masking (regularization is unconditional)
+                # Energy magnitude regularization: L2-penalize energy values to prevent
+                # them diverging to arbitrary magnitudes while preserving the sign of
+                # (E_pos - E_neg). Du & Mordatch (2019) §3.2 use this regularizer:
+                #   λ_reg * (E_pos² + E_neg²)
+                # It is added OUTSIDE the residual filter and timestep mask so that
+                # the magnitude is always bounded regardless of which samples are kept.
+                # Effective weight in the final loss = loss_scale * energy_reg_weight
+                # (e.g., 0.05 * 0.1 = 0.005 per unit E²). Keep energy_reg_weight small
+                # (default 0.1) so the regularizer doesn't dominate the CD objective.
                 energy_reg_weight = self.mining_config.get('energy_reg_weight', 0.1)
                 loss_energy_reg = energy_reg_weight * (energy_pos.pow(2) + energy_neg.pow(2))  # [B,1]
 
@@ -903,17 +934,23 @@ class GaussianDiffusion1D(nn.Module):
                 target = torch.zeros(energy_pos.size(0)).to(energy_stack.device)
                 loss_energy = F.cross_entropy(-1 * energy_stack, target.long(), reduction='none')[:, None]
 
-            # Combine losses
-            # CRITICAL FIX: Reduce both losses to [B] shape first to avoid broadcasting bug
-            # Without this, broadcasting [B,1] energy loss to [B,400] MSE loss creates
-            # 400 copies of the energy loss, effectively multiplying its weight by 400x!
-            loss_mse_reduced = reduce(loss_mse, 'b ... -> b', 'mean')  # [B, 400] → [B]
-            loss_energy_reduced = loss_energy.squeeze(-1)  # [B, 1] → [B]
+            # Combine losses.
+            # Shape fix: loss_mse is [B, seq_len] (per-token denoising error),
+            # loss_energy is [B, 1] (per-sample CD loss). Adding them directly would
+            # broadcast energy to [B, seq_len], making each of the seq_len MSE terms
+            # carry its own copy of the energy gradient — effectively multiplying the
+            # energy loss weight by seq_len. Instead, reduce MSE to [B] first so that
+            # the energy and MSE losses are combined at the per-sample level, then
+            # averaged over the batch. This gives each loss term its intended weight.
+            loss_mse_reduced = reduce(loss_mse, 'b ... -> b', 'mean')  # [B, seq_len] → [B]
+            loss_energy_reduced = loss_energy.squeeze(-1)               # [B, 1] → [B]
 
-            # Now combine with correct weighting
             loss = loss_mse_reduced + loss_scale * loss_energy_reduced  # [B]
 
-            # Add energy regularization (not affected by filtering/masking)
+            # Add energy magnitude regularization unconditionally (not masked by
+            # residual filter or timestep range, since magnitude bounding should
+            # apply regardless of which samples are selected as hard negatives).
+            # Effective weight = loss_scale * energy_reg_weight (e.g. 0.05 * 0.1 = 0.005).
             if use_cd_loss:
                 loss_reg_reduced = loss_energy_reg.squeeze(-1)  # [B, 1] → [B]
                 loss = loss + loss_scale * loss_reg_reduced
