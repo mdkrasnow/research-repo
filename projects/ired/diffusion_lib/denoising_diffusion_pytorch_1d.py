@@ -1004,6 +1004,13 @@ class GaussianDiffusion1D(nn.Module):
             # === ENERGY DIAGNOSTIC LOGGING ===
             # Log every 100 steps to stdout so it appears in SLURM .out logs.
             if self.global_step % 100 == 0:
+                # Compute ||∇_x E(x_pos)|| to diagnose gradient collapse
+                # This requires grad, so compute before no_grad block
+                x_pos_diag = data_sample.detach().requires_grad_(True)
+                e_diag = self.model(inp.detach(), x_pos_diag, t.detach(), return_energy=True)
+                grad_E_x = torch.autograd.grad(e_diag.sum(), x_pos_diag, create_graph=False)[0]
+                grad_E_norm = grad_E_x.norm(dim=-1).mean().item()
+
                 with torch.no_grad():
                     e_pos_mean = energy_pos.mean().item()
                     e_neg_mean = energy_neg.mean().item()
@@ -1011,6 +1018,7 @@ class GaussianDiffusion1D(nn.Module):
                     mse_val = loss_mse_reduced.mean().item()
                     energy_wtd = (loss_scale * loss_energy_reduced).mean().item()
                     neg_dist = (xmin_noise - data_sample).norm(dim=-1).mean().item()
+                    model_out_norm = model_out.norm(dim=-1).mean().item()
                     diag = getattr(self, '_langevin_diag', {})
                     tag = "IRED-CL" if use_ired_contrastive else "CD"
                     print(
@@ -1018,6 +1026,8 @@ class GaussianDiffusion1D(nn.Module):
                         f"E_pos={e_pos_mean:.4f} E_neg={e_neg_mean:.4f} "
                         f"margin={margin:.4f} E_wtd={energy_wtd:.6f} "
                         f"MSE={mse_val:.6f} "
+                        f"gradE={grad_E_norm:.4f} "
+                        f"pred={model_out_norm:.4f} "
                         f"neg_dist={neg_dist:.4f} "
                         f"lang_grad0={diag.get('grad_norm_first',0):.4f} "
                         f"lang_gradK={diag.get('grad_norm_last',0):.4f} "
