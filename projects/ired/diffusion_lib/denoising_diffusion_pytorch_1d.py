@@ -481,7 +481,10 @@ class GaussianDiffusion1D(nn.Module):
         for p in self.model.parameters():
             p.requires_grad_(False)
 
-        for _ in range(k_steps):
+        x_init_ref = x.clone()  # Keep reference to measure how far Langevin moves
+        grad_norms = []
+
+        for k in range(k_steps):
             # Compute energy and ∇_x E in one forward pass via the wrapper.
             energy, grad = self.model(inp, x, t, return_both=True)
 
@@ -498,9 +501,22 @@ class GaussianDiffusion1D(nn.Module):
                 # Clamp to keep in xₜ-space range consistent with q_sample outputs.
                 x = torch.clamp(x, -2, 2)
 
+                # Diagnostic: track gradient norms on first and last step
+                if k == 0 or k == k_steps - 1:
+                    grad_norms.append(grad_detached.norm(dim=-1).mean().item())
+
         # Re-enable model parameter gradients for training.
         for p in self.model.parameters():
             p.requires_grad_(True)
+
+        # Store diagnostics for logging in p_losses
+        self._langevin_diag = {
+            'grad_norm_first': grad_norms[0] if grad_norms else 0.0,
+            'grad_norm_last': grad_norms[-1] if len(grad_norms) > 1 else grad_norms[0] if grad_norms else 0.0,
+            'displacement': (x - x_init_ref).norm(dim=-1).mean().item(),
+            'step_mean': step.mean().item(),
+            'sigma_mean': sigma.mean().item(),
+        }
 
         return x.detach()
 
@@ -958,12 +974,47 @@ class GaussianDiffusion1D(nn.Module):
             # Increment global step for scheduling
             self.global_step += 1
 
+            # === CD DIAGNOSTIC LOGGING ===
+            # Log every 100 steps to stdout so it appears in SLURM .out logs.
+            # Helps diagnose: (1) energy scale, (2) CD vs MSE loss balance,
+            # (3) Langevin effectiveness, (4) negative distinctness.
+            if self.global_step % 100 == 0:
+                with torch.no_grad():
+                    e_pos_mean = energy_pos.mean().item()
+                    e_neg_mean = energy_neg.mean().item()
+                    cd_raw = (energy_pos - energy_neg).mean().item()
+                    mse_val = loss_mse_reduced.mean().item()
+                    cd_weighted = (loss_scale * loss_energy_reduced).mean().item()
+                    neg_dist = (xmin_noise - data_sample).norm(dim=-1).mean().item()
+                    diag = getattr(self, '_langevin_diag', {})
+                    print(
+                        f"[CD-DIAG step={self.global_step}] "
+                        f"E_pos={e_pos_mean:.4f} E_neg={e_neg_mean:.4f} "
+                        f"CD_raw={cd_raw:.4f} CD_wtd={cd_weighted:.6f} "
+                        f"MSE={mse_val:.6f} "
+                        f"neg_dist={neg_dist:.4f} "
+                        f"lang_grad0={diag.get('grad_norm_first',0):.4f} "
+                        f"lang_gradK={diag.get('grad_norm_last',0):.4f} "
+                        f"lang_disp={diag.get('displacement',0):.4f} "
+                        f"step={diag.get('step_mean',0):.4f} "
+                        f"sigma={diag.get('sigma_mean',0):.4f}",
+                        flush=True
+                    )
+            # === END CD DIAGNOSTIC LOGGING ===
+
             return loss.mean(), (loss_mse.mean(), loss_energy.mean(), loss_opt.mean())
         else:
             loss = loss_mse
 
             # Increment global step for scheduling
             self.global_step += 1
+
+            if self.global_step % 100 == 0:
+                print(
+                    f"[MSE-DIAG step={self.global_step}] "
+                    f"MSE={loss_mse.mean().item():.6f}",
+                    flush=True
+                )
 
             return loss.mean(), (loss_mse.mean(), -1, -1)
 
