@@ -162,9 +162,10 @@ def swish(x):
 
 
 class EBM(nn.Module):
-    def __init__(self, inp_dim, out_dim, is_ebm: bool = True):
+    def __init__(self, inp_dim, out_dim, is_ebm: bool = True, use_scalar_energy: bool = False):
         super(EBM, self).__init__()
         h = 512
+        self.use_scalar_energy = use_scalar_energy
 
         fourier_dim, time_dim = 128, 128
 
@@ -183,6 +184,10 @@ class EBM(nn.Module):
         self.fc2 = nn.Linear(h, h)
         self.fc3 = nn.Linear(h, h)
         self.fc4 = nn.Linear(h, out_dim if is_ebm else out_dim)
+
+        # Scalar energy head: E = g(h) ∈ R, avoids ||fc4(h)||² collapse
+        if use_scalar_energy:
+            self.energy_head = nn.Linear(h, 1)
 
         self.t_map_fc2 = nn.Linear(time_dim, 2 * h)
         self.t_map_fc3 = nn.Linear(time_dim, 2 * h)
@@ -208,7 +213,10 @@ class EBM(nn.Module):
         h = swish(self.fc3(h) * (fc3_gain + 1) + fc3_bias)
 
         if self.is_ebm:
-            output = self.fc4(h).pow(2).sum(dim=-1)[..., None]
+            if self.use_scalar_energy:
+                output = self.energy_head(h)  # [B, 1] scalar energy
+            else:
+                output = self.fc4(h).pow(2).sum(dim=-1)[..., None]
         else:
             output = self.fc4(h)
 
