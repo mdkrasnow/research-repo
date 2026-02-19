@@ -2,8 +2,8 @@
 
 ## Project Status: Results Analysis & Investigation
 
-**Current Phase**: ANALYZE
-**Last Updated**: 2026-01-21
+**Current Phase**: ANALYZE / DESIGN
+**Last Updated**: 2026-02-19
 
 ---
 
@@ -26,6 +26,122 @@ Initial experiments (Q-001, Q-002, Q-003) revealed **unexpected results** that c
 - `mining_noise_scale`: 3.0 (noise added to prevent degenerate samples)
 - `learning_rate`: 0.0001
 - All experiments: 100K iterations, batch_size=2048, 20×20 matrices
+
+---
+
+## Scalar Energy Head Investigation [2026-02-19]
+
+### Summary of Findings
+
+The scalar energy head (`E = g(h) = Linear(h, 1)`) is **unstable without energy scale control**. The root cause and proposed fixes are documented below.
+
+#### Confirmed facts
+- q101 (vector energy, no mining): val MSE → 0.009 ✅
+- q207 (scalar energy, adversarial mining): val MSE → 0.098 stable (plateau, not divergence)
+- q209 (scalar energy, no mining): val MSE 0.11 @ 4k → **2.2 @ 11k** (diverges)
+- q201 (vector energy, adversarial mining): val MSE 0.091 @ 8k → **1.10 @ 100k** (diverges)
+- Energy magnitudes at step 1k: q209 E_pos≈337k, q207 E_pos≈3k — 100x difference
+- Mining acts as accidental regularizer in q207 (counterpressure via margin loss)
+
+#### The Core Problem
+
+The scalar head has no natural scale: `E = w^T h + b` where `w, b` are unconstrained. Without mining or regularization, the network can minimize NCE loss by making all energies large and positive (since the gradient-based denoising signal pushes pred up, not down on energy). The result is runaway energy magnitudes that corrupt the `∇_y E` denoising gradients.
+
+---
+
+### Brainstorm: Approaches to Fix Energy Scale
+
+#### Approach 1: Energy Regularization (`energy_reg_weight > 0`)
+**Idea**: Add `λ * E_pos^2` (or `λ * |E_pos|`) to the loss directly.
+- **Pro**: Simplest 1-line fix, already has a config knob (`energy_reg_weight`)
+- **Pro**: Directly attacks the root cause (unbounded magnitude)
+- **Con**: Hyperparameter sensitivity — too large λ collapses energies to zero; too small and instability remains
+- **Con**: L2 regularization biases toward small energies, may conflict with NCE margin requirement
+- **Tuning needed**: λ likely needs to be in [0.001, 0.1] range; requires sweep
+- **Risk**: May just shift the plateau rather than fix it — unclear if it enables convergence to 0.009
+
+#### Approach 2: Energy Normalization (LayerNorm / spectral norm on scalar head)
+**Idea**: Apply LayerNorm to the features before the scalar head, or use spectral normalization on the linear layer weights.
+- **Pro**: Architectural fix — constrains the scale of the linear layer without requiring a tuned λ
+- **Pro**: LayerNorm is well-understood and stable; spectral norm clips the Lipschitz constant
+- **Con**: Changes the expressivity of the energy function — may prevent the model from learning the right energy landscape
+- **Con**: Spectral norm with a scalar output layer is unusual (constrains the norm of a vector, not a matrix)
+- **Variant**: Normalize `h` before passing to scalar head, keeping the scalar head itself unconstrained
+- **Risk**: May just push the problem into the backbone features
+
+#### Approach 3: Energy Clamping / Gradient Clipping on Energy
+**Idea**: Hard-clamp `E_pos` to a fixed range (e.g., [−100, 100]) or clip gradients from the energy head separately.
+- **Pro**: Hard guarantee on energy magnitude
+- **Con**: Non-differentiable clamp in the energy function corrupts backprop
+- **Con**: Gradient clipping doesn't prevent forward-pass energy blowup, only limits weight updates
+- **Verdict**: Gradient clipping is a reasonable auxiliary measure but not a primary fix
+
+#### Approach 4: Whitened / Normalized Energy Target
+**Idea**: Instead of predicting raw energy, predict a normalized score: `E = tanh(g(h))` or `E = sigmoid(g(h))` — bounded scalar outputs.
+- **Pro**: Hard bounds on energy magnitude (tanh: (−1,1), sigmoid: (0,1))
+- **Pro**: No extra hyperparameter
+- **Con**: `tanh` saturates — gradients vanish for large inputs, which can kill learning in a different way
+- **Con**: The EBM theory assumes energies can be arbitrary; bounding them changes the semantics
+- **Con**: `∇_y E` is still well-defined, but the effective gradient field may be poorly conditioned near saturation
+- **Verdict**: Interesting but risky; saturation is a known problem with bounded activations in deep EBMs
+
+#### Approach 5: Stop-Gradient on Energy in Denoising Loss
+**Idea**: When computing `∇_y E` for denoising, stop gradient through the energy head weights. The energy head is trained only by the NCE/contrastive loss, not pulled by denoising.
+- **Pro**: Decouples the two objectives cleanly — energy head learns a landscape shape, denoiser uses that shape
+- **Pro**: Prevents the denoising loss from destabilizing the energy parameterization
+- **Con**: Changes the training dynamics significantly — the energy head may not adapt to the denoiser's needs
+- **Con**: Requires careful implementation (stop_gradient in PyTorch = `.detach()`)
+- **Verdict**: Architecturally interesting and theoretically motivated, but a bigger change to the training loop
+
+#### Approach 6: Warm-Start Energy Head After Denoiser Convergence
+**Idea**: Train the denoiser alone (no energy loss) for N steps until it converges, then introduce the energy head.
+- **Pro**: Sidesteps the coupling problem — denoiser is already at a good point before energy is added
+- **Pro**: Matches the q101 result as a starting point, then adds scalar energy on top
+- **Con**: Two-phase training is more complex to implement and schedule
+- **Con**: When energy is introduced, it still might destabilize the already-converged denoiser
+- **Verdict**: Could work but is operationally complex; not the first thing to try
+
+#### Approach 7: Use Mining as Intentional Regularizer (Controlled)
+**Idea**: Accept that mining stabilizes the scalar head (as in q207) but weaken the mining enough that it doesn't degrade denoising. E.g., use random mining instead of adversarial, or use very short mining horizon.
+- **Pro**: No architectural changes — just tuning existing knobs
+- **Pro**: q207 proves mining-as-regularizer works; random mining was shown to be neutral vs baseline (q102: same MSE as baseline, p=0.088)
+- **Con**: q207 with adversarial mining still plateaued at 0.098 — need random mining specifically
+- **Next experiment**: scalar energy + random mining (no contrastive) — should be stable like q207 but without the adversarial-mining degradation
+- **Verdict**: Highest probability of quickly reaching 0.009; lowest implementation risk
+
+#### Approach 8: Energy L∞ or Soft-Clamp via Huber-style Loss
+**Idea**: Use a Huber-style loss on energy: penalize `max(0, |E| - δ)^2` for some threshold δ.
+- **Pro**: Only penalizes when energy exceeds threshold δ, leaving normal operation unconstrained
+- **Pro**: Can set δ based on observed healthy energy scale (q207 E_pos ≈ 100k–140k, so δ ≈ 200k)
+- **Con**: Requires knowing the "right" energy scale in advance (or tuning δ)
+- **Verdict**: More principled than hard clamp but still requires tuning
+
+---
+
+### Recommended Experiment Order
+
+**Priority 1** (lowest risk, highest probability of reaching 0.009):
+- **q210**: Scalar energy + random mining (no adversarial, no contrastive)
+  - Mining provides stability regularizer but without adversarial OOD degradation
+  - Direct comparison to q207 (adversarial) and q101 (no mining)
+  - If val MSE → 0.009: scalar head works fine, adversarial mining was the plateau cause
+  - If val MSE → 0.098: random mining also stabilizes but also plateaus → mining itself is the issue
+
+**Priority 2** (architectural fix, clean solution if it works):
+- **q211**: Scalar energy + energy_reg_weight sweep (λ ∈ {0.001, 0.01, 0.1}) + no mining
+  - Tests whether regularization alone fixes the instability without needing mining at all
+  - Run 3 single-seed jobs first, pick best λ, then run full 10-seed
+
+**Priority 3** (if both above fail):
+- **q212**: Scalar energy + stop-gradient on energy head + no mining
+  - Decouples the two objectives; more principled but larger code change
+
+**Deprioritized**:
+- Bounded activations (tanh/sigmoid) — saturation risk too high
+- Warm-start — operationally complex, try regularization first
+- Huber loss — adds another hyperparameter without clear advantage over L2 reg
+
+---
 
 ### Investigation Plan
 

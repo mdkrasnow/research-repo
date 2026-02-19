@@ -1,5 +1,54 @@
 # Debugging — Adversarial Negative Mining for Matrix Inversion
 
+## Active Investigation: Scalar Energy Head Instability [2026-02-19]
+
+### Issue: Scalar Energy Head Diverges Without Mining (q209)
+**Timestamp**: 2026-02-19
+**Run IDs**: q207 (61186968), q209 (61206606)
+**Status**: CONFIRMED — root cause identified, fix not yet implemented
+
+#### Observed Behavior
+
+| Experiment | Mining | Best val MSE | Final val MSE | Diverges? |
+|---|---|---|---|---|
+| q101 (vector energy) | none | ~0.009 | ~0.009 | No |
+| q207 (scalar energy) | adversarial | ~0.098 @ 9k | ~0.098 stable | No (plateaus) |
+| q209 (scalar energy) | none | ~0.11 @ 4k | ~2.2 @ 11k | **Yes** |
+| q201 (vector energy) | adversarial | ~0.091 @ 8k | ~1.10 @ 100k | **Yes** |
+
+#### Key Diagnostic Evidence
+
+Energy magnitudes from logs at step 1000:
+
+```
+q209 (scalar, no mining):  E_pos=337,000  gradE=29,310  pred=14.3
+q207 (scalar, adversarial): E_pos=3,100   gradE=1,899   pred=0.93
+```
+
+q209 has **~100x larger energies from step 1**. The energy magnitude grows without bound immediately, corrupting the denoising gradient field before the model can learn.
+
+#### Root Cause
+
+The scalar head (`E = g(h)`, a single linear layer) has no inherent scale constraint:
+- `energy_reg_weight = 0.0` — no L2/L1 regularization on energy magnitude
+- No mining = no margin loss providing counterpressure against energy growth
+- Without either constraint, the scalar head drives `E_pos` into the hundreds-of-thousands range within 1k steps
+- At that scale, `gradE ≈ 30k` dominates the denoising gradient, the model collapses into a large-prediction regime (`pred ≈ 14–19`) and val MSE blows up
+
+#### Why q207 (adversarial mining) Stays Stable
+
+Adversarial mining acts as an **accidental regularizer**: the margin loss `softplus(E_pos - E_neg - margin)` creates counterpressure that prevents `E_pos` from growing too large relative to `E_neg`. This caps energy magnitudes (q207 E_pos ≈ 100k–140k, not 300k+) and keeps pred in the 0.9–8 range. Not a clean fix, but it explains the stability.
+
+#### Why q207 Still Plateaus at 0.098 (Not 0.009)
+
+Even though q207 is stable, adversarial mining itself degrades denoising performance (confirmed by multiseed analysis: adversarial mining hurts by 0.8%, p<0.0001). The plateau at 0.098 is the ceiling achievable under this particular mining regime, not a fundamental limit of the scalar head.
+
+#### Next Step
+
+Fix the energy scale problem properly — see `research-plan.md` for brainstormed approaches.
+
+---
+
 ## Active Investigation: Results Analysis
 
 ### Finding: Adversarial Mining Underperforms Baseline [COMPLETED]
