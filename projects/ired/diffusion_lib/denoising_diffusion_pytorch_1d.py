@@ -822,7 +822,8 @@ class GaussianDiffusion1D(nn.Module):
                     xmin_noise = xmin_noise.detach()
                     xmin_noise_rescale = self.predict_start_from_noise(xmin_noise, t, torch.zeros_like(xmin_noise))
                     xmin_noise_rescale = torch.clamp(xmin_noise_rescale, -2, 2)
-                    loss_scale = 0.5
+                    # Default loss_scale=0.5 for NCE path; allow config override for CD path (q205)
+                    loss_scale = self.mining_config.get('energy_loss_weight', 0.5)
 
                 elif self.mining_strategy in ['cd_langevin', 'cd_langevin_replay', 'cd_full']:
                     # CD-style training with Langevin sampling
