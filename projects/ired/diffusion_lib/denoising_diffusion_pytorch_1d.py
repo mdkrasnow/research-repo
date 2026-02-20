@@ -879,9 +879,12 @@ class GaussianDiffusion1D(nn.Module):
                 energy_pos, energy_neg = torch.chunk(energy, 2, 0)
 
                 temp = self.mining_config.get('contrastive_temperature', 1.0)
+                detach_epos = self.mining_config.get('detach_epos_contrastive', False)
                 e_pos = energy_pos.squeeze(-1)  # [B]
                 e_neg = energy_neg.squeeze(-1)  # [B]
-                logits = (e_pos - e_neg) / temp  # want e_pos < e_neg
+                # detach_epos: only E_neg receives contrastive gradient; E_pos grows freely from denoising
+                e_pos_logit = e_pos.detach() if detach_epos else e_pos
+                logits = (e_pos_logit - e_neg) / temp  # want e_pos < e_neg
                 loss_energy = F.softplus(logits).unsqueeze(-1)  # [B, 1]
 
                 # Energy magnitude regularization (same as CD path)

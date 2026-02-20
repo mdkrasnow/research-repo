@@ -136,7 +136,8 @@ def run_experiment(config):
 
         # IRED-style contrastive loss
         'use_ired_contrastive_loss': config.get('use_ired_contrastive_loss', False),
-        'contrastive_temperature': config.get('contrastive_temperature', 1.0)
+        'contrastive_temperature': config.get('contrastive_temperature', 1.0),
+        'detach_epos_contrastive': config.get('detach_epos_contrastive', False)
     }
     
     diffusion = GaussianDiffusion1D(
