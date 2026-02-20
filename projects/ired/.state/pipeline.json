@@ -2,7 +2,7 @@
   "project": "ired",
   "phase": "WAIT_SLURM",
   "current_investigation": "ired-cd",
-  "next_action": "poll_q214_early_check_then_analyze",
+  "next_action": "poll_q215_q216_early_check_5k_steps_then_decide",
   "needs_user_input": {
     "value": false,
     "prompt": ""
@@ -177,6 +177,30 @@
     "q214_hypothesis": "With detach_epos=true: E_pos should grow to ~400k level (like q211) → pred_norm → ~19.4 → val MSE → ~0.0097. E_neg should grow HIGHER than E_pos (pushed up by contrastive). Contrastive margin E_neg - E_pos should be positive and growing."
   },
   "active_runs": [
+    {
+      "run_id": "q215_20260220_tiny_reg_detach",
+      "experiment": "q215_tiny_reg_detach",
+      "job_id": "61404185",
+      "submitted_at": "2026-02-20T05:00:00Z",
+      "status": "running",
+      "partition": "seas_gpu",
+      "git_sha": "e76ec3f",
+      "array_spec": "0-4%2",
+      "num_seeds": 5,
+      "note": "FALSIFICATION: tiny energy_reg=1e-10 + detach_epos. Tests whether Goldilocks zone exists. At E=447k: reg negligible; at E=9e13: reg arrests explosion. SUCCESS: pred_norm→19.4, val MSE→0.0097."
+    },
+    {
+      "run_id": "q216_20260220_grad_contrastive",
+      "experiment": "q216_grad_contrastive",
+      "job_id": "61404186",
+      "submitted_at": "2026-02-20T05:00:00Z",
+      "status": "running",
+      "partition": "seas_gpu",
+      "git_sha": "e76ec3f",
+      "array_spec": "0-4%2",
+      "num_seeds": 5,
+      "note": "NEW: Gradient-contrastive. softplus((MSE_pos.detach()-MSE_neg)/T). No energy values, no explosion risk. GC-DIAG logging. SUCCESS: pred_norm→19.4, val MSE≤0.0097."
+    },
     {
       "run_id": "q214_20260220_detach_epos",
       "experiment": "q214_detach_epos",
