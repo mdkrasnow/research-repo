@@ -2,7 +2,7 @@
   "project": "ired",
   "phase": "WAIT_SLURM",
   "current_investigation": "ired-cd",
-  "next_action": "submit_q210_then_poll_all",
+  "next_action": "poll_q210_and_analyze",
   "needs_user_input": {
     "value": false,
     "prompt": ""
@@ -167,56 +167,17 @@
   },
   "active_runs": [
     {
-      "run_id": "q209_20260219_scalar_nm_fixed",
-      "experiment": "q209_scalar_no_mining",
-      "job_id": "61220452",
-      "submitted_at": "2026-02-19T04:00:00Z",
-      "status": "running",
-      "partition": "gpu_test",
-      "git_sha": "87dc0d1",
-      "array_spec": "0-9%2",
-      "num_seeds": 10,
-      "strategy": "none",
-      "note": "Resubmit with batch-size-invariant gradient fix (grad_norm_ref=2048). Cancelled 61206606. Now val eval uses same step size as train — scalar head assessment will be valid."
-    },
-    {
-      "run_id": "q207_20260219_scalar_100k_fixed",
-      "experiment": "q207_scalar_baseline",
-      "job_id": "61220453",
-      "submitted_at": "2026-02-19T04:00:00Z",
-      "status": "running",
-      "partition": "gpu_test",
-      "git_sha": "87dc0d1",
-      "array_spec": "0-9%2",
-      "num_seeds": 10,
-      "strategy": "adversarial",
-      "note": "Resubmit with batch-size-invariant gradient fix. Cancelled 61186968."
-    },
-    {
-      "run_id": "q208_20260219_scalar_cl_100k_fixed",
-      "experiment": "q208_scalar_contrastive",
-      "job_id": "61220454",
-      "submitted_at": "2026-02-19T04:00:00Z",
+      "run_id": "q210_20260220_ired_cl_fixed",
+      "experiment": "q210_ired_cl_fixed",
+      "job_id": "61314528",
+      "submitted_at": "2026-02-20T00:00:00Z",
       "status": "running",
       "partition": "gpu",
-      "git_sha": "87dc0d1",
+      "git_sha": "1d2b40e",
       "array_spec": "0-9%2",
       "num_seeds": 10,
       "strategy": "cd_langevin_replay",
-      "note": "Resubmit with batch-size-invariant gradient fix. Cancelled 61186972."
-    },
-    {
-      "run_id": "q201_20260219_baseline_100k_fixed",
-      "experiment": "q201_baseline",
-      "job_id": "61220455",
-      "submitted_at": "2026-02-19T04:00:00Z",
-      "status": "running",
-      "partition": "gpu",
-      "git_sha": "87dc0d1",
-      "array_spec": "0-9%2",
-      "num_seeds": 10,
-      "strategy": "adversarial",
-      "note": "Resubmit with batch-size-invariant gradient fix. Cancelled 61186975."
+      "note": "Fixed IRED-CL: energy_reg_weight=0.01, opt_steps=3, Langevin uses energy.mean() grad (not B_norm-normalized). Fixes all 3 q208 failure modes."
     }
   ],
   "completed_runs": [
@@ -780,10 +741,10 @@
     "normalization_bug": "models.py:820 opt_grad / energy.shape[0] — should be / 1 or per-sample norm to be batch-size-independent"
   },
   "slurm_wait": {
-    "next_poll_after": "2026-02-19T05:30:00Z",
-    "poll_interval_seconds": 3600,
-    "last_polled_at": "2026-02-19T03:30:00Z",
-    "note": "q201/q207/q208/q209 partially complete. Seeds 0-3 done/failed for q201/q207. Key finding: scalar head catastrophic failure confirmed. Q209 diagnostic answered. Waiting for remaining seeds to complete for full 10-seed stats."
+    "next_poll_after": "2026-02-20T02:00:00Z",
+    "poll_interval_seconds": 5400,
+    "last_polled_at": "2026-02-20T00:00:00Z",
+    "note": "q210 submitted (61314528). All prior jobs complete. Waiting for q210 to finish (~90min/seed, array throttle %2, ~7.5h wall-clock)."
   },
   "events": [
     {
