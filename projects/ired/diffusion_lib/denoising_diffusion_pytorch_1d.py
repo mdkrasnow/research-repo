@@ -870,6 +870,7 @@ class GaussianDiffusion1D(nn.Module):
             # Choose loss based on strategy
             use_cd_loss = self.mining_config.get('use_cd_loss', False)
             use_ired_contrastive = self.mining_config.get('use_ired_contrastive_loss', False)
+            _gc_mse_pos = _gc_mse_neg = 0.0  # populated only in gradient-contrastive path
 
             if use_ired_contrastive:
                 # IRED-style contrastive loss: softplus(E_pos - E_neg)
@@ -964,6 +965,27 @@ class GaussianDiffusion1D(nn.Module):
                     # Apply mask to loss_energy (per-sample), not to loss_scale (scalar)
                     loss_energy = loss_energy * t_mask
 
+            elif self.mining_config.get('use_gradient_contrastive', False):
+                # Gradient-contrastive: shape the gradient FIELD, not energy values.
+                # Instead of E_pos < E_neg, enforce: denoising_error(x_pos) < denoising_error(x_neg).
+                # Loss: softplus((MSE_pos - MSE_neg) / T)
+                # - MSE_pos = per-sample ||pred_pos - ε||² (already computed as loss_mse)
+                # - MSE_neg = per-sample ||pred_neg - ε||² where pred_neg = model(inp, x_neg, t)
+                # Detach MSE_pos from contrastive so denoising is only trained by regular MSE loss.
+                # Contrastive only pushes pred_neg AWAY from ε at negative sample locations.
+                pred_neg = self.model(inp, xmin_noise.detach(), t)
+                mse_pos_gc = reduce(loss_mse, 'b ... -> b', 'mean').detach()  # [B], no contrastive grad
+                mse_neg_gc = reduce(
+                    F.mse_loss(pred_neg, target, reduction='none'), 'b ... -> b', 'mean'
+                )  # [B]
+                gc_temp = self.mining_config.get('gc_temperature', 1.0)
+                loss_energy = F.softplus((mse_pos_gc - mse_neg_gc) / gc_temp).unsqueeze(-1)  # [B,1]
+                loss_energy_reg = torch.zeros_like(loss_energy)
+                # Store for GC diagnostic
+                _gc_mse_pos = mse_pos_gc.mean().item()
+                _gc_mse_neg = mse_neg_gc.mean().item()
+                energy_pos = energy_neg = None  # not used in GC path
+
             else:
                 # Original NCE (baseline - for comparison)
                 energy_pos, energy_neg = torch.chunk(energy, 2, 0)
@@ -995,51 +1017,61 @@ class GaussianDiffusion1D(nn.Module):
             # Increment global step for scheduling
             self.global_step += 1
 
-            # === ENERGY DIAGNOSTIC LOGGING ===
-            # Log every 100 steps to stdout so it appears in SLURM .out logs.
+            # === DIAGNOSTIC LOGGING ===
+            use_gc = self.mining_config.get('use_gradient_contrastive', False)
             if self.global_step % 100 == 0:
-                # Compute ||∇_x E(x_pos)|| to diagnose gradient collapse
-                # This requires grad, so compute before no_grad block
-                x_pos_diag = data_sample.detach().requires_grad_(True)
-                e_diag = self.model(inp.detach(), x_pos_diag, t.detach(), return_energy=True)
-                grad_E_x = torch.autograd.grad(e_diag.sum(), x_pos_diag, create_graph=False)[0]
-                grad_E_norm = grad_E_x.norm(dim=-1).mean().item()
-
                 with torch.no_grad():
-                    e_pos_mean = energy_pos.mean().item()
-                    e_neg_mean = energy_neg.mean().item()
-                    margin = (e_neg_mean - e_pos_mean)
-                    mse_val = loss_mse_reduced.mean().item()
-                    energy_wtd = (loss_scale * loss_energy_reduced).mean().item()
                     neg_dist = (xmin_noise - data_sample).norm(dim=-1).mean().item()
                     model_out_norm = model_out.norm(dim=-1).mean().item()
-                    # pred vs target (ε) alignment diagnostics
                     pred_std = model_out.std().item()
                     pred_abs = model_out.abs().mean().item()
-                    tgt_std = target.std().item()
-                    tgt_abs = target.abs().mean().item()
+                    tgt_std_val = noise.std().item()
+                    tgt_abs_val = noise.abs().mean().item()
                     pred_f = model_out.reshape(b, -1)
-                    tgt_f = target.reshape(b, -1)
+                    tgt_f = noise.reshape(b, -1)
                     cos_sim = F.cosine_similarity(pred_f, tgt_f, dim=-1).mean().item()
                     diag = getattr(self, '_langevin_diag', {})
-                    tag = "IRED-CL" if use_ired_contrastive else "CD"
+                    mse_val = loss_mse_reduced.mean().item()
+
+                if use_gc:
                     print(
-                        f"[{tag}-DIAG step={self.global_step}] "
-                        f"E_pos={e_pos_mean:.4f} E_neg={e_neg_mean:.4f} "
-                        f"margin={margin:.4f} E_wtd={energy_wtd:.6f} "
-                        f"MSE={mse_val:.6f} "
-                        f"gradE={grad_E_norm:.4f} "
+                        f"[GC-DIAG step={self.global_step}] "
+                        f"mse_pos={_gc_mse_pos:.6f} mse_neg={_gc_mse_neg:.6f} "
+                        f"mse_gap={(_gc_mse_neg - _gc_mse_pos):.6f} "
                         f"pred_norm={model_out_norm:.4f} pred_std={pred_std:.4f} pred_abs={pred_abs:.4f} "
-                        f"tgt_std={tgt_std:.4f} tgt_abs={tgt_abs:.4f} cos={cos_sim:.4f} "
-                        f"neg_dist={neg_dist:.4f} "
-                        f"lang_grad0={diag.get('grad_norm_first',0):.4f} "
-                        f"lang_gradK={diag.get('grad_norm_last',0):.4f} "
-                        f"lang_disp={diag.get('displacement',0):.4f} "
-                        f"step={diag.get('step_mean',0):.4f} "
-                        f"sigma={diag.get('sigma_mean',0):.4f}",
+                        f"tgt_std={tgt_std_val:.4f} tgt_abs={tgt_abs_val:.4f} cos={cos_sim:.4f} "
+                        f"neg_dist={neg_dist:.4f}",
                         flush=True
                     )
-            # === END ENERGY DIAGNOSTIC LOGGING ===
+                else:
+                    # Energy-based path: compute gradE and log energy stats
+                    x_pos_diag = data_sample.detach().requires_grad_(True)
+                    e_diag = self.model(inp.detach(), x_pos_diag, t.detach(), return_energy=True)
+                    grad_E_x = torch.autograd.grad(e_diag.sum(), x_pos_diag, create_graph=False)[0]
+                    grad_E_norm = grad_E_x.norm(dim=-1).mean().item()
+                    with torch.no_grad():
+                        e_pos_mean = energy_pos.mean().item()  # type: ignore[union-attr]
+                        e_neg_mean = energy_neg.mean().item()  # type: ignore[union-attr]
+                        margin = e_neg_mean - e_pos_mean
+                        energy_wtd = (loss_scale * loss_energy_reduced).mean().item()
+                        tag = "IRED-CL" if use_ired_contrastive else "CD"
+                        print(
+                            f"[{tag}-DIAG step={self.global_step}] "
+                            f"E_pos={e_pos_mean:.4f} E_neg={e_neg_mean:.4f} "
+                            f"margin={margin:.4f} E_wtd={energy_wtd:.6f} "
+                            f"MSE={mse_val:.6f} "
+                            f"gradE={grad_E_norm:.4f} "
+                            f"pred_norm={model_out_norm:.4f} pred_std={pred_std:.4f} pred_abs={pred_abs:.4f} "
+                            f"tgt_std={tgt_std_val:.4f} tgt_abs={tgt_abs_val:.4f} cos={cos_sim:.4f} "
+                            f"neg_dist={neg_dist:.4f} "
+                            f"lang_grad0={diag.get('grad_norm_first',0):.4f} "
+                            f"lang_gradK={diag.get('grad_norm_last',0):.4f} "
+                            f"lang_disp={diag.get('displacement',0):.4f} "
+                            f"step={diag.get('step_mean',0):.4f} "
+                            f"sigma={diag.get('sigma_mean',0):.4f}",
+                            flush=True
+                        )
+            # === END DIAGNOSTIC LOGGING ===
 
             return loss.mean(), (loss_mse.mean(), loss_energy.mean(), loss_opt.mean())
         else:
