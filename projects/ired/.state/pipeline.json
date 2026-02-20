@@ -2,7 +2,7 @@
   "project": "ired",
   "phase": "WAIT_SLURM",
   "current_investigation": "ired-cd",
-  "next_action": "poll_q211_q212_q213_early_check_then_analyze",
+  "next_action": "poll_q214_early_check_then_analyze",
   "needs_user_input": {
     "value": false,
     "prompt": ""
@@ -165,7 +165,31 @@
       "Output directories per seed: results/ds_inverse/q10{1,2,3}_seed{0-9}"
     ]
   },
+  "ablation_diagnosis": {
+    "timestamp": "2026-02-20T03:00:00Z",
+    "confirmed_findings": {
+      "q211_baseline": "val MSE 0.00969, pred_norm=19.4, gradE=39770, E=447k. New code fine. Denoising works when energy grows freely.",
+      "q212_energy_reg": "val MSE 3.828, pred_norm=0.0006, gradE=1.24, |E|~1.7. CONFIRMED: energy_reg_weight=0.01 kills denoising by suppressing ||dE/dx||~1.2 → pred~0.0006.",
+      "q213_no_reg_easy_neg": "val MSE 0.89-1.66 at 84-94k steps. pred_norm=0.25-0.39, E_pos=1800-2700. PARTIAL: removing reg helps but contrastive loss pushes E_pos DOWN → E_pos stays at ~2700 vs required ~400k."
+    },
+    "root_cause": "Contrastive loss softplus((E_pos-E_neg)/T) has gradient dL/dE_pos > 0, so minimization drives E_pos DOWN. This directly conflicts with denoising which needs E_pos large (~400k) for ||dE/dx||~40k → pred_norm~19.4. Contrastive loss clamps E_pos at contrastive equilibrium (~2700), giving pred_norm~0.3, 64x too small.",
+    "fix": "Detach E_pos from contrastive loss gradient: e_pos_logit = e_pos.detach(). Only E_neg receives contrastive gradient (pushed up). E_pos grows freely from denoising alone. Implemented in 603e448 as detach_epos_contrastive=true config flag.",
+    "q214_hypothesis": "With detach_epos=true: E_pos should grow to ~400k level (like q211) → pred_norm → ~19.4 → val MSE → ~0.0097. E_neg should grow HIGHER than E_pos (pushed up by contrastive). Contrastive margin E_neg - E_pos should be positive and growing."
+  },
   "active_runs": [
+    {
+      "run_id": "q214_20260220_detach_epos",
+      "experiment": "q214_detach_epos",
+      "job_id": "61383107",
+      "submitted_at": "2026-02-20T03:00:00Z",
+      "status": "running",
+      "partition": "seas_gpu",
+      "git_sha": "603e448",
+      "array_spec": "0-4%2",
+      "num_seeds": 5,
+      "strategy": "cd_langevin_replay",
+      "note": "FIX: detach E_pos from contrastive gradient. Only E_neg pushed up. E_pos grows freely from denoising. Expected val MSE ~0.0097."
+    },
     {
       "run_id": "q211_20260220_scalar_baseline_newcode",
       "experiment": "q211_scalar_baseline_newcode",
@@ -773,10 +797,10 @@
     "normalization_bug": "models.py:820 opt_grad / energy.shape[0] — should be / 1 or per-sample norm to be batch-size-independent"
   },
   "slurm_wait": {
-    "next_poll_after": "2026-02-20T02:00:00Z",
-    "poll_interval_seconds": 5400,
-    "last_polled_at": "2026-02-20T00:00:00Z",
-    "note": "q210 submitted (61314528). All prior jobs complete. Waiting for q210 to finish (~90min/seed, array throttle %2, ~7.5h wall-clock)."
+    "next_poll_after": "2026-02-20T04:00:00Z",
+    "poll_interval_seconds": 3600,
+    "last_polled_at": "2026-02-20T03:00:00Z",
+    "note": "q214 submitted (61383107). q211/q212/q213 seeds 2-4 still running. Early poll in ~60min for q214. q211/212 also finishing."
   },
   "events": [
     {
