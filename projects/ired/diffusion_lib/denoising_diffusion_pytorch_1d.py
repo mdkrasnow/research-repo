@@ -1010,6 +1010,14 @@ class GaussianDiffusion1D(nn.Module):
                     energy_wtd = (loss_scale * loss_energy_reduced).mean().item()
                     neg_dist = (xmin_noise - data_sample).norm(dim=-1).mean().item()
                     model_out_norm = model_out.norm(dim=-1).mean().item()
+                    # pred vs target (ε) alignment diagnostics
+                    pred_std = model_out.std().item()
+                    pred_abs = model_out.abs().mean().item()
+                    tgt_std = target.std().item()
+                    tgt_abs = target.abs().mean().item()
+                    pred_f = model_out.reshape(b, -1)
+                    tgt_f = target.reshape(b, -1)
+                    cos_sim = F.cosine_similarity(pred_f, tgt_f, dim=-1).mean().item()
                     diag = getattr(self, '_langevin_diag', {})
                     tag = "IRED-CL" if use_ired_contrastive else "CD"
                     print(
@@ -1018,7 +1026,8 @@ class GaussianDiffusion1D(nn.Module):
                         f"margin={margin:.4f} E_wtd={energy_wtd:.6f} "
                         f"MSE={mse_val:.6f} "
                         f"gradE={grad_E_norm:.4f} "
-                        f"pred={model_out_norm:.4f} "
+                        f"pred_norm={model_out_norm:.4f} pred_std={pred_std:.4f} pred_abs={pred_abs:.4f} "
+                        f"tgt_std={tgt_std:.4f} tgt_abs={tgt_abs:.4f} cos={cos_sim:.4f} "
                         f"neg_dist={neg_dist:.4f} "
                         f"lang_grad0={diag.get('grad_norm_first',0):.4f} "
                         f"lang_gradK={diag.get('grad_norm_last',0):.4f} "
@@ -1037,9 +1046,20 @@ class GaussianDiffusion1D(nn.Module):
             self.global_step += 1
 
             if self.global_step % 100 == 0:
+                with torch.no_grad():
+                    pred_norm = model_out.norm(dim=-1).mean().item()
+                    pred_std  = model_out.std().item()
+                    pred_abs  = model_out.abs().mean().item()
+                    tgt_std   = target.std().item()
+                    tgt_abs   = target.abs().mean().item()
+                    pred_f = model_out.reshape(b, -1)
+                    tgt_f  = target.reshape(b, -1)
+                    cos_sim = F.cosine_similarity(pred_f, tgt_f, dim=-1).mean().item()
                 print(
                     f"[MSE-DIAG step={self.global_step}] "
-                    f"MSE={loss_mse.mean().item():.6f}",
+                    f"MSE={loss_mse.mean().item():.6f} "
+                    f"pred_norm={pred_norm:.4f} pred_std={pred_std:.4f} pred_abs={pred_abs:.4f} "
+                    f"tgt_std={tgt_std:.4f} tgt_abs={tgt_abs:.4f} cos={cos_sim:.4f}",
                     flush=True
                 )
 
