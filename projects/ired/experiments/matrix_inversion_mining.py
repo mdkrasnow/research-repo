@@ -137,7 +137,11 @@ def run_experiment(config):
         # IRED-style contrastive loss
         'use_ired_contrastive_loss': config.get('use_ired_contrastive_loss', False),
         'contrastive_temperature': config.get('contrastive_temperature', 1.0),
-        'detach_epos_contrastive': config.get('detach_epos_contrastive', False)
+        'detach_epos_contrastive': config.get('detach_epos_contrastive', False),
+
+        # Gradient-contrastive loss (q216): shape gradient field, not energy values
+        'use_gradient_contrastive': config.get('use_gradient_contrastive', False),
+        'gc_temperature': config.get('gc_temperature', 1.0)
     }
     
     diffusion = GaussianDiffusion1D(
