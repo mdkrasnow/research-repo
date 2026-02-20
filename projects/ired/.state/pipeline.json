@@ -2,7 +2,7 @@
   "project": "ired",
   "phase": "WAIT_SLURM",
   "current_investigation": "ired-cd",
-  "next_action": "poll_q210_and_analyze",
+  "next_action": "poll_q211_q212_q213_early_check_then_analyze",
   "needs_user_input": {
     "value": false,
     "prompt": ""
@@ -167,19 +167,51 @@
   },
   "active_runs": [
     {
-      "run_id": "q210_20260220_ired_cl_fixed",
-      "experiment": "q210_ired_cl_fixed",
-      "job_id": "61314528",
-      "submitted_at": "2026-02-20T00:00:00Z",
+      "run_id": "q211_20260220_scalar_baseline_newcode",
+      "experiment": "q211_scalar_baseline_newcode",
+      "job_id": "61345179",
+      "submitted_at": "2026-02-20T01:00:00Z",
       "status": "running",
-      "partition": "gpu",
-      "git_sha": "1d2b40e",
-      "array_spec": "0-9%2",
-      "num_seeds": 10,
+      "partition": "seas_gpu",
+      "git_sha": "95fea37",
+      "array_spec": "0-4%2",
+      "num_seeds": 5,
+      "strategy": "none",
+      "note": "SANITY CHECK: scalar no-mining on new code. Should reproduce q209 ~0.0097. Checks pred_norm/cos in MSE-DIAG."
+    },
+    {
+      "run_id": "q212_20260220_energy_reg_only",
+      "experiment": "q212_energy_reg_only",
+      "job_id": "61345226",
+      "submitted_at": "2026-02-20T01:00:00Z",
+      "status": "running",
+      "partition": "seas_gpu",
+      "git_sha": "95fea37",
+      "array_spec": "0-4%2",
+      "num_seeds": 5,
       "strategy": "cd_langevin_replay",
-      "note": "Fixed IRED-CL: energy_reg_weight=0.01, opt_steps=3, Langevin uses energy.mean() grad (not B_norm-normalized). Fixes all 3 q208 failure modes."
+      "note": "ABLATION: energy_reg=0.01, contrastive weight=0.001 (negligible). Tests whether reg alone kills pred."
+    },
+    {
+      "run_id": "q213_20260220_easy_neg_no_reg",
+      "experiment": "q213_easy_neg_no_reg",
+      "job_id": "61345247",
+      "submitted_at": "2026-02-20T01:00:00Z",
+      "status": "running",
+      "partition": "seas_gpu",
+      "git_sha": "95fea37",
+      "array_spec": "0-4%2",
+      "num_seeds": 5,
+      "strategy": "cd_langevin_replay",
+      "note": "ABLATION: no energy_reg, easy negatives (noise_scale=0.1, opt_steps=1), T=1000. Tests if removing reg restores denoising."
     }
   ],
+  "q210_completed": {
+    "job_id": "61314528",
+    "val_mse": "3.845 (flat from step 1k to 86k, completely broken)",
+    "root_cause": "energy_reg_weight=0.01 keeps |E|~1.6 => ||dE/dx||~0.9 => pred=0.9/2048~0.0004 << target eps~N(0,1). Model can never learn denoising.",
+    "note": "Moved to completed. q211/212/213 are the diagnostic ablations."
+  },
   "completed_runs": [
     {
       "run_id": "q201_20260218_000000",
