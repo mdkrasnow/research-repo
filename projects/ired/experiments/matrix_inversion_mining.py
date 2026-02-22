@@ -148,6 +148,9 @@ def run_experiment(config):
         'pgd_delta': config.get('pgd_delta', 1.5),
         'pgd_step_size': config.get('pgd_step_size', None),  # None → δ/K default
         'pgd_center_on_positive': config.get('pgd_center_on_positive', False),  # q218: center ball on y_pos
+
+        # TAM (Trajectory-Anchored Mining): anchor PGD on intermediate opt_step iterates
+        'tam_anchor_step': config.get('tam_anchor_step', 2),
     }
     
     diffusion = GaussianDiffusion1D(

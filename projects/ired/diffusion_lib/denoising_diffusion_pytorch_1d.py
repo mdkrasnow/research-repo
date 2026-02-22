@@ -195,8 +195,8 @@ class GaussianDiffusion1D(nn.Module):
         self.mining_config = mining_config
         self.mining_strategy = mining_config.get('strategy', 'adversarial')
 
-        # Valid strategies: baseline NCE, random NCE, CD variants
-        valid_strategies = ['none', 'random', 'adversarial', 'cd_langevin', 'cd_langevin_replay', 'cd_full']
+        # Valid strategies: baseline NCE, random NCE, CD variants, TAM
+        valid_strategies = ['none', 'random', 'adversarial', 'cd_langevin', 'cd_langevin_replay', 'cd_full', 'tam']
         assert self.mining_strategy in valid_strategies, \
             f"mining_strategy must be one of {valid_strategies}, got {self.mining_strategy}"
 
@@ -590,6 +590,48 @@ class GaussianDiffusion1D(nn.Module):
 
         return y.detach()
 
+    def _unroll_opt_steps(self, inp, x_init, t, mask, data_cond, k_steps: int):
+        """
+        Unroll k steps of opt_step from x_init (no gradients through trajectory).
+        Returns list of intermediate states [x1, x2, ..., xk].
+        Uses step=1 per call and eval=True so each iterate is detached.
+        """
+        iterates = []
+        x = x_init.detach()
+        for _ in range(k_steps):
+            with torch.enable_grad():
+                x = self.opt_step(inp, x, t, mask, data_cond, step=1, eval=True)
+            x = x.detach()
+            iterates.append(x)
+        return iterates
+
+    def sample_negatives_tam(self, inp, x_pos, t, noise_eps, mask, data_cond,
+                              anchor_step: int, pgd_k_steps: int):
+        """
+        Trajectory-Anchored Mining (TAM):
+        1. Unroll opt_step for anchor_step steps from x_pos -> x_anchor
+        2. PGD from x_anchor with L2 ball centered at x_anchor
+
+        Returns x_neg (detached, in x_t space).
+        Stores diagnostics in self._tam_diag.
+        """
+        iterates = self._unroll_opt_steps(inp, x_pos, t, mask, data_cond, k_steps=anchor_step)
+        x_anchor = iterates[-1]
+
+        # Reuse existing PGD: x_init=x_anchor centers the L2 ball at the anchor
+        x_neg = self.sample_negatives_pgd(inp, x_anchor, t, noise_eps, k_steps=pgd_k_steps)
+
+        # Diagnostics (same style as _pgd_diag)
+        pgd_diag = getattr(self, '_pgd_diag', {})
+        self._tam_diag = {
+            'anchor_dist': (x_anchor - x_pos).norm(dim=-1).mean().item(),
+            'neg_dist': (x_neg - x_pos).norm(dim=-1).mean().item(),
+            'pgd_disp': (x_neg - x_anchor).norm(dim=-1).mean().item(),
+            'mse_neg_init': pgd_diag.get('mse_neg_init', float('nan')),
+            'mse_neg_final': pgd_diag.get('mse_neg_final', float('nan')),
+        }
+        return x_neg
+
     def compute_matrix_residual(self, A, X):
         """
         Compute matrix inversion residual: ||AX - I||_F
@@ -935,12 +977,28 @@ class GaussianDiffusion1D(nn.Module):
                     loss_opt = torch.zeros(1, device=x_start.device)
                     loss_scale = self.mining_config.get('energy_loss_weight', 0.05)
 
+                elif self.mining_strategy == 'tam':
+                    # Trajectory-Anchored Mining: anchor PGD on intermediate opt_step iterates
+                    anchor_step = self.mining_config.get('tam_anchor_step', 2)
+                    pgd_k = self.mining_config.get('opt_steps', 3)
+                    xmin_noise = self.sample_negatives_tam(
+                        inp, data_sample, t, noise, mask, x_start,
+                        anchor_step=anchor_step,
+                        pgd_k_steps=pgd_k,
+                    )
+                    # TAM output is already in x_t space, no need for q_sample re-wrap
+                    xmin_noise_rescale = self.predict_start_from_noise(xmin_noise, t, torch.zeros_like(xmin_noise))
+                    xmin_noise_rescale = torch.clamp(xmin_noise_rescale, -2, 2)
+                    loss_opt = torch.zeros(1, device=x_start.device)
+                    loss_scale = self.mining_config.get('energy_loss_weight', 0.05)
+
                 else:
                     raise ValueError(f"Unknown mining strategy: {self.mining_strategy}")
 
-            # Re-noise for non-CD strategies only
+            # Re-noise for non-CD and non-TAM strategies only
             # For CD: xmin_noise is already refined in xₜ space from Langevin
-            if self.mining_strategy not in ['cd_langevin', 'cd_langevin_replay', 'cd_full']:
+            # For TAM: xmin_noise is already in xₜ space from PGD
+            if self.mining_strategy not in ['cd_langevin', 'cd_langevin_replay', 'cd_full', 'tam']:
                 xmin_noise = self.q_sample(x_start=xmin_noise_rescale, t=t, noise=noise)
 
             if mask is not None:
@@ -1121,27 +1179,51 @@ class GaussianDiffusion1D(nn.Module):
 
                 if use_gc:
                     use_pgd = self.mining_config.get('use_pgd_negatives', False)
+                    use_tam = self.mining_strategy == 'tam'
                     pgd_diag = getattr(self, '_pgd_diag', {})
-                    neg_tag = "PGD-GC" if use_pgd else "GC"
-                    pgd_extra = (
-                        f" pgd_grad0={pgd_diag.get('grad_norm_first', 0):.4f}"
-                        f" pgd_gradK={pgd_diag.get('grad_norm_last', 0):.4f}"
-                        f" pgd_disp={pgd_diag.get('displacement', 0):.4f}"
-                        f" mse_neg_init={pgd_diag.get('mse_neg_init', 0):.4f}"
-                        f" mse_neg_final={pgd_diag.get('mse_neg_final', 0):.4f}"
-                        f" delta={pgd_diag.get('delta', 0):.3f}"
-                        f" eta={pgd_diag.get('eta', 0):.4f}"
-                    ) if use_pgd else ""
-                    print(
-                        f"[{neg_tag}-DIAG step={self.global_step}] "
-                        f"mse_pos={_gc_mse_pos:.6f} mse_neg={_gc_mse_neg:.6f} "
-                        f"mse_gap={(_gc_mse_neg - _gc_mse_pos):.6f} "
-                        f"pred_norm={model_out_norm:.4f} pred_std={pred_std:.4f} pred_abs={pred_abs:.4f} "
-                        f"tgt_std={tgt_std_val:.4f} tgt_abs={tgt_abs_val:.4f} cos={cos_sim:.4f} "
-                        f"neg_dist={neg_dist:.4f}"
-                        f"{pgd_extra}",
-                        flush=True
-                    )
+                    tam_diag = getattr(self, '_tam_diag', {})
+
+                    if use_tam:
+                        # TAM-specific diagnostics
+                        neg_tag = "TAM-GC"
+                        tam_extra = (
+                            f" anchor_dist={tam_diag.get('anchor_dist', float('nan')):.4f}"
+                            f" pgd_disp={tam_diag.get('pgd_disp', float('nan')):.4f}"
+                            f" mse_neg_init={tam_diag.get('mse_neg_init', float('nan')):.6f}"
+                            f" mse_neg_final={tam_diag.get('mse_neg_final', float('nan')):.6f}"
+                        )
+                        print(
+                            f"[{neg_tag}-DIAG step={self.global_step}] "
+                            f"mse_pos={_gc_mse_pos:.6f} mse_neg={_gc_mse_neg:.6f} "
+                            f"mse_gap={(_gc_mse_neg - _gc_mse_pos):.6f} "
+                            f"pred_norm={model_out_norm:.4f} pred_std={pred_std:.4f} pred_abs={pred_abs:.4f} "
+                            f"tgt_std={tgt_std_val:.4f} tgt_abs={tgt_abs_val:.4f} cos={cos_sim:.4f} "
+                            f"neg_dist={neg_dist:.4f}"
+                            f"{tam_extra}",
+                            flush=True
+                        )
+                    else:
+                        # PGD or GC diagnostics
+                        neg_tag = "PGD-GC" if use_pgd else "GC"
+                        pgd_extra = (
+                            f" pgd_grad0={pgd_diag.get('grad_norm_first', 0):.4f}"
+                            f" pgd_gradK={pgd_diag.get('grad_norm_last', 0):.4f}"
+                            f" pgd_disp={pgd_diag.get('displacement', 0):.4f}"
+                            f" mse_neg_init={pgd_diag.get('mse_neg_init', 0):.4f}"
+                            f" mse_neg_final={pgd_diag.get('mse_neg_final', 0):.4f}"
+                            f" delta={pgd_diag.get('delta', 0):.3f}"
+                            f" eta={pgd_diag.get('eta', 0):.4f}"
+                        ) if use_pgd else ""
+                        print(
+                            f"[{neg_tag}-DIAG step={self.global_step}] "
+                            f"mse_pos={_gc_mse_pos:.6f} mse_neg={_gc_mse_neg:.6f} "
+                            f"mse_gap={(_gc_mse_neg - _gc_mse_pos):.6f} "
+                            f"pred_norm={model_out_norm:.4f} pred_std={pred_std:.4f} pred_abs={pred_abs:.4f} "
+                            f"tgt_std={tgt_std_val:.4f} tgt_abs={tgt_abs_val:.4f} cos={cos_sim:.4f} "
+                            f"neg_dist={neg_dist:.4f}"
+                            f"{pgd_extra}",
+                            flush=True
+                        )
                 else:
                     # Energy-based path: compute gradE and log energy stats
                     x_pos_diag = data_sample.detach().requires_grad_(True)
