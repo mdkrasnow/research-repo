@@ -511,6 +511,69 @@ class GaussianDiffusion1D(nn.Module):
 
         return x.detach()
 
+    def sample_negatives_pgd(self, inp, x_init, t, noise_eps, k_steps: int):
+        """
+        Generate hard negatives via PGD ascent on the denoising MSE loss.
+
+        Maximizes L(y) = ||model(inp, y, t) - noise_eps||²
+        subject to ||y - x_init||₂ ≤ δ  (L2 ball projection after each step).
+
+        Step size η = δ / k_steps (standard PGD scaling).
+        Stop-gradient: model parameters are frozen during PGD.
+
+        Args:
+            inp:       Conditioning input [B, inp_dim]
+            x_init:    Starting point in xₜ space [B, out_dim]
+            t:         Timestep indices [B]
+            noise_eps: Ground-truth noise added to form x_t [B, out_dim]
+            k_steps:   Number of PGD ascent steps
+
+        Returns:
+            Adversarial negatives [B, out_dim] (stop-grad, in xₜ space)
+        """
+        delta = self.mining_config.get('pgd_delta', 1.5)
+        eta = self.mining_config.get('pgd_step_size') or (delta / max(k_steps, 1))
+
+        y0 = x_init.detach().clone()
+        y = y0.clone()
+
+        # Freeze model parameters during PGD sampling (same convention as Langevin)
+        for p in self.model.parameters():
+            p.requires_grad_(False)
+
+        pgd_grad_norms = []
+        for k in range(k_steps):
+            y = y.detach().requires_grad_(True)
+            pred = self.model(inp.detach(), y, t.detach())
+            # Per-sample sum (not mean) so gradient scale is independent of out_dim
+            mse = F.mse_loss(pred, noise_eps.detach(), reduction='none')  # [B, ...]
+            loss = mse.reshape(mse.shape[0], -1).sum(-1).sum()            # scalar
+            loss.backward()
+
+            with torch.no_grad():
+                grad = y.grad.detach()
+                pgd_grad_norms.append(grad.norm(dim=-1).mean().item())
+                y = y.detach() + eta * grad
+                # L2 ball projection: project Δ = y - y0 onto ||Δ||₂ ≤ δ
+                delta_y = y - y0
+                norm = delta_y.norm(dim=-1, keepdim=True).clamp(min=1e-8)  # [B, 1]
+                scale = (delta / norm).clamp(max=1.0)                       # [B, 1]
+                y = y0 + delta_y * scale
+
+        # Re-enable model parameter gradients for training
+        for p in self.model.parameters():
+            p.requires_grad_(True)
+
+        self._pgd_diag = {
+            'grad_norm_first': pgd_grad_norms[0] if pgd_grad_norms else 0.0,
+            'grad_norm_last': pgd_grad_norms[-1] if len(pgd_grad_norms) > 1 else pgd_grad_norms[0] if pgd_grad_norms else 0.0,
+            'displacement': (y - y0).norm(dim=-1).mean().item(),
+            'delta': delta,
+            'eta': eta,
+        }
+
+        return y.detach()
+
     def compute_matrix_residual(self, A, X):
         """
         Compute matrix inversion residual: ||AX - I||_F
@@ -835,8 +898,11 @@ class GaussianDiffusion1D(nn.Module):
                     else:
                         x_init = self.q_sample(x_start=x_start, t=t, noise=noise_scale * torch.randn_like(x_start))
 
-                    # Sample negatives with Langevin (in xₜ space)
-                    xmin_noise = self.sample_negatives_langevin(inp, x_init, t, k_steps=opt_steps)
+                    # Sample negatives: PGD (q217+) or Langevin (default)
+                    if self.mining_config.get('use_pgd_negatives', False):
+                        xmin_noise = self.sample_negatives_pgd(inp, x_init, t, noise, k_steps=opt_steps)
+                    else:
+                        xmin_noise = self.sample_negatives_langevin(inp, x_init, t, k_steps=opt_steps)
 
                     # Add to replay buffer for future use (still in xₜ space)
                     if self.use_replay_buffer:
@@ -1034,13 +1100,24 @@ class GaussianDiffusion1D(nn.Module):
                     mse_val = loss_mse_reduced.mean().item()
 
                 if use_gc:
+                    use_pgd = self.mining_config.get('use_pgd_negatives', False)
+                    pgd_diag = getattr(self, '_pgd_diag', {})
+                    neg_tag = "PGD-GC" if use_pgd else "GC"
+                    pgd_extra = (
+                        f" pgd_grad0={pgd_diag.get('grad_norm_first', 0):.4f}"
+                        f" pgd_gradK={pgd_diag.get('grad_norm_last', 0):.4f}"
+                        f" pgd_disp={pgd_diag.get('displacement', 0):.4f}"
+                        f" delta={pgd_diag.get('delta', 0):.3f}"
+                        f" eta={pgd_diag.get('eta', 0):.4f}"
+                    ) if use_pgd else ""
                     print(
-                        f"[GC-DIAG step={self.global_step}] "
+                        f"[{neg_tag}-DIAG step={self.global_step}] "
                         f"mse_pos={_gc_mse_pos:.6f} mse_neg={_gc_mse_neg:.6f} "
                         f"mse_gap={(_gc_mse_neg - _gc_mse_pos):.6f} "
                         f"pred_norm={model_out_norm:.4f} pred_std={pred_std:.4f} pred_abs={pred_abs:.4f} "
                         f"tgt_std={tgt_std_val:.4f} tgt_abs={tgt_abs_val:.4f} cos={cos_sim:.4f} "
-                        f"neg_dist={neg_dist:.4f}",
+                        f"neg_dist={neg_dist:.4f}"
+                        f"{pgd_extra}",
                         flush=True
                     )
                 else:

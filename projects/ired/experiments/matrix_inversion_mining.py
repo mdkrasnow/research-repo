@@ -141,7 +141,12 @@ def run_experiment(config):
 
         # Gradient-contrastive loss (q216): shape gradient field, not energy values
         'use_gradient_contrastive': config.get('use_gradient_contrastive', False),
-        'gc_temperature': config.get('gc_temperature', 1.0)
+        'gc_temperature': config.get('gc_temperature', 1.0),
+
+        # PGD adversarial negatives (q217): ascend denoising MSE w/ L2 projection
+        'use_pgd_negatives': config.get('use_pgd_negatives', False),
+        'pgd_delta': config.get('pgd_delta', 1.5),
+        'pgd_step_size': config.get('pgd_step_size', None),  # None → δ/K default
     }
     
     diffusion = GaussianDiffusion1D(
