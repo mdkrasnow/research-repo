@@ -541,6 +541,12 @@ class GaussianDiffusion1D(nn.Module):
         for p in self.model.parameters():
             p.requires_grad_(False)
 
+        # Record MSE at init (before any PGD steps) for diagnostic: is gap from init or PGD?
+        with torch.no_grad():
+            pred_init = self.model(inp.detach(), y0, t.detach())
+            mse_neg_init = F.mse_loss(pred_init, noise_eps.detach(), reduction='none')
+            mse_neg_init_val = mse_neg_init.reshape(mse_neg_init.shape[0], -1).mean(-1).mean().item()
+
         pgd_grad_norms = []
         for k in range(k_steps):
             y = y.detach().requires_grad_(True)
@@ -564,12 +570,19 @@ class GaussianDiffusion1D(nn.Module):
         for p in self.model.parameters():
             p.requires_grad_(True)
 
+        with torch.no_grad():
+            pred_final = self.model(inp.detach(), y.detach(), t.detach())
+            mse_neg_final = F.mse_loss(pred_final, noise_eps.detach(), reduction='none')
+            mse_neg_final_val = mse_neg_final.reshape(mse_neg_final.shape[0], -1).mean(-1).mean().item()
+
         self._pgd_diag = {
             'grad_norm_first': pgd_grad_norms[0] if pgd_grad_norms else 0.0,
             'grad_norm_last': pgd_grad_norms[-1] if len(pgd_grad_norms) > 1 else pgd_grad_norms[0] if pgd_grad_norms else 0.0,
             'displacement': (y - y0).norm(dim=-1).mean().item(),
             'delta': delta,
             'eta': eta,
+            'mse_neg_init': mse_neg_init_val,
+            'mse_neg_final': mse_neg_final_val,
         }
 
         return y.detach()
@@ -900,7 +913,11 @@ class GaussianDiffusion1D(nn.Module):
 
                     # Sample negatives: PGD (q217+) or Langevin (default)
                     if self.mining_config.get('use_pgd_negatives', False):
-                        xmin_noise = self.sample_negatives_pgd(inp, x_init, t, noise, k_steps=opt_steps)
+                        # q218+: center PGD ball on the positive noisy sample (data_sample)
+                        # so δ-constraint is relative to the manifold, not a far noise init.
+                        # q217: center=x_init (far noise init), q218: center=data_sample
+                        pgd_center = data_sample if self.mining_config.get('pgd_center_on_positive', False) else x_init
+                        xmin_noise = self.sample_negatives_pgd(inp, pgd_center, t, noise, k_steps=opt_steps)
                     else:
                         xmin_noise = self.sample_negatives_langevin(inp, x_init, t, k_steps=opt_steps)
 
@@ -1107,6 +1124,8 @@ class GaussianDiffusion1D(nn.Module):
                         f" pgd_grad0={pgd_diag.get('grad_norm_first', 0):.4f}"
                         f" pgd_gradK={pgd_diag.get('grad_norm_last', 0):.4f}"
                         f" pgd_disp={pgd_diag.get('displacement', 0):.4f}"
+                        f" mse_neg_init={pgd_diag.get('mse_neg_init', 0):.4f}"
+                        f" mse_neg_final={pgd_diag.get('mse_neg_final', 0):.4f}"
                         f" delta={pgd_diag.get('delta', 0):.3f}"
                         f" eta={pgd_diag.get('eta', 0):.4f}"
                     ) if use_pgd else ""
