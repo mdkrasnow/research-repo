@@ -1042,6 +1042,24 @@ ssh <cluster> "cd /n/home03/mkrasnow/research-repo && git pull"
 
 ---
 
+## IRED-CD Contrastive Investigation — CLOSED [2026-02-22]
+
+### Final Ablation Results: Energy-Value Contrastive is Architecturally Incompatible
+
+| Exp | Description | val MSE | pred_norm | Root Cause |
+|-----|-------------|---------|-----------|------------|
+| q212 | energy_reg=0.01 | 3.828 | 0.0006 | reg suppresses ||∂E/∂x|| |
+| q213 | no reg + CL | 0.89–1.66 | 0.25–0.39 | CL gradient drives E_pos down |
+| q214 | detach E_pos | 3.91 | 18,354 | shared-param explosion |
+| q215 | reg=1e-10 + detach | 3.645 | 0.267 | CL flattens gradient field (gradE/E = 0.00065 vs 0.089 baseline) |
+| q216 | gradient-contrastive | 0.00974 | 19.4 | ✓ works, matches baseline |
+
+**Structural incompatibility confirmed**: Any contrastive term on raw energy values either (a) suppresses the gradient field needed for denoising, or (b) causes shared-parameter explosion. The Goldilocks zone does not exist.
+
+**Investigation status**: COMPLETE. Best result = q211 baseline, val MSE = 0.00969 ± 0.00002.
+
+---
+
 ## Debugging Commands
 
 ```bash
