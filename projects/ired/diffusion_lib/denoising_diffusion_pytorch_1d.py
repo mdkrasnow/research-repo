@@ -542,9 +542,11 @@ class GaussianDiffusion1D(nn.Module):
             p.requires_grad_(False)
 
         # Record MSE at init (before any PGD steps) for diagnostic: is gap from init or PGD?
-        with torch.no_grad():
-            pred_init = self.model(inp.detach(), y0, t.detach())
-            mse_neg_init = F.mse_loss(pred_init, noise_eps.detach(), reduction='none')
+        # Must use enable_grad + requires_grad_(True) because model.forward calls autograd.grad internally.
+        with torch.enable_grad():
+            y0_g = y0.detach().requires_grad_(True)
+            pred_init = self.model(inp.detach(), y0_g, t.detach())
+            mse_neg_init = F.mse_loss(pred_init.detach(), noise_eps.detach(), reduction='none')
             mse_neg_init_val = mse_neg_init.reshape(mse_neg_init.shape[0], -1).mean(-1).mean().item()
 
         pgd_grad_norms = []
@@ -570,9 +572,10 @@ class GaussianDiffusion1D(nn.Module):
         for p in self.model.parameters():
             p.requires_grad_(True)
 
-        with torch.no_grad():
-            pred_final = self.model(inp.detach(), y.detach(), t.detach())
-            mse_neg_final = F.mse_loss(pred_final, noise_eps.detach(), reduction='none')
+        with torch.enable_grad():
+            y_g = y.detach().requires_grad_(True)
+            pred_final = self.model(inp.detach(), y_g, t.detach())
+            mse_neg_final = F.mse_loss(pred_final.detach(), noise_eps.detach(), reduction='none')
             mse_neg_final_val = mse_neg_final.reshape(mse_neg_final.shape[0], -1).mean(-1).mean().item()
 
         self._pgd_diag = {
