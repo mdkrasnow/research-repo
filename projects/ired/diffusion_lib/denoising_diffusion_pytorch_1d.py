@@ -1372,7 +1372,7 @@ class Trainer1D(object):
         self.data_workers = data_workers
 
         if self.data_workers is None:
-            self.data_workers = cpu_count()
+            self.data_workers = 2  # Use small number of workers to avoid DataLoader freeze on cluster
 
         # dataset and dataloader
 
