@@ -6,13 +6,13 @@
   "active_runs": [
     {
       "run_id": "q211",
-      "job_id": "61637386",
-      "git_sha": "e0a551c",
-      "submitted_at": "2026-02-22T12:00:00Z",
+      "job_id": "61639867",
+      "git_sha": "98521e8",
+      "submitted_at": "2026-02-22T13:40:00Z",
       "config": "configs/q211_scalar_baseline_newcode.json",
       "seeds": "0-7",
       "status": "running",
-      "note": "BASELINE 8-seed: no mining, scalar energy, no energy loss. For paired comparison with q220."
+      "note": "BASELINE 8-seed RESUBMIT (FIXED): DataLoader num_workers reduced from cpu_count() to 2 (commit 98521e8). Original job 61637386 killed all seeds mid-training due to freeze."
     },
     {
       "run_id": "q220",
@@ -57,6 +57,15 @@
       "failed_at": "2026-02-22T13:22:00Z",
       "reason": "Time limit or preemption: seed 0 stopped @ 57k (val_mse=0.00975818), seed 1 stopped @ 87k (val_mse=0.00971026). Resubmitting fresh.",
       "seeds_incomplete": "0-1"
+    },
+    {
+      "run_id": "q211 (DataLoader freeze)",
+      "job_id": "61637386",
+      "git_sha": "e0a551c",
+      "cancelled_at": "2026-02-22T13:37:00Z",
+      "reason": "CRITICAL BUG: DataLoader configured to spawn cpu_count()=64 workers, system recommends max 2. Caused process freeze/hang on all seeds (0-6 stopped at steps 3.3K-4.9K, seed 7 in eval). Fixed in commit 98521e8: changed num_workers default to 2. Resubmitted as job 61639867.",
+      "seeds_failed": "0-3, 7 (partial)",
+      "root_cause": "PyTorch DataLoader memory contention with 64 workers on batch_size=2048"
     }
   ],
   "final_result": "val_MSE=0.00969 (baseline). q216 GC tied baseline; negatives too easy (mse_gap=1.01). q217: PGD adversarial negatives to generate near-miss confusable negatives.",
