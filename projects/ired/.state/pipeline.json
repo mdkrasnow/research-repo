@@ -2,8 +2,18 @@
   "project": "ired",
   "phase": "RUNNING",
   "current_investigation": "ired-pgd",
-  "next_action": "wait_q220_100k",
+  "next_action": "parallel_q220_q211_to_completion",
   "active_runs": [
+    {
+      "run_id": "q211",
+      "job_id": "61637386",
+      "git_sha": "e0a551c",
+      "submitted_at": "2026-02-22T12:00:00Z",
+      "config": "configs/q211_scalar_baseline_newcode.json",
+      "seeds": "0-7",
+      "status": "running",
+      "note": "BASELINE 8-seed: no mining, scalar energy, no energy loss. For paired comparison with q220."
+    },
     {
       "run_id": "q220",
       "job_id": "61628694",
@@ -12,9 +22,16 @@
       "config": "configs/q220_tam_base.json",
       "seeds": "0-1",
       "status": "running",
-      "note": "TAM baseline: anchor PGD on opt_step trajectory iterate (anchor_step=2). Resubmitted after force push."
+      "note": "TAM baseline: anchor PGD on opt_step trajectory iterate (anchor_step=2). Paired comparison vs q211."
     }
   ],
+  "validation_plan": {
+    "phase": "EMPIRICAL_NOISE_QUANTIFICATION",
+    "objective": "Determine if TAM effect is real or within eval noise",
+    "methodology": "8 paired seeds baseline vs TAM, compare final_mse@100k",
+    "success_criteria": "CI excludes 0 AND margin > 5e-5 (beyond noise floor)",
+    "eta_completion": "~2 hours (both jobs ~100% parallel)"
+  },
   "cancelled_runs": [
     {
       "run_id": "q217",
