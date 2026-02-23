@@ -151,6 +151,11 @@ def run_experiment(config):
 
         # TAM (Trajectory-Anchored Mining): anchor PGD on intermediate opt_step iterates
         'tam_anchor_step': config.get('tam_anchor_step', 2),
+
+        # TAM-CTL (Convergence Training Loss): recovery objective
+        'use_recovery_loss': config.get('use_recovery_loss', False),
+        'recovery_steps': config.get('recovery_steps', 1),
+        'recovery_loss_weight': config.get('recovery_loss_weight', 0.1),
     }
     
     diffusion = GaussianDiffusion1D(
