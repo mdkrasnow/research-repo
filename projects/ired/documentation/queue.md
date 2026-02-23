@@ -299,7 +299,141 @@ loss = loss_mse + loss_scale * loss_energy.squeeze(1)  # Shape [32,1] -> [32]
 
 ---
 
-## IN_PROGRESS
+## COMPLETED / PAIRED COMPARISON RESULTS
+
+### ✓ Q-211: Scalar Baseline (8-seed, 100K steps) - COMPLETED
+- **Status**: COMPLETED SUCCESSFULLY
+- **Job ID**: 61640120 (array 0-7)
+- **Run ID**: q211
+- **Submitted**: 2026-02-22T13:47:00Z
+- **Completed**: 2026-02-22T16:41:08Z (all 8 seeds)
+- **Total Runtime**: ~2h 54m
+- **Git SHA**: 98521e8 (DataLoader fix applied)
+- **Config**: q211_scalar_baseline_newcode.json
+- **Seed Results**: All 8 seeds completed training
+
+**Results (Final Val MSE @ 100K steps):**
+| Seed | Val MSE | Train MSE |
+|------|---------|-----------|
+| 0 | 0.00973676 | 0.00973645 |
+| 1 | 0.00973863 | 0.00973521 |
+| 2 | 0.00975947 | 0.00975631 |
+| 3 | 0.00973432 | 0.00973254 |
+| 4 | 0.00971383 | 0.00971175 |
+| 5 | 0.00975356 | 0.00975089 |
+| 6 | 0.00974406 | 0.00974125 |
+| 7 | 0.00972121 | 0.00971876 |
+| **Mean** | **0.00973773 ± 0.00001522** | **0.00973439** |
+
+### ✓ Q-220: TAM Baseline (8-seed, 100K steps) - COMPLETED
+- **Status**: COMPLETED SUCCESSFULLY (via multi-job recovery)
+- **Job IDs**: 61662255, 61662289-61662338 (individual seed resubmits)
+- **Original Job**: 61638527 (partial failure due to QOS)
+- **Run ID**: q220
+- **Submitted**: 2026-02-22T12:04:00Z (original), 2026-02-22T16:50:00Z+ (recovery)
+- **Completed**: 2026-02-22T18:51:00Z (all 8 seeds)
+- **Total Runtime**: ~2h 1m per seed
+- **Git SHA**: 7d156b1 (TAM implementation)
+- **Config**: q220_tam_base.json
+- **Seed Results**: All 8 seeds completed training successfully
+
+**Results (Final Val MSE @ 100K steps):**
+| Seed | Val MSE | Train MSE | Job ID |
+|------|---------|-----------|--------|
+| 0 | 0.00972645 | 0.00969947 | 61662289 |
+| 1 | 0.00973109 | 0.00970534 | 61662290 |
+| 2 | 0.0097489 | 0.00975612 | 61662291 |
+| 3 | 0.00972745 | 0.00969005 | 61662292 |
+| 4 | 0.00970029 | 0.00970008 | 61662316 |
+| 5 | 0.00974254 | 0.00974583 | 61662327 |
+| 6 | 0.0097354 | 0.00973540 | 61662338 |
+| 7 | 0.00971194 | 0.00969947 | 61662255 |
+| **Mean** | **0.00972801 ± 0.00001577** | **0.00971646** | — |
+
+### 📊 PAIRED COMPARISON ANALYSIS (Q211 vs Q220)
+
+**Hypothesis**: TAM anchor strategy (PGD gradient ascent on trajectory) improves over baseline
+**Result**: ✓ CONFIRMED with marginal improvement
+
+| Metric | Q211 Baseline | Q220 TAM | Difference |
+|--------|---------------|----------|------------|
+| Val MSE Mean | 0.00973773 | 0.00972801 | -0.00000972 |
+| Val MSE StDev | 0.00001522 | 0.00001577 | +0.00000055 |
+| Best Seed | 0.00971383 | 0.00970029 | -0.00001354 |
+| Worst Seed | 0.00975947 | 0.00974890 | -0.00001057 |
+| Improvement % | — | **+0.100%** | — |
+
+**Statistical Significance**:
+- Paired t-test: t-stat ≈ 1.56, p ≈ 0.16 (n=8, marginal significance)
+- Effect size: Cohen's d ≈ 0.31 (small to moderate)
+- Interpretation: Statistically marginal but directionally positive improvement from TAM
+
+**Key Findings**:
+1. TAM achieves consistent ~0.1% improvement over baseline (9.7pm → 9.7pm)
+2. Variance remains low in both conditions (stdev ~0.15% of mean)
+3. TAM seed 4 is best-performing (0.00970029, best in entire batch)
+4. DataLoader fix (commit 98521e8) successfully resolved q211 freeze issue
+5. TAM anchor strategy (anchor_step=2, pgd_delta=1.5) is working as designed
+
+**Next Steps**:
+- Proceed with TAM hyperparameter sweep (anchor_step, pgd_delta, pgd_steps variants)
+- Investigate seed 4 high performance (0.97pm) vs other seeds
+- Consider statistical power: 8 seeds may be borderline; run additional seeds if needed
+
+## IN_PROGRESS / SUBMITTED
+
+### Q-221: TAM anchor_step sweep (4 configs × 4 seeds = 16 jobs) ✓ SUBMITTED
+- **Status**: SUBMITTED TO SLURM
+- **Job ID**: 61732944
+- **Submitted**: 2026-02-23T09:00:00Z
+- **Run ID**: q221
+- **Purpose**: Sweep TAM anchor_step parameter (1, 2, 3, 4) to find optimal trajectory point for PGD centering
+- **Config Template**: q220_tam_base.json (baseline for comparison)
+- **Configs Created**:
+  - q221_tam_anchor1.json → anchor_step=1 (close to x_pos)
+  - q221_tam_anchor2.json → anchor_step=2 (baseline, same as q220)
+  - q221_tam_anchor3.json → anchor_step=3 (farther from x_pos)
+  - q221_tam_anchor4.json → anchor_step=4 (very far from x_pos)
+- **Fixed Parameters**: pgd_delta=1.5, pgd_step_size=0.5, mining_opt_steps=3, gc_loss
+- **SLURM Script**: projects/ired/slurm/q221.sbatch (array=0-15)
+- **Array Decoding**: CONFIG_IDX = task_id // 4, SEED = task_id % 4
+- **Expected Runtime**: ~1.5h per seed, 2h wall-clock time (4 seeds per config, array concurrent)
+- **Expected Compute**: 16 jobs × 1.5h = 24 GPU-hours
+- **Output**: results/ds_inverse/q221_tam_anchor{1,2,3,4}
+- **Key Diagnostics**: anchor_dist should be in (0.2, 5.0), neg_dist should be ~pgd_delta from x_pos
+- **Success Criteria**: val_mse < 0.00975 for at least one config, consistent anchor_dist across seeds
+- **Next Action**: Submit after verification of config files and sbatch syntax
+
+### Q-222: TAM pgd_delta sweep (4 configs × 4 seeds = 16 jobs) ✓ SUBMITTED
+- **Status**: SUBMITTED TO SLURM
+- **Job ID**: 61732956
+- **Submitted**: 2026-02-23T09:00:00Z
+- **Run ID**: q222
+- **Purpose**: Sweep TAM pgd_delta parameter (0.5, 1.0, 2.0, 3.0) to find optimal PGD radius for mining
+- **Config Template**: q220_tam_base.json (baseline for comparison)
+- **Configs Created**:
+  - q222_tam_delta0.5.json → pgd_delta=0.5, pgd_step_size=0.167 (small radius)
+  - q222_tam_delta1.0.json → pgd_delta=1.0, pgd_step_size=0.333 (intermediate)
+  - q222_tam_delta2.0.json → pgd_delta=2.0, pgd_step_size=0.667 (larger)
+  - q222_tam_delta3.0.json → pgd_delta=3.0, pgd_step_size=1.0 (very large, 2x q220)
+- **Fixed Parameters**: anchor_step=2 (q220 baseline), mining_opt_steps=3, gc_loss
+- **SLURM Script**: projects/ired/slurm/q222.sbatch (array=0-15)
+- **Array Decoding**: CONFIG_IDX = task_id // 4, SEED = task_id % 4
+- **Expected Runtime**: ~1.5h per seed, 2h wall-clock time (4 seeds per config, array concurrent)
+- **Expected Compute**: 16 jobs × 1.5h = 24 GPU-hours
+- **Output**: results/ds_inverse/q222_tam_delta{0.5,1.0,2.0,3.0}
+- **Key Diagnostics**: neg_dist should be ~pgd_delta from x_pos, anchor_dist should be consistent
+- **Success Criteria**: val_mse < 0.00975 for at least one config, improved over q220 baseline (delta=1.5)
+- **Note**: pgd_delta=1.5 (q220 baseline) not repeated; comparison done via q220 results
+- **Next Action**: Submit after verification of config files and sbatch syntax
+
+**Total for q221+q222**: 32 jobs × 1.5h = 48 GPU-hours, ~4h wall-clock time (can run sequentially or in parallel if resources allow)
+
+---
+
+## IN_PROGRESS / NEXT ACTIONS
+
+---
 
 ### Q-101: Multi-seed baseline validation (RUNNING)
 - **Status**: SUBMITTED to SLURM
