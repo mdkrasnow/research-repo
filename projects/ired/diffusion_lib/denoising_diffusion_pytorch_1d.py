@@ -605,14 +605,38 @@ class GaussianDiffusion1D(nn.Module):
             iterates.append(x)
         return iterates
 
-    def sample_negatives_tam(self, inp, x_pos, t, noise_eps, mask, data_cond,
-                              anchor_step: int, pgd_k_steps: int):
+    def _unroll_recovery_steps(self, inp, x_init, t, mask, data_cond, recovery_steps: int):
         """
-        Trajectory-Anchored Mining (TAM):
+        Unroll recovery steps from adversarial negative (no gradients through trajectory).
+        Similar to _unroll_opt_steps but returns final state instead of list.
+
+        Args:
+            x_init: Starting state (typically y_neg from PGD)
+            recovery_steps: Number of opt_steps to unroll (default 1-2)
+
+        Returns: Final recovery state y_rec (detached, no gradients through unroll)
+        """
+        x = x_init.detach()
+        for _ in range(recovery_steps):
+            with torch.enable_grad():
+                x = self.opt_step(inp, x, t, mask, data_cond, step=1, eval=True)
+            x = x.detach()
+        return x
+
+    def sample_negatives_tam(self, inp, x_pos, t, noise_eps, mask, data_cond,
+                              anchor_step: int, pgd_k_steps: int, recovery_steps: int = 0):
+        """
+        Trajectory-Anchored Mining (TAM) with optional recovery:
         1. Unroll opt_step for anchor_step steps from x_pos -> x_anchor
         2. PGD from x_anchor with L2 ball centered at x_anchor
+        3. (Optional) Recovery: unroll opt_steps from x_neg for recovery_steps
 
-        Returns x_neg (detached, in x_t space).
+        Args:
+            recovery_steps: Number of recovery unroll steps (default 0 = no recovery)
+
+        Returns:
+            - If recovery_steps > 0: (x_neg, x_rec) tuple
+            - If recovery_steps == 0: x_neg (backward compatible)
         Stores diagnostics in self._tam_diag.
         """
         iterates = self._unroll_opt_steps(inp, x_pos, t, mask, data_cond, k_steps=anchor_step)
@@ -620,6 +644,12 @@ class GaussianDiffusion1D(nn.Module):
 
         # Reuse existing PGD: x_init=x_anchor centers the L2 ball at the anchor
         x_neg = self.sample_negatives_pgd(inp, x_anchor, t, noise_eps, k_steps=pgd_k_steps)
+
+        # Optional recovery unroll from x_neg
+        if recovery_steps > 0:
+            x_rec = self._unroll_recovery_steps(inp, x_neg, t, mask, data_cond, recovery_steps)
+        else:
+            x_rec = None
 
         # Diagnostics (same style as _pgd_diag)
         pgd_diag = getattr(self, '_pgd_diag', {})
@@ -630,7 +660,12 @@ class GaussianDiffusion1D(nn.Module):
             'mse_neg_init': pgd_diag.get('mse_neg_init', float('nan')),
             'mse_neg_final': pgd_diag.get('mse_neg_final', float('nan')),
         }
-        return x_neg
+
+        # Return appropriately based on recovery_steps
+        if recovery_steps > 0:
+            return x_neg, x_rec
+        else:
+            return x_neg
 
     def compute_matrix_residual(self, A, X):
         """
@@ -981,11 +1016,22 @@ class GaussianDiffusion1D(nn.Module):
                     # Trajectory-Anchored Mining: anchor PGD on intermediate opt_step iterates
                     anchor_step = self.mining_config.get('tam_anchor_step', 2)
                     pgd_k = self.mining_config.get('opt_steps', 3)
-                    xmin_noise = self.sample_negatives_tam(
+                    recovery_steps = self.mining_config.get('recovery_steps', 0) if self.mining_config.get('use_recovery_loss', False) else 0
+
+                    tam_out = self.sample_negatives_tam(
                         inp, data_sample, t, noise, mask, x_start,
                         anchor_step=anchor_step,
                         pgd_k_steps=pgd_k,
+                        recovery_steps=recovery_steps,
                     )
+
+                    # Unpack TAM output (handles both recovery and non-recovery cases)
+                    if recovery_steps > 0:
+                        xmin_noise, xmin_noise_rec = tam_out
+                    else:
+                        xmin_noise = tam_out
+                        xmin_noise_rec = None
+
                     # TAM output is already in x_t space, no need for q_sample re-wrap
                     xmin_noise_rescale = self.predict_start_from_noise(xmin_noise, t, torch.zeros_like(xmin_noise))
                     xmin_noise_rescale = torch.clamp(xmin_noise_rescale, -2, 2)
@@ -1137,6 +1183,18 @@ class GaussianDiffusion1D(nn.Module):
                 target = torch.zeros(energy_pos.size(0)).to(energy_stack.device)
                 loss_energy = F.cross_entropy(-1 * energy_stack, target.long(), reduction='none')[:, None]
 
+            # === RECOVERY LOSS (TAM-CTL) ===
+            loss_rec_weighted = 0.0
+            if self.mining_strategy == 'tam' and self.mining_config.get('use_recovery_loss', False):
+                if xmin_noise_rec is not None:
+                    # Denoise-consistency recovery loss
+                    # L_rec = mse(pred(y_rec), eps) where y_rec is recovered negative
+                    pred_rec = self.model(inp, xmin_noise_rec.detach(), t)
+                    loss_rec = F.mse_loss(pred_rec, target, reduction='none')  # [B, seq_len]
+                    loss_rec = reduce(loss_rec, 'b ... -> b', 'mean')  # [B]
+                    recovery_loss_weight = self.mining_config.get('recovery_loss_weight', 0.1)
+                    loss_rec_weighted = loss_rec * recovery_loss_weight
+
             # Combine losses.
             # Shape fix: loss_mse is [B, seq_len] (per-token denoising error),
             # loss_energy is [B, 1] (per-sample CD loss). Adding them directly would
@@ -1148,7 +1206,10 @@ class GaussianDiffusion1D(nn.Module):
             loss_mse_reduced = reduce(loss_mse, 'b ... -> b', 'mean')  # [B, seq_len] → [B]
             loss_energy_reduced = loss_energy.squeeze(-1)               # [B, 1] → [B]
 
+            # Total loss: L = L_mse + λ_gc * L_gc + λ_rec * L_rec
             loss = loss_mse_reduced + loss_scale * loss_energy_reduced  # [B]
+            if isinstance(loss_rec_weighted, torch.Tensor):
+                loss = loss + loss_rec_weighted  # Add recovery loss if TAM-CTL enabled
 
             # Add energy magnitude regularization unconditionally (not masked by
             # residual filter or timestep range, since magnitude bounding should
@@ -1184,7 +1245,7 @@ class GaussianDiffusion1D(nn.Module):
                     tam_diag = getattr(self, '_tam_diag', {})
 
                     if use_tam:
-                        # TAM-specific diagnostics
+                        # TAM-specific diagnostics (and TAM-CTL recovery diagnostics if enabled)
                         neg_tag = "TAM-GC"
                         tam_extra = (
                             f" anchor_dist={tam_diag.get('anchor_dist', float('nan')):.4f}"
@@ -1192,6 +1253,22 @@ class GaussianDiffusion1D(nn.Module):
                             f" mse_neg_init={tam_diag.get('mse_neg_init', float('nan')):.6f}"
                             f" mse_neg_final={tam_diag.get('mse_neg_final', float('nan')):.6f}"
                         )
+
+                        # Add recovery diagnostics if TAM-CTL is enabled
+                        recovery_extra = ""
+                        if self.mining_config.get('use_recovery_loss', False) and xmin_noise_rec is not None:
+                            with torch.no_grad():
+                                mse_pos_val = _gc_mse_pos  # Already have this
+                                mse_neg_val = _gc_mse_neg  # Already have this
+                                pred_rec = self.model(inp, xmin_noise_rec.detach(), t)
+                                mse_rec_val = F.mse_loss(pred_rec, target).item()
+                                rec_dist = (xmin_noise_rec - xmin_noise).norm(dim=-1).mean().item()
+                                recovery_extra = (
+                                    f" mse_rec={mse_rec_val:.6f}"
+                                    f" rec_dist={rec_dist:.4f}"
+                                    f" neg_vs_rec={mse_neg_val - mse_rec_val:.6f}"
+                                )
+
                         print(
                             f"[{neg_tag}-DIAG step={self.global_step}] "
                             f"mse_pos={_gc_mse_pos:.6f} mse_neg={_gc_mse_neg:.6f} "
@@ -1199,7 +1276,8 @@ class GaussianDiffusion1D(nn.Module):
                             f"pred_norm={model_out_norm:.4f} pred_std={pred_std:.4f} pred_abs={pred_abs:.4f} "
                             f"tgt_std={tgt_std_val:.4f} tgt_abs={tgt_abs_val:.4f} cos={cos_sim:.4f} "
                             f"neg_dist={neg_dist:.4f}"
-                            f"{tam_extra}",
+                            f"{tam_extra}"
+                            f"{recovery_extra}",
                             flush=True
                         )
                     else:
