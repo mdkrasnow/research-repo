@@ -1261,7 +1261,7 @@ class GaussianDiffusion1D(nn.Module):
                                 mse_pos_val = _gc_mse_pos  # Already have this
                                 mse_neg_val = _gc_mse_neg  # Already have this
                                 pred_rec = self.model(inp, xmin_noise_rec.detach(), t)
-                                mse_rec_val = F.mse_loss(pred_rec, target).item()
+                                mse_rec_val = F.mse_loss(pred_rec, noise).item()
                                 rec_dist = (xmin_noise_rec - xmin_noise).norm(dim=-1).mean().item()
                                 recovery_extra = (
                                     f" mse_rec={mse_rec_val:.6f}"
@@ -1307,13 +1307,13 @@ class GaussianDiffusion1D(nn.Module):
                     if xmin_noise_rec is not None:
                         with torch.no_grad():
                             tam_diag = getattr(self, '_tam_diag', {})
-                            # Compute MSE at each stage
+                            # Compute MSE at each stage (use noise, not target, which may be reassigned)
                             pred_pos = model_out  # Already have from forward pass
-                            mse_pos_diag = F.mse_loss(pred_pos, target).item()
+                            mse_pos_diag = F.mse_loss(pred_pos, noise).item()
                             pred_neg = self.model(inp, xmin_noise.detach(), t)
-                            mse_neg_diag = F.mse_loss(pred_neg, target).item()
+                            mse_neg_diag = F.mse_loss(pred_neg, noise).item()
                             pred_rec = self.model(inp, xmin_noise_rec.detach(), t)
-                            mse_rec_diag = F.mse_loss(pred_rec, target).item()
+                            mse_rec_diag = F.mse_loss(pred_rec, noise).item()
                             rec_dist_diag = (xmin_noise_rec - xmin_noise).norm(dim=-1).mean().item()
 
                             print(
