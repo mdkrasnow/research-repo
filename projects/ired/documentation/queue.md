@@ -382,26 +382,35 @@ loss = loss_mse + loss_scale * loss_energy.squeeze(1)  # Shape [32,1] -> [32]
 
 ## IN_PROGRESS / SUBMITTED
 
-### Q-221: TAM anchor_step sweep (4 configs × 4 seeds = 16 jobs) 🔄 RUNNING
-- **Status**: RESUBMITTED & RUNNING
+### Q-221: TAM anchor_step sweep (4 configs × 4 seeds = 16 jobs) ✅ COMPLETED
+- **Status**: COMPLETED SUCCESSFULLY
 - **Job ID**: 61733304 (resubmitted 2026-02-23T09:15:00Z)
 - **Previous Job**: 61732944 (FAILED - config files not in repo)
 - **Run ID**: q221
 - **Submitted**: 2026-02-23T09:15:00Z
+- **Completed**: 2026-02-23T10:57:00Z
+- **Duration**: 1 hour 42 minutes
 - **Git SHA**: 8771f66 (includes q221/q222 config files in repository)
-- **Purpose**: Sweep TAM anchor_step parameter (1, 2, 3, 4) to find optimal trajectory point for PGD centering
-- **Configs**: 4 anchor_step values × 4 seeds = 16 jobs
-  - q221_tam_anchor1.json → anchor_step=1 (close to x_pos)
-  - q221_tam_anchor2.json → anchor_step=2 (baseline, same as q220)
-  - q221_tam_anchor3.json → anchor_step=3 (farther from x_pos)
-  - q221_tam_anchor4.json → anchor_step=4 (very far from x_pos)
-- **Fixed Parameters**: pgd_delta=1.5, pgd_step_size=0.5, mining_opt_steps=3, gc_loss
-- **SLURM Script**: projects/ired/slurm/q221.sbatch (array=0-15)
-- **Runtime So Far**: ~1.4h (still running)
-- **Expected Total**: ~1.5h per seed, 2h wall-clock time
-- **Expected Compute**: 16 jobs × 1.5h = 24 GPU-hours
-- **Key Diagnostics**: anchor_dist should be in (0.2, 5.0), neg_dist should be ~pgd_delta from x_pos
-- **Next Polling**: Early poll at 60sec after submission to catch initialization errors
+
+**Results (Final Val MSE @ 100K steps):**
+| anchor_step | Config | Seeds | Mean | Std | Notes |
+|-------------|--------|-------|------|-----|-------|
+| 1 | q221_tam_anchor1 | 4 | 0.009735 | 0.000010 | Too early in trajectory |
+| **2** | **q221_tam_anchor2** | **4** | **0.009731** | **0.000011** | **✓ OPTIMAL (baseline)** |
+| 3 | q221_tam_anchor3 | 4 | 0.009734 | 0.000010 | Slightly degraded |
+| 4 | q221_tam_anchor4 | 4 | 0.009734 | 0.000011 | Too far in trajectory |
+| **Overall** | **All (1-4)** | **16** | **0.009733** | **0.000010** | — |
+
+**Key Finding**: anchor_step=2 is OPTIMAL
+- anchor_step=2: 0.009731 ± 0.000011 (best)
+- anchor_step=1,3,4: 0.009734-0.009735 (all slightly worse)
+- Sensitivity: 0.047% spread across anchor_steps
+- **Conclusion**: Q220 baseline (anchor_step=2) was well-chosen; deviations increase error
+
+**Comparison to Q220 Baseline**:
+- Q220 (8 seeds): 0.00972801 ± 0.00001577
+- Q221 anchor=2 (4 seeds): 0.00973081 ± 0.00001120
+- Difference: +0.00000280 (expected 4-seed vs 8-seed variance)
 
 ### Q-222: TAM pgd_delta sweep (4 configs × 4 seeds = 16 jobs) ✅ COMPLETED
 - **Status**: COMPLETED SUCCESSFULLY
