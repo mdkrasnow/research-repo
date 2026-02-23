@@ -212,17 +212,33 @@ def run_experiment(config):
     
     # Train
     trainer.train()
-    
+
     print("Training completed!")
-    
+
+    # Save final model checkpoint for evaluation
+    final_model_path = output_dir / 'final_model.pt'
+    print(f"Saving final model checkpoint to: {final_model_path}")
+    try:
+        # Save the model state dict (compatible with checkpoint loading)
+        final_checkpoint = {
+            'model': trainer.model.state_dict(),
+            'step': trainer.step,
+            'mining_strategy': mining_strategy,
+        }
+        torch.save(final_checkpoint, final_model_path)
+        print(f"Final model checkpoint saved successfully")
+    except Exception as e:
+        print(f"Warning: Failed to save final model checkpoint: {e}")
+
     # Return summary
     results = {
         "status": "completed",
         "mining_strategy": mining_strategy,
         "final_step": trainer.step,
-        "output_dir": str(output_dir)
+        "output_dir": str(output_dir),
+        "final_model_path": str(final_model_path)
     }
-    
+
     return results
 
 
