@@ -1310,10 +1310,13 @@ class GaussianDiffusion1D(nn.Module):
                             # Compute MSE at each stage (use noise, not target, which may be reassigned)
                             pred_pos = model_out  # Already have from forward pass
                             mse_pos_diag = F.mse_loss(pred_pos, noise).item()
-                            pred_neg = self.model(inp, xmin_noise.detach(), t)
-                            mse_neg_diag = F.mse_loss(pred_neg, noise).item()
-                            pred_rec = self.model(inp, xmin_noise_rec.detach(), t)
-                            mse_rec_diag = F.mse_loss(pred_rec, noise).item()
+                            # Model forward pass requires gradients internally, so enable them even in no_grad context
+                            with torch.enable_grad():
+                                pred_neg = self.model(inp, xmin_noise.detach(), t)
+                            mse_neg_diag = F.mse_loss(pred_neg.detach(), noise).item()
+                            with torch.enable_grad():
+                                pred_rec = self.model(inp, xmin_noise_rec.detach(), t)
+                            mse_rec_diag = F.mse_loss(pred_rec.detach(), noise).item()
                             rec_dist_diag = (xmin_noise_rec - xmin_noise).norm(dim=-1).mean().item()
 
                             print(
