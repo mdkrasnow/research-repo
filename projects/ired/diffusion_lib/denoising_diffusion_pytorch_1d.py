@@ -1302,6 +1302,28 @@ class GaussianDiffusion1D(nn.Module):
                             f"{pgd_extra}",
                             flush=True
                         )
+                # === TAM-CTL RECOVERY DIAGNOSTICS (independent of GC/CD path) ===
+                if self.mining_strategy == 'tam' and self.mining_config.get('use_recovery_loss', False):
+                    if xmin_noise_rec is not None:
+                        with torch.no_grad():
+                            tam_diag = getattr(self, '_tam_diag', {})
+                            # Compute MSE at each stage
+                            pred_pos = model_out  # Already have from forward pass
+                            mse_pos_diag = F.mse_loss(pred_pos, target).item()
+                            pred_neg = self.model(inp, xmin_noise.detach(), t)
+                            mse_neg_diag = F.mse_loss(pred_neg, target).item()
+                            pred_rec = self.model(inp, xmin_noise_rec.detach(), t)
+                            mse_rec_diag = F.mse_loss(pred_rec, target).item()
+                            rec_dist_diag = (xmin_noise_rec - xmin_noise).norm(dim=-1).mean().item()
+
+                            print(
+                                f"[TAM-CTL-DIAG step={self.global_step}] "
+                                f"mse_pos={mse_pos_diag:.6f} mse_neg={mse_neg_diag:.6f} mse_rec={mse_rec_diag:.6f} "
+                                f"neg_vs_rec={mse_neg_diag - mse_rec_diag:.6f} rec_dist={rec_dist_diag:.4f} "
+                                f"anchor_dist={tam_diag.get('anchor_dist', float('nan')):.4f}",
+                                flush=True
+                            )
+
                 else:
                     # Energy-based path: compute gradE and log energy stats
                     x_pos_diag = data_sample.detach().requires_grad_(True)
