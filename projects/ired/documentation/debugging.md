@@ -1,5 +1,80 @@
 # Debugging — Adversarial Negative Mining for Matrix Inversion
 
+## Issue 14: Q220 TAM Baseline — Array Job Failure (Partial Completion) [2026-02-22]
+
+**Timestamp**: 2026-02-22T14:08:00Z (detected via check-results)
+**Job ID**: 61638527 (array 0-7)
+**Run ID**: q220
+**Status**: FAILED (exit code 120, only 1/8 seeds completed)
+**Git SHA**: 09f3282
+
+### Summary
+
+Array job 61638527 (q220 TAM baseline, 8 seeds) FAILED with exit code 120. Only seed 5 completed successfully; seeds 0-4 and 6-7 did not complete training.
+
+### Detailed Seed Status
+
+| Seed | Last Step | Status | Completion Time | Issue |
+|------|-----------|--------|-----------------|-------|
+| 0 | step 5100 | INCOMPLETE | — | Stopped mid-training |
+| 1 | step 8000 val | INCOMPLETE | — | Stopped mid-training |
+| 2 | step 7800 | INCOMPLETE | — | Stopped mid-training |
+| 3 | step 5100 | INCOMPLETE | — | Stopped mid-training |
+| 4 | step 800 | INCOMPLETE | — | Stopped very early |
+| 5 | step 100k | **COMPLETED** | 15:28:13 (1h 51m) | ✓ Training completed, results copied |
+| 6 | step 800 | INCOMPLETE | — | Stopped very early |
+| 7 | step 800 | INCOMPLETE | — | Stopped very early |
+
+### Root Cause Analysis
+
+**Primary Hypothesis**: Per-partition QOS limits prevented concurrent seed execution.
+
+When submitting an array job `sbatch --array=0-7`, the job manager attempts to schedule all 8 array tasks. The cluster has QOS (Quality of Service) limits that restrict the number of concurrently running jobs per user on each partition:
+- `gpu_test` partition: strict per-user limits
+- `gpu` partition: strict per-user limits
+
+The q220 job was likely submitted to a single partition (likely `gpu_test` due to <24h runtime estimate). With aggressive QOS limits, only 1-2 seeds could run concurrently. This caused:
+1. Seed 5 started immediately and completed successfully (1h 51m)
+2. Other seeds were queued but never reached start of execution or were throttled
+3. Job's overall exit code marked FAILED (exit code 120) when array completion requirements weren't met
+
+**Secondary Hypotheses** (less likely):
+- Time limit too tight for 8 concurrent seeds
+- Memory pressure or node throttling
+- SLURM array %N specification issue
+
+### Impact
+
+- **q211 baseline (parallel experiment)**: ✓ COMPLETED successfully (all 8 seeds)
+- **q220 TAM baseline**: ❌ FAILED (7/8 seeds incomplete)
+- **Paired statistical comparison**: NOT POSSIBLE with 7 incomplete seeds + 1 complete
+
+### Recovery Plan
+
+**Option A (RECOMMENDED)**: Resubmit q220 with QOS management strategy
+- Submit 4 seeds to `gpu_test` partition (higher priority)
+- Submit 4 seeds to `gpu` partition (standard queue)
+- Different partitions avoid QOS throttling, run in parallel
+- Estimated completion: 1h 51m (same as seed 5)
+- **Rationale**: This matches the QOS diversification rule in CLAUDE.md for multi-job submissions
+
+**Option B (ALTERNATIVE)**: Resubmit as 2 separate 4-seed jobs
+- Job 1: seeds 0-3 on gpu_test
+- Job 2: seeds 4-7 on gpu
+- Same outcome as Option A but simpler to reason about
+
+### Next Steps
+
+1. **Resubmit q220** using partition diversification (Option A)
+   - Seeds 0-3 → `gpu_test` partition
+   - Seeds 4-7 → `gpu` partition
+   - Update pipeline.json: remove q220 from completed_runs, return to queue
+2. **Monitor early** - set next_poll_after to 60s to catch any initialization issues
+3. **Validate completion** - require all 8 seeds to complete before proceeding
+4. **Then execute paired comparison** with q211 (8 seeds) vs q220 (8 seeds, resubmitted)
+
+---
+
 ## Active Investigation: Scalar Energy Head Instability [2026-02-19]
 
 ### Issue: Scalar Energy Head Diverges Without Mining (q209)
