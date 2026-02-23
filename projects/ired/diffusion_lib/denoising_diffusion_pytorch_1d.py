@@ -1190,7 +1190,7 @@ class GaussianDiffusion1D(nn.Module):
                     # Denoise-consistency recovery loss
                     # L_rec = mse(pred(y_rec), eps) where y_rec is recovered negative
                     pred_rec = self.model(inp, xmin_noise_rec.detach(), t)
-                    loss_rec = F.mse_loss(pred_rec, target, reduction='none')  # [B, seq_len]
+                    loss_rec = F.mse_loss(pred_rec, noise, reduction='none')  # [B, seq_len]
                     loss_rec = reduce(loss_rec, 'b ... -> b', 'mean')  # [B]
                     recovery_loss_weight = self.mining_config.get('recovery_loss_weight', 0.1)
                     loss_rec_weighted = loss_rec * recovery_loss_weight
