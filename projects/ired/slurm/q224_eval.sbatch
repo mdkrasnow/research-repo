@@ -82,12 +82,13 @@ REPO_ROOT="/n/home03/mkrasnow/research-repo"
 echo "Copying results to persistent storage..."
 if [ -d "$WORK_DIR/projects/ired/results" ]; then
     mkdir -p "$REPO_ROOT/projects/ired/results"
-    # Explicitly include .pt files and all results
-    rsync -av --include='*.pt' --include='*.json' --include='*.md' --include='*/' --exclude='*' "$WORK_DIR/projects/ired/results/" "$REPO_ROOT/projects/ired/results/"
+    # Include directories first, then specific file types
+    rsync -av --include='*/' --include='*.pt' --include='*.json' --include='*.md' --exclude='*' "$WORK_DIR/projects/ired/results/" "$REPO_ROOT/projects/ired/results/"
     echo "Results copied to $REPO_ROOT/projects/ired/results/"
-    # Also list what was copied for verification
-    echo "Contents of copied results:"
-    find "$REPO_ROOT/projects/ired/results" -type f -newer "$WORK_DIR/projects/ired/results" 2>/dev/null | head -20
+    # Verify evaluation results were copied
+    if [ -f "$REPO_ROOT/projects/ired/results/evaluation/q224_difficulty_sweep/q224_eval_difficulty_L1_baseline_results.json" ]; then
+        echo "✓ Evaluation results synced"
+    fi
 else
     echo "Warning: No results directory found at $WORK_DIR/projects/ired/results"
 fi
