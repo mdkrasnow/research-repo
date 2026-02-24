@@ -61,8 +61,11 @@ REPO_ROOT="/n/home03/mkrasnow/research-repo"
 echo "Copying results to persistent storage..."
 if [ -d "$WORK_DIR/projects/ired/results" ]; then
     mkdir -p "$REPO_ROOT/projects/ired/results"
-    # Use recursive glob patterns to match files at any depth
-    rsync -av --include='*/' --include='*.pt' --include='*.json' --include='*.md' --exclude='*' "$WORK_DIR/projects/ired/results/" "$REPO_ROOT/projects/ired/results/"
+    # Debug: verify files exist before rsync
+    echo "DEBUG: Checking for .pt files in $WORK_DIR/projects/ired/results"
+    find "$WORK_DIR/projects/ired/results" -name "*.pt" | head -5 || echo "No .pt files found"
+    # Sync with proper filter order: dirs first, then files, then exclude everything else
+    rsync -av "$WORK_DIR/projects/ired/results/" "$REPO_ROOT/projects/ired/results/" --include='*/' --include='*.pt' --include='*.json' --include='*.md' --exclude='*'
     echo "Results copied to $REPO_ROOT/projects/ired/results/"
     # Verify checkpoint was copied
     if [ -f "$REPO_ROOT/projects/ired/results/ds_inverse/q223_tam_ctl_recovery_gc/final_model.pt" ]; then
