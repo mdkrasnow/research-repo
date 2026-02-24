@@ -41,33 +41,38 @@ def load_model_from_checkpoint(checkpoint_path, inp_dim, out_dim, grad_norm_ref=
     if not Path(checkpoint_path).exists():
         raise FileNotFoundError(f"Checkpoint not found: {checkpoint_path}")
 
-    # Load the checkpoint (saved by Trainer1D)
+    # Load the checkpoint (saved by Trainer1D or matrix_inversion_mining.py)
     checkpoint_data = torch.load(checkpoint_path, map_location=device)
 
     # Initialize EBM and wrapper
     ebm = EBM(inp_dim=inp_dim, out_dim=out_dim, is_ebm=True, use_scalar_energy=True)
     model = DiffusionWrapper(ebm, grad_norm_ref=grad_norm_ref)
 
-    # Extract model state from checkpoint
-    if 'model' in checkpoint_data:
-        state_dict = checkpoint_data['model']
+    # Handle new checkpoint format (clean format with 'ebm_state' key)
+    if 'ebm_state' in checkpoint_data:
+        ebm_state = checkpoint_data['ebm_state']
+        print(f"  Loading new checkpoint format (clean EBM state)")
     else:
-        state_dict = checkpoint_data
+        # Fall back to old format: extract from full state dict
+        if 'model' in checkpoint_data:
+            state_dict = checkpoint_data['model']
+        else:
+            state_dict = checkpoint_data
 
-    # Filter to only EBM-related keys
-    ebm_state = {}
-    for key, val in state_dict.items():
-        # Skip diffusion parameters
-        if any(skip in key for skip in ['betas', 'alphas_cumprod', 'posterior_',
-                                         'opt_step_size', 'loss_weight',
-                                         'sqrt_alphas', 'sqrt_one_minus', 'log_one_minus']):
-            continue
-        # Extract EBM weights from 'model.ebm.*' or 'ebm.*' keys
-        if key.startswith('model.ebm.'):
-            ebm_key = key[6:]  # Remove 'model.' prefix
-            ebm_state[ebm_key] = val
-        elif key.startswith('ebm.'):
-            ebm_state[key] = val
+        # Filter to only EBM-related keys
+        ebm_state = {}
+        for key, val in state_dict.items():
+            # Skip diffusion parameters
+            if any(skip in key for skip in ['betas', 'alphas_cumprod', 'posterior_',
+                                             'opt_step_size', 'loss_weight',
+                                             'sqrt_alphas', 'sqrt_one_minus', 'log_one_minus']):
+                continue
+            # Extract EBM weights from 'model.ebm.*' or 'ebm.*' keys
+            if key.startswith('model.ebm.'):
+                ebm_key = key[6:]  # Remove 'model.' prefix
+                ebm_state[ebm_key] = val
+            elif key.startswith('ebm.'):
+                ebm_state[key] = val
 
     # Load EBM parameters
     if ebm_state:
@@ -117,11 +122,26 @@ def inference_with_optimization(model, inp, num_opt_steps=10, device='cpu'):
         try:
             with torch.enable_grad():
                 t = torch.zeros(B, dtype=torch.long, device=device)
+                print(f"      t shape: {t.shape}, dtype: {t.dtype}")
+                print(f"      inp shape: {inp.shape}, predictions shape: {predictions.shape}")
+                print(f"      model.ebm type: {type(model.ebm)}")
+                print(f"      model.grad_norm_ref: {model.grad_norm_ref}, type: {type(model.grad_norm_ref)}")
+                # Try to call the EBM directly first to isolate the error
+                try:
+                    opt_var = torch.cat([inp, predictions], dim=-1)
+                    print(f"      opt_var shape: {opt_var.shape}")
+                    energy = model.ebm(opt_var, t)
+                    print(f"      energy computed successfully: {energy.shape}")
+                except Exception as e2:
+                    print(f"      ERROR in EBM forward: {e2}")
+                    raise
+
                 grads = model(inp, predictions, t=t)
         except Exception as e:
             print(f"    Error during forward pass at step {step}: {e}")
             print(f"      Type of model: {type(model)}")
-            print(f"      Model attributes: {dir(model)[:5]}")
+            import traceback
+            traceback.print_exc()
             raise
 
         # Gradient descent step
