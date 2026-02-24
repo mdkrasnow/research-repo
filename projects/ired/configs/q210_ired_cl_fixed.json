@@ -34,6 +34,6 @@
   "use_energy_schedule": false,
 
   "adam_betas": [0.0, 0.999],
-  "output_dir": "results/ds_inverse/q210_ired_cl_fixed",
+  "output_dir": "projects/ired/results/ds_inverse/q210_ired_cl_fixed",
   "notes": "Three fixes vs q208: (1) energy_reg_weight=0.01 — L2 penalty on |E_pos|^2+|E_neg|^2 keeps energy scale bounded so softplus logit (e_pos-e_neg)/T stays in [-10,10] rather than [-60000,60000] where gradient vanishes. (2) mining_opt_steps=3 (was 10) — fewer Langevin steps reduces per-step displacement from ~3.4 to ~1.0, keeping negatives off the [-2,2] boundary. (3) Langevin now computes grad via autograd.grad(energy.mean(), x) directly, not via DiffusionWrapper's return_both which divides by B_norm=2048 (training constant that should not enter the MCMC kernel). With energy.mean(), the drift is proportional to the per-sample gradient at natural scale; sigma_mult=0.1 is a consistent temperature parameter for this scale."
 }
