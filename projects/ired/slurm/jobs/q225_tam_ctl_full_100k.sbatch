@@ -20,11 +20,17 @@ WORK_DIR="/tmp/ired-job-${SLURM_JOB_ID}"
 mkdir -p "$WORK_DIR"
 cd "$WORK_DIR"
 
-# Clone repository at specific git SHA (use https without ssh askpass)
+# Clone repository at specific git SHA
+# GIT_URL and GIT_SHA are passed via SLURM --export
+GIT_URL="${GIT_URL:-https://github.com/mkrasnow/research-repo.git}"
+GIT_SHA="${GIT_SHA:-HEAD}"
+
 export GIT_TERMINAL_PROMPT=0
-git clone --depth 1 https://github.com/mkrasnow/research-repo.git . 2>&1 | tail -20 || exit 1
-git fetch origin ${GIT_SHA} 2>&1 | tail -5
-git checkout ${GIT_SHA} 2>&1 | tail -5
+export GIT_SSH_COMMAND="ssh -o BatchMode=yes"
+
+git clone --depth 1 "$GIT_URL" . 2>&1 | tail -20 || exit 1
+git fetch origin "${GIT_SHA}" 2>&1 | tail -5
+git checkout "${GIT_SHA}" 2>&1 | tail -5
 
 # Verify checkpoint structure
 echo "=== Repository structure ===" >&2
