@@ -164,10 +164,17 @@ def evaluate_on_difficulty(model, test_loader, num_opt_steps=10, device='cpu'):
 
     print(f"  Running evaluation...")
     print(f"    num_opt_steps type: {type(num_opt_steps)}, value: {num_opt_steps}")
+    print(f"    model type: {type(model)}")
+    print(f"    model.ebm type: {type(model.ebm)}")
+    print(f"    model.grad_norm_ref: {model.grad_norm_ref}")
+
     with torch.no_grad():
+        print(f"    Entering test_loader iteration...")
         for batch_idx, (matrices, true_inverses) in enumerate(test_loader):
+            print(f"    Batch {batch_idx}: loaded successfully")
             matrices = matrices.to(device).float()
             true_inverses = true_inverses.to(device).float()
+            print(f"    Batch {batch_idx}: shapes ready - matrices {matrices.shape}, inverses {true_inverses.shape}")
 
             # Compute condition numbers for context
             matrices_np = matrices.detach().cpu().numpy()
