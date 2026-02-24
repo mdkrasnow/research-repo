@@ -143,6 +143,7 @@ def evaluate_on_difficulty(model, test_loader, num_opt_steps=10, device='cpu'):
     condition_numbers = []
 
     print(f"  Running evaluation...")
+    print(f"    num_opt_steps type: {type(num_opt_steps)}, value: {num_opt_steps}")
     with torch.no_grad():
         for batch_idx, (matrices, true_inverses) in enumerate(test_loader):
             matrices = matrices.to(device).float()
@@ -159,12 +160,18 @@ def evaluate_on_difficulty(model, test_loader, num_opt_steps=10, device='cpu'):
                     condition_numbers.append(np.inf)
 
             # Run optimization
-            pred_inverses = inference_with_optimization(
-                model,
-                matrices,
-                num_opt_steps=num_opt_steps,
-                device=device
-            )
+            try:
+                pred_inverses = inference_with_optimization(
+                    model,
+                    matrices,
+                    num_opt_steps=num_opt_steps,
+                    device=device
+                )
+            except Exception as e:
+                print(f"    Error at batch {batch_idx}: {e}")
+                import traceback
+                traceback.print_exc()
+                raise
 
             # Compute MSE
             mse = torch.mean((pred_inverses - true_inverses) ** 2, dim=1)
