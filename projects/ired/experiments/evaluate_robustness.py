@@ -122,20 +122,6 @@ def inference_with_optimization(model, inp, num_opt_steps=10, device='cpu'):
         try:
             with torch.enable_grad():
                 t = torch.zeros(B, dtype=torch.long, device=device)
-                print(f"      t shape: {t.shape}, dtype: {t.dtype}")
-                print(f"      inp shape: {inp.shape}, predictions shape: {predictions.shape}")
-                print(f"      model.ebm type: {type(model.ebm)}")
-                print(f"      model.grad_norm_ref: {model.grad_norm_ref}, type: {type(model.grad_norm_ref)}")
-                # Try to call the EBM directly first to isolate the error
-                try:
-                    opt_var = torch.cat([inp, predictions], dim=-1)
-                    print(f"      opt_var shape: {opt_var.shape}")
-                    energy = model.ebm(opt_var, t)
-                    print(f"      energy computed successfully: {energy.shape}")
-                except Exception as e2:
-                    print(f"      ERROR in EBM forward: {e2}")
-                    raise
-
                 grads = model(inp, predictions, t=t)
         except Exception as e:
             print(f"    Error during forward pass at step {step}: {e}")
@@ -169,12 +155,9 @@ def evaluate_on_difficulty(model, test_loader, num_opt_steps=10, device='cpu'):
     print(f"    model.grad_norm_ref: {model.grad_norm_ref}")
 
     with torch.no_grad():
-        print(f"    Entering test_loader iteration...")
         for batch_idx, (matrices, true_inverses) in enumerate(test_loader):
-            print(f"    Batch {batch_idx}: loaded successfully")
             matrices = matrices.to(device).float()
             true_inverses = true_inverses.to(device).float()
-            print(f"    Batch {batch_idx}: shapes ready - matrices {matrices.shape}, inverses {true_inverses.shape}")
 
             # Compute condition numbers for context (skip for now - causing errors)
             # Will compute at the end on the full tensor batch
