@@ -382,6 +382,32 @@ loss = loss_mse + loss_scale * loss_energy.squeeze(1)  # Shape [32,1] -> [32]
 
 ## IN_PROGRESS / SUBMITTED
 
+### Q-225: Full TAM-CTL Training (8 seeds × 100K steps) 🔄 RUNNING
+- **Status**: SUBMITTED TO SLURM - Running
+- **Job ID**: 61961915 (array 0-7%2)
+- **Run ID**: q225_tam_ctl_full_100k_61961915
+- **Submitted**: 2026-02-24T16:15:00Z
+- **Git SHA**: 17db7ca (unbuffered output for better debugging)
+- **Partition**: gpu (standard queue for longer jobs)
+- **Config**: q225_tam_ctl_full_100k.json
+- **Purpose**: Full-scale TAM + recovery loss training to generate checkpoint for OOD robustness evaluation (q226)
+- **Expected Runtime**: ~2h per seed, ~4h wall-clock (with array throttle %2)
+- **Expected Completion**: 2026-02-24T20:15:00Z (approximately)
+
+**Configuration**:
+- TAM mining with anchor_step=2, pgd_delta=1.5, pgd_steps=3
+- Recovery loss: λ=0.1, recovery_steps=1 (convergence training)
+- Baseline for comparison: q220 (TAM baseline, no recovery) val_mse=0.009728±0.000016
+- q223 (4-seed 100-step test) SUCCESS, recovery loss working correctly
+
+**Next Actions**:
+1. Early poll at 30 minutes (catch initialization errors)
+2. After completion, proceed with q226 OOD robustness evaluation
+3. Compare q225 results vs q220 baseline to quantify recovery loss impact
+4. Save checkpoints from q225 for q226 evaluation inference
+
+---
+
 ### Q-221: TAM anchor_step sweep (4 configs × 4 seeds = 16 jobs) ✅ COMPLETED
 - **Status**: COMPLETED SUCCESSFULLY
 - **Job ID**: 61733304 (resubmitted 2026-02-23T09:15:00Z)
