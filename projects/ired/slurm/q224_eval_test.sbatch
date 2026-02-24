@@ -71,8 +71,8 @@ echo ""
 
 # Level 1: Baseline difficulty (ood=false)
 echo "Running Level 1 evaluation: Baseline difficulty (ood=false)..."
-python projects/ired/experiments/evaluate_robustness.py \
-    --config projects/ired/configs/q224_eval_test_L1_baseline.json
+python -u projects/ired/experiments/evaluate_robustness.py \
+    --config projects/ired/configs/q224_eval_test_L1_baseline.json 2>&1 | tee eval_l1.log
 
 echo ""
 echo "Level 1 evaluation completed at $(date)"
@@ -80,8 +80,8 @@ echo ""
 
 # Level 2: Hard difficulty (ood=true)
 echo "Running Level 2 evaluation: Hard difficulty (ood=true)..."
-python projects/ired/experiments/evaluate_robustness.py \
-    --config projects/ired/configs/q224_eval_test_L2_hard.json
+python -u projects/ired/experiments/evaluate_robustness.py \
+    --config projects/ired/configs/q224_eval_test_L2_hard.json 2>&1 | tee eval_l2.log
 
 echo ""
 echo "Level 2 evaluation completed at $(date)"
