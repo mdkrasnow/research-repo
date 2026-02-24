@@ -232,7 +232,7 @@ def evaluate_robustness(config):
                 checkpoint_path,
                 inp_dim=test_dataset.inp_dim,
                 out_dim=test_dataset.out_dim,
-                grad_norm_ref=config.get('batch_size', None),
+                grad_norm_ref=None,  # grad_norm_ref should be None or a callable, not batch_size
                 device=device
             )
 
