@@ -49,6 +49,20 @@ git log -1 --oneline
 # Create output directory
 mkdir -p projects/ired/results/evaluation
 
+# Copy checkpoint from persistent storage
+REPO_ROOT="/n/home03/mkrasnow/research-repo"
+CHECKPOINT_SOURCE="$REPO_ROOT/projects/ired/results/ds_inverse/q223_test_minimal/final_model.pt"
+CHECKPOINT_DEST="$WORK_DIR/projects/ired/results/ds_inverse/q223_test_minimal/"
+
+echo "Copying checkpoint from persistent storage..."
+if [ -f "$CHECKPOINT_SOURCE" ]; then
+    mkdir -p "$CHECKPOINT_DEST"
+    cp "$CHECKPOINT_SOURCE" "$CHECKPOINT_DEST"
+    echo "✓ Checkpoint copied from: $CHECKPOINT_SOURCE"
+else
+    echo "Warning: Checkpoint not found at $CHECKPOINT_SOURCE"
+fi
+
 echo ""
 echo "=========================================="
 echo "Running OOD Robustness Evaluation Tests"
