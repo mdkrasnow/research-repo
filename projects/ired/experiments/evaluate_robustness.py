@@ -49,34 +49,35 @@ def load_model_from_checkpoint(checkpoint_path, inp_dim, out_dim, grad_norm_ref=
     model = DiffusionWrapper(ebm, grad_norm_ref=grad_norm_ref)
 
     # Extract model state from checkpoint
-    # Trainer saves as 'model' key with full state dict including diffusion params
     if 'model' in checkpoint_data:
         state_dict = checkpoint_data['model']
     else:
         state_dict = checkpoint_data
 
-    # Filter to only EBM-related keys (remove diffusion parameters)
-    filtered_state = {}
+    # Filter to only EBM-related keys
+    ebm_state = {}
     for key, val in state_dict.items():
-        # Skip diffusion parameters and intermediate keys
+        # Skip diffusion parameters
         if any(skip in key for skip in ['betas', 'alphas_cumprod', 'posterior_',
                                          'opt_step_size', 'loss_weight',
                                          'sqrt_alphas', 'sqrt_one_minus', 'log_one_minus']):
             continue
-        # Handle keys that are double-prefixed with 'model.'
-        if key.startswith('model.'):
-            clean_key = key[6:]  # Remove 'model.' prefix
-            if clean_key.startswith('ebm.'):
-                filtered_state[clean_key] = val
+        # Extract EBM weights from 'model.ebm.*' or 'ebm.*' keys
+        if key.startswith('model.ebm.'):
+            ebm_key = key[6:]  # Remove 'model.' prefix
+            ebm_state[ebm_key] = val
         elif key.startswith('ebm.'):
-            filtered_state[key] = val
+            ebm_state[key] = val
 
-    # Load only the EBM parameters
-    try:
-        model.load_state_dict(filtered_state, strict=False)
-    except Exception as e:
-        print(f"  Warning: Could not load full state dict, attempting partial load: {e}")
-        model.ebm.load_state_dict(filtered_state, strict=False)
+    # Load EBM parameters
+    if ebm_state:
+        try:
+            model.ebm.load_state_dict(ebm_state, strict=False)
+            print(f"  ✓ Loaded {len(ebm_state)} EBM parameters")
+        except Exception as e:
+            print(f"  Warning: Error loading EBM state: {e}")
+    else:
+        print(f"  Warning: No EBM parameters found in checkpoint")
 
     model = model.to(device)
     model.eval()
