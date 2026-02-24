@@ -114,8 +114,15 @@ def inference_with_optimization(model, inp, num_opt_steps=10, device='cpu'):
         predictions.requires_grad_(True)
 
         # Get gradients from the model
-        with torch.enable_grad():
-            grads = model(inp, predictions, t=torch.zeros(B, dtype=torch.long, device=device))
+        try:
+            with torch.enable_grad():
+                t = torch.zeros(B, dtype=torch.long, device=device)
+                grads = model(inp, predictions, t=t)
+        except Exception as e:
+            print(f"    Error during forward pass at step {step}: {e}")
+            print(f"      Type of model: {type(model)}")
+            print(f"      Model attributes: {dir(model)[:5]}")
+            raise
 
         # Gradient descent step
         step_size = 0.01
