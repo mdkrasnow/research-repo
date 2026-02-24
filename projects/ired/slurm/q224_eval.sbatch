@@ -83,7 +83,7 @@ echo "Copying results to persistent storage..."
 if [ -d "$WORK_DIR/projects/ired/results" ]; then
     mkdir -p "$REPO_ROOT/projects/ired/results"
     # Use recursive glob patterns to match files at any depth
-    rsync -av --include='**/*.pt' --include='**/*.json' --include='**/*.md' --include='*/' --exclude='*' "$WORK_DIR/projects/ired/results/" "$REPO_ROOT/projects/ired/results/"
+    rsync -av --include='*/' --include='*.pt' --include='*.json' --include='*.md' --exclude='*' "$WORK_DIR/projects/ired/results/" "$REPO_ROOT/projects/ired/results/"
     echo "Results copied to $REPO_ROOT/projects/ired/results/"
     # Verify evaluation results were copied
     if [ -f "$REPO_ROOT/projects/ired/results/evaluation/q224_difficulty_sweep/q224_eval_difficulty_L1_baseline_results.json" ]; then
