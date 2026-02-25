@@ -60,10 +60,12 @@ else
     exit 1
 fi
 
-# Run evaluation with seed
+# Run evaluation (eval-only, no training)
 echo "Starting q225 OOD evaluation with seed $SLURM_ARRAY_TASK_ID..."
-python projects/ired/experiments/matrix_inversion_mining.py \
+PYTHONPATH="$WORK_DIR/projects/ired:$PYTHONPATH" \
+python projects/ired/experiments/evaluate_robustness.py \
     --config projects/ired/configs/q225_ood_evaluation.json \
+    --output-dir "projects/ired/results/evaluation/q225_tam_ctl_ood/seed_${SLURM_ARRAY_TASK_ID}" \
     --seed "$SLURM_ARRAY_TASK_ID"
 
 echo "Evaluation completed at $(date)"

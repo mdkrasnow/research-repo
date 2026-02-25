@@ -301,11 +301,20 @@ def main():
                         help='Path to JSON evaluation config file')
     parser.add_argument('--output-dir', type=str, default=None,
                         help='Override output directory from config')
+    parser.add_argument('--seed', type=int, default=None,
+                        help='Random seed for reproducibility')
 
     args = parser.parse_args()
 
     # Load configuration
     config = load_config(args.config)
+
+    if args.seed is not None:
+        torch.manual_seed(args.seed)
+        np.random.seed(args.seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed(args.seed)
+        print(f"Random seed set to: {args.seed}")
 
     if args.output_dir:
         config['output_dir'] = args.output_dir
