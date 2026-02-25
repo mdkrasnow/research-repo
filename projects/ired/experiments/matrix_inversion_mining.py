@@ -156,6 +156,16 @@ def run_experiment(config):
         'use_recovery_loss': config.get('use_recovery_loss', False),
         'recovery_steps': config.get('recovery_steps', 1),
         'recovery_loss_weight': config.get('recovery_loss_weight', 0.1),
+
+        # OEST* peripheral distribution loss (Ming et al., arXiv:2412.03058)
+        # Trains an energy barrier between ID and near-OOD "peripheral" samples
+        'use_peripheral_loss': config.get('use_peripheral_loss', False),
+        'peripheral_transform': config.get('peripheral_transform', 'condition'),
+        'peripheral_alpha': config.get('peripheral_alpha', 0.2),  # loss weight (OEST* default)
+        'peripheral_beta': config.get('peripheral_beta', 10.0),   # sigmoid temperature (OEST* default)
+        'peripheral_eps_min': config.get('peripheral_eps_min', 0.15),  # min diagonal reg for condition transform
+        'peripheral_eps_max': config.get('peripheral_eps_max', 0.4),   # max diagonal reg for condition transform
+        'peripheral_corrupt_sigma': config.get('peripheral_corrupt_sigma', 0.1),  # for corrupt_solution transform
     }
     
     diffusion = GaussianDiffusion1D(
