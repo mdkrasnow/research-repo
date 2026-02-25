@@ -52,11 +52,11 @@ git log -1 --oneline
 REPO_ROOT="/n/home03/mkrasnow/research-repo"
 echo "Copying q225 TAM-CTL checkpoint to work directory..."
 mkdir -p "$WORK_DIR/projects/ired/results/ds_inverse/q225_tam_ctl_full_100k"
-if [ -f "$REPO_ROOT/projects/ired/results/ds_inverse/q225_tam_ctl_full_100k/final_model.pt" ]; then
-    cp "$REPO_ROOT/projects/ired/results/ds_inverse/q225_tam_ctl_full_100k/final_model.pt" "$WORK_DIR/projects/ired/results/ds_inverse/q225_tam_ctl_full_100k/"
+if [ -f "$REPO_ROOT/projects/ired/results/ds_inverse/q225_tam_ctl_full_100k/model-100.pt" ]; then
+    cp "$REPO_ROOT/projects/ired/results/ds_inverse/q225_tam_ctl_full_100k/model-100.pt" "$WORK_DIR/projects/ired/results/ds_inverse/q225_tam_ctl_full_100k/"
     echo "✓ q225 TAM-CTL checkpoint copied"
 else
-    echo "ERROR: q225 checkpoint not found at $REPO_ROOT/projects/ired/results/ds_inverse/q225_tam_ctl_full_100k/final_model.pt"
+    echo "ERROR: q225 checkpoint not found at $REPO_ROOT/projects/ired/results/ds_inverse/q225_tam_ctl_full_100k/model-100.pt"
     exit 1
 fi
 

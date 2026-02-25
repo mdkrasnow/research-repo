@@ -55,32 +55,6 @@ def load_diffusion_model(checkpoint_path, config, device='cpu'):
     grad_norm_ref = config.get('batch_size', None)
     wrapper = DiffusionWrapper(ebm, grad_norm_ref=grad_norm_ref)
 
-    # Load EBM weights
-    if 'ebm_state' in checkpoint_data:
-        ebm_state = checkpoint_data['ebm_state']
-        print(f"  Loading new checkpoint format (clean EBM state)")
-    else:
-        if 'model' in checkpoint_data:
-            state_dict = checkpoint_data['model']
-        else:
-            state_dict = checkpoint_data
-        ebm_state = {}
-        for key, val in state_dict.items():
-            if any(skip in key for skip in ['betas', 'alphas_cumprod', 'posterior_',
-                                             'opt_step_size', 'loss_weight',
-                                             'sqrt_alphas', 'sqrt_one_minus', 'log_one_minus']):
-                continue
-            if key.startswith('model.ebm.'):
-                ebm_state[key[6:]] = val  # Remove 'model.' prefix
-            elif key.startswith('ebm.'):
-                ebm_state[key] = val
-
-    if ebm_state:
-        wrapper.ebm.load_state_dict(ebm_state, strict=False)
-        print(f"  ✓ Loaded {len(ebm_state)} EBM parameters")
-    else:
-        raise RuntimeError("No EBM parameters found in checkpoint")
-
     # Build GaussianDiffusion1D (same params as training)
     diffusion_steps = config.get('diffusion_steps', 10)
     diffusion = GaussianDiffusion1D(
@@ -90,6 +64,24 @@ def load_diffusion_model(checkpoint_path, config, device='cpu'):
         timesteps=diffusion_steps,
         continuous=True,
     )
+
+    # Load weights — prefer EMA from Trainer1D milestone checkpoints (model-N.pt)
+    if 'ema' in checkpoint_data:
+        # Trainer1D milestone checkpoint: extract EMA model weights
+        ema_state = checkpoint_data['ema']
+        # EMA keys are 'ema_model.X' — strip prefix to get GaussianDiffusion1D state
+        diffusion_state = {}
+        for key, val in ema_state.items():
+            if key.startswith('ema_model.'):
+                diffusion_state[key[len('ema_model.'):]] = val
+        diffusion.load_state_dict(diffusion_state, strict=False)
+        print(f"  ✓ Loaded {len(diffusion_state)} EMA parameters from milestone checkpoint")
+    elif 'model' in checkpoint_data:
+        # Trainer1D milestone without EMA — use raw model weights
+        diffusion.load_state_dict(checkpoint_data['model'], strict=False)
+        print(f"  ✓ Loaded model parameters from checkpoint")
+    else:
+        raise RuntimeError(f"Unrecognized checkpoint format. Keys: {list(checkpoint_data.keys())}")
 
     diffusion = diffusion.to(device)
     diffusion.eval()
