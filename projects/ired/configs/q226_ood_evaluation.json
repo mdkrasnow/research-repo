@@ -1,8 +1,19 @@
 {
   "experiment_name": "q226_ood_evaluation",
-  "description": "OOD robustness evaluation: Test q225 (TAM-CTL recovery loss) checkpoint on out-of-distribution matrices. Evaluates both well-conditioned (ood=false) and ill-conditioned (ood=true) test sets.",
+  "description": "OOD robustness evaluation: Test q225 (TAM-CTL recovery loss) checkpoint on out-of-distribution matrices using TAM-CTL mining strategy.",
   "investigation": "ired-robustness",
   "evaluation_mode": true,
+  "mining_strategy": "tam",
+  "tam_anchor_step": 2,
+  "pgd_delta": 1.5,
+  "pgd_step_size": 0.5,
+  "mining_opt_steps": 3,
+  "use_recovery_loss": true,
+  "recovery_steps": 1,
+  "recovery_loss_weight": 0.1,
+  "use_gradient_contrastive": false,
+  "energy_loss_weight": 0.0,
+  "use_scalar_energy": true,
   "rank": 20,
   "ood": true,
   "dataset": "inverse",
@@ -10,9 +21,12 @@
   "num_test_samples": 1024,
   "num_opt_steps": 10,
   "target_mse_threshold": 0.001,
+  "diffusion_steps": 10,
+  "learning_rate": 0.0001,
+  "adam_betas": [0.0, 0.999],
   "model_checkpoints": [
     "projects/ired/results/ds_inverse/q225_tam_ctl_full_100k/final_model.pt"
   ],
   "output_dir": "projects/ired/results/evaluation/q226_ood_robustness",
-  "notes": "OOD evaluation on q225 checkpoint (TAM + recovery loss). Evaluates on ood=true (ill-conditioned matrices: rank-1 perturbations, κ >> 1). Baseline for comparison: q220 TAM baseline (val_mse=0.009728). Goal: Quantify robustness improvement from recovery loss training."
+  "notes": "OOD evaluation on q225 checkpoint (TAM + recovery loss). Uses TAM-CTL mining with same hyperparameters as training. Evaluates on ood=true (ill-conditioned matrices: rank-1 perturbations, κ >> 1). Baseline for comparison: q220 TAM baseline (val_mse=0.009728)."
 }
