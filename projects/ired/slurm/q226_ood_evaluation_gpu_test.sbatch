@@ -50,13 +50,13 @@ git log -1 --oneline
 
 # Copy checkpoint from persistent storage
 REPO_ROOT="/n/home03/mkrasnow/research-repo"
-echo "Copying q225 checkpoint to work directory..."
-mkdir -p "$WORK_DIR/projects/ired/results/ds_inverse/q225_tam_ctl_full_100k"
-if [ -f "$REPO_ROOT/projects/ired/results/ds_inverse/q225_tam_ctl_full_100k/final_model.pt" ]; then
-    cp "$REPO_ROOT/projects/ired/results/ds_inverse/q225_tam_ctl_full_100k/final_model.pt" "$WORK_DIR/projects/ired/results/ds_inverse/q225_tam_ctl_full_100k/"
-    echo "✓ q225 checkpoint copied"
+echo "Copying q230 baseline checkpoint to work directory..."
+mkdir -p "$WORK_DIR/projects/ired/results/ds_inverse/q230_baseline_no_mining"
+if [ -f "$REPO_ROOT/projects/ired/results/ds_inverse/q230_baseline_no_mining/final_model.pt" ]; then
+    cp "$REPO_ROOT/projects/ired/results/ds_inverse/q230_baseline_no_mining/final_model.pt" "$WORK_DIR/projects/ired/results/ds_inverse/q230_baseline_no_mining/"
+    echo "✓ q230 baseline checkpoint copied"
 else
-    echo "ERROR: q225 checkpoint not found at $REPO_ROOT/projects/ired/results/ds_inverse/q225_tam_ctl_full_100k/final_model.pt"
+    echo "ERROR: q230 baseline checkpoint not found at $REPO_ROOT/projects/ired/results/ds_inverse/q230_baseline_no_mining/final_model.pt"
     exit 1
 fi
 
