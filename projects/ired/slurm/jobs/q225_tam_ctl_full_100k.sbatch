@@ -58,7 +58,7 @@ fi
 
 # Sync results back to persistent storage before exiting
 echo "=== Syncing results back to persistent storage ===" >&2
-rsync -av "projects/ired/results/ds_inverse/q225_tam_ctl_full_100k/" \
-  "/n/home03/mkrasnow/research-repo/projects/ired/results/ds_inverse/q225_tam_ctl_full_100k/" 2>&1 | tail -10
+REPO_ROOT="/n/home03/mkrasnow/research-repo"
+rsync -av "$WORK_DIR/projects/ired/results/" "$REPO_ROOT/projects/ired/results/" 2>&1 | tail -10
 
 exit $EXIT_CODE
