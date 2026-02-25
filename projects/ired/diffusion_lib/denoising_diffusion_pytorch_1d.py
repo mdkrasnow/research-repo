@@ -695,6 +695,103 @@ class GaussianDiffusion1D(nn.Module):
 
         return residual
 
+    def generate_peripheral_samples(self, inp, x_start, t, noise, mining_config):
+        """Generate peripheral-distribution (PD) samples for OEST* energy-barrier training.
+
+        Adapts the peripheral sample generation from OEST (Outlier Exposure via Smooth
+        Transformations) to the matrix inversion domain. OEST generates near-OOD
+        "peripheral" samples via simple transforms of in-distribution data, then trains
+        an energy barrier between ID and peripheral samples.
+
+        References:
+            - Ming et al., "Revisiting Energy-Based Model for Out-of-Distribution
+              Detection", arXiv:2412.03058, 2024. §IV-B: peripheral distribution
+              generated via simple data transformations (cutout, rotation, noise, etc.)
+            - Hendrycks & Mazeika, "Deep Anomaly Detection with Outlier Exposure",
+              ICLR 2019. Original OE framework using auxiliary OOD data.
+            - Liu et al., "Energy-based Out-of-distribution Detection", NeurIPS 2020.
+              Energy score E(x) = -T*log Σ exp(f_i(x)/T) for OOD detection.
+
+        Domain adaptation: IRED's training data uses A = UU^T + UU^T + 0.5*I (dataset.py:455),
+        while OOD uses +0.1*I (dataset.py:453). We generate peripheral samples by reducing
+        the diagonal regularization to bridge this gap, creating matrices with intermediate
+        conditioning (between training's κ(0.5) and OOD's κ(0.1)).
+
+        Args:
+            inp: Input matrices A, flattened [B, rank²]
+            x_start: Ground-truth inverses A⁻¹, flattened [B, rank²]
+            t: Diffusion timesteps [B]
+            noise: Noise tensor [B, seq_len] (reused for consistency)
+            mining_config: Dict with peripheral_* hyperparameters
+
+        Returns:
+            inp_pd: Peripheral input matrices [B, rank²]
+            x_pd_noisy: Noisy peripheral inverses at timestep t [B, seq_len]
+        """
+        transform = mining_config.get('peripheral_transform', 'condition')
+        batch_size = inp.shape[0]
+        rank_sq = inp.shape[1]
+        rank = int(math.sqrt(rank_sq))
+
+        if transform == 'condition':
+            # Reduce diagonal regularization: A_pd = A - (0.5 - eps)*I
+            # where eps ~ Uniform(eps_min, eps_max). This creates matrices with
+            # intermediate conditioning between ID (0.5) and OOD (0.1).
+            # The resulting diagonal regularization is eps (ranging 0.15-0.4),
+            # bridging the distribution gap per OEST §IV-B.
+            eps_min = mining_config.get('peripheral_eps_min', 0.15)
+            eps_max = mining_config.get('peripheral_eps_max', 0.4)
+            eps = torch.empty(batch_size, 1, 1, device=inp.device).uniform_(eps_min, eps_max)
+
+            A_mat = inp.view(batch_size, rank, rank)
+            I_mat = torch.eye(rank, device=inp.device).unsqueeze(0)  # [1, rank, rank]
+
+            # Subtract (0.5 - eps)*I to reduce conditioning from 0.5*I to eps*I
+            delta = (0.5 - eps) * I_mat  # [B, rank, rank]
+            A_pd_mat = A_mat - delta
+
+            # Recompute inverse of the peripheral matrix
+            # Use torch.linalg.inv for batched inversion
+            A_pd_inv_mat = torch.linalg.inv(A_pd_mat)
+
+            inp_pd = A_pd_mat.reshape(batch_size, rank_sq)
+            x_pd_start = A_pd_inv_mat.reshape(batch_size, rank_sq)
+
+        elif transform == 'corrupt_solution':
+            # Keep input A unchanged; add rank-1 perturbation to the inverse.
+            # y_pd = A⁻¹ + σ*(u @ v^T) where u,v are random unit vectors.
+            # This creates structurally near-correct but wrong solutions.
+            sigma = mining_config.get('peripheral_corrupt_sigma', 0.1)
+            u = torch.randn(batch_size, rank, 1, device=inp.device)
+            v = torch.randn(batch_size, 1, rank, device=inp.device)
+            u = u / (u.norm(dim=1, keepdim=True) + 1e-8)
+            v = v / (v.norm(dim=2, keepdim=True) + 1e-8)
+            perturbation = sigma * torch.bmm(u, v)  # [B, rank, rank]
+
+            X_mat = x_start.view(batch_size, rank, rank)
+            X_pd_mat = X_mat + perturbation
+
+            inp_pd = inp.clone()
+            x_pd_start = X_pd_mat.reshape(batch_size, rank_sq)
+
+        elif transform == 'row_swap':
+            # Swap 1-2 random rows of the inverse matrix.
+            # Cheap structural corruption that preserves element magnitudes.
+            X_mat = x_start.view(batch_size, rank, rank).clone()
+            for _ in range(torch.randint(1, 3, (1,)).item()):
+                idx = torch.randint(0, rank, (2,))
+                X_mat[:, idx[0]], X_mat[:, idx[1]] = X_mat[:, idx[1]].clone(), X_mat[:, idx[0]].clone()
+
+            inp_pd = inp.clone()
+            x_pd_start = X_mat.reshape(batch_size, rank_sq)
+        else:
+            raise ValueError(f"Unknown peripheral transform: {transform}")
+
+        # Noise peripheral targets to the same timestep t (shared noise schedule)
+        x_pd_noisy = self.q_sample(x_start=x_pd_start, t=t, noise=noise)
+
+        return inp_pd, x_pd_noisy
+
     @torch.no_grad()
     def p_sample_loop(self, batch_size, shape, inp, cond, mask, return_traj=False):
         device = self.betas.device
@@ -1195,6 +1292,46 @@ class GaussianDiffusion1D(nn.Module):
                     recovery_loss_weight = self.mining_config.get('recovery_loss_weight', 0.1)
                     loss_rec_weighted = loss_rec * recovery_loss_weight
 
+            # === PERIPHERAL DISTRIBUTION LOSS (OEST*) ===
+            # Energy-barrier loss from OEST* (Ming et al., arXiv:2412.03058, Eq. 12):
+            #   L_energy* = -α * log σ((E(x_per) - E(x_in)) / β)
+            # where σ is the sigmoid function, α is the loss weight, and β controls
+            # the sigmoid temperature. This loss trains an energy barrier between
+            # in-distribution and peripheral (near-OOD) samples, encouraging
+            # E(x_peripheral) > E(x_in) without requiring explicit OOD data.
+            #
+            # Theoretical basis (OEST* Theorem 1): If an energy barrier exists between
+            # ID and peripheral samples, it generalizes to true OOD samples under
+            # Lipschitz continuity of the energy function.
+            #
+            # Adaptation to IRED: OEST was designed for classifiers where
+            # E(x) = -T*log Σ exp(f_i(x)/T) (Liu et al., NeurIPS 2020). IRED has a
+            # direct scalar energy E(x,y) = ||fc4(h)||², so we apply the OEST* loss
+            # directly to IRED's raw energy values without the LogSumExp transform.
+            loss_peripheral_scalar = torch.tensor(0.0, device=x_start.device)
+            if self.mining_config.get('use_peripheral_loss', False):
+                pd_alpha = self.mining_config.get('peripheral_alpha', 0.2)
+                pd_beta = self.mining_config.get('peripheral_beta', 10.0)
+
+                # Generate peripheral samples and noise to same timestep t
+                inp_pd, x_pd_noisy = self.generate_peripheral_samples(
+                    inp, x_start, t, noise, self.mining_config
+                )
+
+                # Compute energies: E(x_in) from positive sample, E(x_per) from peripheral
+                # Reuse energy_pos if available (from CD/NCE path), otherwise compute fresh
+                if energy_pos is not None:
+                    E_in = energy_pos.squeeze(-1).mean()  # scalar
+                else:
+                    E_in = self.model(inp, data_sample.detach(), t, return_energy=True).squeeze(-1).mean()
+
+                E_pd = self.model(inp_pd, x_pd_noisy.detach(), t, return_energy=True).squeeze(-1).mean()
+
+                # OEST* Eq. 12: L = -α * log(σ((E_pd - E_in) / β))
+                # Numerically stable via F.logsigmoid
+                e_gap = (E_pd - E_in) / pd_beta
+                loss_peripheral_scalar = -pd_alpha * F.logsigmoid(e_gap)
+
             # Combine losses.
             # Shape fix: loss_mse is [B, seq_len] (per-token denoising error),
             # loss_energy is [B, 1] (per-sample CD loss). Adding them directly would
@@ -1206,8 +1343,9 @@ class GaussianDiffusion1D(nn.Module):
             loss_mse_reduced = reduce(loss_mse, 'b ... -> b', 'mean')  # [B, seq_len] → [B]
             loss_energy_reduced = loss_energy.squeeze(-1)               # [B, 1] → [B]
 
-            # Total loss: L = L_mse + λ_gc * L_gc + λ_rec * L_rec
-            loss = loss_mse_reduced + loss_scale * loss_energy_reduced  # [B]
+            # Total loss: L = L_mse + λ_energy * L_energy + λ_rec * L_rec + L_peripheral
+            # Peripheral loss is a scalar (batch-averaged energy gap), broadcasts to [B].
+            loss = loss_mse_reduced + loss_scale * loss_energy_reduced + loss_peripheral_scalar  # [B]
             if isinstance(loss_rec_weighted, torch.Tensor):
                 loss = loss + loss_rec_weighted  # Add recovery loss if TAM-CTL enabled
 
@@ -1353,6 +1491,16 @@ class GaussianDiffusion1D(nn.Module):
                             f"lang_disp={diag.get('displacement',0):.4f} "
                             f"step={diag.get('step_mean',0):.4f} "
                             f"sigma={diag.get('sigma_mean',0):.4f}",
+                            flush=True
+                        )
+                # === PERIPHERAL DISTRIBUTION DIAGNOSTICS ===
+                if self.mining_config.get('use_peripheral_loss', False):
+                    with torch.no_grad():
+                        print(
+                            f"[PD-DIAG step={self.global_step}] "
+                            f"E_in={E_in.item():.4f} E_pd={E_pd.item():.4f} "
+                            f"E_gap={E_pd.item() - E_in.item():.4f} "
+                            f"L_pd={loss_peripheral_scalar.item():.6f}",
                             flush=True
                         )
             # === END DIAGNOSTIC LOGGING ===
