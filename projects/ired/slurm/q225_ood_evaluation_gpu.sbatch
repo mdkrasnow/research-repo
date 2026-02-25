@@ -62,7 +62,7 @@ fi
 
 # Run evaluation (eval-only, no training)
 echo "Starting q225 OOD evaluation with seed $SLURM_ARRAY_TASK_ID..."
-PYTHONPATH="$WORK_DIR/projects/ired:$PYTHONPATH" \
+PYTHONPATH="$WORK_DIR/projects/ired:${PYTHONPATH:-}" \
 python projects/ired/experiments/evaluate_robustness.py \
     --config projects/ired/configs/q225_ood_evaluation.json \
     --output-dir "projects/ired/results/evaluation/q225_tam_ctl_ood/seed_${SLURM_ARRAY_TASK_ID}" \
