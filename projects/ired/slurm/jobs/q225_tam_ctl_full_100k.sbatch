@@ -56,4 +56,9 @@ else
     ls -la "projects/ired/results/ds_inverse/q225_tam_ctl_full_100k/" 2>&1 || echo "No output dir"
 fi
 
+# Sync results back to persistent storage before exiting
+echo "=== Syncing results back to persistent storage ===" >&2
+rsync -av "projects/ired/results/ds_inverse/q225_tam_ctl_full_100k/" \
+  "/n/home03/mkrasnow/research-repo/projects/ired/results/ds_inverse/q225_tam_ctl_full_100k/" 2>&1 | tail -10
+
 exit $EXIT_CODE
