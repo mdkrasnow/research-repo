@@ -1233,8 +1233,14 @@ class GaussianDiffusion1D(nn.Module):
                 energy_pos, energy_neg_raw = torch.chunk(energy, 2, 0)
                 energy_neg = energy_neg_raw  # Gradients flow to θ, not through x_neg
 
-                # Minimize (E_neg - E_pos): keeps E_pos large (gradient stays nonzero for denoising)
-                loss_energy = (energy_neg - energy_pos)  # [B,1]
+                # IRED-aware energy shaping.
+                # In this architecture E = ||fc4(h)||², so E_pos must stay large
+                # (otherwise ∂E/∂x → 0 and denoising collapses).
+                # Use margin ranking: relu(margin + E_neg - E_pos)
+                # This penalizes only when E_neg is too close to E_pos (within margin),
+                # and is bounded (zero loss when ordering is satisfied by margin).
+                cd_margin = self.mining_config.get('cd_margin', 1.0)
+                loss_energy = F.relu(cd_margin + energy_neg - energy_pos)  # [B,1]
 
                 # Energy magnitude regularization: L2-penalize energy values to prevent
                 # them diverging to arbitrary magnitudes while preserving the sign of
@@ -1415,6 +1421,26 @@ class GaussianDiffusion1D(nn.Module):
 
             # Increment global step for scheduling
             self.global_step += 1
+
+            # === LOSS COMPONENT LOGGING ===
+            if self.global_step % 100 == 0:
+                with torch.no_grad():
+                    _l_mse = loss_mse_reduced.mean().item()
+                    _l_energy_raw = loss_energy_reduced.mean().item() if isinstance(loss_energy_reduced, torch.Tensor) else 0.0
+                    _l_energy_wtd = (loss_scale * loss_energy_reduced).mean().item() if isinstance(loss_energy_reduced, torch.Tensor) else 0.0
+                    _l_rec = loss_rec_weighted.mean().item() if isinstance(loss_rec_weighted, torch.Tensor) else 0.0
+                    _l_total = loss.mean().item()
+                    _extras = ""
+                    if use_cd_loss or use_ired_contrastive:
+                        _e_pos = energy_pos.mean().item()
+                        _e_neg = energy_neg.mean().item()
+                        _extras = f" E_pos={_e_pos:.4f} E_neg={_e_neg:.4f} E_gap={_e_neg - _e_pos:.4f}"
+                    print(
+                        f"[LOSS-DIAG step={self.global_step}] "
+                        f"mse={_l_mse:.6f} energy_raw={_l_energy_raw:.6f} energy_wtd={_l_energy_wtd:.6f} "
+                        f"rec={_l_rec:.6f} total={_l_total:.6f}{_extras}",
+                        flush=True
+                    )
 
             # === DIAGNOSTIC LOGGING ===
             use_gc = self.mining_config.get('use_gradient_contrastive', False)
