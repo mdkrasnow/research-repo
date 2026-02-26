@@ -62,7 +62,7 @@ echo "Starting smoke test (100 steps) with config: $CONFIG"
 python projects/ired/experiments/matrix_inversion_mining.py \
     --config "$CONFIG" \
     --seed 0 \
-    --train_steps 100
+    --train-steps 100
 
 echo "Experiment completed at $(date)"
 
