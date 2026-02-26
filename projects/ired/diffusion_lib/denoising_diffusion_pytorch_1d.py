@@ -1354,6 +1354,13 @@ class GaussianDiffusion1D(nn.Module):
                         rank_weight = self.mining_config.get('recovery_rank_weight', 0.1)
                         loss_rec_weighted = loss_rec_weighted + rank_loss * rank_weight
 
+                    # Timestep weighting: w(t) = (t/T)^gamma — upweight noisier timesteps
+                    aux_gamma = self.mining_config.get('aux_timestep_gamma', 0.0)
+                    if aux_gamma > 0:
+                        t_frac = t.float() / max(float(self.num_timesteps - 1), 1.0)
+                        aux_w = t_frac.pow(aux_gamma)  # [B]
+                        loss_rec_weighted = loss_rec_weighted * aux_w
+
             # === PERIPHERAL DISTRIBUTION LOSS (OEST*) ===
             # Energy-barrier loss from OEST* (Ming et al., arXiv:2412.03058, Eq. 12):
             #   L_energy* = -α * log σ((E(x_per) - E(x_in)) / β)
@@ -1556,12 +1563,36 @@ class GaussianDiffusion1D(nn.Module):
                                 pos_dir.reshape(pos_dir.shape[0], -1), dim=-1
                             ).mean().item()
 
+                            # Recovery gain ratio
+                            rec_gain = (mse_neg_diag - mse_rec_diag) / (mse_neg_diag + 1e-8)
+                            # PGD radius actual
+                            pgd_radius = tam_diag.get('pgd_disp', float('nan'))
+
+                            # Rank loss (if enabled)
+                            rank_extra = ""
+                            if self.mining_config.get('use_recovery_rank_loss', False):
+                                with torch.enable_grad():
+                                    _pr = self.model(inp, xmin_noise.detach(), t)
+                                _rec_target_d = noise  # approximate
+                                if self.mining_config.get('recovery_target', 'noise') == 'implied_noise':
+                                    _rec_target_d = (xmin_noise_rec.detach() - sqrt_ab_d * x_start) / (sqrt_1mab_d + 1e-8)
+                                _neg_target_d = noise
+                                if self.mining_config.get('recovery_target', 'noise') == 'implied_noise':
+                                    _neg_target_d = (xmin_noise.detach() - sqrt_ab_d * x_start) / (sqrt_1mab_d + 1e-8)
+                                _rl_rec = F.mse_loss(pred_rec.detach(), _rec_target_d.detach()).item()
+                                _rl_neg = F.mse_loss(_pr.detach(), _neg_target_d.detach()).item()
+                                _m = self.mining_config.get('recovery_rank_margin', 0.1)
+                                _rank_raw = max(0.0, _m + _rl_rec - _rl_neg)
+                                rank_extra = f" rank_raw={_rank_raw:.6f}"
+
                             print(
                                 f"[TAM-CTL-DIAG step={self.global_step}] "
                                 f"mse_pos={mse_pos_diag:.6f} mse_neg={mse_neg_diag:.6f} mse_rec={mse_rec_diag:.6f} "
-                                f"neg_vs_rec={mse_neg_diag - mse_rec_diag:.6f} rec_dist={rec_dist_diag:.4f} "
+                                f"neg_vs_rec={mse_neg_diag - mse_rec_diag:.6f} rec_gain={rec_gain:.4f} "
+                                f"rec_dist={rec_dist_diag:.4f} pgd_radius={pgd_radius:.4f} "
                                 f"anchor_dist={tam_diag.get('anchor_dist', float('nan')):.4f} "
-                                f"dist_rec_pos={dist_rec_to_pos:.4f} eps_gap_rel={eps_impl_gap_rel:.4f} cos_rec={cos_recovery:.4f}",
+                                f"dist_rec_pos={dist_rec_to_pos:.4f} eps_gap_rel={eps_impl_gap_rel:.4f} "
+                                f"cos_rec={cos_recovery:.4f}{rank_extra}",
                                 flush=True
                             )
 
