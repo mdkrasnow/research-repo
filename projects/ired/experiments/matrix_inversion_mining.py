@@ -157,6 +157,14 @@ def run_experiment(config):
         'recovery_steps': config.get('recovery_steps', 1),
         'recovery_loss_weight': config.get('recovery_loss_weight', 0.1),
 
+        # TAM-CTL v2 fixes
+        'recovery_target': config.get('recovery_target', 'noise'),
+        'recovery_accept_all': config.get('recovery_accept_all', False),
+        'use_recovery_rank_loss': config.get('use_recovery_rank_loss', False),
+        'recovery_rank_margin': config.get('recovery_rank_margin', 0.1),
+        'recovery_rank_weight': config.get('recovery_rank_weight', 0.1),
+        'mining_objective': config.get('mining_objective', 'denoising_mse'),
+
         # OEST* peripheral distribution loss (Ming et al., arXiv:2412.03058)
         # Trains an energy barrier between ID and near-OOD "peripheral" samples
         'use_peripheral_loss': config.get('use_peripheral_loss', False),
@@ -315,9 +323,11 @@ def main():
     if args.config:
         print(f"Loading configuration from: {args.config}")
         config = load_config(args.config)
-        # Allow command-line seed to override config file seed
+        # Allow command-line seed and train_steps to override config file
         if args.seed is not None:
             config['seed'] = args.seed
+        if args.train_steps != 100000:  # non-default means explicitly set
+            config['train_steps'] = args.train_steps
     else:
         # Build config from command-line arguments
         config = {

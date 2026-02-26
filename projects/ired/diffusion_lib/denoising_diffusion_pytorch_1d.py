@@ -434,6 +434,21 @@ class GaussianDiffusion1D(nn.Module):
 
         return img
 
+    def _opt_step_no_reject(self, inp, img, t, mask, data_cond, detach_output=True):
+        """Single energy-descent step without greedy acceptance.
+
+        detach_output=False needed inside PGD inner loop where gradients
+        must flow back to the PGD variable y.
+        """
+        energy, grad = self.model(inp, img, t, return_both=True)
+        img_new = img - extract(self.opt_step_size, t, grad.shape) * grad
+        if mask is not None:
+            img_new = img_new * (1 - mask) + mask * data_cond
+        sf = 2.0 if self.continuous else 1.0
+        max_val = extract(self.sqrt_alphas_cumprod, t, img_new.shape)[0, 0] * sf
+        img_new = torch.clamp(img_new, -max_val, max_val)
+        return img_new.detach() if detach_output else img_new
+
     def sample_negatives_langevin(self, inp, x_init, t, k_steps: int):
         """
         Sample negatives using Langevin dynamics (short-run MCMC).
@@ -511,12 +526,15 @@ class GaussianDiffusion1D(nn.Module):
 
         return x.detach()
 
-    def sample_negatives_pgd(self, inp, x_init, t, noise_eps, k_steps: int):
+    def sample_negatives_pgd(self, inp, x_init, t, noise_eps, k_steps: int, x_pos_ref=None):
         """
         Generate hard negatives via PGD ascent on the denoising MSE loss.
 
         Maximizes L(y) = ||model(inp, y, t) - noise_eps||²
         subject to ||y - x_init||₂ ≤ δ  (L2 ball projection after each step).
+
+        When mining_objective='recovery_failure' and x_pos_ref is provided,
+        maximizes ||opt_step(y) - x_pos||² instead (recovery-aligned mining).
 
         Step size η = δ / k_steps (standard PGD scaling).
         Stop-gradient: model parameters are frozen during PGD.
@@ -549,13 +567,21 @@ class GaussianDiffusion1D(nn.Module):
             mse_neg_init = F.mse_loss(pred_init.detach(), noise_eps.detach(), reduction='none')
             mse_neg_init_val = mse_neg_init.reshape(mse_neg_init.shape[0], -1).mean(-1).mean().item()
 
+        mining_obj = self.mining_config.get('mining_objective', 'denoising_mse')
+
         pgd_grad_norms = []
         for k in range(k_steps):
             y = y.detach().requires_grad_(True)
-            pred = self.model(inp.detach(), y, t.detach())
-            # Per-sample sum (not mean) so gradient scale is independent of out_dim
-            mse = F.mse_loss(pred, noise_eps.detach(), reduction='none')  # [B, ...]
-            loss = mse.reshape(mse.shape[0], -1).sum(-1).sum()            # scalar
+            if mining_obj == 'recovery_failure' and x_pos_ref is not None:
+                # Recovery-aligned mining: maximize ||opt_step(y) - x_pos||²
+                y_rec = self._opt_step_no_reject(inp.detach(), y, t.detach(), None, None, detach_output=False)
+                diff = y_rec - x_pos_ref.detach()
+                loss = (diff ** 2).reshape(diff.shape[0], -1).sum(-1).sum()
+            else:
+                pred = self.model(inp.detach(), y, t.detach())
+                # Per-sample sum (not mean) so gradient scale is independent of out_dim
+                mse = F.mse_loss(pred, noise_eps.detach(), reduction='none')  # [B, ...]
+                loss = mse.reshape(mse.shape[0], -1).sum(-1).sum()            # scalar
             loss.backward()
 
             with torch.no_grad():
@@ -616,10 +642,14 @@ class GaussianDiffusion1D(nn.Module):
 
         Returns: Final recovery state y_rec (detached, no gradients through unroll)
         """
+        accept_all = self.mining_config.get('recovery_accept_all', False)
         x = x_init.detach()
         for _ in range(recovery_steps):
             with torch.enable_grad():
-                x = self.opt_step(inp, x, t, mask, data_cond, step=1, eval=True)
+                if accept_all:
+                    x = self._opt_step_no_reject(inp, x, t, mask, data_cond, detach_output=True)
+                else:
+                    x = self.opt_step(inp, x, t, mask, data_cond, step=1, eval=True)
             x = x.detach()
         return x
 
@@ -643,7 +673,9 @@ class GaussianDiffusion1D(nn.Module):
         x_anchor = iterates[-1]
 
         # Reuse existing PGD: x_init=x_anchor centers the L2 ball at the anchor
-        x_neg = self.sample_negatives_pgd(inp, x_anchor, t, noise_eps, k_steps=pgd_k_steps)
+        mining_obj = self.mining_config.get('mining_objective', 'denoising_mse')
+        x_pos_ref = x_pos if mining_obj == 'recovery_failure' else None
+        x_neg = self.sample_negatives_pgd(inp, x_anchor, t, noise_eps, k_steps=pgd_k_steps, x_pos_ref=x_pos_ref)
 
         # Optional recovery unroll from x_neg
         if recovery_steps > 0:
@@ -1284,13 +1316,37 @@ class GaussianDiffusion1D(nn.Module):
             loss_rec_weighted = 0.0
             if self.mining_strategy == 'tam' and self.mining_config.get('use_recovery_loss', False):
                 if xmin_noise_rec is not None:
-                    # Denoise-consistency recovery loss
-                    # L_rec = mse(pred(y_rec), eps) where y_rec is recovered negative
-                    pred_rec = self.model(inp, xmin_noise_rec.detach(), t)
-                    loss_rec = F.mse_loss(pred_rec, noise, reduction='none')  # [B, seq_len]
-                    loss_rec = reduce(loss_rec, 'b ... -> b', 'mean')  # [B]
+                    recovery_target_mode = self.mining_config.get('recovery_target', 'noise')
                     recovery_loss_weight = self.mining_config.get('recovery_loss_weight', 0.1)
+
+                    # Compute denoising target
+                    if recovery_target_mode == 'implied_noise':
+                        # Geometrically correct: ε_impl = (x_rec - √ᾱ·x₀) / √(1-ᾱ)
+                        sqrt_ab = extract(self.sqrt_alphas_cumprod, t, x_start.shape)
+                        sqrt_1mab = extract(self.sqrt_one_minus_alphas_cumprod, t, x_start.shape)
+                        eps_impl = (xmin_noise_rec.detach() - sqrt_ab * x_start) / (sqrt_1mab + 1e-8)
+                        rec_target = eps_impl.detach()
+                    else:
+                        rec_target = noise
+
+                    pred_rec = self.model(inp, xmin_noise_rec.detach(), t)
+                    loss_rec = F.mse_loss(pred_rec, rec_target, reduction='none')
+                    loss_rec = reduce(loss_rec, 'b ... -> b', 'mean')
                     loss_rec_weighted = loss_rec * recovery_loss_weight
+
+                    # Trainable ranking loss: recovery should denoise better than negative
+                    if self.mining_config.get('use_recovery_rank_loss', False):
+                        margin = self.mining_config.get('recovery_rank_margin', 0.1)
+                        pred_neg_rank = self.model(inp, xmin_noise.detach(), t)
+                        if recovery_target_mode == 'implied_noise':
+                            eps_impl_neg = (xmin_noise.detach() - sqrt_ab * x_start) / (sqrt_1mab + 1e-8)
+                            target_neg = eps_impl_neg.detach()
+                        else:
+                            target_neg = noise
+                        loss_neg_rank = reduce(F.mse_loss(pred_neg_rank, target_neg, reduction='none'), 'b ... -> b', 'mean')
+                        rank_loss = F.relu(margin + loss_rec - loss_neg_rank)
+                        rank_weight = self.mining_config.get('recovery_rank_weight', 0.1)
+                        loss_rec_weighted = loss_rec_weighted + rank_loss * rank_weight
 
             # === PERIPHERAL DISTRIBUTION LOSS (OEST*) ===
             # Energy-barrier loss from OEST* (Ming et al., arXiv:2412.03058, Eq. 12):
@@ -1457,11 +1513,29 @@ class GaussianDiffusion1D(nn.Module):
                             mse_rec_diag = F.mse_loss(pred_rec.detach(), noise).item()
                             rec_dist_diag = (xmin_noise_rec - xmin_noise).norm(dim=-1).mean().item()
 
+                            # Enhanced geometry diagnostics
+                            dist_rec_to_pos = (xmin_noise_rec - data_sample).norm(dim=-1).mean().item()
+                            sqrt_ab_d = extract(self.sqrt_alphas_cumprod, t, x_start.shape)
+                            sqrt_1mab_d = extract(self.sqrt_one_minus_alphas_cumprod, t, x_start.shape)
+                            eps_impl_d = (xmin_noise_rec.detach() - sqrt_ab_d * x_start) / (sqrt_1mab_d + 1e-8)
+                            noise_norm_d = noise.norm(dim=-1).mean().item()
+                            eps_impl_gap = (eps_impl_d - noise).norm(dim=-1).mean().item()
+                            eps_impl_gap_rel = eps_impl_gap / (noise_norm_d + 1e-8)
+
+                            # Dynamics: does recovery point toward basin?
+                            rec_dir = xmin_noise_rec - xmin_noise
+                            pos_dir = data_sample - xmin_noise
+                            cos_recovery = F.cosine_similarity(
+                                rec_dir.reshape(rec_dir.shape[0], -1),
+                                pos_dir.reshape(pos_dir.shape[0], -1), dim=-1
+                            ).mean().item()
+
                             print(
                                 f"[TAM-CTL-DIAG step={self.global_step}] "
                                 f"mse_pos={mse_pos_diag:.6f} mse_neg={mse_neg_diag:.6f} mse_rec={mse_rec_diag:.6f} "
                                 f"neg_vs_rec={mse_neg_diag - mse_rec_diag:.6f} rec_dist={rec_dist_diag:.4f} "
-                                f"anchor_dist={tam_diag.get('anchor_dist', float('nan')):.4f}",
+                                f"anchor_dist={tam_diag.get('anchor_dist', float('nan')):.4f} "
+                                f"dist_rec_pos={dist_rec_to_pos:.4f} eps_gap_rel={eps_impl_gap_rel:.4f} cos_rec={cos_recovery:.4f}",
                                 flush=True
                             )
 
