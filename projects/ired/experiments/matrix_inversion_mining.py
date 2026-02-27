@@ -166,6 +166,9 @@ def run_experiment(config):
         'mining_objective': config.get('mining_objective', 'denoising_mse'),
         'cd_margin': config.get('cd_margin', 1.0),
         'aux_timestep_gamma': config.get('aux_timestep_gamma', 0.0),
+        # Score smoothing
+        'score_smooth_sigma': config.get('score_smooth_sigma', 0.0),
+        'score_smooth_weight': config.get('score_smooth_weight', 0.0),
 
         # OEST* peripheral distribution loss (Ming et al., arXiv:2412.03058)
         # Trains an energy barrier between ID and near-OOD "peripheral" samples

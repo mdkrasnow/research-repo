@@ -1361,6 +1361,22 @@ class GaussianDiffusion1D(nn.Module):
                         aux_w = t_frac.pow(aux_gamma)  # [B]
                         loss_rec_weighted = loss_rec_weighted * aux_w
 
+            # === SCORE SMOOTHING LOSS ===
+            # Penalize ||f(x_ref + ξ, t) - f(x_ref, t)||² where ξ ~ N(0, σ²I)
+            # Encourages a smoother score field for better OOD generalization.
+            loss_smooth = torch.tensor(0.0, device=x_start.device)
+            smooth_sigma = self.mining_config.get('score_smooth_sigma', 0.0)
+            smooth_weight = self.mining_config.get('score_smooth_weight', 0.0)
+            if smooth_sigma > 0 and smooth_weight > 0:
+                xi = torch.randn_like(data_sample) * smooth_sigma
+                x_ref = data_sample.detach()
+                pred_clean = self.model(inp, x_ref, t)
+                pred_perturbed = self.model(inp, x_ref + xi, t)
+                loss_smooth = reduce(
+                    F.mse_loss(pred_perturbed, pred_clean.detach(), reduction='none'),
+                    'b ... -> b', 'mean'
+                ) * smooth_weight  # [B]
+
             # === PERIPHERAL DISTRIBUTION LOSS (OEST*) ===
             # Energy-barrier loss from OEST* (Ming et al., arXiv:2412.03058, Eq. 12):
             #   L_energy* = -α * log σ((E(x_per) - E(x_in)) / β)
@@ -1417,6 +1433,8 @@ class GaussianDiffusion1D(nn.Module):
             loss = loss_mse_reduced + loss_scale * loss_energy_reduced + loss_peripheral_scalar  # [B]
             if isinstance(loss_rec_weighted, torch.Tensor):
                 loss = loss + loss_rec_weighted  # Add recovery loss if TAM-CTL enabled
+            if isinstance(loss_smooth, torch.Tensor) and loss_smooth.dim() > 0:
+                loss = loss + loss_smooth  # Add score smoothing loss
 
             # Add energy magnitude regularization unconditionally (not masked by
             # residual filter or timestep range, since magnitude bounding should
@@ -1438,6 +1456,9 @@ class GaussianDiffusion1D(nn.Module):
                     _l_rec = loss_rec_weighted.mean().item() if isinstance(loss_rec_weighted, torch.Tensor) else 0.0
                     _l_total = loss.mean().item()
                     _extras = ""
+                    _l_smooth = loss_smooth.mean().item() if isinstance(loss_smooth, torch.Tensor) and loss_smooth.dim() > 0 else 0.0
+                    if _l_smooth > 0:
+                        _extras += f" smooth={_l_smooth:.6f}"
                     if use_cd_loss or use_ired_contrastive:
                         _e_pos = energy_pos.mean().item()
                         _e_neg = energy_neg.mean().item()
