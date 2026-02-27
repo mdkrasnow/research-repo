@@ -1457,8 +1457,8 @@ class GaussianDiffusion1D(nn.Module):
                     _l_total = loss.mean().item()
                     _extras = ""
                     _l_smooth = loss_smooth.mean().item() if isinstance(loss_smooth, torch.Tensor) and loss_smooth.dim() > 0 else 0.0
-                    if _l_smooth > 0:
-                        _extras += f" smooth={_l_smooth:.6f}"
+                    if smooth_sigma > 0:
+                        _extras += f" smooth={_l_smooth:.3e}"
                     if use_cd_loss or use_ired_contrastive:
                         _e_pos = energy_pos.mean().item()
                         _e_neg = energy_neg.mean().item()
