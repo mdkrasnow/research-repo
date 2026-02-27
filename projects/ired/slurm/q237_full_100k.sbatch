@@ -4,6 +4,7 @@
 #SBATCH --error=projects/ired/slurm/logs/%x_%A.err
 #SBATCH --time=04:00:00
 #SBATCH --partition=gpu
+#SBATCH --exclude=holygpu8a22202,holygpu8a22302
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=2
 #SBATCH --mem=16G
