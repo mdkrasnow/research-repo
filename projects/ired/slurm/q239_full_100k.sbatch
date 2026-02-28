@@ -2,7 +2,7 @@
 #SBATCH --job-name=ired_q239_100k
 #SBATCH --output=projects/ired/slurm/logs/%x_%j.out
 #SBATCH --error=projects/ired/slurm/logs/%x_%j.err
-#SBATCH --time=04:00:00
+#SBATCH --time=12:00:00
 #SBATCH --partition=gpu
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=2
