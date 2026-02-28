@@ -1,13 +1,12 @@
 #!/bin/bash
 #SBATCH --job-name=ired_q239_100k
-#SBATCH --output=projects/ired/slurm/logs/%x_%j_%a.out
-#SBATCH --error=projects/ired/slurm/logs/%x_%j_%a.err
+#SBATCH --output=projects/ired/slurm/logs/%x_%j.out
+#SBATCH --error=projects/ired/slurm/logs/%x_%j.err
 #SBATCH --time=04:00:00
 #SBATCH --partition=gpu
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=2
 #SBATCH --mem=16G
-#SBATCH --array=0-7%2
 
 set -euo pipefail
 
@@ -28,7 +27,7 @@ git checkout "$GIT_SHA"
 
 python projects/ired/experiments/matrix_inversion_mining.py \
     --config projects/ired/configs/q239_trajectory_cvar_100k.json \
-    --seed $SLURM_ARRAY_TASK_ID
+    --seed 0
 
 REPO_ROOT="/n/home03/mkrasnow/research-repo"
 rsync -av "$WORK_DIR/projects/ired/results/" "$REPO_ROOT/projects/ired/results/" \
