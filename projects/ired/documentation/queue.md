@@ -22,6 +22,37 @@
 
 ---
 
+## CURRENT PRIORITY — TRAJECTORY-ROBUST TRAINING [2026-02-28]
+
+**Context**: q225 OOD eval confirmed TAM-CTL does NOT improve OOD generalization (0.2135 vs baseline
+0.2063). Local mining approach is exhausted. Pivoting to trajectory-robust training.
+
+### Action Queue (ordered by priority)
+
+1. **[NEXT] Submit q239 — trajectory-CVaR 10K probe**
+   - Approach: CVaR loss weighting over diffusion trajectory steps
+   - Scale: 10K steps (probe to verify stability before full run)
+   - Config: `projects/ired/configs/q239_*.json` (already implemented)
+   - Success criteria: training stable, loss curves sensible
+
+2. **[CONDITIONAL on q239 stable] Submit q240 — segment consistency**
+   - Approach: consistency loss across trajectory segments
+   - Config: `projects/ired/configs/q240_*.json` (already implemented)
+
+3. **[CONDITIONAL on q239 noisy] Submit q241 — soft-worst-percentile**
+   - Approach: soft version of worst-percentile trajectory weighting (less sharp than CVaR)
+   - Config: `projects/ired/configs/q241_*.json` (already implemented)
+
+### Decision Tree
+
+```
+q239 probe result
+  ├── stable → submit q240 (segment consistency)
+  └── noisy/unstable → try q241 (soft-worst) instead
+```
+
+---
+
 ## SCALAR HEAD INVESTIGATION — PARTIAL RESULTS [2026-02-19]
 
 ### Current Active Jobs

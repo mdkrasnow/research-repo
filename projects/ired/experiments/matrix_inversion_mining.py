@@ -170,6 +170,18 @@ def run_experiment(config):
         'score_smooth_sigma': config.get('score_smooth_sigma', 0.0),
         'score_smooth_weight': config.get('score_smooth_weight', 0.0),
 
+        # Trajectory-robust training (q239+)
+        'trajectory_rollout_steps': config.get('trajectory_rollout_steps', 0),
+        'trajectory_loss_weight': config.get('trajectory_loss_weight', 0.0),
+        'trajectory_loss_mode': config.get('trajectory_loss_mode', 'none'),
+        'trajectory_cvar_alpha': config.get('trajectory_cvar_alpha', 0.5),
+        'trajectory_softworst_tau': config.get('trajectory_softworst_tau', 0.1),
+
+        # Segment-direction consistency (q240)
+        'segment_consistency_weight': config.get('segment_consistency_weight', 0.0),
+        'segment_start_idx': config.get('segment_start_idx', 0),
+        'segment_end_idx': config.get('segment_end_idx', 2),
+
         # OEST* peripheral distribution loss (Ming et al., arXiv:2412.03058)
         # Trains an energy barrier between ID and near-OOD "peripheral" samples
         'use_peripheral_loss': config.get('use_peripheral_loss', False),

@@ -1,5 +1,43 @@
 # Debugging — Adversarial Negative Mining for Matrix Inversion
 
+## Issue 15: Q225 OOD Eval — TAM-CTL Does Not Help OOD Generalization [2026-02-25]
+
+**Timestamp**: 2026-02-25T17:20:00Z
+**Jobs**: 62200184 (seeds 0-3), 62200205 (seeds 4-7)
+**Run IDs**: q225_ood_eval_seeds_0_3, q225_ood_eval_seeds_4_7
+**Status**: COMPLETED
+
+### Summary
+
+q225 OOD evaluation (8 seeds) completed. TAM-CTL OOD MSE = 0.2135 ± 0.00015, which is **worse** than
+the baseline OOD MSE of 0.2063. TAM-CTL provides no benefit for out-of-distribution generalization.
+
+### Results
+
+| Metric | Value |
+|--------|-------|
+| TAM-CTL OOD MSE (mean, 8 seeds) | 0.21349 |
+| TAM-CTL OOD MSE (std) | 0.00015 |
+| Baseline OOD MSE | 0.2063 |
+| Delta | +0.0072 (TAM-CTL WORSE) |
+
+### Conclusion
+
+The local TAM mining approach has plateaued. Training on anchor-step adversarial trajectories does not
+transfer to OOD generalization; it may even slightly hurt by overfitting the training distribution's
+difficulty structure.
+
+**Decision**: Pivot to trajectory-robust training methods (q239+) that operate across the full
+diffusion trajectory rather than local anchor steps.
+
+### Next Steps
+
+- Submit q239: trajectory-CVaR 10K probe
+- If stable, submit q240: segment consistency
+- If q239 noisy, try q241: soft-worst-percentile
+
+---
+
 ## Issue 14: Q220 TAM Baseline — Array Job Failure (Partial Completion) [2026-02-22]
 
 **Timestamp**: 2026-02-22T14:08:00Z (detected via check-results)
