@@ -434,6 +434,39 @@ class GaussianDiffusion1D(nn.Module):
 
         return img
 
+    def _rollout_states_detached(self, inp, x_init, t, mask, data_cond, rollout_steps):
+        """Generate K detached rollout states from x_init using the current solver map.
+
+        Used to approximate the inference-state distribution for trajectory-robust
+        training. No gradients flow through rollout generation.
+        """
+        x = x_init.detach()
+        states = []
+        for _ in range(rollout_steps):
+            x = self._opt_step_no_reject(inp, x, t, mask, data_cond, detach_output=True)
+            states.append(x)
+        return states
+
+    def _trajectory_cvar(self, losses, alpha=0.5):
+        """CVaR over rollout-step losses: average of worst alpha-fraction per sample.
+
+        losses: [B, K] tensor
+        returns: [B]
+        """
+        B, K = losses.shape
+        k_worst = max(1, int(math.ceil(alpha * K)))
+        topk_vals, _ = torch.topk(losses, k=k_worst, dim=1, largest=True, sorted=False)
+        return topk_vals.mean(dim=1)
+
+    def _trajectory_softworst(self, losses, tau=0.1):
+        """Soft worst-step aggregation using softmax weighting over rollout losses.
+
+        losses: [B, K]
+        returns: [B]
+        """
+        weights = torch.softmax(losses / max(tau, 1e-8), dim=1)
+        return (weights * losses).sum(dim=1)
+
     def _opt_step_no_reject(self, inp, img, t, mask, data_cond, detach_output=True):
         """Single energy-descent step without greedy acceptance.
 
@@ -1377,6 +1410,64 @@ class GaussianDiffusion1D(nn.Module):
                     'b ... -> b', 'mean'
                 ) * smooth_weight  # [B]
 
+            # === TRAJECTORY ROBUST LOSS ===
+            # Train on detached rollout states and penalize worst-case rollout losses.
+            # This directly targets train-test mismatch by optimizing over states the
+            # solver actually visits during inference.
+            loss_traj = torch.tensor(0.0, device=x_start.device)
+            loss_seg = torch.tensor(0.0, device=x_start.device)
+            roll_losses_stacked = None
+            roll_states = None
+            seg_cos = None
+
+            traj_steps = self.mining_config.get('trajectory_rollout_steps', 0)
+            traj_weight = self.mining_config.get('trajectory_loss_weight', 0.0)
+            traj_mode = self.mining_config.get('trajectory_loss_mode', 'none')
+
+            if traj_steps > 0 and traj_weight > 0 and traj_mode in ('cvar', 'softworst'):
+                # Generate detached rollout states from x_pos
+                roll_states = self._rollout_states_detached(
+                    inp=inp, x_init=data_sample.detach(), t=t,
+                    mask=None, data_cond=None, rollout_steps=traj_steps,
+                )
+
+                # Implied-noise target at each rollout state
+                sqrt_ab = extract(self.sqrt_alphas_cumprod, t, x_start.shape)
+                sqrt_1mab = extract(self.sqrt_one_minus_alphas_cumprod, t, x_start.shape)
+
+                roll_losses = []
+                for x_roll in roll_states:
+                    eps_impl = (x_roll - sqrt_ab * x_start) / (sqrt_1mab + 1e-8)
+                    pred_roll = self.model(inp, x_roll, t)
+                    l_roll = F.mse_loss(pred_roll, eps_impl.detach(), reduction='none')
+                    l_roll = reduce(l_roll, 'b ... -> b', 'mean')  # [B]
+                    roll_losses.append(l_roll)
+
+                roll_losses_stacked = torch.stack(roll_losses, dim=1)  # [B, K]
+
+                if traj_mode == 'cvar':
+                    alpha = self.mining_config.get('trajectory_cvar_alpha', 0.5)
+                    loss_traj = self._trajectory_cvar(roll_losses_stacked, alpha=alpha) * traj_weight
+                elif traj_mode == 'softworst':
+                    tau = self.mining_config.get('trajectory_softworst_tau', 0.1)
+                    loss_traj = self._trajectory_softworst(roll_losses_stacked, tau=tau) * traj_weight
+
+            # === SEGMENT DIRECTION CONSISTENCY ===
+            # Align current one-step update at early rollout state with vector toward later state.
+            seg_weight = self.mining_config.get('segment_consistency_weight', 0.0)
+            if roll_states is not None and seg_weight > 0:
+                seg_i = self.mining_config.get('segment_start_idx', 0)
+                seg_j = self.mining_config.get('segment_end_idx', 2)
+                if 0 <= seg_i < len(roll_states) and 0 <= seg_j < len(roll_states) and seg_j > seg_i:
+                    x_i = roll_states[seg_i].detach()
+                    x_j = roll_states[seg_j].detach()
+                    # Differentiable one-step update at x_i
+                    x_i_next = self._opt_step_no_reject(inp, x_i, t, None, None, detach_output=False)
+                    u = (x_i_next - x_i).reshape(x_i.shape[0], -1)  # [B, D]
+                    d = (x_j - x_i).reshape(x_i.shape[0], -1)       # [B, D]
+                    seg_cos = F.cosine_similarity(u, d, dim=1)       # [B]
+                    loss_seg = (1.0 - seg_cos) * seg_weight          # [B]
+
             # === PERIPHERAL DISTRIBUTION LOSS (OEST*) ===
             # Energy-barrier loss from OEST* (Ming et al., arXiv:2412.03058, Eq. 12):
             #   L_energy* = -α * log σ((E(x_per) - E(x_in)) / β)
@@ -1435,6 +1526,10 @@ class GaussianDiffusion1D(nn.Module):
                 loss = loss + loss_rec_weighted  # Add recovery loss if TAM-CTL enabled
             if isinstance(loss_smooth, torch.Tensor) and loss_smooth.dim() > 0:
                 loss = loss + loss_smooth  # Add score smoothing loss
+            if isinstance(loss_traj, torch.Tensor) and loss_traj.dim() > 0:
+                loss = loss + loss_traj  # Add trajectory robust loss
+            if isinstance(loss_seg, torch.Tensor) and loss_seg.dim() > 0:
+                loss = loss + loss_seg  # Add segment direction consistency loss
 
             # Add energy magnitude regularization unconditionally (not masked by
             # residual filter or timestep range, since magnitude bounding should
@@ -1459,6 +1554,20 @@ class GaussianDiffusion1D(nn.Module):
                     _l_smooth = loss_smooth.mean().item() if isinstance(loss_smooth, torch.Tensor) and loss_smooth.dim() > 0 else 0.0
                     if smooth_sigma > 0:
                         _extras += f" smooth={_l_smooth:.3e}"
+                    _l_traj = loss_traj.mean().item() if isinstance(loss_traj, torch.Tensor) and loss_traj.dim() > 0 else 0.0
+                    _l_seg = loss_seg.mean().item() if isinstance(loss_seg, torch.Tensor) and loss_seg.dim() > 0 else 0.0
+                    if _l_traj > 0:
+                        _extras += f" traj={_l_traj:.6f}"
+                    if _l_seg > 0:
+                        _extras += f" seg={_l_seg:.6f}"
+                    if roll_losses_stacked is not None:
+                        _roll_mean = roll_losses_stacked.mean(dim=0)  # [K]
+                        _roll_max = roll_losses_stacked.max(dim=1).values.mean().item()
+                        _extras += f" rollmax={_roll_max:.6f}"
+                        for _ri in range(min(roll_losses_stacked.shape[1], 4)):
+                            _extras += f" r{_ri+1}={_roll_mean[_ri].item():.4f}"
+                    if seg_cos is not None:
+                        _extras += f" segcos={seg_cos.mean().item():.4f}"
                     if use_cd_loss or use_ired_contrastive:
                         _e_pos = energy_pos.mean().item()
                         _e_neg = energy_neg.mean().item()
