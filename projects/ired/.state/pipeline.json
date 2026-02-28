@@ -2,19 +2,42 @@
   "project": "ired",
   "phase": "WAIT_SLURM",
   "current_investigation": "ired-pgd",
-  "next_action": "poll_q239_10k_probe_then_analyze",
+  "next_action": "poll_q239_100k_and_q240_probe",
   "active_runs": [
+    {
+      "run_id": "q239_100k_full",
+      "experiment": "q239_trajectory_cvar_100k",
+      "job_id": "62891897",
+      "submitted_at": "2026-02-28T12:30:00Z",
+      "status": "running",
+      "partition": "gpu",
+      "git_sha": "e3aefd6",
+      "array_spec": "0-7%2",
+      "num_seeds": 8,
+      "note": "Full 100K trajectory-CVaR. 10K probe passed (val_mse=0.0103, traj=0.0045). 8 seeds for stat comparison vs baseline OOD MSE 0.2063.",
+      "next_poll_after": "2026-02-28T12:31:00Z"
+    },
+    {
+      "run_id": "q240_10k_probe",
+      "experiment": "q240_trajectory_segment",
+      "job_id": "62891908",
+      "submitted_at": "2026-02-28T12:30:00Z",
+      "status": "running",
+      "partition": "gpu_test",
+      "git_sha": "e3aefd6",
+      "num_seeds": 1,
+      "note": "10K probe: q239 + segment-direction consistency (lambda_seg=0.02). Tests trajectory alignment to future rollout states.",
+      "next_poll_after": "2026-02-28T12:31:00Z"
+    }
+  ],
+  "completed_runs_recent": [
     {
       "run_id": "q239_10k_probe",
       "experiment": "q239_trajectory_cvar",
       "job_id": "62889348",
-      "submitted_at": "2026-02-28T12:00:00Z",
-      "status": "running",
-      "partition": "gpu_test",
-      "git_sha": "6eaeacd",
-      "num_seeds": 1,
-      "note": "10K probe: trajectory-CVaR training. K=3 rollout steps, CVaR alpha=0.5, lambda_traj=0.05. First test of rollout-state training objective.",
-      "next_poll_after": "2026-02-28T12:01:00Z"
+      "status": "completed",
+      "completed_at": "2026-02-28T12:25:00Z",
+      "result": "PASS: val_mse=0.0103, traj=0.0045, rollmax=0.115, no instability. Promoted to 100K."
     }
   ],
   "validation_plan": {},
