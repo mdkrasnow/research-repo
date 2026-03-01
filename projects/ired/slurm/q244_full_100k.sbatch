@@ -3,10 +3,10 @@
 #SBATCH --output=projects/ired/slurm/logs/%x_%j.out
 #SBATCH --error=projects/ired/slurm/logs/%x_%j.err
 #SBATCH --time=08:00:00
-#SBATCH --partition=gpu_test
+#SBATCH --partition=gpu
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=2
-#SBATCH --mem=32G
+#SBATCH --mem=16G
 set -euo pipefail
 
 GIT_URL="${GIT_URL:-https://github.com/mdkrasnow/research-repo.git}"
