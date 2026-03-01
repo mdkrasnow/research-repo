@@ -1551,8 +1551,8 @@ class GaussianDiffusion1D(nn.Module):
                 )
 
                 if hard_state_mode == 'replay_uncertainty':
-                    hardness = compute_replay_uncertainty(self.model, inp, x, t)
-                    hardness = normalize_hardness_per_timestep(hardness, t, self.num_timesteps)
+                    hardness_raw = compute_replay_uncertainty(self.model, inp, x, t)
+                    hardness = normalize_hardness_per_timestep(hardness_raw, t, self.num_timesteps)
                     if not self.mining_config.get('hard_state_diagnostic_only', False):
                         loss_hard = hardness * loss_mse_reduced.detach() * hard_aux_w
                     if hasattr(self, 'hard_state_buffer'):
@@ -1561,21 +1561,23 @@ class GaussianDiffusion1D(nn.Module):
                 elif hard_state_mode == 'trajectory_divergence':
                     opt_fn = lambda _inp, _x, _t, _m, _dc: self._opt_step_no_reject(
                         _inp, _x, _t, _m, _dc, detach_output=True)
-                    hardness = compute_trajectory_divergence(opt_fn, inp, x, t, mask, None)
-                    hardness = normalize_hardness_per_timestep(hardness, t, self.num_timesteps)
+                    hardness_raw = compute_trajectory_divergence(opt_fn, inp, x, t, mask, None)
+                    hardness = normalize_hardness_per_timestep(hardness_raw, t, self.num_timesteps)
                     if not self.mining_config.get('hard_state_diagnostic_only', False):
                         loss_hard = hardness * loss_mse_reduced.detach() * hard_aux_w
 
                 elif hard_state_mode == 'local_instability':
                     xi_std = self.mining_config.get('hard_state_xi_std', 0.1)
-                    hardness = compute_local_instability(self.model, inp, x, t, xi_std=xi_std)
-                    hardness = normalize_hardness_per_timestep(hardness, t, self.num_timesteps)
+                    hardness_raw = compute_local_instability(self.model, inp, x, t, xi_std=xi_std)
+                    hardness = normalize_hardness_per_timestep(hardness_raw, t, self.num_timesteps)
                     if not self.mining_config.get('hard_state_diagnostic_only', False):
                         margin = self.mining_config.get('hard_state_margin', 0.1)
                         loss_hard = hardness * loss_mse_reduced.detach() * hard_aux_w
 
                 # Store diagnostics for logging
                 self._hard_state_diag = {
+                    'hardness_raw_mean': hardness_raw.mean().item(),
+                    'hardness_raw_std': hardness_raw.std().item(),
                     'hardness_mean': hardness.mean().item(),
                     'hardness_std': hardness.std().item(),
                     'loss_hard': loss_hard.mean().item() if isinstance(loss_hard, torch.Tensor) and loss_hard.dim() > 0 else 0.0,
@@ -1627,7 +1629,7 @@ class GaussianDiffusion1D(nn.Module):
                         _extras = f" E_pos={_e_pos:.4f} E_neg={_e_neg:.4f} E_gap={_e_neg - _e_pos:.4f}"
                     if hasattr(self, '_hard_state_diag') and self._hard_state_diag:
                         d = self._hard_state_diag
-                        _extras += f" H_mean={d['hardness_mean']:.4f} H_std={d['hardness_std']:.4f} L_hard={d['loss_hard']:.6f}"
+                        _extras += f" H_raw={d['hardness_raw_mean']:.6f} H_mean={d['hardness_mean']:.4f} H_std={d['hardness_std']:.4f} L_hard={d['loss_hard']:.6f}"
                     print(
                         f"[LOSS-DIAG step={self.global_step}] "
                         f"mse={_l_mse:.6f} energy_raw={_l_energy_raw:.6f} energy_wtd={_l_energy_wtd:.6f} "
