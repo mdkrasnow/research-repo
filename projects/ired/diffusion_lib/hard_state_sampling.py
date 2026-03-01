@@ -29,7 +29,7 @@ def compute_replay_uncertainty(model, inp, x_states, t, n_eval=2):
     # perturbations (eps=0.01) to create artificial stochasticity.
     # Cannot use torch.no_grad() because DiffusionWrapper internally
     # computes torch.autograd.grad(energy, x) which requires grad.
-    eps = 0.01
+    eps = 0.1
     x = x_states.detach()
     preds = []
     for _ in range(n_eval):
