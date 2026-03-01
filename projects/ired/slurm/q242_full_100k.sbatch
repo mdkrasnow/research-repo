@@ -7,13 +7,11 @@
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=2
 #SBATCH --mem=32G
-#SBATCH --array=0-7%2
-
 set -euo pipefail
 
 GIT_URL="${GIT_URL:-https://github.com/mdkrasnow/research-repo.git}"
 GIT_SHA="${GIT_SHA:-main}"
-SEED=${SLURM_ARRAY_TASK_ID:-0}
+SEED=0
 
 WORK_DIR="${TMPDIR:-/tmp}/ired-job-${SLURM_JOB_ID}"
 mkdir -p "$WORK_DIR"
