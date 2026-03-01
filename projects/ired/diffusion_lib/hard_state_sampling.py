@@ -25,9 +25,16 @@ def compute_replay_uncertainty(model, inp, x_states, t, n_eval=2):
     Returns:
         hardness: [B] tensor (detached)
     """
-    # Note: cannot use torch.no_grad() because the DiffusionWrapper model
-    # internally computes torch.autograd.grad(energy, x) which requires grad.
-    preds = [model(inp, x_states.detach().requires_grad_(True), t).detach() for _ in range(n_eval)]
+    # The EBM model is deterministic (no dropout), so we inject small
+    # perturbations (eps=0.01) to create artificial stochasticity.
+    # Cannot use torch.no_grad() because DiffusionWrapper internally
+    # computes torch.autograd.grad(energy, x) which requires grad.
+    eps = 0.01
+    x = x_states.detach()
+    preds = []
+    for _ in range(n_eval):
+        x_perturbed = (x + torch.randn_like(x) * eps).requires_grad_(True)
+        preds.append(model(inp, x_perturbed, t).detach())
     hardness = (preds[0] - preds[1]).pow(2).mean(dim=-1)  # [B]
     return hardness.detach()
 
