@@ -191,6 +191,14 @@ def run_experiment(config):
         'peripheral_eps_min': config.get('peripheral_eps_min', 0.15),  # min diagonal reg for condition transform
         'peripheral_eps_max': config.get('peripheral_eps_max', 0.4),   # max diagonal reg for condition transform
         'peripheral_corrupt_sigma': config.get('peripheral_corrupt_sigma', 0.1),  # for corrupt_solution transform
+
+        # Hard-state sampling (q242+)
+        'hard_state_mode': config.get('hard_state_mode', 'none'),
+        'hard_state_aux_weight': config.get('hard_state_aux_weight', 0.0),
+        'hard_state_buffer_size': config.get('hard_state_buffer_size', 10000),
+        'hard_state_diagnostic_only': config.get('hard_state_diagnostic_only', False),
+        'hard_state_xi_std': config.get('hard_state_xi_std', 0.1),
+        'hard_state_margin': config.get('hard_state_margin', 0.1),
     }
     
     diffusion = GaussianDiffusion1D(
