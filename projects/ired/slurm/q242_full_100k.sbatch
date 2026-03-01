@@ -6,7 +6,7 @@
 #SBATCH --partition=gpu_test
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=2
-#SBATCH --mem=32G
+#SBATCH --mem=16G
 set -euo pipefail
 
 GIT_URL="${GIT_URL:-https://github.com/mdkrasnow/research-repo.git}"
