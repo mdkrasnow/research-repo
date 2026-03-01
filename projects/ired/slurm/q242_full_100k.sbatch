@@ -3,7 +3,7 @@
 #SBATCH --output=projects/ired/slurm/logs/%x_%j.out
 #SBATCH --error=projects/ired/slurm/logs/%x_%j.err
 #SBATCH --time=12:00:00
-#SBATCH --partition=seas_gpu
+#SBATCH --partition=gpu_test
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=2
 #SBATCH --mem=32G
