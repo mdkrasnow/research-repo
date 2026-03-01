@@ -25,13 +25,9 @@ def compute_replay_uncertainty(model, inp, x_states, t, n_eval=2):
     Returns:
         hardness: [B] tensor (detached)
     """
-    was_training = model.training
-    model.train()  # ensure stochastic behavior
-    with torch.no_grad():
-        preds = [model(inp, x_states, t) for _ in range(n_eval)]
-    if not was_training:
-        model.eval()
-    # MSE disagreement between first two evals
+    # Note: cannot use torch.no_grad() because the DiffusionWrapper model
+    # internally computes torch.autograd.grad(energy, x) which requires grad.
+    preds = [model(inp, x_states.detach().requires_grad_(True), t).detach() for _ in range(n_eval)]
     hardness = (preds[0] - preds[1]).pow(2).mean(dim=-1)  # [B]
     return hardness.detach()
 
@@ -49,11 +45,10 @@ def compute_trajectory_divergence(opt_step_fn, inp, x_states, t, mask, data_cond
     Returns:
         hardness: [B] tensor (detached)
     """
-    with torch.no_grad():
-        x = x_states.detach()
-        x1 = opt_step_fn(inp, x, t, mask, data_cond)       # T(y)
-        x2 = opt_step_fn(inp, x1, t, mask, data_cond)       # T(T(y))
-        hardness = (x2 - x1).pow(2).mean(dim=-1)            # [B]
+    x = x_states.detach()
+    x1 = opt_step_fn(inp, x, t, mask, data_cond)       # T(y)
+    x2 = opt_step_fn(inp, x1, t, mask, data_cond)       # T(T(y))
+    hardness = (x2 - x1.detach()).pow(2).mean(dim=-1)   # [B], sg on x1
     return hardness.detach()
 
 
@@ -73,13 +68,12 @@ def compute_local_instability(model, inp, x_states, t, xi_std=0.1):
     Returns:
         hardness: [B] tensor (detached)
     """
-    with torch.no_grad():
-        x = x_states.detach()
-        xi1 = torch.randn_like(x) * xi_std
-        xi2 = torch.randn_like(x) * xi_std
-        pred1 = model(inp, x + xi1, t)
-        pred2 = model(inp, x + xi2, t)
-        hardness = (pred1 - pred2).pow(2).mean(dim=-1)  # [B]
+    x = x_states.detach()
+    xi1 = torch.randn_like(x) * xi_std
+    xi2 = torch.randn_like(x) * xi_std
+    pred1 = model(inp, (x + xi1).requires_grad_(True), t).detach()
+    pred2 = model(inp, (x + xi2).requires_grad_(True), t).detach()
+    hardness = (pred1 - pred2).pow(2).mean(dim=-1)  # [B]
     return hardness.detach()
 
 
