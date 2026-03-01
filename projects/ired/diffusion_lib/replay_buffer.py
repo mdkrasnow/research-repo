@@ -77,3 +77,35 @@ class TBucketReplayBuffer:
 
     def __len__(self):
         return sum(len(b) for b in self.buckets)
+
+
+class HardStateReplayBuffer:
+    """Flat replay buffer storing (inp, x_state, t) for hard-state reweighting (q242+)."""
+
+    def __init__(self, capacity=10000):
+        self.capacity = capacity
+        self.buffer = []
+        self.idx = 0
+
+    def add_batch(self, inp, x, t):
+        """Add a batch of states. inp: [B, D], x: [B, S], t: [B]."""
+        for i in range(inp.shape[0]):
+            entry = (inp[i].detach().cpu(), x[i].detach().cpu(), t[i].detach().cpu())
+            if len(self.buffer) < self.capacity:
+                self.buffer.append(entry)
+            else:
+                self.buffer[self.idx % self.capacity] = entry
+            self.idx += 1
+
+    def sample(self, n, device):
+        """Sample n entries. Returns (inp, x, t) tensors on device, or None if too few."""
+        if len(self.buffer) < n:
+            return None
+        indices = torch.randint(0, len(self.buffer), (n,))
+        inps = torch.stack([self.buffer[i][0] for i in indices]).to(device)
+        xs = torch.stack([self.buffer[i][1] for i in indices]).to(device)
+        ts = torch.stack([self.buffer[i][2] for i in indices]).to(device)
+        return inps, xs, ts
+
+    def __len__(self):
+        return len(self.buffer)
