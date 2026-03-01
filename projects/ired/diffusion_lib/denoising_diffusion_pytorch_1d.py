@@ -1629,7 +1629,7 @@ class GaussianDiffusion1D(nn.Module):
                         _extras = f" E_pos={_e_pos:.4f} E_neg={_e_neg:.4f} E_gap={_e_neg - _e_pos:.4f}"
                     if hasattr(self, '_hard_state_diag') and self._hard_state_diag:
                         d = self._hard_state_diag
-                        _extras += f" H_raw={d['hardness_raw_mean']:.6f} H_mean={d['hardness_mean']:.4f} H_std={d['hardness_std']:.4f} L_hard={d['loss_hard']:.6f}"
+                        _extras += f" H_raw={d['hardness_raw_mean']:.2e} H_norm={d['hardness_mean']:.4f} L_hard={d['loss_hard']:.2e}"
                     print(
                         f"[LOSS-DIAG step={self.global_step}] "
                         f"mse={_l_mse:.6f} energy_raw={_l_energy_raw:.6f} energy_wtd={_l_energy_wtd:.6f} "
