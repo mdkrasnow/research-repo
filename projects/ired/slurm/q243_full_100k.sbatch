@@ -12,6 +12,7 @@ set -euo pipefail
 GIT_URL="${GIT_URL:-https://github.com/mdkrasnow/research-repo.git}"
 GIT_SHA="${GIT_SHA:-main}"
 SEED=0
+REPO_ROOT="/n/home03/mkrasnow/research-repo"
 
 WORK_DIR="${TMPDIR:-/tmp}/ired-job-${SLURM_JOB_ID}"
 mkdir -p "$WORK_DIR"
@@ -21,15 +22,25 @@ module load cuda/11.8.0-fasrc01
 
 nvidia-smi
 
-git clone "$GIT_URL" "$WORK_DIR"
+for attempt in 1 2 3; do
+    if timeout 120 git clone "$GIT_URL" "$WORK_DIR" 2>/dev/null; then
+        break
+    fi
+    echo "git clone attempt $attempt failed, retrying..."
+    rm -rf "$WORK_DIR" && mkdir -p "$WORK_DIR"
+    if [ "$attempt" -eq 3 ]; then
+        echo "git clone failed, copying from local repo"
+        cp -r "$REPO_ROOT/." "$WORK_DIR/"
+    fi
+done
+
 cd "$WORK_DIR"
-git checkout "$GIT_SHA"
+git checkout "$GIT_SHA" 2>/dev/null || true
 
 python projects/ired/experiments/matrix_inversion_mining.py \
     --config projects/ired/configs/q243_hard_state_traj_div_100k.json \
     --seed "$SEED"
 
-REPO_ROOT="/n/home03/mkrasnow/research-repo"
 rsync -av "$WORK_DIR/projects/ired/results/" "$REPO_ROOT/projects/ired/results/" \
     --include='*/' --include='*.pt' --include='*.json' --include='*.md' --exclude='*'
 
