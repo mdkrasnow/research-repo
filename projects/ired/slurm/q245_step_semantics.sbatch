@@ -51,11 +51,11 @@ git checkout "$GIT_SHA" 2>/dev/null || true
 CKPT_DIR="projects/ired/results/ds_inverse/q230_baseline_no_mining"
 echo "Copying baseline checkpoint to work directory..."
 mkdir -p "$WORK_DIR/$CKPT_DIR"
-if [ -f "$REPO_ROOT/$CKPT_DIR/final_model.pt" ]; then
-    cp "$REPO_ROOT/$CKPT_DIR/final_model.pt" "$WORK_DIR/$CKPT_DIR/"
+if [ -f "$REPO_ROOT/$CKPT_DIR/model-100.pt" ]; then
+    cp "$REPO_ROOT/$CKPT_DIR/model-100.pt" "$WORK_DIR/$CKPT_DIR/"
     echo "checkpoint copied"
 else
-    echo "ERROR: Checkpoint not found at $REPO_ROOT/$CKPT_DIR/final_model.pt"
+    echo "ERROR: Checkpoint not found at $REPO_ROOT/$CKPT_DIR/model-100.pt"
     exit 1
 fi
 
