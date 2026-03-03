@@ -179,6 +179,7 @@ class GaussianDiffusion1D(nn.Module):
         connectivity = False,
         shortest_path = False,
         mining_config = None,
+        inference_opt_steps = None,
     ):
         super().__init__()
         self.model = model
@@ -188,6 +189,7 @@ class GaussianDiffusion1D(nn.Module):
         self.self_condition = False
         self.supervise_energy_landscape = supervise_energy_landscape
         self.use_innerloop_opt = use_innerloop_opt
+        self.inference_opt_steps = inference_opt_steps
 
         # Mining configuration for CD-style training
         if mining_config is None:
@@ -900,7 +902,9 @@ class GaussianDiffusion1D(nn.Module):
 
             # if t < 50:
 
-            if self.sudoku:
+            if self.inference_opt_steps is not None:
+                step = self.inference_opt_steps
+            elif self.sudoku:
                 step = 20
             else:
                 step = 5

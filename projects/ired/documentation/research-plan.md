@@ -1,462 +1,376 @@
-# Research Plan — Adversarial Negative Mining Investigation
+# Research Plan — IRED Matrix Inversion: Inference-First Improvement
 
-## Project Status: Results Analysis & Investigation
+## Project Status: INFERENCE-FIRST BRANCH
 
-**Current Phase**: ANALYZE / DESIGN
-**Last Updated**: 2026-02-19
+**Current Phase**: DESIGN → IMPLEMENT (inference-side interventions)
+**Last Updated**: 2026-03-03
 
 ---
 
 ## Executive Summary
 
-### Phase 0 Results (COMPLETED - 2026-01-21)
+### Negative Mining Branch: CLOSED (2026-03-03)
 
-Initial experiments (Q-001, Q-002, Q-003) revealed **unexpected results** that contradict the original hypothesis:
+After exhaustive investigation across 40+ experiments spanning local adversarial negatives, random mining, trajectory-anchor mining (TAM), recovery-based TAM-CTL, and three task-agnostic hard-state samplers (replay-uncertainty, trajectory-divergence, local-instability), **state-space adversarial negative mining is conclusively not the lever for improving OOD generalization in IRED matrix inversion**.
 
-| Strategy | Train MSE | Val MSE | Δ vs Baseline | Status |
-|----------|-----------|---------|---------------|--------|
-| **Baseline** (none) | 0.0096721 | 0.0096761 | — | ✓ Converged |
-| **Random** mining | 0.00968831 | 0.00968396 | +0.08% | ✓ Converged |
-| **Adversarial** mining | 0.00980961 | 0.00982675 | **+1.56%** | ✓ Converged (worse) |
+All task-agnostic samplers converged to the same OOD band (~0.2131–0.2132), which is 3.3% worse than baseline (0.2063). This uniformity across orthogonal sampler designs rules out sampler-specific failure and points to a fundamental misalignment between hard-state reweighting and the structure that matters for OOD.
 
-**Key Finding**: Adversarial hard negative mining **degrades** performance by ~1.5% compared to baseline, contrary to expectations.
+Full negative result documentation: `documentation/negative-results-hard-state-sampling.md`
 
-**Adversarial Configuration** (from q003_adversarial.json):
-- `mining_opt_steps`: 2 (gradient ascent steps per negative sample)
-- `mining_noise_scale`: 3.0 (noise added to prevent degenerate samples)
-- `learning_rate`: 0.0001
-- All experiments: 100K iterations, batch_size=2048, 20×20 matrices
+### Current Baseline Performance
 
----
+| Metric | Value | Source |
+|--------|-------|--------|
+| ID validation MSE | 0.00969 | q211 baseline (8 seeds) |
+| OOD MSE (ill-conditioned) | 0.2063 | q211 baseline |
+| IRED paper same-difficulty MSE | 0.0096 | Table 2, 10 steps |
+| IRED paper harder-difficulty MSE | 0.2063 | Table 2, 40 steps |
 
-## Scalar Energy Head Investigation [2026-02-19]
-
-### Summary of Findings
-
-The scalar energy head (`E = g(h) = Linear(h, 1)`) is **unstable without energy scale control**. The root cause and proposed fixes are documented below.
-
-#### Confirmed facts
-- q101 (vector energy, no mining): val MSE → 0.009 ✅
-- q207 (scalar energy, adversarial mining): val MSE → 0.098 stable (plateau, not divergence)
-- q209 (scalar energy, no mining): val MSE 0.11 @ 4k → **2.2 @ 11k** (diverges)
-- q201 (vector energy, adversarial mining): val MSE 0.091 @ 8k → **1.10 @ 100k** (diverges)
-- Energy magnitudes at step 1k: q209 E_pos≈337k, q207 E_pos≈3k — 100x difference
-- Mining acts as accidental regularizer in q207 (counterpressure via margin loss)
-
-#### The Core Problem
-
-The scalar head has no natural scale: `E = w^T h + b` where `w, b` are unconstrained. Without mining or regularization, the network can minimize NCE loss by making all energies large and positive (since the gradient-based denoising signal pushes pred up, not down on energy). The result is runaway energy magnitudes that corrupt the `∇_y E` denoising gradients.
+**Critical observation**: Our baseline (0.2063 at some step configuration) matches the IRED paper's best harder-difficulty result at 40 optimization steps. This demands a fidelity check before any new architecture work.
 
 ---
 
-### Brainstorm: Approaches to Fix Energy Scale
+## Research Direction: Why Inference, Not Training
 
-#### Approach 1: Energy Regularization (`energy_reg_weight > 0`)
-**Idea**: Add `λ * E_pos^2` (or `λ * |E_pos|`) to the loss directly.
-- **Pro**: Simplest 1-line fix, already has a config knob (`energy_reg_weight`)
-- **Pro**: Directly attacks the root cause (unbounded magnitude)
-- **Con**: Hyperparameter sensitivity — too large λ collapses energies to zero; too small and instability remains
-- **Con**: L2 regularization biases toward small energies, may conflict with NCE margin requirement
-- **Tuning needed**: λ likely needs to be in [0.001, 0.1] range; requires sweep
-- **Risk**: May just shift the plateau rather than fix it — unclear if it enables convergence to 0.009
+### Literature Grounding
 
-#### Approach 2: Energy Normalization (LayerNorm / spectral norm on scalar head)
-**Idea**: Apply LayerNorm to the features before the scalar head, or use spectral normalization on the linear layer weights.
-- **Pro**: Architectural fix — constrains the scale of the linear layer without requiring a tuned λ
-- **Pro**: LayerNorm is well-understood and stable; spectral norm clips the Lipschitz constant
-- **Con**: Changes the expressivity of the energy function — may prevent the model from learning the right energy landscape
-- **Con**: Spectral norm with a scalar output layer is unusual (constrains the norm of a vector, not a matrix)
-- **Variant**: Normalize `h` before passing to scalar head, keeping the scalar head itself unconstrained
-- **Risk**: May just push the problem into the backbone features
+The IRED paper (Du et al., ICML 2024, arXiv:2406.11179) is explicit about where gains come from on matrix inverse:
 
-#### Approach 3: Energy Clamping / Gradient Clipping on Energy
-**Idea**: Hard-clamp `E_pos` to a fixed range (e.g., [−100, 100]) or clip gradients from the energy head separately.
-- **Pro**: Hard guarantee on energy magnitude
-- **Con**: Non-differentiable clamp in the energy function corrupts backprop
-- **Con**: Gradient clipping doesn't prevent forward-pass energy blowup, only limits weight updates
-- **Verdict**: Gradient clipping is a reasonable auxiliary measure but not a primary fix
+1. **Step count matters**: OOD MSE improves from 0.2110 (10 steps) → 0.2100 (20) → 0.2090 (30) → 0.2063 (40 steps). Same-difficulty MSE barely changes (0.0096 → 0.0095). The lever is inference compute on harder instances.
 
-#### Approach 4: Whitened / Normalized Energy Target
-**Idea**: Instead of predicting raw energy, predict a normalized score: `E = tanh(g(h))` or `E = sigmoid(g(h))` — bounded scalar outputs.
-- **Pro**: Hard bounds on energy magnitude (tanh: (−1,1), sigmoid: (0,1))
-- **Pro**: No extra hyperparameter
-- **Con**: `tanh` saturates — gradients vanish for large inputs, which can kill learning in a different way
-- **Con**: The EBM theory assumes energies can be arbitrary; bounding them changes the semantics
-- **Con**: `∇_y E` is still well-defined, but the effective gradient field may be poorly conditioned near saturation
-- **Verdict**: Interesting but risky; saturation is a known problem with bounded activations in deep EBMs
+2. **Negatives are for landscape shaping, not hardness**: The paper's own negatives are simple (noise-corrupt the target, run two gradient steps). They explicitly found "more than 10 landscapes did not help." Negatives shape the energy surface; they are not a source of new hardness.
 
-#### Approach 5: Stop-Gradient on Energy in Denoising Loss
-**Idea**: When computing `∇_y E` for denoising, stop gradient through the energy head weights. The energy head is trained only by the NCE/contrastive loss, not pulled by denoising.
-- **Pro**: Decouples the two objectives cleanly — energy head learns a landscape shape, denoiser uses that shape
-- **Pro**: Prevents the denoising loss from destabilizing the energy parameterization
-- **Con**: Changes the training dynamics significantly — the energy head may not adapt to the denoiser's needs
-- **Con**: Requires careful implementation (stop_gradient in PyTorch = `.detach()`)
-- **Verdict**: Architecturally interesting and theoretically motivated, but a bigger change to the training loop
+3. **Three explicit limitations point to inference-side improvements**:
+   - "The inference time optimization procedure in IRED can still be improved because currently, it requires many steps of gradient descent to find an energy minima" → amortized initializers, guided optimizers
+   - "Our sequence of annealed energy landscapes is defined through a sequence of added Gaussian noise increments — it would be further interesting to learn the sequence of energy landscapes to enable adaptive optimization" → learned schedules
+   - "IRED in its current form does not leverage any additional memory" → stateful optimizers
 
-#### Approach 6: Warm-Start Energy Head After Denoiser Convergence
-**Idea**: Train the denoiser alone (no energy loss) for N steps until it converges, then introduce the energy head.
-- **Pro**: Sidesteps the coupling problem — denoiser is already at a good point before energy is added
-- **Pro**: Matches the q101 result as a starting point, then adds scalar energy on top
-- **Con**: Two-phase training is more complex to implement and schedule
-- **Con**: When energy is introduced, it still might destabilize the already-converged denoiser
-- **Verdict**: Could work but is operationally complex; not the first thing to try
+4. **IRED was introduced to fix IREM's instability**: IREM required differentiating through the full optimization rollout (295% memory overhead, unstable training). IRED replaced this with denoising supervision + negative mining, gaining stability. Going back to train-through-optimization (IREM-style) would regress on this improvement.
 
-#### Approach 7: Use Mining as Intentional Regularizer (Controlled)
-**Idea**: Accept that mining stabilizes the scalar head (as in q207) but weaken the mining enough that it doesn't degrade denoising. E.g., use random mining instead of adversarial, or use very short mining horizon.
-- **Pro**: No architectural changes — just tuning existing knobs
-- **Pro**: q207 proves mining-as-regularizer works; random mining was shown to be neutral vs baseline (q102: same MSE as baseline, p=0.088)
-- **Con**: q207 with adversarial mining still plateaued at 0.098 — need random mining specifically
-- **Next experiment**: scalar energy + random mining (no contrastive) — should be stable like q207 but without the adversarial-mining degradation
-- **Verdict**: Highest probability of quickly reaching 0.009; lowest implementation risk
+### Path Independence Framework
 
-#### Approach 8: Energy L∞ or Soft-Clamp via Huber-style Loss
-**Idea**: Use a Huber-style loss on energy: penalize `max(0, |E| - δ)^2` for some threshold δ.
-- **Pro**: Only penalizes when energy exceeds threshold δ, leaving normal operation unconstrained
-- **Pro**: Can set δ based on observed healthy energy scale (q207 E_pos ≈ 100k–140k, so δ ≈ 200k)
-- **Con**: Requires knowing the "right" energy scale in advance (or tuning δ)
-- **Verdict**: More principled than hard clamp but still requires tuning
+The path independence literature (Anil et al., NeurIPS 2022, arXiv:2211.09961) provides the diagnostic framework:
+
+- **Core finding**: Models only benefit from extra test-time iterations when their dynamics are sufficiently **path independent** (converge to the same fixed point regardless of initialization).
+- **Necessary conditions**: Weight tying, input injection, randomized/adaptive depth at training time.
+- **Diagnostic**: The **Asymptotic Alignment (AA) score** measures whether different initializations converge to the same attractor. High AA = path independent = benefits from more compute.
+- **Per-example OOD diagnostic**: For a specific test input, if the solver converges to the same point from multiple initializations, trust the answer. If not, the model is likely wrong on that input.
+- **Direct relevance to IRED**: IRED's annealed landscapes are a practical mitigation of path dependence (smooth-to-sharp to escape local minima), but there is no guarantee of path independence. If ill-conditioned matrices induce multiple local minima that the annealing doesn't resolve, more steps won't help—which is exactly what we observe.
+
+### Improved CD Literature (Du et al., ICML 2021)
+
+The improved-CD EBM paper's main robustness levers are **data augmentation** (as MCMC mode-mixing) and **multi-scale energy factorization**, not harder negatives. Key gaps relative to our implementation:
+
+- **KL entropy term (L_ent)**: Maximizes diversity of MCMC samples via nearest-neighbor distance. Our Langevin chains may suffer from mode collapse that this addresses.
+- **Data augmentation in Langevin chains**: Every 20 steps, apply random augmentation to help chains jump between modes. Not implemented in our codebase.
+- **EMA (μ=0.99)**: Stabilizes training. Not explicit in current configs.
+- **Backprop only through final Langevin step**: Memory-efficient, shown equivalent to full chain differentiation.
+
+For matrix inversion, the clean analogue of these robustness levers is a **condition-number curriculum** (expose the model to progressively harder conditioning during training) and **coarse-to-fine energy factorization** (e.g., over spectral summaries of the matrix).
 
 ---
 
-### Recommended Experiment Order
+## Priority-Ordered Experiment Ladder
 
-**Priority 1** (lowest risk, highest probability of reaching 0.009):
-- **q210**: Scalar energy + random mining (no adversarial, no contrastive)
-  - Mining provides stability regularizer but without adversarial OOD degradation
-  - Direct comparison to q207 (adversarial) and q101 (no mining)
-  - If val MSE → 0.009: scalar head works fine, adversarial mining was the plateau cause
-  - If val MSE → 0.098: random mining also stabilizes but also plateaus → mining itself is the issue
+### Priority 1: Paper-Fidelity / Step-Semantics Check (q245)
 
-**Priority 2** (architectural fix, clean solution if it works):
-- **q211**: Scalar energy + energy_reg_weight sweep (λ ∈ {0.001, 0.01, 0.1}) + no mining
-  - Tests whether regularization alone fixes the instability without needing mining at all
-  - Run 3 single-seed jobs first, pick best λ, then run full 10-seed
+**Rationale**: Our baseline OOD MSE (0.2063) exactly matches the IRED paper's best harder-difficulty result at 40 optimization steps. Before changing architecture, verify whether our "10-step reverse diffusion" actually corresponds to the paper's 10 total optimization steps or to something closer to their 40-step regime. If there is a fidelity gap, we may be debugging implementation rather than modeling.
 
-**Priority 3** (if both above fail):
-- **q212**: Scalar energy + stop-gradient on energy head + no mining
-  - Decouples the two objectives; more principled but larger code change
+**Experiment q245**: Reproduce IRED Table 2 step-count ladder
+- Run inference at 10, 20, 30, 40 optimization steps on the existing trained baseline model
+- Compare to paper's Table 2: {10: 0.2110, 20: 0.2100, 30: 0.2090, 40: 0.2063}
+- Also reproduce Table 3 ablation (gradient descent alone vs. + refinement vs. + contrastive)
+- **No retraining required**—just vary inference-time step count on existing checkpoint
 
-**Deprioritized**:
-- Bounded activations (tanh/sigmoid) — saturation risk too high
-- Warm-start — operationally complex, try regularization first
-- Huber loss — adds another hyperparameter without clear advantage over L2 reg
+**Hypothesis**: If our 10-step inference gives 0.2063 (matching paper's 40-step), we are already in the paper's best regime and the step semantics differ. If our 10-step gives ~0.2110, we match the paper and have room for step-count improvement.
+
+**Success criteria**: Clear mapping between our step semantics and the paper's. Quantified headroom (if any) from step-count increases.
+
+**Compute**: Minimal—inference only, no training. Single GPU, <1 hour.
 
 ---
 
-### Investigation Plan
+### Priority 2: Inference Calibration (q246–q248)
 
-The investigation phase aims to:
-1. **Validate** these results with multi-seed experiments (confirm statistical significance)
-2. **Diagnose** why adversarial mining fails (matrix conditioning, false negatives, diversity loss)
-3. **Rescue** adversarial mining via hyperparameter tuning (if possible)
-4. **Stabilize** training with LR decay, gradient clipping, EMA, and early stopping
+**Rationale**: The IRED paper's central claim is that IRED generalizes to harder instances by using more computation at test time on a learned energy landscape. The first lever to pull after verifying step semantics is the inference loop itself.
 
----
+**Experiment q246**: Step-count sweep on OOD
+- Sweep per-landscape step count: {1, 2, 5, 10, 20, 50} steps per landscape × 10 landscapes
+- Total optimization steps: {10, 20, 50, 100, 200, 500}
+- Evaluate both ID and OOD MSE at each budget
+- Plot the compute-performance frontier
 
-## Original Research Question
+**Experiment q247**: Adaptive step size (λ_k)
+- Replace fixed step size with per-step adaptive λ:
+  - Backtracking line search: halve λ if energy increases
+  - Trust-region style: expand λ when energy decreases consistently, shrink when it doesn't
+  - Momentum (β=0.9 Polyak-style): carry previous gradient direction
+- Evaluate on same ID/OOD split
 
-**Does adversarial negative mining improve performance on the matrix inversion task compared to baseline diffusion training and random negative mining?**
+**Experiment q248**: Multi-start inference
+- For each test input, run inference from N different random initializations (N ∈ {5, 10, 20})
+- Select the solution with lowest final energy
+- This directly tests path independence: if results vary widely across starts, the landscape has problematic local minima
+- **Dual purpose**: Both a diagnostic (measures path dependence) and a potential OOD improvement
 
-**Answer from initial results**: **NO** - Adversarial mining degraded performance by ~1.5%.
+**Hypothesis**: If the energy landscape has multiple local minima for ill-conditioned matrices, multi-start will show high variance across initializations (path dependence) and the best-of-N selection will improve OOD. If the landscape is well-shaped, multi-start won't help but confirms path independence.
 
-**New research question**: **Why does adversarial mining fail for matrix inversion, and can it be fixed?**
+**Success criteria**:
+- q246: Identify optimal step budget and whether more steps help on OOD
+- q247: >5% OOD improvement from adaptive stepping
+- q248: Variance across initializations quantifies path dependence; best-of-N improves OOD
 
----
-
-## Investigation Strategy
-
-### Phase 1: Validate Results (Priority: HIGH)
-
-**Goal**: Confirm adversarial underperformance is real, not a fluke
-
-**Experiments**:
-- **Q-101**: Multi-seed baseline (10 seeds)
-- **Q-102**: Multi-seed random (10 seeds)
-- **Q-103**: Multi-seed adversarial (10 seeds)
-- **Q-104**: Learning curve analysis with frequent checkpointing
-
-**Deliverables**:
-- Mean ± std for each strategy
-- Confidence intervals
-- Rank consistency test (which strategy wins most seeds)
-- Learning curves showing when/if adversarial diverges
-
-**Expected Outcome**: Adversarial consistently underperforms across seeds (confirms real effect vs noise)
+**Compute**: q246 ~2h (inference sweeps), q247 ~4h (need to implement adaptive stepping), q248 ~2h (embarrassingly parallel).
 
 ---
 
-### Phase 2: Diagnose Root Cause (Priority: HIGH)
+### Priority 3: Learned Annealing Schedule (q249–q250)
 
-**Goal**: Understand mechanism of adversarial mining failure
+**Rationale**: The IRED paper explicitly calls out the fixed Gaussian annealing schedule as a limitation: "it would be further interesting to learn the sequence of energy landscapes to enable adaptive optimization." If ill-conditioned matrices need a different annealing path, fixed noise increments are exactly the wrong place to stay rigid.
 
-**Hypothesis 1: Pathological Matrix Conditioning**
-- Adversarial optimization pushes toward ill-conditioned (near-singular) matrices
-- Matrix inversion has natural adversarial direction: high condition number
-- Model learns "anti-inversion" patterns instead of true inversion
+**Experiment q249**: Hardness-conditioned σ_k schedule
+- Train a small network π(x) → {σ_1, ..., σ_K} that predicts the noise schedule for a given input x
+- The schedule network is trained jointly with the energy model using the denoising objective
+- At inference, ill-conditioned inputs may receive longer/gentler annealing paths automatically
+- **Key insight**: This is a lightweight change—the energy model architecture is unchanged, only the schedule selection varies
 
-**Experiment Q-201**: Matrix conditioning analysis
-- Track: det(A), cond(A), σ_min for positive vs adversarial negative samples
-- Compare distributions
-- Test: Do adversarial negatives have significantly higher condition numbers?
+**Experiment q250**: Learned λ_k policy
+- Instead of fixed step size, train a policy λ(x, t, ∇E) → step size at each step
+- Similar to adaptive compute in Universal Transformers (Dehghani et al., ICLR 2019)
+- Can be trained with REINFORCE or straight-through estimation using the denoising loss as reward
 
-**Hypothesis 2: False Negatives / Diversity Loss**
-- Adversarial negatives collapse to narrow region near positives
-- Loss of diversity hurts generalization
-- Some "hard negatives" may actually be false negatives (valid inverses)
+**Hypothesis**: Ill-conditioned matrices benefit from longer annealing (more time in smooth landscape before transitioning to sharp), which fixed schedules cannot provide. A learned schedule should allocate more compute to harder inputs.
 
-**Experiment Q-202**: Energy gap and diversity profiling
-- Track: E(pos) - E(neg) gap over training
-- Measure: Distance between consecutive adversarial samples (diversity)
-- Detect: Negatives that are "too close" to positives (false negative rate)
-- Monitor: Gradient norms during mining
+**Success criteria**: Learned schedule produces measurably different σ_k sequences for well-conditioned vs. ill-conditioned inputs. OOD MSE improves >5%.
 
-**Deliverables**:
-- Statistical comparison of matrix properties (pos vs neg)
-- Energy gap plots, gradient norm distributions
-- False negative rate over training
-- Diagnosis: Which hypothesis (or both) explains the failure
+**Compute**: ~8h training per variant (need to train schedule network jointly).
+
+**Literature grounding**: Universal Transformers showed that adaptive computation time (halting when state stabilizes) enables variable-depth inference. The same principle applies here—allocate more annealing steps to harder inputs.
 
 ---
 
-### Phase 3: Rescue Adversarial Mining (Priority: MEDIUM)
+### Priority 4: Amortized Initializer / Guided Optimizer (q251–q252)
 
-**Goal**: Test if adversarial mining can be made to work via hyperparameter tuning
+**Rationale**: The IRED paper explicitly suggests "an amortized neural network generator for generating initial solutions or guided optimizers can speed up this procedure." Starting from Gaussian noise is maximally uninformative. For matrix inversion, even a crude initial estimate (e.g., A^T / ‖A‖² or a learned preconditioner) places the solver much closer to the correct basin.
 
-**Rationale**: Hard negative mining is well-studied in literature. Failure modes exist, but often can be addressed by:
-- Controlling hardness (fewer opt steps, smaller ascent LR)
-- Adding diversity (noise injection, mixed strategies)
-- Constraining negatives (projection to valid manifold)
+**Experiment q251**: Amortized initializer
+- Train a small feedforward network g(A) → y_0 that predicts a rough inverse
+- Use y_0 as the initialization for IRED inference instead of Gaussian noise
+- The initializer is trained with simple MSE on the training set (no energy model needed)
+- IRED then refines from y_0—the energy model acts as verifier/refiner
 
-**Experiments**:
-- **Q-301**: Mining opt_steps sweep [1, 3, 5, 10, 20]
-  - Hypothesis: Current setting may be too high, making negatives pathologically hard
-- **Q-302**: Ascent LR sweep [0.01, 0.05, 0.1, 0.5, 1.0]
-  - Hypothesis: Smaller step size may prevent ill-conditioned samples
-- **Q-303**: Noise scale sweep [0.01, 0.1, 0.5, 1.0, 2.0]
-  - Hypothesis: Adding noise prevents degenerate adversarial samples
-- **Q-304**: Mixed strategy (70% random + 30% adversarial)
-  - Hypothesis: Mixing preserves diversity while adding challenge
+**Experiment q252**: Guided optimizer
+- Replace plain gradient descent with a learned update rule:
+  - y_{t+1} = y_t - f_θ(y_t, ∇E(y_t), t) instead of y_{t+1} = y_t - λ∇E(y_t)
+  - f_θ is a small MLP that sees the current state, gradient, and step index
+- This is a "learning to optimize" approach (Andrychowicz et al., NeurIPS 2016)
+- The guided optimizer can learn to handle ill-conditioned landscapes (e.g., implicit preconditioning)
 
-**Deliverables**:
-- Performance vs hyperparameter curves
-- Identification of best adversarial configuration (if any)
-- Verdict: Can adversarial mining match baseline? If not, why?
+**Hypothesis**: Starting closer to the correct basin removes the burden of navigating from random noise through potentially path-dependent landscape regions. For ill-conditioned matrices, the initializer provides an OOD-aware warm start that the fixed-schedule IRED cannot.
 
----
+**Success criteria**: >10% OOD improvement from amortized initialization. Guided optimizer converges in fewer steps than vanilla gradient descent.
 
-### Phase 4: Training Stability (Priority: HIGH)
-
-**Goal**: Fix late-stage training instability observed in validation run
-
-**Observation**: Separate validation run showed best MSE at step ~38K, then divergence at 85K-99K
-
-**Problem**: Current training setup lacks:
-- Learning rate decay (constant LR for 100K steps)
-- Gradient clipping (large gradients can destabilize)
-- EMA for stable evaluation
-- Early stopping (continues training even when degrading)
-
-**Experiments**:
-- **Q-401**: Stabilized training (cosine LR decay + grad clipping + EMA)
-  - Apply to all three strategies
-  - Expected: Improved final performance, no late divergence
-- **Q-402**: Early stopping based on validation MSE
-  - Stop when no improvement for 10K steps
-  - Save best checkpoint separately
-
-**Deliverables**:
-- Stable learning curves for all strategies
-- Cleaner performance comparisons (best checkpoint vs final checkpoint)
-- Training time reduction (early stopping)
-
-**Expected Outcome**: All strategies improve, but relative ranking likely unchanged
+**Compute**: q251 ~4h (train initializer + evaluate), q252 ~8h (joint training of optimizer).
 
 ---
 
-## Theoretical Framework
+### Priority 5: Memoryful Optimizer (q253)
 
-### Why Hard Negatives Can Fail
+**Rationale**: The IRED paper states "IRED in its current form does not leverage any additional memory. Therefore, for tasks that would benefit from explicitly using additional memory to store intermediate results... IRED might not be as effective." Matrix inversion of ill-conditioned systems is precisely such a task: memoryless gradient descent struggles when the landscape is stiff (high condition number → disparate eigenvalue scales → gradient oscillation).
 
-**Context from Literature**:
+**Experiment q253**: Stateful optimizer
+- Replace memoryless gradient descent with an optimizer that carries state:
+  - **Variant A**: Momentum (simple—carry exponential moving average of past gradients)
+  - **Variant B**: Residual features (carry (y_t - y_{t-1}) as additional input to the energy function)
+  - **Variant C**: Small recurrent hidden state h_t updated at each step alongside y_t
+- The hidden state is reset at the start of each inference, so it's per-problem memory, not cross-problem
 
-1. **False Negatives** (Chuang et al., NeurIPS 2020; Huynh et al., WACV 2022)
-   - Hard negatives can accidentally be true positives in disguise
-   - Model is punished for correct behavior
-   - Well-documented failure mode in contrastive learning
+**Hypothesis**: Ill-conditioned matrices create stiff optimization landscapes where memoryless descent oscillates. Momentum or adaptive state allows the optimizer to implicitly precondition, damping oscillations along high-curvature directions.
 
-2. **Pathological Hardness** (Robinson et al., 2020; Kalantidis et al., NeurIPS 2020)
-   - "Harder is not monotonically better"
-   - Overly hard negatives can be outliers/adversarial artifacts
-   - Need to balance hardness with diversity
+**Success criteria**: Stateful optimizer shows faster convergence (fewer steps to same MSE) and better OOD performance than memoryless descent.
 
-3. **EBM Training Instability** (Du et al., 2021; Yin et al., ECCV 2022)
-   - Energy-based models with adversarial-style negative sampling are notoriously unstable
-   - Gradient shortcuts and optimization pathologies
-   - Requires careful design and stability techniques
-
-### Task-Specific Considerations for Matrix Inversion
-
-**Matrix inversion has unique adversarial geometry**:
-- Near-singular matrices (high condition number) are naturally "adversarial"
-- Gradient ascent on energy may push toward det(A) → 0
-- This creates "anti-inversion" patterns rather than hard-but-valid examples
-
-**Prediction**: Conditioning analysis will show adversarial negatives cluster at high cond(A)
+**Compute**: ~8h per variant (need to modify inference loop and possibly retrain with stateful dynamics).
 
 ---
 
-## Success Criteria
+### Priority 6: Path-Independence Measurement + Regularization (q254–q255)
 
-### Minimum Success (Investigation Complete)
-- Multi-seed validation confirms adversarial underperforms (statistical significance)
-- Root cause identified via conditioning + energy analysis
-- Documentation of failure mode suitable for publication
+**Rationale**: The path independence framework (Anil et al., NeurIPS 2022) provides both a diagnostic and a training intervention. Before adding more architectural complexity, measure whether our current model is path-independent on OOD inputs. If it isn't, that directly explains why more steps and harder states don't help.
 
-### Moderate Success (Adversarial Partially Rescued)
-- Hyperparameter sweep finds configuration where adversarial matches baseline
-- Understanding of when/why adversarial mining works for matrix inversion
+**Experiment q254**: Path independence diagnostic (AA score)
+- For each test input (both ID and OOD), run IRED inference from N=20 different random initializations
+- Measure the Asymptotic Alignment (AA) score: cosine similarity between final states from different initializations
+- Compute per-example and aggregate AA scores, stratified by condition number
+- **Prediction**: ID inputs will show high AA (path independent), OOD ill-conditioned inputs will show low AA (path dependent)
 
-### Maximum Success (Adversarial Fully Works)
-- Adversarial mining reliably outperforms baseline with proper tuning
-- Publishable result: "How to apply hard negative mining to structured prediction tasks"
+**Experiment q255**: Path-independence regularization
+- Add a training-time regularization that encourages path independence:
+  - During training, for each (x, y) pair, run two forward passes from different noise initializations
+  - Add a consistency loss: ‖y_final^{init_1} - y_final^{init_2}‖²
+  - This directly penalizes path dependence
+- Also test randomized depth during training (vary number of denoising steps per example)
 
-### Publication-Worthy Outcomes (Any of)
-1. **Negative result**: "Why harder ≠ better for matrix inversion EBMs" + geometry explanation
-2. **Diagnostic methods**: Matrix conditioning analysis as evaluation tool for contrastive learning
-3. **Rescue strategy**: Mixed negative sampling for structured tasks
-4. **Training stability**: Best practices for EBM training with negative mining
+**Hypothesis**: OOD failure correlates with low AA score (path dependence). Path-independence regularization improves OOD by ensuring the solver converges to the same answer regardless of initialization.
 
----
+**Success criteria**:
+- q254: Strong negative correlation between AA score and test MSE on OOD inputs
+- q255: Path-independence regularization improves OOD MSE and raises AA scores
 
-## Timeline Estimate
+**Compute**: q254 ~2h (inference only), q255 ~8h (retraining with consistency loss).
 
-**Phase 1 (Validation)**:
-- Implementation: 2-3 days
-- Compute: ~15h (can parallelize to 1.5h with array jobs)
-- Analysis: 1 day
-
-**Phase 2 (Diagnosis)**:
-- Implementation: 3-4 days (instrumentation + analysis tools)
-- Compute: ~4h
-- Analysis: 2 days
-
-**Phase 3 (Rescue Attempts)**:
-- Implementation: 2-3 days (hyperparameter configs)
-- Compute: ~30h (can parallelize significantly)
-- Analysis: 2 days
-
-**Phase 4 (Stability)**:
-- Implementation: 2 days
-- Compute: ~6h
-- Analysis: 1 day
-
-**Total**: ~2-3 weeks (implementation + compute + analysis)
+**Key architectural implications from the literature**:
+- Weight tying (same energy network at each step): Already present in IRED ✓
+- Input injection (re-inject x at each step): Need to verify—check if the energy function receives the input matrix A at each optimization step, not just at initialization ⚠️
+- Randomized depth at training: Not currently implemented—this is a training intervention that promotes path independence
 
 ---
 
-## Risk Assessment
+### Priority 7: Condition-Number Curriculum (q256)
 
-**Risk 1: Multi-seed validation reveals results are noise**
-- Mitigation: If true, this is valuable (negative result: no strategy wins)
-- Probability: Low (1.5% difference is large enough to likely survive replication)
+**Rationale**: If the training-side lever is not negative mining, the improved-CD literature (Du et al., ICML 2021) points to **data augmentation** and **multi-scale processing** as robustness levers. For matrix inversion, the clean analogue is a condition-number curriculum: expose the model to progressively harder conditioning during training.
 
-**Risk 2: Root cause unclear from diagnostics**
-- Mitigation: Even partial understanding is publishable
-- Probability: Medium (may need additional probes beyond Q-201/202)
+**Experiment q256**: Condition-number curriculum
+- Phase 1 (0–50K steps): Train on well-conditioned matrices only (condition number < 100)
+- Phase 2 (50K–75K steps): Mix in moderately ill-conditioned matrices (condition number 100–1000)
+- Phase 3 (75K–100K steps): Include highly ill-conditioned matrices (condition number > 1000)
+- Compare to: (a) uniform random conditioning throughout, (b) baseline (well-conditioned only)
 
-**Risk 3: Adversarial mining cannot be rescued**
-- Mitigation: This is itself a strong result (fundamental limitation discovered)
-- Probability: Medium-High (task geometry may fundamentally conflict with adversarial mining)
+**Hypothesis**: Progressive conditioning exposure teaches the energy function to handle stiffer landscapes gradually, rather than forcing it to learn from a single conditioning regime. This is analogous to the improved-CD paper's data augmentation for MCMC mode mixing.
 
-**Risk 4: Training instability affects all strategies**
-- Mitigation: Phase 4 addresses this; improves all baselines
-- Probability: Low (baseline already converges well, but stability helps)
+**Success criteria**: OOD MSE improves >10% vs. baseline. Training stability maintained (no divergence during phase transitions).
 
----
+**Compute**: ~4h (single training run with curriculum scheduler).
 
-## Next Steps (Immediate)
-
-1. **Review existing adversarial config** (T0.2)
-   - Check current values of mining_opt_steps, ascent LR, noise scale
-   - Establish baseline for comparison
-
-2. **Implement multi-seed infrastructure** (T1.1, T1.2)
-   - Create configs for Q-101/102/103
-   - Set up SLURM array jobs for parallel execution
-
-3. **Start Phase 1 experiments** (Q-101, Q-102, Q-103)
-   - Submit multi-seed validation runs
-   - Expected: 1.5h compute time (parallelized), results within same day
-
-4. **Implement diagnostic instrumentation** (T2.1, T2.2) in parallel
-   - Matrix conditioning analysis
-   - Energy gap profiling
-   - Ready for Phase 2 as soon as Phase 1 completes
+**Note**: This is the only training-side intervention on the ladder. It is grounded in the improved-CD EBM literature's robustness principles (augmentation and multi-scale), not in negative mining.
 
 ---
 
-## References
+### Priority 8: Task-Specific Energy Composition (q257)
 
-**Key Papers Informing Investigation**:
+**Rationale**: The IRED paper states "one may also add additional inference-time constraints by composing the learned IRED energy function with other energy functions." For matrix inversion, we can compose the learned energy with an analytic residual term. This is no longer task-agnostic, but it's the most likely near-term win if the goal is raw OOD performance.
 
-1. **Debiased Contrastive Learning** (Chuang et al., NeurIPS 2020)
-   - Problem: Random negatives can include false negatives
-   - Solution: Debiasing techniques
+**Experiment q257**: Composed energy with inverse-consistency penalty
+- Define auxiliary energy: E_aux(A, Y) = ‖AY - I‖² (residual of the inverse equation)
+- At inference, minimize E_total(A, Y) = E_IRED(A, Y) + α · E_aux(A, Y)
+- Sweep α ∈ {0.01, 0.1, 1.0, 10.0}
+- **No retraining**—this is purely an inference-time modification
 
-2. **False Negative Cancellation** (Huynh et al., WACV 2022)
-   - Problem: False negatives harm contrastive learning
-   - Solution: Attract false negatives instead of repelling
+**Hypothesis**: The analytic residual provides a global guidance signal that the learned energy landscape may lack for OOD inputs. Even if E_IRED has local minima for ill-conditioned matrices, E_aux is globally convex and pulls toward the correct inverse.
 
-3. **ProGCL** (Xia et al., ICML 2022)
-   - Problem: Hard negatives in graphs are often false negatives
-   - Solution: Careful selection and filtering
+**Success criteria**: Substantial OOD improvement (>20%). The composed energy should dramatically reduce the gap between ID and OOD performance.
 
-4. **Hard Negative Mixing** (Kalantidis et al., NeurIPS 2020)
-   - Problem: Pure hard negatives can hurt
-   - Solution: Mix hard and random negatives
+**Compute**: Minimal—inference only, <1h.
 
-5. **Contrastive Learning with Hard Negative Samples** (Robinson et al., 2020)
-   - Key insight: Hardness is not monotonic; need careful control
-
-6. **Improved Contrastive Divergence for EBMs** (Du et al., 2021)
-   - Problem: EBM training is unstable
-   - Solution: Initialization, architecture, optimization tricks
-
-7. **Learning EBMs with Adversarial Training** (Yin et al., ECCV 2022)
-   - Problem: Adversarial-style procedures have complex dynamics
-   - Insight: Not straightforward "harder = better"
+**Caveat**: This is task-specific and would not generalize to other IRED applications. It is appropriate if the research goal is understanding IRED's failure mode on matrix inversion, but not if the goal is general-purpose IRED improvement.
 
 ---
 
-## Appendix: Key Metrics to Track
+## Anti-Recommendations (What NOT to Do)
 
-### Performance Metrics
-- Train MSE (mean squared error on training set)
-- Validation MSE (mean squared error on validation set)
-- Best checkpoint MSE (lowest validation MSE across training)
-- Final checkpoint MSE (MSE at step 100K or early stopping)
+### Do NOT return to IREM-style train-through-optimization
+IRED was introduced specifically to avoid IREM's instability (differentiating through the full optimization rollout has 295% memory overhead and unstable training). Going back would regress on IRED's core contribution. The IREM paper itself notes: "Direct recurrent backpropagation through such a number of iterative computations has been proven to be unstable to train."
 
-### Diagnostic Metrics (Phase 2)
-- **Matrix conditioning**:
-  - det(A) distribution (positive vs negative samples)
-  - cond(A) distribution
-  - σ_min (smallest singular value) distribution
-- **Energy landscape**:
-  - E(pos) - E(neg) gap over time
-  - Gradient norm during mining
-  - False negative rate (similarity between neg and pos)
-- **Diversity**:
-  - Inter-sample distance for adversarial negatives
-  - Coverage of negative sample space
+### Do NOT pursue more negative mining variants
+The negative mining branch is closed. Local adversarial, random, TAM, TAM-CTL, replay-uncertainty, trajectory-divergence, and local-instability all failed. The failure is sampler-agnostic, indicating the mechanism is wrong, not the specific sampler.
 
-### Training Metrics (Phase 4)
-- Learning rate schedule
-- Gradient norm (pre-clipping, post-clipping)
-- EMA decay and divergence from raw weights
-- Early stopping trigger point
+### Do NOT increase hard-state loss coefficient
+The fact that even weak reweighting (L_hard ~ 2×10⁻⁴) degraded OOD suggests the signal is misaligned, not underpowered. Stronger coefficients would likely cause larger OOD degradation.
+
+---
+
+## Compressed Priority Order
+
+| # | Experiment | Type | Key Question | Compute |
+|---|-----------|------|-------------|---------|
+| 1 | q245: Paper fidelity check | Diagnostic | Do our step semantics match the paper? | <1h |
+| 2 | q246–q248: Inference calibration | Inference | More steps / adaptive λ / multi-start? | ~8h |
+| 3 | q249–q250: Learned schedule | Training + Inference | Can we learn input-dependent annealing? | ~16h |
+| 4 | q251–q252: Amortized init / guided opt | Architecture | Does warm start fix OOD? | ~12h |
+| 5 | q253: Memoryful optimizer | Architecture | Does state help stiff landscapes? | ~24h |
+| 6 | q254–q255: Path independence | Diagnostic + Training | Is path dependence the bottleneck? | ~10h |
+| 7 | q256: Conditioning curriculum | Training | Does progressive exposure help? | ~4h |
+| 8 | q257: Energy composition | Inference (task-specific) | Does analytic residual fix OOD? | <1h |
+
+**Total estimated compute**: ~76 GPU-hours across all experiments
+
+**Recommended parallelism**:
+- q245 first (blocks everything—need to understand step semantics)
+- q246–q248 can run in parallel after q245
+- q254 (path independence diagnostic) can run in parallel with q246–q248
+- q257 (energy composition) can run anytime (inference-only, no dependencies)
+
+---
+
+## Key References
+
+### Primary Papers
+
+1. **IRED**: Du et al., "Learning Iterative Reasoning through Energy Diffusion," ICML 2024. [arXiv:2406.11179](https://arxiv.org/abs/2406.11179)
+   - Table 2: Step-count scaling on matrix inverse
+   - Table 3: Ablation (gradient descent + refinement + contrastive)
+   - Section 5: Three explicit limitations (inference speed, fixed schedule, no memory)
+
+2. **Path Independence**: Anil et al., "Path Independent Equilibrium Models Can Better Exploit Test-Time Computation," NeurIPS 2022. [arXiv:2211.09961](https://arxiv.org/abs/2211.09961)
+   - AA score diagnostic for path independence
+   - Conditions: weight tying, input injection, randomized depth
+   - Per-example OOD prediction via convergence consistency
+
+3. **Improved CD**: Du et al., "Improved Contrastive Divergence Training of Energy-Based Models," ICML 2021. [arXiv:2012.01316](https://arxiv.org/abs/2012.01316)
+   - Data augmentation as MCMC mode-mixing (not harder negatives)
+   - Multi-scale energy factorization
+   - KL entropy term for sample diversity
+
+4. **IREM**: Du et al., "Learning Iterative Reasoning through Energy Minimization," ICML 2022. [arXiv:2206.15448](https://arxiv.org/abs/2206.15448)
+   - Predecessor to IRED; replaced due to instability
+   - 295% memory overhead from full backprop
+   - Anti-recommendation: do not regress to IREM-style training
+
+### Supporting Literature
+
+5. **Deep Equilibrium Models**: Bai, Kolter, Koltun, NeurIPS 2019. [arXiv:1909.01377](https://arxiv.org/abs/1909.01377)
+   - Fixed-point iteration as implicit infinite-depth networks
+
+6. **Universal Transformers**: Dehghani et al., ICLR 2019. [arXiv:1807.03819](https://arxiv.org/abs/1807.03819)
+   - Adaptive computation time with weight-tied transformer blocks
+
+7. **Lyapunov-Stable DEQ**: AAAI 2024. [arXiv:2304.12707](https://arxiv.org/abs/2304.12707)
+   - Stability guarantees via Lyapunov functions (analogous to convex energy)
+
+8. **Learning to Optimize**: Andrychowicz et al., NeurIPS 2016.
+   - Learned update rules for optimization (relevant to q252 guided optimizer)
+
+---
+
+## Historical Record
+
+### Completed Phases (Negative Mining Branch — CLOSED)
+
+#### Phase 0: Single-Run Pilot (2026-01-21)
+- q001–q003: Baseline vs. random vs. adversarial mining
+- Finding: Adversarial mining degrades by ~1.5%
+
+#### Phase 1: Multi-Seed Validation (2026-01-24)
+- q101–q103: 10 seeds each, statistical testing
+- Finding: Baseline optimal (p<0.0001 vs. adversarial)
+
+#### Scalar Energy Head Investigation (2026-02-19)
+- q207, q209, q210: Scalar head instability, mining as accidental regularizer
+- Finding: Energy scale problem, not mining benefit
+
+#### TAM and TAM-CTL (2026-02-20 to 2026-02-24)
+- q211–q225: Trajectory-anchor mining, recovery loss, hyperparameter sweeps
+- Finding: TAM marginal at best, recovery loss degraded OOD
+- Bugs fixed: DataLoader freeze, recovery config, shape bug, checkpoint path
+
+#### Task-Agnostic Hard-State Sampling (2026-03-01 to 2026-03-03)
+- q242–q244: Replay-uncertainty, trajectory-divergence, local-instability
+- Finding: All converge to same OOD band (~0.2131), 3.3% worse than baseline
+- **Conclusion**: Negative mining is not the lever. Branch closed.
 
 ---
 
 ## Document History
 
-- **2026-01-21**: Document created after completing Q-001, Q-002, Q-003 and discovering adversarial underperformance
+- **2026-01-21**: Document created after Phase 0 results
+- **2026-02-19**: Added scalar energy head investigation
+- **2026-03-03**: Major rewrite — closed negative mining branch, redirected to inference-first ladder grounded in IRED paper limitations, path independence framework, and improved-CD literature
