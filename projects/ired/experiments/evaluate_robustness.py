@@ -57,12 +57,14 @@ def load_diffusion_model(checkpoint_path, config, device='cpu'):
 
     # Build GaussianDiffusion1D (same params as training)
     diffusion_steps = config.get('diffusion_steps', 10)
+    inference_opt_steps = config.get('inference_opt_steps', None)
     diffusion = GaussianDiffusion1D(
         wrapper,
         seq_length=32,
         objective='pred_noise',
         timesteps=diffusion_steps,
         continuous=True,
+        inference_opt_steps=inference_opt_steps,
     )
 
     # Load weights — prefer EMA from Trainer1D milestone checkpoints (model-N.pt)
@@ -85,7 +87,8 @@ def load_diffusion_model(checkpoint_path, config, device='cpu'):
 
     diffusion = diffusion.to(device)
     diffusion.eval()
-    print(f"  ✓ GaussianDiffusion1D built (timesteps={diffusion_steps}, continuous=True)")
+    opt_steps_str = inference_opt_steps if inference_opt_steps is not None else "5 (default)"
+    print(f"  ✓ GaussianDiffusion1D built (timesteps={diffusion_steps}, inference_opt_steps={opt_steps_str}, continuous=True)")
 
     return diffusion
 
@@ -196,10 +199,16 @@ def main():
                         help='Override output directory from config')
     parser.add_argument('--seed', type=int, default=None,
                         help='Random seed for reproducibility')
+    parser.add_argument('--inference-opt-steps', type=int, default=None,
+                        help='Override inner-loop optimization steps per landscape at inference')
 
     args = parser.parse_args()
 
     config = load_config(args.config)
+
+    if args.inference_opt_steps is not None:
+        config['inference_opt_steps'] = args.inference_opt_steps
+        print(f"CLI override: inference_opt_steps={args.inference_opt_steps}")
 
     if args.seed is not None:
         torch.manual_seed(args.seed)
