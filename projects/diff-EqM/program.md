@@ -33,7 +33,7 @@ files_readonly:
   - projects/diff-EqM/experiments/evaluate.py
   - projects/diff-EqM/eqm-upstream/
 partition: gpu_test
-pilot_steps: 3
+pilot_steps: 1
 full_steps: 80
 
 ## Hypothesis Generation
