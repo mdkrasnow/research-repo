@@ -6,7 +6,7 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=2
 #SBATCH --mem=16GB
-#SBATCH --time=0:30:00
+#SBATCH --time=0:45:00
 #SBATCH --partition=gpu_test
 #SBATCH --gres=gpu:1
 
@@ -30,8 +30,10 @@ export GIT_TERMINAL_PROMPT=0
 export GIT_SSH_COMMAND="ssh -o BatchMode=yes"
 
 echo "=== Cloning repo at SHA ${GIT_SHA} ===" >&2
-git clone "$GIT_URL" . 2>&1 | tail -20 || exit 1
-git checkout "${GIT_SHA}" 2>&1 | tail -5
+git init . 2>&1
+git remote add origin "$GIT_URL" 2>&1
+git fetch --depth=50 origin main 2>&1 | tail -10 || exit 1
+git checkout "${GIT_SHA}" 2>&1 | tail -5 || { echo "SHA not in last 50 commits, fetching full..."; git fetch --unshallow origin 2>&1 | tail -5; git checkout "${GIT_SHA}" 2>&1 | tail -5 || exit 1; }
 
 # Install dependencies if needed
 pip install timm diffusers accelerate torchdiffeq 2>&1 | tail -5
