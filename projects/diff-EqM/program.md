@@ -17,9 +17,9 @@ eval_grep: "^short_horizon_recovery_distance:"
 
 ## Baseline
 
-baseline: 0.045237
-best_so_far: 0.045234
-best_commit: 4f47c7c
+baseline: null
+best_so_far: null
+best_commit: null
 
 ## Constraints
 
@@ -33,7 +33,7 @@ files_readonly:
   - projects/diff-EqM/experiments/evaluate.py
   - projects/diff-EqM/eqm-upstream/
 partition: gpu_test
-pilot_steps: 1
+pilot_steps: 3
 full_steps: 80
 
 ## Hypothesis Generation
