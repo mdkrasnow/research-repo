@@ -34,6 +34,45 @@ Advance up to `batch_size` projects by one step each, orchestrating all code mod
 | `--dry-run` | Preview without modifying files or submitting jobs |
 | `--verbose` | Show detailed subagent communication and context |
 
+## Autoresearch Integration
+
+When a project has `phase=AUTORESEARCH` in pipeline.json:
+- **Dispatch delegates to `/autoresearch`** instead of normal phase processing
+- The autoresearch loop runs autonomously until a termination condition is met
+- No manual intervention needed between iterations
+- Results tracked in `results.tsv` with automatic keep/revert ratchet
+
+When a project has a `program.md` governance file AND `phase=CHECK`:
+- **Auto-evaluate using ratchet**: Compare metric to `program.md:best_so_far`
+- If improved: keep the change, update best_so_far, auto-advance to next experiment
+- If regressed: revert the change, log failure, auto-generate next hypothesis
+- **No DEBATE phase needed** for metric-driven decisions
+
+To enter autoresearch mode: `/autoresearch --project <slug>` (requires `program.md`)
+
+### Ratchet in pipeline.json
+
+When autoresearch has run, pipeline.json contains:
+
+```json
+{
+  "phase": "AUTORESEARCH",
+  "autoresearch": {
+    "active": true,
+    "iteration": 15,
+    "best_metric": 0.00823,
+    "best_commit": "abc1234",
+    "baseline_metric": 0.00977,
+    "consecutive_failures": 2,
+    "total_keeps": 8,
+    "total_reverts": 5,
+    "total_crashes": 2,
+    "started_at": "2026-03-31T10:00:00Z",
+    "last_iteration_at": "2026-03-31T14:30:00Z"
+  }
+}
+```
+
 ## Architecture: Subagent-Driven Execution
 
 **CRITICAL**: Dispatch delegates ALL code modifications to specialized subagents. Main orchestrator is coordinator only.
@@ -228,6 +267,7 @@ For each touched project:
 | RUN | Submit job to SLURM cluster | Bash + scripts/cluster/* |
 | CHECK/POLL | Check job status remotely | Bash + scripts/cluster/* |
 | DEBATE | Conduct structured debate | Subagent |
+| AUTORESEARCH | Delegate to `/autoresearch` loop | Skill(autoresearch) |
 
 5. **Release Lock**:
    - `scripts/ralph/lock.sh release projects/<slug>`

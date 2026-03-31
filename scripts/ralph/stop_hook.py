@@ -30,6 +30,13 @@ def is_actionable(p: dict, now_ts: float) -> bool:
         return False
     if p.get("needs_user_input", {}).get("value", False):
         return False
+
+    # AUTORESEARCH phase is always actionable (continuous loop)
+    if p.get("phase") == "AUTORESEARCH":
+        ar = p.get("autoresearch", {})
+        if ar.get("active", False):
+            return True
+
     if not p.get("next_action"):
         return False
     if p.get("phase") == "WAIT_SLURM":
@@ -87,12 +94,34 @@ def main():
     state["last_blocked_at"] = utc_now().replace(microsecond=0).isoformat().replace("+00:00", "Z")
     save_json_atomic(LOOP_STATE, state)
 
-    msg = "\n".join([
-        "Ralph loop: actionable work exists in this repo.",
-        "Next step: run `/dispatch` to advance projects.",
-        "To pause the loop: run `/ralph-off` (or delete .claude/ralph/enabled).",
-        f"(loop iteration {state['iterations_blocked']}/{max_iter}; stop_hook_active={stop_hook_active})",
-    ])
+    # Check if any project is in AUTORESEARCH mode for better messaging
+    autoresearch_active = False
+    if projects_dir.exists():
+        for pdir in projects_dir.iterdir():
+            if not pdir.is_dir() or pdir.name.startswith("."):
+                continue
+            pipe = pdir / ".state" / "pipeline.json"
+            if not pipe.exists():
+                continue
+            pdata = load_json(pipe, {})
+            if pdata.get("phase") == "AUTORESEARCH" and pdata.get("autoresearch", {}).get("active", False):
+                autoresearch_active = True
+                break
+
+    if autoresearch_active:
+        msg = "\n".join([
+            "Autoresearch loop active: continuous experiment iteration in progress.",
+            "Next step: run `/autoresearch` to continue the loop.",
+            "To pause: run `/ralph-off` (or delete .claude/ralph/enabled).",
+            f"(loop iteration {state['iterations_blocked']}/{max_iter})",
+        ])
+    else:
+        msg = "\n".join([
+            "Ralph loop: actionable work exists in this repo.",
+            "Next step: run `/dispatch` to advance projects.",
+            "To pause the loop: run `/ralph-off` (or delete .claude/ralph/enabled).",
+            f"(loop iteration {state['iterations_blocked']}/{max_iter}; stop_hook_active={stop_hook_active})",
+        ])
     print(msg, file=sys.stderr)
     sys.exit(2)
 

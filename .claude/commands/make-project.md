@@ -52,7 +52,11 @@ Ask critical questions to refine project parameters:
 - Computational resources available (GPU/CPU, time limits)
 - Baseline models/data already available
 - Success metrics for the research question
-- Desired number of experiment variations  
+- Desired number of experiment variations
+- **Autoresearch readiness**: Can this project be optimized against a single metric?
+  - If YES: ask for the metric name, direction (minimize/maximize), and evaluation command
+  - If YES: generate `program.md` governance file (see Phase 4b below)
+  - If NO: proceed with standard manual dispatch workflow
 
 
 ### Phase 3: Internal Debate
@@ -323,7 +327,75 @@ python experiments/run_experiment.py \
 echo "Experiment completed at $(date)"
 ```
 
-**9. `README.md`**
+**9. `program.md` (if autoresearch-eligible)**
+
+Generate from `templates/program.md` with user-provided values:
+
+```markdown
+## Objective
+metric: <user-provided metric name>
+direction: <minimize|maximize>
+eval_command: "python experiments/evaluate.py --config configs/eval.json"
+eval_grep: "^<metric_name>:"
+
+## Baseline
+baseline: null
+best_so_far: null
+best_commit: null
+
+## Constraints
+max_runtime_seconds: 300
+max_slurm_minutes: <based on user input>
+files_allowed:
+  - experiments/*.py
+  - configs/*.json
+files_readonly:
+  - program.md
+  - experiments/evaluate.py
+partition: <based on user input>
+pilot_steps: <10% of full training steps>
+full_steps: <user-provided or default>
+
+## Hypothesis Generation
+exploration_dimensions:
+  - <relevant dimensions based on research question>
+strategy: |
+  <customized based on project type>
+
+## Ratchet Rules
+keep_threshold: 0.0
+revert_on_regression: true
+revert_on_crash: true
+max_consecutive_failures: 10
+
+## Termination
+max_iterations: 100
+target_metric: <user-provided or null>
+max_wall_hours: 12
+stop_on_plateau: true
+plateau_window: 15
+
+## Execution Mode
+mode: slurm
+
+## Notes
+<project-specific notes from debate outcome>
+```
+
+Also generate `experiments/evaluate.py` — a standalone evaluation script that:
+- Loads a trained model checkpoint
+- Runs evaluation on validation data
+- Prints the metric in parseable format: `<metric_name>: <value>`
+- This file is READ-ONLY during autoresearch (the evaluation function is immutable)
+
+Also generate `results.tsv` with header:
+```
+iteration	metric	status	description	git_sha	timestamp
+```
+
+Also generate `slurm/jobs/autoresearch_pilot.sbatch` — a SLURM script configured for short pilot runs using `pilot_steps`.
+
+**10. `README.md`**
 ```markdown
 # <Project Name>
 
@@ -372,6 +444,12 @@ After creation, report to user:
 2. Customize experiment script: `experiments/run_experiment.py`
 3. Update configs: `configs/q001_baseline.json`
 4. Run `/dispatch` to begin implementation phase
+
+### Autoresearch (if program.md was generated)
+- To start autonomous iteration: `/autoresearch --project <slug>`
+- The agent will hypothesize, implement, run, and keep/revert autonomously
+- Monitor progress: `/check-status --project <slug>`
+- Results logged to: `results.tsv`
 
 ### Key Insights from Codebase Analysis
 - <what patterns were found>
