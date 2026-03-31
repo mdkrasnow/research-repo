@@ -69,6 +69,7 @@ revert_on_regression: true
 revert_on_crash: true
 max_consecutive_failures: 10
 simplicity_preference: true
+parallel_candidates: 5
 
 ## Termination
 

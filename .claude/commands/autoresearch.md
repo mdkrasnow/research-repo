@@ -1,5 +1,5 @@
 ---
-description: Run autonomous research loop - hypothesize, code, run, measure, keep/revert, repeat. Karpathy-style autoresearch.
+description: Run autonomous research loop - hypothesize, code, run, measure, keep/revert, repeat. Karpathy-style autoresearch with parallel candidate tournament.
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Task, Agent
 argument-hint: --project <slug> [--iterations N] [--dry-run] [--local]
 ---
@@ -7,12 +7,14 @@ argument-hint: --project <slug> [--iterations N] [--dry-run] [--local]
 
 Run an autonomous, continuous research loop on a project. The agent forms hypotheses, modifies code, runs experiments, measures results, and keeps or reverts changes — all without human intervention.
 
+Supports **parallel tournament mode**: each round generates N candidate configs, submits all as parallel SLURM jobs, and keeps only the best-performing candidate (if it beats current best).
+
 ## Usage
 
 ```bash
 /autoresearch --project my-experiment              # Run autoresearch loop
-/autoresearch --project my-experiment --iterations 20  # Limit to 20 iterations
-/autoresearch --project my-experiment --dry-run     # Preview first iteration only
+/autoresearch --project my-experiment --iterations 20  # Limit to 20 rounds
+/autoresearch --project my-experiment --dry-run     # Preview first round only
 /autoresearch --project my-experiment --local       # Force local execution (no SLURM)
 ```
 
@@ -23,57 +25,71 @@ The project MUST have a `program.md` governance file at `projects/<slug>/program
 - **Constraints** (files allowed, time budgets)
 - **Ratchet rules** (when to keep vs revert)
 - **Termination conditions**
+- **parallel_candidates** (number of parallel experiments per round, default 1 for sequential mode)
 
 If `program.md` doesn't exist, prompt the user to create one (offer to generate from template at `templates/program.md`).
 
-## The Autoresearch Loop
+## The Parallel Autoresearch Loop
 
 ```
-┌─────────────────────────────────────────────────┐
-│  AUTORESEARCH LOOP (runs until termination)     │
-│                                                 │
-│  1. READ CONTEXT                                │
-│     ├─ program.md (governance)                  │
-│     ├─ results.tsv (experiment history)         │
-│     └─ Current code state                       │
-│                                                 │
-│  2. HYPOTHESIZE                                 │
-│     ├─ Analyze past results                     │
-│     ├─ Identify promising direction             │
-│     └─ Form specific, testable hypothesis       │
-│                                                 │
-│  3. IMPLEMENT                                   │
-│     ├─ Modify ONLY files listed in              │
-│     │   program.md:files_allowed                │
-│     ├─ Make ONE change (isolate variables)      │
-│     └─ Git commit with hypothesis description   │
-│                                                 │
-│  4. RUN                                         │
-│     ├─ Local: eval_command with timeout          │
-│     └─ SLURM: submit job, poll until complete   │
-│                                                 │
-│  5. MEASURE                                     │
-│     ├─ Parse metric from output/logs            │
-│     └─ Compare to best_so_far                   │
-│                                                 │
-│  6. RATCHET DECISION                            │
-│     ├─ IMPROVED: Keep commit, update best       │
-│     ├─ REGRESSED: git revert, log failure       │
-│     └─ CRASHED: git revert, log crash           │
-│                                                 │
-│  7. LOG                                         │
-│     ├─ Append to results.tsv                    │
-│     └─ Update pipeline.json                     │
-│                                                 │
-│  8. CHECK TERMINATION                           │
-│     ├─ Max iterations reached?                  │
-│     ├─ Target metric achieved?                  │
-│     ├─ Plateau detected?                        │
-│     ├─ Max wall hours exceeded?                 │
-│     └─ Max consecutive failures?                │
-│                                                 │
-│  → If not terminated: go to step 1              │
-└─────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────┐
+│  AUTORESEARCH LOOP (runs until termination)          │
+│                                                      │
+│  1. READ CONTEXT                                     │
+│     ├─ program.md (governance)                       │
+│     ├─ results.tsv (experiment history)              │
+│     ├─ Current code state (baseline.json)            │
+│     └─ pipeline.json (autoresearch state)            │
+│                                                      │
+│  2. HYPOTHESIZE (generate N candidates)              │
+│     ├─ Analyze past results                          │
+│     ├─ Identify N promising directions               │
+│     ├─ Each candidate: ONE change from current best  │
+│     └─ Candidates should explore DIFFERENT dimensions│
+│                                                      │
+│  3. IMPLEMENT                                        │
+│     ├─ For each candidate i (1..N):                  │
+│     │   ├─ Create configs/candidate_i.json           │
+│     │   └─ Create configs/eval_candidate_i.json      │
+│     ├─ Modify ONLY files in program.md:files_allowed │
+│     └─ Git commit all candidates together            │
+│                                                      │
+│  4. RUN (parallel)                                   │
+│     ├─ Submit N SLURM jobs simultaneously            │
+│     │   (each with its own CONFIG_PATH/EVAL_CONFIG)  │
+│     ├─ Use partition diversification for 4+ jobs     │
+│     └─ Poll all until complete                       │
+│                                                      │
+│  5. MEASURE                                          │
+│     ├─ Parse metric from each candidate's eval log   │
+│     └─ Rank all N candidates by metric               │
+│                                                      │
+│  6. TOURNAMENT RATCHET                               │
+│     ├─ Find best candidate among N                   │
+│     ├─ If best beats current best_so_far:            │
+│     │   ├─ WINNER: merge its config into baseline    │
+│     │   ├─ Update best_so_far, best_commit           │
+│     │   ├─ Other candidates marked SKIP              │
+│     │   └─ Reset consecutive_failures to 0           │
+│     ├─ If NO candidate beats current best:           │
+│     │   ├─ All marked SKIP                           │
+│     │   ├─ Revert the candidates commit              │
+│     │   └─ Increment consecutive_failures            │
+│     └─ Clean up candidate config files               │
+│                                                      │
+│  7. LOG                                              │
+│     ├─ Append ALL N candidates to results.tsv        │
+│     └─ Update pipeline.json                          │
+│                                                      │
+│  8. CHECK TERMINATION                                │
+│     ├─ Max rounds reached?                           │
+│     ├─ Target metric achieved?                       │
+│     ├─ Plateau detected?                             │
+│     ├─ Max wall hours exceeded?                      │
+│     └─ Max consecutive round failures?               │
+│                                                      │
+│  → If not terminated: go to step 1                   │
+└──────────────────────────────────────────────────────┘
 ```
 
 ## Detailed Step Instructions
@@ -83,150 +99,180 @@ If `program.md` doesn't exist, prompt the user to create one (offer to generate 
 ```
 1. Read projects/<slug>/program.md
    - Parse all governance fields
-   - Validate required fields exist (metric, direction, eval_command or eval_grep)
+   - Read parallel_candidates (default 1 = sequential mode)
 
 2. Read projects/<slug>/results.tsv (create if missing)
-   - Header: iteration | metric | status | description | git_sha | timestamp
+   - Header: round | candidate | metric | status | description | git_sha | timestamp
    - Parse all past results to understand what's been tried
 
-3. Read current state of allowed files
-   - Understand what the code currently does
-   - Identify what hasn't been tried yet
+3. Read current state of baseline config (configs/baseline.json)
+   - This is the "current best" config that candidates modify from
 
 4. Read projects/<slug>/.state/pipeline.json
    - Check phase (should be AUTORESEARCH or will be set to it)
-   - Check for any blocking issues
+   - Check autoresearch.round for where we left off
 ```
 
-### Step 2: Hypothesize
+### Step 2: Hypothesize (N candidates)
 
-**CRITICAL**: The agent must form its OWN hypothesis. Do NOT ask the user what to try.
+**CRITICAL**: The agent must form its OWN hypotheses. Do NOT ask the user what to try.
 
 ```
 Based on results.tsv and program.md:exploration_dimensions:
 
-1. If results.tsv is empty (first run):
-   - Run the baseline configuration as-is
-   - This establishes the starting metric
+1. If results.tsv is empty (first round):
+   - Candidate 1: Run baseline as-is (establishes starting metric)
+   - Remaining candidates: simple single-dimension variations
+     (e.g., different lr, different gamma, different epsilon)
 
 2. If results.tsv has entries:
-   - Analyze which dimensions have been explored
-   - Identify which changes improved vs regressed
-   - Form a NEW hypothesis that hasn't been tried
-   - Write a 1-line description of what you're testing
+   - Analyze which dimensions have been explored, what worked/didn't
+   - Generate N diverse hypotheses across DIFFERENT dimensions
+   - Diversity rule: no two candidates in same round should change the same dimension
+   - Each hypothesis: ONE change from current baseline.json
 
 3. Hypothesis quality rules:
-   - ONE change per experiment (isolable)
+   - ONE change per candidate (isolable)
    - Motivated by past results (not random)
    - Specific and testable ("increase lr from 1e-3 to 3e-3")
    - Not a repeat of a previously failed approach
+   - N candidates should span different exploration_dimensions
 ```
 
-### Step 3: Implement
+### Step 3: Implement (create candidate configs)
 
 ```
-1. Modify ONLY files in program.md:files_allowed
-   - NEVER modify files in program.md:files_readonly
-   - NEVER modify program.md itself
+For each candidate i (1..N):
 
-2. Make the minimum change to test the hypothesis
-   - Prefer config changes over code changes
-   - Prefer small code changes over large ones
-   - If two approaches are equivalent, choose the simpler one
+1. Copy baseline.json → configs/candidate_i.json
+   - Apply the ONE change for this hypothesis
+   - Set output_dir to "projects/<slug>/results/candidate_i"
+   - Set experiment_name and description
 
-3. Git commit with descriptive message:
-   - Format: "autoresearch(<slug>): <hypothesis description>"
-   - Example: "autoresearch(ired): increase lr from 1e-3 to 3e-3"
+2. Create configs/eval_candidate_i.json
+   - Copy from configs/eval.json
+   - Set checkpoint_path to "projects/<slug>/results/candidate_i/final_model.pt"
+
+3. After all N configs created:
+   - Git commit: "autoresearch(<slug>): round R — N candidates: <brief list>"
+
+IMPORTANT:
+- ONLY modify/create files in program.md:files_allowed (configs/*.json qualifies)
+- If code changes are needed (train_dganm.py), apply them BEFORE creating configs
+- Code changes apply to ALL candidates in the round
 ```
 
-### Step 4: Run Experiment
+### Step 4: Run (parallel SLURM)
 
-**Local mode** (`mode: local` in program.md):
-```bash
-# Run with timeout
-timeout <max_runtime_seconds> <eval_command>
-```
-
-**SLURM mode** (`mode: slurm` in program.md):
 ```
 1. Ensure SSH session: scripts/cluster/ensure_session.sh
-2. Submit job: scripts/cluster/remote_submit.sh
-   - Use pilot_steps for rapid iteration (not full_steps)
-   - Use partition from program.md
-   - Capture job_id
-3. Poll until completion:
-   - First poll at 60 seconds (catch init errors)
-   - Then every 2 minutes
-   - Timeout at max_slurm_minutes
-4. Fetch logs: scripts/cluster/remote_fetch.sh
-```
 
-**IMPORTANT for SLURM mode**: Use `pilot_steps` (short runs) for the autoresearch loop. Only scale to `full_steps` for validated improvements (manually, after autoresearch completes).
+2. For each candidate i (1..N), submit a SLURM job:
+   - CONFIG_PATH=projects/<slug>/configs/candidate_i.json
+   - EVAL_CONFIG=projects/<slug>/configs/eval_candidate_i.json
+   - Use partition diversification for 4+ jobs:
+     - First half → gpu_test
+     - Second half → gpu
+
+3. Record all job_ids in pipeline.json:active_runs
+
+4. Poll all jobs until complete:
+   - First poll at 60s (catch init errors)
+   - Then every 2 minutes
+   - A round is done when ALL N jobs are complete
+   - If any job crashes, mark it as CRASH and continue waiting for others
+
+5. Fetch logs for ALL completed jobs:
+   scripts/cluster/remote_fetch.sh <slug>
+```
 
 ### Step 5: Measure
 
 ```
-1. Extract metric from output:
-   - Local: parse stdout for eval_grep pattern
-   - SLURM: parse log file for eval_grep pattern
+For each candidate i:
+
+1. Find eval log: slurm/logs/eval_<job_id>.log
+   - Parse for eval_grep pattern (e.g., "^short_horizon_recovery_distance:")
+   - Extract metric value
 
 2. Handle edge cases:
-   - Metric not found in output → status: CRASH
-   - Multiple metric values → use the LAST one (final evaluation)
-   - NaN or Inf → status: CRASH
-   - Job failed (non-zero exit) → status: CRASH
+   - Metric not found → candidate status: CRASH, metric: null
+   - NaN or Inf → candidate status: CRASH, metric: null
+   - Job failed → candidate status: CRASH, metric: null
 
-3. Compare to program.md:best_so_far
-   - If best_so_far is null: this is the baseline, always KEEP
-   - If direction=minimize: improvement = (best_so_far - metric) > keep_threshold
-   - If direction=maximize: improvement = (metric - best_so_far) > keep_threshold
+3. Build results table:
+   candidate_results = [
+     {candidate: 1, metric: 0.042, description: "increase lr"},
+     {candidate: 2, metric: 0.044, description: "add wd"},
+     {candidate: 3, metric: null, description: "reduce depth (CRASHED)"},
+     {candidate: 4, metric: 0.041, description: "increase epsilon"},
+     {candidate: 5, metric: 0.045, description: "double mining_steps"},
+   ]
 ```
 
-### Step 6: Ratchet Decision
+### Step 6: Tournament Ratchet
 
 ```
-KEEP (metric improved):
-  1. Update program.md:best_so_far = metric
-  2. Update program.md:best_commit = current git SHA
-  3. Log to results.tsv: status=KEEP
-  4. Reset consecutive_failures counter to 0
-  5. Print: "✓ KEEP: <metric> (improved from <old>)"
+1. Filter out crashed candidates (metric = null)
 
-REVERT (metric regressed):
-  1. Run: git revert HEAD --no-edit
-  2. Log to results.tsv: status=REVERT
-  3. Increment consecutive_failures counter
-  4. Print: "✗ REVERT: <metric> (worse than <best>)"
+2. Find best candidate:
+   - direction=minimize: candidate with lowest metric
+   - direction=maximize: candidate with highest metric
 
-CRASH (experiment failed):
-  1. Run: git revert HEAD --no-edit
-  2. Log to results.tsv: status=CRASH
-  3. Increment consecutive_failures counter
-  4. Print: "⚠ CRASH: <error_summary>"
-  5. If error is fixable (import error, typo): fix and retry ONCE
+3. Compare best candidate to current best_so_far:
+
+   IF best candidate beats best_so_far (or this is round 1 establishing baseline):
+     a. Winner's config → merge into baseline.json
+        - Read candidate_i.json, copy all training params to baseline.json
+        - Reset output_dir to standard path
+     b. Update program.md: best_so_far, best_commit
+     c. Update eval.json: checkpoint_path points to standard output
+     d. Log winner as WINNER in results.tsv
+     e. Log others as SKIP in results.tsv
+     f. Reset consecutive_failures = 0
+     g. Git commit: "autoresearch(<slug>): round R WINNER — <description> (metric)"
+     h. Clean up candidate configs
+
+   IF no candidate beats best_so_far:
+     a. Revert the candidates commit: git revert HEAD --no-edit
+     b. Log all as SKIP in results.tsv
+     c. Increment consecutive_failures
+     d. Print: "Round R: no improvement. Best remains <best_so_far>"
+     e. Clean up candidate configs (they're reverted anyway)
 ```
 
-**IMPORTANT**: When reverting, use `git revert HEAD --no-edit` (creates a new revert commit) rather than `git reset HEAD~1` to preserve full history. The revert commit message should include why: "Revert autoresearch(<slug>): <hypothesis> — metric regressed from X to Y".
+**Status values in results.tsv:**
+- `WINNER` — best candidate that beat best_so_far (merged into baseline)
+- `SKIP` — non-winning candidate (discarded)
+- `CRASH` — candidate that failed to produce a metric
+- `BASELINE` — first-round baseline establishment
 
 ### Step 7: Log Results
 
 ```
-1. Append to projects/<slug>/results.tsv:
-   <iteration> | <metric_value> | <KEEP|REVERT|CRASH> | <hypothesis_description> | <git_sha> | <ISO_timestamp>
+1. Append ALL N candidates to projects/<slug>/results.tsv:
+   round | candidate | metric | status | description | git_sha | timestamp
+
+   Example:
+   2   1   0.042   SKIP     increase lr to 3e-4          abc123   2026-04-01T10:00:00Z
+   2   2   0.041   WINNER   increase epsilon to 0.2      abc123   2026-04-01T10:00:00Z
+   2   3   null    CRASH    reduce depth to 8 (OOM)      abc123   2026-04-01T10:00:00Z
+   2   4   0.044   SKIP     double mining_steps to 6     abc123   2026-04-01T10:00:00Z
+   2   5   0.045   SKIP     add weight decay 0.01        abc123   2026-04-01T10:00:00Z
 
 2. Update projects/<slug>/.state/pipeline.json:
-   - phase: "AUTORESEARCH"
-   - autoresearch.iteration: <current>
+   - autoresearch.round: <current>
    - autoresearch.best_metric: <best_so_far>
    - autoresearch.best_commit: <sha>
    - autoresearch.consecutive_failures: <count>
-   - autoresearch.total_keeps: <count>
-   - autoresearch.total_reverts: <count>
-   - autoresearch.started_at: <ISO timestamp>
-   - autoresearch.last_iteration_at: <ISO timestamp>
+   - autoresearch.total_rounds: <count>
+   - autoresearch.total_candidates: <total experiments run>
+   - autoresearch.total_winners: <count>
 
-3. Print iteration summary:
-   "Iteration <N>/<max>: <metric> (<status>) | Best: <best> | Keeps: <k> Reverts: <r>"
+3. Print round summary:
+   "Round <R>/<max>: Best candidate: <metric> (<status>)
+    Candidates: <c1_metric> | <c2_metric> | ... | <cN_metric>
+    Overall best: <best_so_far> | Winners: <w> / Rounds: <r>"
 ```
 
 ### Step 8: Check Termination
@@ -234,56 +280,68 @@ CRASH (experiment failed):
 ```
 Check each condition in order:
 
-1. max_iterations reached?
-   → "Terminating: max iterations (<N>) reached. Best: <metric> at <commit>"
+1. max_iterations reached? (counts ROUNDS, not individual candidates)
+   → "Terminating: max rounds (<N>) reached. Best: <metric> at <commit>"
 
 2. target_metric achieved?
    → "Terminating: target metric (<target>) achieved! Final: <metric>"
 
-3. max_consecutive_failures reached?
-   → "Terminating: <N> consecutive failures. Best: <metric>. Consider revising program.md."
+3. max_consecutive_failures reached? (rounds with no winner)
+   → "Terminating: <N> consecutive rounds with no improvement."
 
-4. plateau detected? (stop_on_plateau && no improvement in plateau_window iterations)
-   → "Terminating: plateau detected (<N> iterations without improvement). Best: <metric>"
+4. plateau detected? (stop_on_plateau && no improvement in plateau_window rounds)
+   → "Terminating: plateau detected."
 
 5. max_wall_hours exceeded?
-   → "Terminating: wall-clock limit (<H>h) exceeded. Best: <metric>"
+   → "Terminating: wall-clock limit exceeded."
 
-If none triggered: CONTINUE to next iteration.
+If none triggered: CONTINUE to next round.
 
 On termination:
-  1. Update pipeline.json: phase → "CHECK" (human reviews results)
+  1. Update pipeline.json: phase → "CHECK"
   2. Update pipeline.json: autoresearch.terminated_reason = <reason>
-  3. Print final summary:
-     "AUTORESEARCH COMPLETE
-      Iterations: <N>
-      Best metric: <value> (started at <baseline>)
-      Improvement: <percentage>%
-      Keeps: <k> / Reverts: <r> / Crashes: <c>
-      Best commit: <sha>
-      Duration: <hours>h <minutes>m"
-  4. Commit results.tsv: "autoresearch(<slug>): complete — <N> iterations, <metric> best"
+  3. Print final summary with total rounds, total candidates, best metric, improvement %
+  4. Commit results.tsv
 ```
 
-## Pipeline.json Schema Extension
+## Candidate Config Convention
 
-When autoresearch is active, pipeline.json gains an `autoresearch` field:
+Training configs: `configs/candidate_1.json` through `configs/candidate_N.json`
+Eval configs: `configs/eval_candidate_1.json` through `configs/eval_candidate_N.json`
+
+Each candidate_i.json is a modified copy of baseline.json with:
+- Unique `experiment_name`: "round_R_candidate_i_<brief>"
+- Unique `output_dir`: "projects/<slug>/results/candidate_i"
+- Descriptive `description`
+- The ONE parameter change being tested
+
+Each eval_candidate_i.json is a copy of eval.json with:
+- `checkpoint_path`: "projects/<slug>/results/candidate_i/final_model.pt"
+
+After a round completes:
+- Winner's training params merged into baseline.json
+- All candidate_*.json and eval_candidate_*.json cleaned up
+- eval.json updated if winner changed the checkpoint path
+
+## Pipeline.json Schema Extension
 
 ```json
 {
   "phase": "AUTORESEARCH",
   "autoresearch": {
     "active": true,
-    "iteration": 15,
+    "round": 5,
+    "parallel_candidates": 5,
     "best_metric": 0.00823,
     "best_commit": "abc1234",
     "baseline_metric": 0.00977,
-    "consecutive_failures": 2,
-    "total_keeps": 8,
-    "total_reverts": 5,
+    "consecutive_failures": 1,
+    "total_rounds": 5,
+    "total_candidates": 25,
+    "total_winners": 3,
     "total_crashes": 2,
     "started_at": "2026-03-31T10:00:00Z",
-    "last_iteration_at": "2026-03-31T14:30:00Z",
+    "last_round_at": "2026-03-31T14:30:00Z",
     "terminated_reason": null
   }
 }
@@ -294,37 +352,51 @@ When autoresearch is active, pipeline.json gains an `autoresearch` field:
 Tab-separated file at `projects/<slug>/results.tsv`:
 
 ```
-iteration	metric	status	description	git_sha	timestamp
-1	0.00977	KEEP	baseline run	abc1234	2026-03-31T10:05:00Z
-2	0.01200	REVERT	increase lr from 1e-3 to 5e-3	def5678	2026-03-31T10:15:00Z
-3	0.00950	KEEP	add weight decay 0.01	ghi9012	2026-03-31T10:25:00Z
-4	0.00823	KEEP	reduce hidden_dim from 256 to 128	jkl3456	2026-03-31T10:35:00Z
+round	candidate	metric	status	description	git_sha	timestamp
+1	1	0.04524	BASELINE	3-epoch baseline (no mining)	abc123	2026-04-01T10:00:00Z
+2	1	0.04400	SKIP	increase lr to 3e-4	def456	2026-04-01T10:30:00Z
+2	2	0.04100	WINNER	enable mining, gamma=0.5, margin=5.0	def456	2026-04-01T10:30:00Z
+2	3	0.04500	SKIP	add weight decay 0.01	def456	2026-04-01T10:30:00Z
+2	4	null	CRASH	reduce depth to 8 (OOM)	def456	2026-04-01T10:30:00Z
+2	5	0.04450	SKIP	increase batch_size to 256	def456	2026-04-01T10:30:00Z
 ```
+
+## Partition Diversification for Parallel Jobs
+
+When submitting 4+ parallel candidates:
+- Split jobs across gpu_test and gpu partitions
+- Candidates 1..ceil(N/2) → gpu_test (higher priority)
+- Candidates ceil(N/2)+1..N → gpu (standard priority)
+- This avoids QOS per-partition submission limits
 
 ## Integration with Existing System
 
 - **Autoresearch IS a dispatch mode**: When `phase=AUTORESEARCH`, `/dispatch` delegates to the autoresearch loop
 - **Ralph loop compatible**: Ralph's stop hook recognizes AUTORESEARCH phase as actionable
-- **Lock-aware**: Each iteration acquires/releases the project lock
+- **Lock-aware**: Each round acquires/releases the project lock
 - **Git-disciplined**: Every change is committed; reverts are clean revert commits
 - **SLURM-aware**: Uses existing `scripts/cluster/*` infrastructure
 - **Results persist**: results.tsv and pipeline.json survive across sessions
 
 ## Resuming Autoresearch
 
-If a session ends mid-autoresearch (crash, user interrupt, etc.):
+If a session ends mid-autoresearch:
 
 1. `/autoresearch --project <slug>` reads pipeline.json
 2. Sees `phase=AUTORESEARCH` with `autoresearch.active=true`
-3. Reads `autoresearch.iteration` to know where it left off
-4. Reads `results.tsv` for full experiment history
-5. Continues from the next iteration
+3. Reads `autoresearch.round` to know where it left off
+4. Checks `active_runs` — if jobs were in-flight, checks their status
+5. If jobs still running: wait for completion, then process results
+6. If jobs completed: process results, continue to next round
+7. If no active jobs: start next round
 
-If a SLURM job was in-flight when interrupted:
-1. Check job status via `scripts/cluster/status.sh`
-2. If still running: wait for completion, then process result
-3. If completed: process result, continue loop
-4. If failed: revert, log crash, continue loop
+## Backward Compatibility (Sequential Mode)
+
+If `parallel_candidates: 1` (or not set) in program.md, the loop behaves exactly like the original sequential autoresearch:
+- 1 hypothesis per round
+- 1 SLURM job
+- KEEP/REVERT decision (no tournament)
+- results.tsv uses candidate=1 for all rows
 
 ## Error Handling
 
@@ -332,69 +404,11 @@ If a SLURM job was in-flight when interrupted:
 |-------|----------|
 | program.md missing | Prompt user; offer to create from template |
 | SSH session expired | Re-establish via ensure_session.sh, retry |
-| SLURM submission fails | Log crash, try next hypothesis |
+| All N candidates crash | Log crashes, increment failures, try next round |
+| Some candidates crash | Exclude crashed from tournament, proceed with survivors |
 | Git conflict on revert | Hard reset to best_commit, log incident |
-| Metric parse failure | Log crash, revert, try next hypothesis |
-| Lock acquisition fails | Wait 5s, retry up to 3 times |
-
-## Example Session
-
-```
-$ /autoresearch --project ired
-
-Reading program.md... objective: val_mse (minimize)
-Reading results.tsv... 0 prior experiments
-
---- Iteration 1/100 ---
-Hypothesis: baseline run (establish starting metric)
-Running: sbatch slurm/jobs/autoresearch_pilot.sbatch
-Job 62001234 submitted to gpu_test... polling...
-Result: val_mse = 0.00977
-✓ KEEP: 0.00977 (baseline established)
-
---- Iteration 2/100 ---
-Hypothesis: increase learning rate from 1e-3 to 3e-3
-Modified: configs/pilot.json (lr: 1e-3 → 3e-3)
-Committed: autoresearch(ired): increase lr from 1e-3 to 3e-3
-Running: sbatch slurm/jobs/autoresearch_pilot.sbatch
-Job 62001235 submitted... polling...
-Result: val_mse = 0.01200
-✗ REVERT: 0.01200 (worse than 0.00977)
-
---- Iteration 3/100 ---
-Hypothesis: add weight decay 0.01 (regularize to prevent overfitting)
-Modified: configs/pilot.json (weight_decay: 0 → 0.01)
-Committed: autoresearch(ired): add weight decay 0.01
-Running: sbatch slurm/jobs/autoresearch_pilot.sbatch
-Job 62001236 submitted... polling...
-Result: val_mse = 0.00950
-✓ KEEP: 0.00950 (improved from 0.00977)
-
-...
-
---- Iteration 47/100 ---
-Terminating: plateau detected (15 iterations without improvement)
-
-AUTORESEARCH COMPLETE
-Iterations: 47
-Best metric: 0.00612 (started at 0.00977)
-Improvement: 37.4%
-Keeps: 12 / Reverts: 30 / Crashes: 5
-Best commit: mno7890
-Duration: 6h 23m
-```
-
-## Differences from Manual Dispatch
-
-| Aspect | Manual Dispatch | Autoresearch |
-|--------|----------------|--------------|
-| Human involvement | Every phase transition | None until termination |
-| Hypothesis source | Human writes TODO list | Agent generates autonomously |
-| Keep/revert decision | Human reviews results | Automatic metric comparison |
-| Loop continuation | Manual `/dispatch` calls | Continuous until termination |
-| Experiment scope | Full training runs | Short pilot runs (rapid iteration) |
-| Code scope | Entire project | Only program.md:files_allowed |
-| Decision making | DEBATE phase | No debate — metric decides |
+| Metric parse failure | Mark candidate as CRASH, exclude from tournament |
+| QOS limit hit | Use partition diversification, retry failed submissions |
 
 ## Related Skills
 
