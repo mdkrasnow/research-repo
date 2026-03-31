@@ -4,57 +4,47 @@
   "phase": "AUTORESEARCH",
   "next_action": {
     "command": "/autoresearch --project diff-EqM",
-    "reason": "Autoresearch active — parallel tournament mode with 5 candidates per round",
-    "hint": "Do not manually dispatch. The autoresearch loop handles everything."
+    "reason": "Round 2: 5 parallel candidates running",
+    "hint": "Poll jobs, collect metrics, run tournament."
   },
   "needs_user_input": {
     "value": false,
     "prompt": ""
   },
   "active_runs": [
-    {
-      "run_id": "round1_baseline",
-      "job_id": "2861722",
-      "candidate": 1,
-      "description": "3-epoch baseline (no mining)",
-      "partition": "gpu_test",
-      "submitted_at": "2026-03-31T20:30:00Z"
-    }
+    {"run_id": "r2_c1", "job_id": "2862685", "candidate": 1, "description": "mining L_weak (margin=5.0, gamma=0.5)", "partition": "gpu_test"},
+    {"run_id": "r2_c2", "job_id": "2862686", "candidate": 2, "description": "higher lr (3e-4)", "partition": "gpu_test"},
+    {"run_id": "r2_c3", "job_id": "2862699", "candidate": 3, "description": "larger epsilon (0.3) + mining", "partition": "gpu"},
+    {"run_id": "r2_c4", "job_id": "2862687", "candidate": 4, "description": "EBM dot-product energy", "partition": "gpu"},
+    {"run_id": "r2_c5", "job_id": "2862688", "candidate": 5, "description": "weight decay 0.01", "partition": "gpu"}
   ],
-  "completed_runs": [],
+  "completed_runs": [
+    {"run_id": "r1_baseline", "job_id": "2861722", "status": "completed", "metric": 0.045237}
+  ],
   "slurm_wait": {
-    "next_poll_after": null,
+    "next_poll_after": "2026-03-31T20:45:00Z",
     "poll_interval_seconds": 120
   },
   "autoresearch": {
     "active": true,
-    "round": 0,
+    "round": 1,
     "parallel_candidates": 5,
-    "best_metric": null,
-    "best_commit": null,
-    "baseline_metric": null,
+    "best_metric": 0.045237,
+    "best_commit": "b44aa16",
+    "baseline_metric": 0.045237,
     "consecutive_failures": 0,
-    "total_rounds": 0,
-    "total_candidates": 0,
+    "total_rounds": 1,
+    "total_candidates": 1,
     "total_winners": 0,
     "total_crashes": 0,
     "started_at": "2026-03-31T20:00:00Z",
-    "last_round_at": null,
-    "terminated_reason": null,
-    "note": "Reset to 3-epoch pilots with parallel tournament (5 candidates/round)"
+    "last_round_at": "2026-03-31T20:33:00Z",
+    "terminated_reason": null
   },
   "events": [
-    {
-      "id": "evt-0001",
-      "ts": "2026-03-31T18:00:00Z",
-      "action": "INIT",
-      "detail": "Project created via /make-project."
-    },
-    {
-      "id": "evt-0004",
-      "ts": "2026-03-31T20:00:00Z",
-      "action": "RESET",
-      "detail": "Reset: 3 epochs + parallel tournament mode (5 candidates/round)."
-    }
+    {"id": "evt-0001", "ts": "2026-03-31T18:00:00Z", "action": "INIT", "detail": "Project created."},
+    {"id": "evt-0004", "ts": "2026-03-31T20:00:00Z", "action": "RESET", "detail": "3 epochs + parallel tournament mode."},
+    {"id": "evt-0005", "ts": "2026-03-31T20:33:00Z", "action": "BASELINE", "detail": "Round 1: baseline 0.045237 (3 epochs, no mining). Job 2861722."},
+    {"id": "evt-0006", "ts": "2026-03-31T20:40:00Z", "action": "SUBMIT", "detail": "Round 2: 5 parallel candidates submitted. Jobs 2862685-2862699."}
   ]
 }
