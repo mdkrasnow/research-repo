@@ -1,0 +1,101 @@
+Job started at Thu Feb 26 10:41:24 EST 2026
+Running on host: holygpu8a25204.rc.fas.harvard.edu
+Job ID: 62419360, Array Task ID: 3
+Config: projects/ired/configs/q231_recovery_mining.json
+Git URL: https://github.com/mdkrasnow/research-repo.git
+Git SHA: 8045a11b9e00147cc2971264dc13f892ff55e712
+Work directory: /tmp/ired-job-62419360
+GPU info:
+Thu Feb 26 10:41:24 2026       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 575.57.08              Driver Version: 575.57.08      CUDA Version: 12.9     |
+|-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA A100-SXM4-80GB          On  |   00000000:CA:00.0 Off |                    0 |
+| N/A   28C    P0             61W /  500W |       0MiB /  81920MiB |      0%      Default |
+|                                         |                        |             Disabled |
++-----------------------------------------+------------------------+----------------------+
+                                                                                         
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+
+Cloning repository...
+Repository cloned and checked out to: 8045a11
+Repository info:
+8045a11 Fix --train_steps -> --train-steps in sbatch (argparse uses hyphens)
+Starting smoke test (100 steps) with config: projects/ired/configs/q231_recovery_mining.json
+Loading configuration from: projects/ired/configs/q231_recovery_mining.json
+Configuration saved to: projects/ired/results/ds_inverse/q231_recovery_mining/experiment_config.json
+Setting random seed: 0
+Starting experiment with mining strategy: tam
+Configuration: {
+  "experiment_name": "q231_recovery_mining",
+  "description": "TAM-CTL v2 fix 4: full stack - implied noise + ranking + energy shaping + recovery-aligned mining.",
+  "investigation": "ired-pgd",
+  "ablation_stage": "tam_ctl_v2_recovery_mining",
+  "mining_strategy": "tam",
+  "tam_anchor_step": 2,
+  "pgd_delta": 1.5,
+  "pgd_step_size": 0.5,
+  "mining_opt_steps": 3,
+  "use_recovery_loss": true,
+  "recovery_steps": 1,
+  "recovery_loss_weight": 0.1,
+  "recovery_target": "implied_noise",
+  "use_recovery_rank_loss": true,
+  "recovery_rank_margin": 0.1,
+  "recovery_rank_weight": 0.1,
+  "use_gradient_contrastive": false,
+  "energy_loss_weight": 0.03,
+  "use_cd_loss": true,
+  "mining_objective": "recovery_failure",
+  "use_scalar_energy": true,
+  "rank": 20,
+  "ood": false,
+  "diffusion_steps": 10,
+  "batch_size": 2048,
+  "train_steps": 100,
+  "learning_rate": 0.0001,
+  "adam_betas": [
+    0.0,
+    0.999
+  ],
+  "output_dir": "projects/ired/results/ds_inverse/q231_recovery_mining",
+  "notes": "Ablation ladder step 4: q230 + recovery-failure mining. PGD maximizes recovery distance instead of denoising MSE.",
+  "seed": 0
+}
+Dataset: Inverse matrices (20x20)
+Input dimension: 400, Output dimension: 400
+Trainer initialized. Output directory: projects/ired/results/ds_inverse/q231_recovery_mining
+Training for 100 steps...
+[TAM-CTL-DIAG step=100] mse_pos=0.999908 mse_neg=0.999907 mse_rec=0.999907 neg_vs_rec=0.000000 rec_dist=0.0001 anchor_dist=1.3644 dist_rec_pos=1.9690 eps_gap_rel=0.1161 cos_rec=-0.2927
+training complete
+Training completed!
+Saving final model checkpoint to: projects/ired/results/ds_inverse/q231_recovery_mining/final_model.pt
+Final model checkpoint saved successfully (0 EBM parameters)
+Results saved to: projects/ired/results/ds_inverse/q231_recovery_mining/results.json
+Experiment completed at Thu Feb 26 10:42:39 EST 2026
+Copying results to persistent storage...
+sending incremental file list
+./
+summary.md
+ds_inverse/q224_test_local/
+ds_inverse/q224_test_local/experiment_config.json
+ds_inverse/q231_recovery_mining/
+ds_inverse/q231_recovery_mining/experiment_config.json
+ds_inverse/q231_recovery_mining/final_model.pt
+ds_inverse/q231_recovery_mining/results.json
+test_run/
+test_run/experiment_config.json
+
+sent 6,552 bytes  received 154 bytes  13,412.00 bytes/sec
+total size is 5,829  speedup is 0.87
+Results copied to /n/home03/mkrasnow/research-repo/projects/ired/results/
+Cleaning up work directory...

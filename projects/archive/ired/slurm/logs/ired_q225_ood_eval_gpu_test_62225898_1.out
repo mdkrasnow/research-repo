@@ -1,0 +1,107 @@
+Job started at Wed Feb 25 16:45:43 EST 2026
+Running on host: holygpu8a16103.rc.fas.harvard.edu
+Job ID: 62225898
+Array Task ID: 1
+Git URL: https://github.com/mdkrasnow/research-repo.git
+Git SHA: 28f83a052335d759564cfa3f60e293ed84708755
+Work directory: /tmp/ired-job-62225898
+GPU info:
+Wed Feb 25 16:45:44 2026       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 575.57.08              Driver Version: 575.57.08      CUDA Version: 12.9     |
+|-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA H200                    On  |   00000000:26:00.0 Off |                    0 |
+| N/A   25C    P0             75W /  700W |       0MiB / 143771MiB |      0%      Default |
+|                                         |                        |             Disabled |
++-----------------------------------------+------------------------+----------------------+
+                                                                                         
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+
+Cloning repository...
+Repository cloned and checked out to: 28f83a0
+Repository info:
+28f83a0 Rewrite evaluate_robustness.py to use diffusion sampling (matching training validation)
+Copying q225 TAM-CTL checkpoint to work directory...
+✓ q225 TAM-CTL checkpoint copied
+Starting q225 OOD evaluation with seed 1...
+Random seed set to: 1
+Configuration:
+{
+  "experiment_name": "q225_ood_evaluation",
+  "description": "OOD robustness evaluation: Test q225 (TAM-CTL recovery loss) checkpoint on out-of-distribution matrices using TAM-CTL mining strategy.",
+  "investigation": "ired-robustness",
+  "evaluation_mode": true,
+  "mining_strategy": "tam",
+  "tam_anchor_step": 2,
+  "pgd_delta": 1.5,
+  "pgd_step_size": 0.5,
+  "mining_opt_steps": 3,
+  "use_recovery_loss": true,
+  "recovery_steps": 1,
+  "recovery_loss_weight": 0.1,
+  "use_gradient_contrastive": false,
+  "energy_loss_weight": 0.0,
+  "use_scalar_energy": true,
+  "rank": 20,
+  "ood": true,
+  "dataset": "inverse",
+  "batch_size": 2048,
+  "num_test_samples": 1024,
+  "num_opt_steps": 10,
+  "target_mse_threshold": 0.001,
+  "diffusion_steps": 10,
+  "learning_rate": 0.0001,
+  "adam_betas": [
+    0.0,
+    0.999
+  ],
+  "model_checkpoints": [
+    "projects/ired/results/ds_inverse/q225_tam_ctl_full_100k/final_model.pt"
+  ],
+  "output_dir": "projects/ired/results/evaluation/q225_tam_ctl_ood/seed_1",
+  "notes": "OOD evaluation on q225 checkpoint (TAM + recovery loss). Uses TAM-CTL mining with same hyperparameters as training. Evaluates on ood=true (ill-conditioned matrices: rank-1 perturbations, \u03ba >> 1). For comparison with q230 baseline."
+}
+
+================================================================================
+Evaluating: q225_ood_evaluation
+================================================================================
+Difficulty: ood=True, rank=20
+Using device: cuda
+Loading test dataset...
+  Input dimension: 400, Output dimension: 400
+
+Evaluating model: q225_tam_ctl_full_100k
+  Loading checkpoint from: projects/ired/results/ds_inverse/q225_tam_ctl_full_100k/final_model.pt
+  Loading new checkpoint format (clean EBM state)
+  ✗ ERROR: No EBM parameters found in checkpoint
+
+Saving results to: projects/ired/results/evaluation/q225_tam_ctl_ood/seed_1/q225_ood_evaluation_results.json
+
+================================================================================
+Evaluation Summary: q225_ood_evaluation
+================================================================================
+
+q225_tam_ctl_full_100k: ERROR - No EBM parameters found in checkpoint
+
+================================================================================
+Evaluation completed at Wed Feb 25 16:45:54 EST 2026
+Copying evaluation results to persistent storage...
+sending incremental file list
+./
+q225_tam_ctl_ood/
+q225_tam_ctl_ood/seed_1/
+q225_tam_ctl_ood/seed_1/q225_ood_evaluation_results.json
+
+sent 478 bytes  received 50 bytes  1,056.00 bytes/sec
+total size is 247  speedup is 0.47
+Evaluation results copied to /n/home03/mkrasnow/research-repo/projects/ired/results/evaluation/
+Cleaning up work directory...

@@ -1,0 +1,156 @@
+Job started at Thu Feb 19 08:37:00 EST 2026
+Running on host: holygpu8a22102.rc.fas.harvard.edu
+Job ID: 61166912
+Git URL: https://github.com/mdkrasnow/research-repo.git
+Git SHA: 77652e757a3bb7e053ebf2ab14b8d76f856b9068
+Work directory: /tmp/ired-job-61166912
+GPU info:
+Thu Feb 19 08:37:00 2026       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 575.57.08              Driver Version: 575.57.08      CUDA Version: 12.9     |
+|-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA A100-SXM4-80GB          On  |   00000000:CA:00.0 Off |                    0 |
+| N/A   27C    P0             61W /  500W |       0MiB /  81920MiB |      0%      Default |
+|                                         |                        |             Disabled |
++-----------------------------------------+------------------------+----------------------+
+                                                                                         
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+
+Cloning repository...
+Repository cloned and checked out to: 77652e7
+Repository info:
+77652e7 Add q206 sbatch + pass contrastive flags through mining_config
+Starting IRED contrastive loss experiment (softplus(E_pos - E_neg))...
+Loading configuration from: projects/ired/configs/q206_ired_contrastive.json
+Configuration saved to: results/ds_inverse/q206_ired_contrastive/experiment_config.json
+Setting random seed: 3
+Starting experiment with mining strategy: cd_langevin_replay
+Configuration: {
+  "experiment_name": "q206_ired_contrastive",
+  "description": "IRED-style contrastive loss: softplus(E_pos - E_neg) replaces CD (E_neg - E_pos). Uses same Langevin negatives + replay buffer as q203 but with stable logistic contrastive objective.",
+  "investigation": "ired-cd",
+  "ablation_stage": "ired_contrastive",
+  "mining_strategy": "cd_langevin_replay",
+  "rank": 20,
+  "ood": false,
+  "diffusion_steps": 10,
+  "batch_size": 2048,
+  "train_steps": 20000,
+  "learning_rate": 0.0001,
+  "mining_opt_steps": 10,
+  "energy_reg_weight": 0.1,
+  "mining_noise_scale": 1.5,
+  "use_langevin": true,
+  "use_replay_buffer": true,
+  "replay_buffer_size": 10000,
+  "replay_buffer_buckets": 16,
+  "use_cd_loss": false,
+  "use_ired_contrastive_loss": true,
+  "contrastive_temperature": 1.0,
+  "use_residual_filter": false,
+  "use_energy_schedule": false,
+  "energy_loss_weight": 0.05,
+  "adam_betas": [
+    0.0,
+    0.999
+  ],
+  "output_dir": "results/ds_inverse/q206_ired_contrastive",
+  "notes": "Key experiment: IRED-style contrastive loss replaces CD objective. softplus(E_pos - E_neg) directly enforces E_pos < E_neg via stable logistic form. data_sample reuses denoising y_t (no separate noise draw) for lower variance. Same Langevin + replay infrastructure as q203. Tests whether the contrastive objective fixes the landscape shaping that CD failed at.",
+  "seed": 3
+}
+Dataset: Inverse matrices (20x20)
+Input dimension: 400, Output dimension: 400
+Trainer initialized. Output directory: results/ds_inverse/q206_ired_contrastive
+Training for 20000 steps...
+[IRED-CL-DIAG step=100] E_pos=0.2599 E_neg=0.5989 margin=0.3389 E_wtd=0.027361 MSE=0.999535 neg_dist=31.4627 lang_grad0=0.0001 lang_gradK=0.0001 lang_disp=34.3383 step=0.4452 sigma=0.9110
+[IRED-CL-DIAG step=200] E_pos=0.2145 E_neg=0.6604 margin=0.4459 E_wtd=0.025442 MSE=1.002532 neg_dist=31.4925 lang_grad0=0.0001 lang_gradK=0.0001 lang_disp=34.3180 step=0.4456 sigma=0.9113
+[IRED-CL-DIAG step=300] E_pos=0.1850 E_neg=0.6779 margin=0.4930 E_wtd=0.024527 MSE=1.000289 neg_dist=31.4550 lang_grad0=0.0001 lang_gradK=0.0001 lang_disp=34.2902 step=0.4396 sigma=0.9065
+[IRED-CL-DIAG step=400] E_pos=0.1606 E_neg=0.7108 margin=0.5501 E_wtd=0.023570 MSE=1.001241 neg_dist=31.3464 lang_grad0=0.0001 lang_gradK=0.0001 lang_disp=34.2420 step=0.4370 sigma=0.9031
+[IRED-CL-DIAG step=500] E_pos=0.1478 E_neg=0.7259 margin=0.5782 E_wtd=0.023080 MSE=1.000114 neg_dist=31.3979 lang_grad0=0.0001 lang_gradK=0.0001 lang_disp=34.2699 step=0.4411 sigma=0.9067
+[IRED-CL-DIAG step=600] E_pos=0.1338 E_neg=0.7450 margin=0.6113 E_wtd=0.022349 MSE=0.999292 neg_dist=31.4362 lang_grad0=0.0001 lang_gradK=0.0001 lang_disp=34.2956 step=0.4428 sigma=0.9090
+[IRED-CL-DIAG step=700] E_pos=0.1184 E_neg=0.7574 margin=0.6390 E_wtd=0.021916 MSE=0.997838 neg_dist=31.4083 lang_grad0=0.0001 lang_gradK=0.0001 lang_disp=34.2512 step=0.4401 sigma=0.9062
+[IRED-CL-DIAG step=800] E_pos=0.1106 E_neg=0.7700 margin=0.6594 E_wtd=0.021554 MSE=0.998907 neg_dist=31.5528 lang_grad0=0.0001 lang_gradK=0.0001 lang_disp=34.5000 step=0.4538 sigma=0.9196
+[IRED-CL-DIAG step=900] E_pos=0.1002 E_neg=0.7838 margin=0.6836 E_wtd=0.021140 MSE=0.999981 neg_dist=31.5440 lang_grad0=0.0001 lang_gradK=0.0001 lang_disp=34.3915 step=0.4496 sigma=0.9152
+[IRED-CL-DIAG step=1000] E_pos=0.0909 E_neg=0.8008 margin=0.7098 E_wtd=0.020619 MSE=0.997871 neg_dist=31.4526 lang_grad0=0.0001 lang_gradK=0.0001 lang_disp=34.3416 step=0.4451 sigma=0.9108
+Running Evaluation...
+Validation Result @ Iteration 1000; Milestone = 1 (Train)
+---------  -------
+mse_error  3.88707
+---------  -------
+Validation Result @ Iteration 1000; Milestone = 1 (ID: Validation)
+---  -------
+mse  3.86871
+---  -------
+[IRED-CL-DIAG step=1100] E_pos=0.0806 E_neg=0.8052 margin=0.7246 E_wtd=0.020386 MSE=1.001062 neg_dist=31.4213 lang_grad0=0.0001 lang_gradK=0.0001 lang_disp=34.2942 step=0.4458 sigma=0.9113
+[IRED-CL-DIAG step=1200] E_pos=0.0781 E_neg=0.7997 margin=0.7216 E_wtd=0.020409 MSE=0.999021 neg_dist=31.5689 lang_grad0=0.0001 lang_gradK=0.0001 lang_disp=34.4468 step=0.4563 sigma=0.9223
+[IRED-CL-DIAG step=1300] E_pos=0.0731 E_neg=0.8337 margin=0.7606 E_wtd=0.019763 MSE=0.997769 neg_dist=31.3207 lang_grad0=0.0001 lang_gradK=0.0001 lang_disp=34.1558 step=0.4322 sigma=0.8990
+[IRED-CL-DIAG step=1400] E_pos=0.0696 E_neg=0.8380 margin=0.7683 E_wtd=0.019647 MSE=0.996731 neg_dist=31.5208 lang_grad0=0.0001 lang_gradK=0.0001 lang_disp=34.4034 step=0.4484 sigma=0.9149
+[IRED-CL-DIAG step=1500] E_pos=0.0646 E_neg=0.8479 margin=0.7833 E_wtd=0.019400 MSE=0.999823 neg_dist=31.4879 lang_grad0=0.0001 lang_gradK=0.0001 lang_disp=34.3149 step=0.4396 sigma=0.9073
+[IRED-CL-DIAG step=1600] E_pos=0.0620 E_neg=0.8472 margin=0.7852 E_wtd=0.019370 MSE=1.000818 neg_dist=31.4093 lang_grad0=0.0001 lang_gradK=0.0001 lang_disp=34.2271 step=0.4380 sigma=0.9047
+[IRED-CL-DIAG step=1700] E_pos=0.0594 E_neg=0.8588 margin=0.7994 E_wtd=0.019137 MSE=1.002180 neg_dist=31.5496 lang_grad0=0.0001 lang_gradK=0.0001 lang_disp=34.4534 step=0.4491 sigma=0.9162
+[IRED-CL-DIAG step=1800] E_pos=0.0558 E_neg=0.8656 margin=0.8098 E_wtd=0.018946 MSE=0.999762 neg_dist=31.4895 lang_grad0=0.0001 lang_gradK=0.0001 lang_disp=34.4089 step=0.4488 sigma=0.9152
+[IRED-CL-DIAG step=1900] E_pos=0.0534 E_neg=0.8705 margin=0.8171 E_wtd=0.018821 MSE=1.001816 neg_dist=31.4659 lang_grad0=0.0001 lang_gradK=0.0001 lang_disp=34.3129 step=0.4442 sigma=0.9100
+[IRED-CL-DIAG step=2000] E_pos=0.0496 E_neg=0.8655 margin=0.8158 E_wtd=0.018827 MSE=1.000134 neg_dist=31.4697 lang_grad0=0.0001 lang_gradK=0.0001 lang_disp=34.3092 step=0.4453 sigma=0.9112
+Running Evaluation...
+Validation Result @ Iteration 2000; Milestone = 2 (Train)
+---------  -------
+mse_error  3.88711
+---------  -------
+Validation Result @ Iteration 2000; Milestone = 2 (ID: Validation)
+---  -------
+mse  3.86671
+---  -------
+[IRED-CL-DIAG step=2100] E_pos=0.0769 E_neg=1.1618 margin=1.0849 E_wtd=0.015186 MSE=1.001100 neg_dist=31.5108 lang_grad0=0.0002 lang_gradK=0.0002 lang_disp=34.4307 step=0.4443 sigma=0.9118
+[IRED-CL-DIAG step=2200] E_pos=0.0718 E_neg=1.1768 margin=1.1050 E_wtd=0.014958 MSE=0.999299 neg_dist=31.4339 lang_grad0=0.0002 lang_gradK=0.0002 lang_disp=34.2741 step=0.4405 sigma=0.9071
+[IRED-CL-DIAG step=2300] E_pos=0.0713 E_neg=1.1274 margin=1.0561 E_wtd=0.015537 MSE=0.999689 neg_dist=31.2757 lang_grad0=0.0001 lang_gradK=0.0002 lang_disp=32.8940 step=0.4473 sigma=0.9122
+[IRED-CL-DIAG step=2400] E_pos=0.0737 E_neg=1.1717 margin=1.0980 E_wtd=0.014989 MSE=0.999418 neg_dist=31.4854 lang_grad0=0.0002 lang_gradK=0.0002 lang_disp=34.3645 step=0.4469 sigma=0.9130
+[IRED-CL-DIAG step=2500] E_pos=0.0681 E_neg=1.1760 margin=1.1079 E_wtd=0.014862 MSE=0.998993 neg_dist=31.5101 lang_grad0=0.0002 lang_gradK=0.0002 lang_disp=34.3883 step=0.4497 sigma=0.9157
+[IRED-CL-DIAG step=2600] E_pos=0.0694 E_neg=1.1829 margin=1.1136 E_wtd=0.014804 MSE=1.001604 neg_dist=31.4287 lang_grad0=0.0002 lang_gradK=0.0002 lang_disp=34.2098 step=0.4409 sigma=0.9072
+[IRED-CL-DIAG step=2700] E_pos=0.0687 E_neg=1.1923 margin=1.1236 E_wtd=0.014646 MSE=0.999320 neg_dist=31.5317 lang_grad0=0.0002 lang_gradK=0.0002 lang_disp=34.4067 step=0.4490 sigma=0.9148
+[IRED-CL-DIAG step=2800] E_pos=0.0671 E_neg=1.2006 margin=1.1335 E_wtd=0.014532 MSE=0.997995 neg_dist=31.4946 lang_grad0=0.0002 lang_gradK=0.0002 lang_disp=34.3851 step=0.4457 sigma=0.9125
+[IRED-CL-DIAG step=2900] E_pos=0.0670 E_neg=1.2001 margin=1.1331 E_wtd=0.014534 MSE=1.000316 neg_dist=31.5450 lang_grad0=0.0002 lang_gradK=0.0002 lang_disp=34.3956 step=0.4480 sigma=0.9150
+[IRED-CL-DIAG step=3000] E_pos=0.0651 E_neg=1.2098 margin=1.1447 E_wtd=0.014390 MSE=0.998636 neg_dist=31.3162 lang_grad0=0.0002 lang_gradK=0.0002 lang_disp=34.0758 step=0.4302 sigma=0.8963
+Running Evaluation...
+Validation Result @ Iteration 3000; Milestone = 3 (Train)
+---------  -------
+mse_error  3.88463
+---------  -------
+Validation Result @ Iteration 3000; Milestone = 3 (ID: Validation)
+---  -------
+mse  3.86149
+---  -------
+[IRED-CL-DIAG step=3100] E_pos=0.0681 E_neg=1.2003 margin=1.1323 E_wtd=0.014514 MSE=1.000748 neg_dist=31.5629 lang_grad0=0.0002 lang_gradK=0.0002 lang_disp=34.4550 step=0.4507 sigma=0.9172
+[IRED-CL-DIAG step=3200] E_pos=0.0661 E_neg=1.2053 margin=1.1392 E_wtd=0.014414 MSE=0.995841 neg_dist=31.4951 lang_grad0=0.0002 lang_gradK=0.0002 lang_disp=34.4153 step=0.4490 sigma=0.9154
+[IRED-CL-DIAG step=3300] E_pos=0.0679 E_neg=1.2171 margin=1.1492 E_wtd=0.014294 MSE=0.998462 neg_dist=31.6161 lang_grad0=0.0002 lang_gradK=0.0002 lang_disp=34.4895 step=0.4551 sigma=0.9217
+[IRED-CL-DIAG step=3400] E_pos=0.0653 E_neg=1.2223 margin=1.1570 E_wtd=0.014186 MSE=1.000943 neg_dist=31.4698 lang_grad0=0.0002 lang_gradK=0.0002 lang_disp=34.3885 step=0.4456 sigma=0.9116
+[IRED-CL-DIAG step=3500] E_pos=0.0628 E_neg=1.2286 margin=1.1658 E_wtd=0.014082 MSE=1.000379 neg_dist=31.4956 lang_grad0=0.0002 lang_gradK=0.0002 lang_disp=34.3962 step=0.4467 sigma=0.9133
+[IRED-CL-DIAG step=3600] E_pos=0.0636 E_neg=1.2285 margin=1.1649 E_wtd=0.014083 MSE=1.000746 neg_dist=31.4788 lang_grad0=0.0002 lang_gradK=0.0002 lang_disp=34.3682 step=0.4475 sigma=0.9134
+[IRED-CL-DIAG step=3700] E_pos=0.0641 E_neg=1.2340 margin=1.1699 E_wtd=0.014050 MSE=1.000518 neg_dist=31.4527 lang_grad0=0.0002 lang_gradK=0.0002 lang_disp=34.3474 step=0.4456 sigma=0.9117
+[IRED-CL-DIAG step=3800] E_pos=0.0638 E_neg=1.2420 margin=1.1782 E_wtd=0.013947 MSE=1.000307 neg_dist=31.5401 lang_grad0=0.0002 lang_gradK=0.0002 lang_disp=34.4013 step=0.4508 sigma=0.9163
+[IRED-CL-DIAG step=3900] E_pos=0.0629 E_neg=1.2351 margin=1.1722 E_wtd=0.013976 MSE=0.999212 neg_dist=31.4865 lang_grad0=0.0002 lang_gradK=0.0002 lang_disp=34.3272 step=0.4460 sigma=0.9122
+[IRED-CL-DIAG step=4000] E_pos=0.0618 E_neg=1.2512 margin=1.1894 E_wtd=0.013775 MSE=0.999823 neg_dist=31.4318 lang_grad0=0.0002 lang_gradK=0.0002 lang_disp=34.3039 step=0.4465 sigma=0.9114
+Running Evaluation...
+Validation Result @ Iteration 4000; Milestone = 4 (Train)
+---------  -------
+mse_error  3.88371
+---------  -------
+Validation Result @ Iteration 4000; Milestone = 4 (ID: Validation)
+---  -------
+mse  3.85771
+---  -------
+[IRED-CL-DIAG step=4100] E_pos=0.0333 E_neg=0.9885 margin=0.9552 E_wtd=0.016703 MSE=0.998572 neg_dist=31.3192 lang_grad0=0.0001 lang_gradK=0.0001 lang_disp=32.9011 step=0.4453 sigma=0.9119
+[IRED-CL-DIAG step=4200] E_pos=0.0315 E_neg=1.0071 margin=0.9756 E_wtd=0.016428 MSE=0.996170 neg_dist=31.4448 lang_grad0=0.0001 lang_gradK=0.0001 lang_disp=34.2937 step=0.4418 sigma=0.9083
+[IRED-CL-DIAG step=4300] E_pos=0.0298 E_neg=1.0056 margin=0.9758 E_wtd=0.016448 MSE=1.000311 neg_dist=31.4892 lang_grad0=0.0001 lang_gradK=0.0001 lang_disp=34.3177 step=0.4460 sigma=0.9118
+[IRED-CL-DIAG step=4400] E_pos=0.0297 E_neg=1.0129 margin=0.9831 E_wtd=0.016338 MSE=1.000180 neg_dist=31.3383 lang_grad0=0.0001 lang_gradK=0.0001 lang_disp=34.1757 step=0.4408 sigma=0.9049
+[IRED-CL-DIAG step=4500] E_pos=0.0288 E_neg=1.0149 margin=0.9861 E_wtd=0.016287 MSE=0.998983 neg_dist=31.3462 lang_grad0=0.0001 lang_gradK=0.0001 lang_disp=34.2053 step=0.4379 sigma=0.9033
+[IRED-CL-DIAG step=4600] E_pos=0.0293 E_neg=0.9991 margin=0.9697 E_wtd=0.016505 MSE=1.000041 neg_dist=31.6155 lang_grad0=0.0001 lang_gradK=0.0001 lang_disp=34.5426 step=0.4510 sigma=0.9184
+[IRED-CL-DIAG step=4700] E_pos=0.0278 E_neg=1.0089 margin=0.9811 E_wtd=0.016336 MSE=1.002338 neg_dist=31.3833 lang_grad0=0.0001 lang_gradK=0.0001 lang_disp=34.2089 step=0.4379 sigma=0.9041

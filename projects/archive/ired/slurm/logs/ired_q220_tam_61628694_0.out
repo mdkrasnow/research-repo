@@ -1,0 +1,1168 @@
+Job started at Sun Feb 22 11:58:07 EST 2026
+Running on host: holygpu8a25405.rc.fas.harvard.edu
+Job ID: 61628704
+GPU info:
+Sun Feb 22 11:58:08 2026       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 575.57.08              Driver Version: 575.57.08      CUDA Version: 12.9     |
+|-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA A100-SXM4-80GB          On  |   00000000:CA:00.0 Off |                    0 |
+| N/A   27C    P0             57W /  500W |       0MiB /  81920MiB |      0%      Default |
+|                                         |                        |             Disabled |
++-----------------------------------------+------------------------+----------------------+
+                                                                                         
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+
+Cloning repository...
+Repository cloned and checked out to: 01f793c
+01f793c Clean slate: cancel all jobs and deploy q220 TAM baseline
+Starting q220: TAM baseline (trajectory-anchored PGD negatives)...
+Loading configuration from: projects/ired/configs/q220_tam_base.json
+Configuration saved to: results/ds_inverse/q220_tam_base/experiment_config.json
+Setting random seed: 0
+Starting experiment with mining strategy: tam
+Configuration: {
+  "experiment_name": "q220_tam_base",
+  "description": "TAM baseline: anchor PGD on opt_step trajectory iterate (anchor_step=2) instead of data_sample. Identical to q218 (pgd_delta=1.5, 3 PGD steps, GC loss) except the PGD center is now x_anchor from 2 opt_step unrolls. Validates that (a) anchor moves away from x_pos (anchor_dist > 0), (b) neg_dist is ~1.5 from x_pos (not 25-45), (c) mse_neg_final > mse_neg_init. If neg_dist collapses to < 0.1, trajectory is not moving (reduce anchor_step or increase pgd_delta). SUCCESS: val MSE < 0.00969 at 100k AND anchor_dist in (0.2, 5.0).",
+  "investigation": "ired-pgd",
+  "ablation_stage": "tam_baseline",
+  "mining_strategy": "tam",
+  "tam_anchor_step": 2,
+  "rank": 20,
+  "ood": false,
+  "diffusion_steps": 10,
+  "batch_size": 2048,
+  "train_steps": 100000,
+  "learning_rate": 0.0001,
+  "use_scalar_energy": true,
+  "use_ired_contrastive_loss": false,
+  "use_gradient_contrastive": true,
+  "gc_temperature": 1.0,
+  "pgd_delta": 1.5,
+  "pgd_step_size": 0.5,
+  "mining_opt_steps": 3,
+  "use_replay_buffer": false,
+  "use_cd_loss": false,
+  "energy_loss_weight": 0.05,
+  "energy_reg_weight": 0.0,
+  "use_residual_filter": false,
+  "use_energy_schedule": false,
+  "adam_betas": [
+    0.0,
+    0.999
+  ],
+  "output_dir": "results/ds_inverse/q220_tam_base",
+  "notes": "TAM baseline. Key diagnostics in TAM-GC-DIAG: anchor_dist should be >0 (trajectory moves), neg_dist should be ~1.5 (PGD radius from x_anchor, not far from x_pos), pgd_disp should be ~pgd_delta (PGD saturates). mse_neg_final > mse_neg_init (PGD ascends). If successful, proceed to q221 sweep over anchor_step and pgd_delta.",
+  "seed": 0
+}
+Dataset: Inverse matrices (20x20)
+Input dimension: 400, Output dimension: 400
+Trainer initialized. Output directory: results/ds_inverse/q220_tam_base
+Training for 100000 steps...
+[TAM-GC-DIAG step=100] mse_pos=0.999260 mse_neg=0.999260 mse_gap=0.000000 pred_norm=0.0000 pred_std=0.0000 pred_abs=0.0000 tgt_std=1.0000 tgt_abs=0.7979 cos=-0.0006 neg_dist=1.8782 anchor_dist=1.8782 pgd_disp=0.0000 mse_neg_init=0.999907 mse_neg_final=0.999907
+[TAM-GC-DIAG step=200] mse_pos=1.002301 mse_neg=1.002303 mse_gap=0.000001 pred_norm=0.0001 pred_std=0.0000 pred_abs=0.0000 tgt_std=0.9991 tgt_abs=0.7972 cos=0.0011 neg_dist=12.1097 anchor_dist=12.1097 pgd_disp=0.0001 mse_neg_init=0.998231 mse_neg_final=0.998231
+[TAM-GC-DIAG step=300] mse_pos=0.998276 mse_neg=0.998492 mse_gap=0.000216 pred_norm=0.0119 pred_std=0.0006 pred_abs=0.0005 tgt_std=1.0002 tgt_abs=0.7982 cos=-0.0005 neg_dist=0.9507 anchor_dist=0.9447 pgd_disp=0.0134 mse_neg_init=1.000262 mse_neg_final=1.000263
+[TAM-GC-DIAG step=400] mse_pos=0.991891 mse_neg=1.001914 mse_gap=0.010022 pred_norm=0.3588 pred_std=0.0182 pred_abs=0.0143 tgt_std=1.0006 tgt_abs=0.7989 cos=0.0027 neg_dist=10.0778 anchor_dist=9.6549 pgd_disp=0.6518 mse_neg_init=0.998108 mse_neg_final=0.998831
+[TAM-GC-DIAG step=500] mse_pos=0.884539 mse_neg=1.014671 mse_gap=0.130132 pred_norm=3.1419 pred_std=0.1613 pred_abs=0.1255 tgt_std=1.0009 tgt_abs=0.7984 cos=-0.0019 neg_dist=6.6942 anchor_dist=5.6666 pgd_disp=1.5000 mse_neg_init=0.927916 mse_neg_final=0.948962
+[TAM-GC-DIAG step=600] mse_pos=0.665711 mse_neg=1.044496 mse_gap=0.378785 pred_norm=9.3812 pred_std=0.4940 pred_abs=0.3746 tgt_std=1.0006 tgt_abs=0.7979 cos=0.0007 neg_dist=8.6657 anchor_dist=7.5242 pgd_disp=1.5000 mse_neg_init=0.821341 mse_neg_final=0.902802
+[TAM-GC-DIAG step=700] mse_pos=0.578567 mse_neg=1.066292 mse_gap=0.487725 pred_norm=11.6104 pred_std=0.6173 pred_abs=0.4635 tgt_std=1.0006 tgt_abs=0.7984 cos=-0.0001 neg_dist=15.0664 anchor_dist=13.9916 pgd_disp=1.5000 mse_neg_init=1.047403 mse_neg_final=1.185914
+[TAM-GC-DIAG step=800] mse_pos=0.507671 mse_neg=1.042858 mse_gap=0.535187 pred_norm=12.6136 pred_std=0.6612 pred_abs=0.5033 tgt_std=0.9993 tgt_abs=0.7975 cos=0.0001 neg_dist=9.9620 anchor_dist=8.6534 pgd_disp=1.5000 mse_neg_init=0.749741 mse_neg_final=0.889265
+[TAM-GC-DIAG step=900] mse_pos=0.452600 mse_neg=1.047173 mse_gap=0.594573 pred_norm=13.7390 pred_std=0.7150 pred_abs=0.5487 tgt_std=1.0005 tgt_abs=0.7981 cos=0.0013 neg_dist=10.5582 anchor_dist=9.2245 pgd_disp=1.5000 mse_neg_init=0.743931 mse_neg_final=0.913172
+[TAM-GC-DIAG step=1000] mse_pos=0.418234 mse_neg=1.048721 mse_gap=0.630487 pred_norm=14.2140 pred_std=0.7385 pred_abs=0.5675 tgt_std=0.9995 tgt_abs=0.7976 cos=-0.0006 neg_dist=10.8579 anchor_dist=9.5048 pgd_disp=1.5000 mse_neg_init=0.735845 mse_neg_final=0.922833
+Running Evaluation...
+Validation Result @ Iteration 1000; Milestone = 1 (Train)
+---------  -------
+mse_error  2.73881
+---------  -------
+Validation Result @ Iteration 1000; Milestone = 1 (ID: Validation)
+---  -------
+mse  2.73937
+---  -------
+[TAM-GC-DIAG step=1100] mse_pos=0.383337 mse_neg=1.045129 mse_gap=0.661792 pred_norm=15.0238 pred_std=0.7787 pred_abs=0.5998 tgt_std=1.0004 tgt_abs=0.7987 cos=-0.0001 neg_dist=11.5125 anchor_dist=10.1473 pgd_disp=1.5000 mse_neg_init=0.758843 mse_neg_final=0.962271
+[TAM-GC-DIAG step=1200] mse_pos=0.357539 mse_neg=1.038296 mse_gap=0.680757 pred_norm=15.1123 pred_std=0.7834 pred_abs=0.6036 tgt_std=0.9999 tgt_abs=0.7976 cos=0.0002 neg_dist=12.0371 anchor_dist=10.6729 pgd_disp=1.5000 mse_neg_init=0.786097 mse_neg_final=1.003378
+[TAM-GC-DIAG step=1300] mse_pos=0.327353 mse_neg=1.041896 mse_gap=0.714543 pred_norm=15.7284 pred_std=0.8127 pred_abs=0.6279 tgt_std=1.0004 tgt_abs=0.7984 cos=-0.0012 neg_dist=11.7871 anchor_dist=10.3928 pgd_disp=1.5000 mse_neg_init=0.743830 mse_neg_final=0.966377
+[TAM-GC-DIAG step=1400] mse_pos=0.293990 mse_neg=1.034816 mse_gap=0.740826 pred_norm=16.3200 pred_std=0.8370 pred_abs=0.6512 tgt_std=1.0009 tgt_abs=0.7988 cos=0.0010 neg_dist=12.8983 anchor_dist=11.5056 pgd_disp=1.5000 mse_neg_init=0.790714 mse_neg_final=1.031434
+[TAM-GC-DIAG step=1500] mse_pos=0.282101 mse_neg=1.031942 mse_gap=0.749842 pred_norm=16.3071 pred_std=0.8384 pred_abs=0.6508 tgt_std=1.0007 tgt_abs=0.7985 cos=-0.0014 neg_dist=13.5332 anchor_dist=12.1646 pgd_disp=1.5000 mse_neg_init=0.862280 mse_neg_final=1.121499
+[TAM-GC-DIAG step=1600] mse_pos=0.260488 mse_neg=1.034802 mse_gap=0.774314 pred_norm=16.8577 pred_std=0.8640 pred_abs=0.6726 tgt_std=0.9996 tgt_abs=0.7974 cos=0.0011 neg_dist=13.1921 anchor_dist=11.7862 pgd_disp=1.5000 mse_neg_init=0.801488 mse_neg_final=1.060980
+[TAM-GC-DIAG step=1700] mse_pos=0.245099 mse_neg=1.060257 mse_gap=0.815158 pred_norm=16.7710 pred_std=0.8599 pred_abs=0.6696 tgt_std=1.0012 tgt_abs=0.7988 cos=0.0001 neg_dist=15.2735 anchor_dist=13.9444 pgd_disp=1.5000 mse_neg_init=1.028680 mse_neg_final=1.328835
+[TAM-GC-DIAG step=1800] mse_pos=0.228325 mse_neg=1.029902 mse_gap=0.801578 pred_norm=16.8670 pred_std=0.8629 pred_abs=0.6730 tgt_std=1.0010 tgt_abs=0.7988 cos=-0.0005 neg_dist=14.0124 anchor_dist=12.6147 pgd_disp=1.5000 mse_neg_init=0.870203 mse_neg_final=1.157939
+[TAM-GC-DIAG step=1900] mse_pos=0.215213 mse_neg=1.037864 mse_gap=0.822651 pred_norm=17.2768 pred_std=0.8833 pred_abs=0.6898 tgt_std=1.0001 tgt_abs=0.7977 cos=0.0010 neg_dist=12.9041 anchor_dist=11.4757 pgd_disp=1.5000 mse_neg_init=0.770428 mse_neg_final=1.052345
+[TAM-GC-DIAG step=2000] mse_pos=0.202720 mse_neg=1.065206 mse_gap=0.862485 pred_norm=17.3368 pred_std=0.8839 pred_abs=0.6920 tgt_std=0.9997 tgt_abs=0.7981 cos=0.0007 neg_dist=15.2655 anchor_dist=13.9074 pgd_disp=1.5000 mse_neg_init=1.026009 mse_neg_final=1.353733
+Running Evaluation...
+Validation Result @ Iteration 2000; Milestone = 2 (Train)
+---------  -------
+mse_error  1.29659
+---------  -------
+Validation Result @ Iteration 2000; Milestone = 2 (ID: Validation)
+---  -------
+mse  1.29475
+---  -------
+[TAM-GC-DIAG step=2100] mse_pos=0.184593 mse_neg=1.037917 mse_gap=0.853324 pred_norm=17.5320 pred_std=0.8930 pred_abs=0.6996 tgt_std=1.0000 tgt_abs=0.7980 cos=0.0001 neg_dist=13.3539 anchor_dist=11.9145 pgd_disp=1.5000 mse_neg_init=0.769245 mse_neg_final=1.064652
+[TAM-GC-DIAG step=2200] mse_pos=0.170479 mse_neg=1.057138 mse_gap=0.886660 pred_norm=17.8170 pred_std=0.9050 pred_abs=0.7112 tgt_std=1.0000 tgt_abs=0.7976 cos=0.0012 neg_dist=15.5470 anchor_dist=14.1655 pgd_disp=1.5000 mse_neg_init=1.022174 mse_neg_final=1.366885
+[TAM-GC-DIAG step=2300] mse_pos=0.166839 mse_neg=1.037984 mse_gap=0.871145 pred_norm=17.7458 pred_std=0.9026 pred_abs=0.7080 tgt_std=0.9998 tgt_abs=0.7977 cos=-0.0005 neg_dist=13.4391 anchor_dist=11.9961 pgd_disp=1.5000 mse_neg_init=0.769524 mse_neg_final=1.076363
+[TAM-GC-DIAG step=2400] mse_pos=0.162387 mse_neg=1.042137 mse_gap=0.879750 pred_norm=18.1560 pred_std=0.9240 pred_abs=0.7247 tgt_std=0.9995 tgt_abs=0.7979 cos=0.0007 neg_dist=13.6968 anchor_dist=12.2519 pgd_disp=1.5000 mse_neg_init=0.815500 mse_neg_final=1.139416
+[TAM-GC-DIAG step=2500] mse_pos=0.152499 mse_neg=1.032089 mse_gap=0.879590 pred_norm=17.9124 pred_std=0.9097 pred_abs=0.7147 tgt_std=0.9989 tgt_abs=0.7968 cos=-0.0005 neg_dist=14.2758 anchor_dist=12.8417 pgd_disp=1.5000 mse_neg_init=0.887815 mse_neg_final=1.229286
+[TAM-GC-DIAG step=2600] mse_pos=0.145725 mse_neg=1.045690 mse_gap=0.899966 pred_norm=18.2641 pred_std=0.9272 pred_abs=0.7293 tgt_std=1.0004 tgt_abs=0.7981 cos=0.0010 neg_dist=13.8549 anchor_dist=12.4059 pgd_disp=1.5000 mse_neg_init=0.802869 mse_neg_final=1.131112
+[TAM-GC-DIAG step=2700] mse_pos=0.143774 mse_neg=1.076350 mse_gap=0.932576 pred_norm=18.2394 pred_std=0.9253 pred_abs=0.7281 tgt_std=0.9997 tgt_abs=0.7980 cos=0.0009 neg_dist=15.2835 anchor_dist=13.8817 pgd_disp=1.5000 mse_neg_init=1.028656 mse_neg_final=1.405101
+[TAM-GC-DIAG step=2800] mse_pos=0.135761 mse_neg=1.040145 mse_gap=0.904383 pred_norm=18.3215 pred_std=0.9295 pred_abs=0.7314 tgt_std=0.9996 tgt_abs=0.7974 cos=0.0009 neg_dist=14.3227 anchor_dist=12.8747 pgd_disp=1.5000 mse_neg_init=0.861213 mse_neg_final=1.208932
+[TAM-GC-DIAG step=2900] mse_pos=0.134859 mse_neg=1.045501 mse_gap=0.910641 pred_norm=17.7499 pred_std=0.9018 pred_abs=0.7083 tgt_std=1.0009 tgt_abs=0.7987 cos=-0.0006 neg_dist=13.2073 anchor_dist=11.7659 pgd_disp=1.5000 mse_neg_init=0.733805 mse_neg_final=1.048989
+[TAM-GC-DIAG step=3000] mse_pos=0.124924 mse_neg=1.044993 mse_gap=0.920069 pred_norm=18.3542 pred_std=0.9301 pred_abs=0.7324 tgt_std=0.9995 tgt_abs=0.7975 cos=-0.0006 neg_dist=13.8325 anchor_dist=12.3827 pgd_disp=1.5000 mse_neg_init=0.782790 mse_neg_final=1.117451
+Running Evaluation...
+Validation Result @ Iteration 3000; Milestone = 3 (Train)
+---------  --------
+mse_error  0.838711
+---------  --------
+Validation Result @ Iteration 3000; Milestone = 3 (ID: Validation)
+---  --------
+mse  0.840638
+---  --------
+[TAM-GC-DIAG step=3100] mse_pos=0.121035 mse_neg=1.044237 mse_gap=0.923202 pred_norm=18.0771 pred_std=0.9167 pred_abs=0.7211 tgt_std=0.9998 tgt_abs=0.7979 cos=-0.0001 neg_dist=13.6419 anchor_dist=12.1949 pgd_disp=1.5000 mse_neg_init=0.740104 mse_neg_final=1.061412
+[TAM-GC-DIAG step=3200] mse_pos=0.117874 mse_neg=1.043815 mse_gap=0.925940 pred_norm=18.2169 pred_std=0.9229 pred_abs=0.7272 tgt_std=0.9993 tgt_abs=0.7976 cos=-0.0005 neg_dist=13.6835 anchor_dist=12.2356 pgd_disp=1.5000 mse_neg_init=0.767282 mse_neg_final=1.100170
+[TAM-GC-DIAG step=3300] mse_pos=0.113294 mse_neg=1.033097 mse_gap=0.919803 pred_norm=18.1472 pred_std=0.9193 pred_abs=0.7243 tgt_std=0.9988 tgt_abs=0.7968 cos=-0.0031 neg_dist=14.2580 anchor_dist=12.8071 pgd_disp=1.5000 mse_neg_init=0.802911 mse_neg_final=1.135980
+[TAM-GC-DIAG step=3400] mse_pos=0.108759 mse_neg=1.040960 mse_gap=0.932202 pred_norm=18.7475 pred_std=0.9480 pred_abs=0.7482 tgt_std=1.0015 tgt_abs=0.7992 cos=-0.0010 neg_dist=15.0461 anchor_dist=13.5961 pgd_disp=1.5000 mse_neg_init=0.939272 mse_neg_final=1.320763
+[TAM-GC-DIAG step=3500] mse_pos=0.107566 mse_neg=1.041961 mse_gap=0.934394 pred_norm=18.7735 pred_std=0.9498 pred_abs=0.7497 tgt_std=1.0005 tgt_abs=0.7987 cos=0.0009 neg_dist=14.9075 anchor_dist=13.4611 pgd_disp=1.5000 mse_neg_init=0.930674 mse_neg_final=1.314006
+[TAM-GC-DIAG step=3600] mse_pos=0.106392 mse_neg=1.042134 mse_gap=0.935741 pred_norm=19.2276 pred_std=0.9744 pred_abs=0.7672 tgt_std=0.9991 tgt_abs=0.7971 cos=-0.0022 neg_dist=14.9913 anchor_dist=13.5380 pgd_disp=1.5000 mse_neg_init=0.946764 mse_neg_final=1.338072
+[TAM-GC-DIAG step=3700] mse_pos=0.102907 mse_neg=1.047161 mse_gap=0.944254 pred_norm=18.8439 pred_std=0.9534 pred_abs=0.7520 tgt_std=0.9999 tgt_abs=0.7980 cos=-0.0003 neg_dist=14.3067 anchor_dist=12.8562 pgd_disp=1.5000 mse_neg_init=0.818990 mse_neg_final=1.174757
+[TAM-GC-DIAG step=3800] mse_pos=0.100863 mse_neg=1.052438 mse_gap=0.951575 pred_norm=19.4405 pred_std=0.9838 pred_abs=0.7759 tgt_std=1.0001 tgt_abs=0.7978 cos=0.0002 neg_dist=14.4890 anchor_dist=13.0327 pgd_disp=1.5000 mse_neg_init=0.866393 mse_neg_final=1.244414
+[TAM-GC-DIAG step=3900] mse_pos=0.100182 mse_neg=1.042791 mse_gap=0.942608 pred_norm=19.0925 pred_std=0.9661 pred_abs=0.7617 tgt_std=1.0005 tgt_abs=0.7982 cos=0.0001 neg_dist=15.0439 anchor_dist=13.5921 pgd_disp=1.5000 mse_neg_init=0.945737 mse_neg_final=1.340815
+[TAM-GC-DIAG step=4000] mse_pos=0.094489 mse_neg=1.037878 mse_gap=0.943389 pred_norm=18.3131 pred_std=0.9275 pred_abs=0.7309 tgt_std=0.9996 tgt_abs=0.7977 cos=-0.0003 neg_dist=13.7110 anchor_dist=12.2623 pgd_disp=1.5000 mse_neg_init=0.737698 mse_neg_final=1.056703
+Running Evaluation...
+Validation Result @ Iteration 4000; Milestone = 4 (Train)
+---------  --------
+mse_error  0.497966
+---------  --------
+Validation Result @ Iteration 4000; Milestone = 4 (ID: Validation)
+---  -------
+mse  0.49447
+---  -------
+[TAM-GC-DIAG step=4100] mse_pos=0.087660 mse_neg=1.046527 mse_gap=0.958867 pred_norm=18.6428 pred_std=0.9415 pred_abs=0.7439 tgt_std=1.0002 tgt_abs=0.7979 cos=-0.0006 neg_dist=13.8399 anchor_dist=12.3893 pgd_disp=1.5000 mse_neg_init=0.769869 mse_neg_final=1.128174
+[TAM-GC-DIAG step=4200] mse_pos=0.088943 mse_neg=1.049768 mse_gap=0.960825 pred_norm=18.4357 pred_std=0.9321 pred_abs=0.7356 tgt_std=1.0005 tgt_abs=0.7985 cos=-0.0016 neg_dist=13.7825 anchor_dist=12.3417 pgd_disp=1.5000 mse_neg_init=0.744063 mse_neg_final=1.085309
+[TAM-GC-DIAG step=4300] mse_pos=0.083121 mse_neg=1.053181 mse_gap=0.970061 pred_norm=19.0129 pred_std=0.9591 pred_abs=0.7592 tgt_std=0.9998 tgt_abs=0.7975 cos=-0.0001 neg_dist=14.4487 anchor_dist=12.9927 pgd_disp=1.5000 mse_neg_init=0.821522 mse_neg_final=1.196942
+[TAM-GC-DIAG step=4400] mse_pos=0.083416 mse_neg=1.056176 mse_gap=0.972759 pred_norm=19.1200 pred_std=0.9647 pred_abs=0.7628 tgt_std=0.9994 tgt_abs=0.7974 cos=-0.0009 neg_dist=14.3532 anchor_dist=12.8980 pgd_disp=1.5000 mse_neg_init=0.830026 mse_neg_final=1.212230
+[TAM-GC-DIAG step=4500] mse_pos=0.081904 mse_neg=1.058696 mse_gap=0.976792 pred_norm=19.0826 pred_std=0.9625 pred_abs=0.7617 tgt_std=1.0002 tgt_abs=0.7977 cos=0.0006 neg_dist=14.2282 anchor_dist=12.7717 pgd_disp=1.5000 mse_neg_init=0.817532 mse_neg_final=1.202364
+[TAM-GC-DIAG step=4600] mse_pos=0.080699 mse_neg=1.087105 mse_gap=1.006406 pred_norm=19.3341 pred_std=0.9756 pred_abs=0.7711 tgt_std=1.0000 tgt_abs=0.7977 cos=0.0014 neg_dist=15.3964 anchor_dist=13.9500 pgd_disp=1.5000 mse_neg_init=1.034545 mse_neg_final=1.472578
+[TAM-GC-DIAG step=4700] mse_pos=0.080727 mse_neg=1.058411 mse_gap=0.977684 pred_norm=19.3414 pred_std=0.9764 pred_abs=0.7717 tgt_std=0.9993 tgt_abs=0.7974 cos=-0.0004 neg_dist=14.6103 anchor_dist=13.1514 pgd_disp=1.5000 mse_neg_init=0.864704 mse_neg_final=1.261447
+[TAM-GC-DIAG step=4800] mse_pos=0.076848 mse_neg=1.040229 mse_gap=0.963381 pred_norm=18.6374 pred_std=0.9406 pred_abs=0.7443 tgt_std=0.9992 tgt_abs=0.7971 cos=0.0007 neg_dist=14.2024 anchor_dist=12.7463 pgd_disp=1.5000 mse_neg_init=0.795053 mse_neg_final=1.162704
+[TAM-GC-DIAG step=4900] mse_pos=0.083804 mse_neg=1.056227 mse_gap=0.972423 pred_norm=19.7582 pred_std=0.9986 pred_abs=0.7884 tgt_std=1.0005 tgt_abs=0.7982 cos=-0.0024 neg_dist=15.3852 anchor_dist=13.9255 pgd_disp=1.5000 mse_neg_init=0.998176 mse_neg_final=1.428827
+[TAM-GC-DIAG step=5000] mse_pos=0.074844 mse_neg=1.079301 mse_gap=1.004457 pred_norm=18.8849 pred_std=0.9526 pred_abs=0.7536 tgt_std=0.9997 tgt_abs=0.7978 cos=-0.0006 neg_dist=15.6443 anchor_dist=14.2006 pgd_disp=1.5000 mse_neg_init=1.030652 mse_neg_final=1.456469
+Running Evaluation...
+Validation Result @ Iteration 5000; Milestone = 5 (Train)
+---------  --------
+mse_error  0.162191
+---------  --------
+Validation Result @ Iteration 5000; Milestone = 5 (ID: Validation)
+---  --------
+mse  0.161236
+---  --------
+[TAM-GC-DIAG step=5100] mse_pos=0.077433 mse_neg=1.058900 mse_gap=0.981467 pred_norm=19.4072 pred_std=0.9792 pred_abs=0.7745 tgt_std=1.0004 tgt_abs=0.7982 cos=0.0001 neg_dist=14.6073 anchor_dist=13.1488 pgd_disp=1.5000 mse_neg_init=0.873047 mse_neg_final=1.277495
+[TAM-GC-DIAG step=5200] mse_pos=0.071676 mse_neg=1.057182 mse_gap=0.985506 pred_norm=19.4856 pred_std=0.9823 pred_abs=0.7772 tgt_std=0.9991 tgt_abs=0.7972 cos=0.0005 neg_dist=14.5797 anchor_dist=13.1190 pgd_disp=1.5000 mse_neg_init=0.858392 mse_neg_final=1.261385
+[TAM-GC-DIAG step=5300] mse_pos=0.077107 mse_neg=1.053467 mse_gap=0.976360 pred_norm=19.2981 pred_std=0.9738 pred_abs=0.7700 tgt_std=1.0000 tgt_abs=0.7982 cos=0.0020 neg_dist=14.8824 anchor_dist=13.4257 pgd_disp=1.5000 mse_neg_init=0.910656 mse_neg_final=1.324111
+[TAM-GC-DIAG step=5400] mse_pos=0.074376 mse_neg=1.061678 mse_gap=0.987303 pred_norm=19.0968 pred_std=0.9628 pred_abs=0.7620 tgt_std=0.9997 tgt_abs=0.7980 cos=0.0019 neg_dist=14.3622 anchor_dist=12.9134 pgd_disp=1.5000 mse_neg_init=0.807767 mse_neg_final=1.189752
+[TAM-GC-DIAG step=5500] mse_pos=0.081445 mse_neg=1.066852 mse_gap=0.985408 pred_norm=20.0364 pred_std=1.0131 pred_abs=0.7999 tgt_std=1.0013 tgt_abs=0.7987 cos=-0.0002 neg_dist=14.8770 anchor_dist=13.4180 pgd_disp=1.5000 mse_neg_init=0.922307 mse_neg_final=1.345910
+[TAM-GC-DIAG step=5600] mse_pos=0.070377 mse_neg=1.052477 mse_gap=0.982101 pred_norm=18.8924 pred_std=0.9527 pred_abs=0.7541 tgt_std=0.9995 tgt_abs=0.7972 cos=0.0008 neg_dist=14.0046 anchor_dist=12.5582 pgd_disp=1.5000 mse_neg_init=0.758642 mse_neg_final=1.122220
+[TAM-GC-DIAG step=5700] mse_pos=0.075887 mse_neg=1.042545 mse_gap=0.966658 pred_norm=18.3718 pred_std=0.9298 pred_abs=0.7330 tgt_std=0.9995 tgt_abs=0.7975 cos=0.0011 neg_dist=13.5385 anchor_dist=12.0974 pgd_disp=1.5000 mse_neg_init=0.707611 mse_neg_final=1.027308
+[TAM-GC-DIAG step=5800] mse_pos=0.065044 mse_neg=1.055821 mse_gap=0.990777 pred_norm=19.1530 pred_std=0.9648 pred_abs=0.7645 tgt_std=0.9997 tgt_abs=0.7974 cos=0.0008 neg_dist=14.6216 anchor_dist=13.1629 pgd_disp=1.5000 mse_neg_init=0.811914 mse_neg_final=1.194841
+[TAM-GC-DIAG step=5900] mse_pos=0.068854 mse_neg=1.050166 mse_gap=0.981312 pred_norm=18.7446 pred_std=0.9456 pred_abs=0.7480 tgt_std=1.0007 tgt_abs=0.7983 cos=0.0013 neg_dist=14.0565 anchor_dist=12.6049 pgd_disp=1.5000 mse_neg_init=0.750420 mse_neg_final=1.101399
+[TAM-GC-DIAG step=6000] mse_pos=0.070558 mse_neg=1.079113 mse_gap=1.008555 pred_norm=18.6860 pred_std=0.9436 pred_abs=0.7457 tgt_std=1.0010 tgt_abs=0.7985 cos=-0.0001 neg_dist=15.5222 anchor_dist=14.0761 pgd_disp=1.5000 mse_neg_init=1.033447 mse_neg_final=1.447816
+Running Evaluation...
+Validation Result @ Iteration 6000; Milestone = 6 (Train)
+---------  --------
+mse_error  0.033907
+---------  --------
+Validation Result @ Iteration 6000; Milestone = 6 (ID: Validation)
+---  ---------
+mse  0.0336312
+---  ---------
+[TAM-GC-DIAG step=6100] mse_pos=0.066152 mse_neg=1.054192 mse_gap=0.988040 pred_norm=18.7792 pred_std=0.9467 pred_abs=0.7498 tgt_std=0.9985 tgt_abs=0.7969 cos=-0.0015 neg_dist=14.0526 anchor_dist=12.6030 pgd_disp=1.5000 mse_neg_init=0.745388 mse_neg_final=1.105652
+[TAM-GC-DIAG step=6200] mse_pos=0.063019 mse_neg=1.064394 mse_gap=1.001375 pred_norm=19.4024 pred_std=0.9765 pred_abs=0.7743 tgt_std=1.0003 tgt_abs=0.7982 cos=-0.0006 neg_dist=14.6304 anchor_dist=13.1713 pgd_disp=1.5000 mse_neg_init=0.841952 mse_neg_final=1.249834
+[TAM-GC-DIAG step=6300] mse_pos=0.063325 mse_neg=1.096409 mse_gap=1.033084 pred_norm=19.4255 pred_std=0.9776 pred_abs=0.7757 tgt_std=1.0004 tgt_abs=0.7980 cos=-0.0001 neg_dist=15.4517 anchor_dist=13.9944 pgd_disp=1.5000 mse_neg_init=1.039763 mse_neg_final=1.503865
+[TAM-GC-DIAG step=6400] mse_pos=0.060230 mse_neg=1.069950 mse_gap=1.009721 pred_norm=19.4267 pred_std=0.9771 pred_abs=0.7752 tgt_std=0.9999 tgt_abs=0.7975 cos=-0.0025 neg_dist=14.7876 anchor_dist=13.3285 pgd_disp=1.5000 mse_neg_init=0.843355 mse_neg_final=1.248741
+[TAM-GC-DIAG step=6500] mse_pos=0.061716 mse_neg=1.059290 mse_gap=0.997574 pred_norm=18.9231 pred_std=0.9527 pred_abs=0.7550 tgt_std=1.0004 tgt_abs=0.7980 cos=-0.0007 neg_dist=14.0910 anchor_dist=12.6435 pgd_disp=1.5000 mse_neg_init=0.751571 mse_neg_final=1.126055
+[TAM-GC-DIAG step=6600] mse_pos=0.066122 mse_neg=1.069878 mse_gap=1.003756 pred_norm=19.8952 pred_std=1.0025 pred_abs=0.7941 tgt_std=0.9996 tgt_abs=0.7976 cos=0.0000 neg_dist=15.0562 anchor_dist=13.5926 pgd_disp=1.5000 mse_neg_init=0.931213 mse_neg_final=1.367446
+[TAM-GC-DIAG step=6700] mse_pos=0.059543 mse_neg=1.063614 mse_gap=1.004072 pred_norm=19.2712 pred_std=0.9694 pred_abs=0.7692 tgt_std=1.0010 tgt_abs=0.7990 cos=0.0007 neg_dist=14.5646 anchor_dist=13.1097 pgd_disp=1.5000 mse_neg_init=0.812239 mse_neg_final=1.210288
+[TAM-GC-DIAG step=6800] mse_pos=0.063165 mse_neg=1.057243 mse_gap=0.994078 pred_norm=18.8601 pred_std=0.9507 pred_abs=0.7526 tgt_std=0.9997 tgt_abs=0.7974 cos=-0.0026 neg_dist=14.0855 anchor_dist=12.6437 pgd_disp=1.5000 mse_neg_init=0.742958 mse_neg_final=1.105832
+[TAM-GC-DIAG step=6900] mse_pos=0.060901 mse_neg=1.060305 mse_gap=0.999405 pred_norm=19.0782 pred_std=0.9604 pred_abs=0.7616 tgt_std=1.0008 tgt_abs=0.7983 cos=0.0003 neg_dist=14.1878 anchor_dist=12.7371 pgd_disp=1.5000 mse_neg_init=0.787083 mse_neg_final=1.178327
+[TAM-GC-DIAG step=7000] mse_pos=0.060132 mse_neg=1.068541 mse_gap=1.008408 pred_norm=19.6058 pred_std=0.9867 pred_abs=0.7827 tgt_std=1.0003 tgt_abs=0.7977 cos=0.0003 neg_dist=14.6478 anchor_dist=13.1887 pgd_disp=1.5000 mse_neg_init=0.849649 mse_neg_final=1.267969
+Running Evaluation...
+Validation Result @ Iteration 7000; Milestone = 7 (Train)
+---------  ---------
+mse_error  0.0148007
+---------  ---------
+Validation Result @ Iteration 7000; Milestone = 7 (ID: Validation)
+---  ---------
+mse  0.0148956
+---  ---------
+[TAM-GC-DIAG step=7100] mse_pos=0.063008 mse_neg=1.061354 mse_gap=0.998347 pred_norm=18.8970 pred_std=0.9519 pred_abs=0.7542 tgt_std=0.9997 tgt_abs=0.7978 cos=0.0007 neg_dist=14.2888 anchor_dist=12.8423 pgd_disp=1.5000 mse_neg_init=0.776807 mse_neg_final=1.155765
+[TAM-GC-DIAG step=7200] mse_pos=0.061724 mse_neg=1.048123 mse_gap=0.986399 pred_norm=18.9273 pred_std=0.9537 pred_abs=0.7554 tgt_std=0.9989 tgt_abs=0.7970 cos=-0.0009 neg_dist=15.2423 anchor_dist=13.7823 pgd_disp=1.5000 mse_neg_init=0.941340 mse_neg_final=1.364735
+[TAM-GC-DIAG step=7300] mse_pos=0.060863 mse_neg=1.057890 mse_gap=0.997027 pred_norm=18.8907 pred_std=0.9518 pred_abs=0.7536 tgt_std=0.9999 tgt_abs=0.7973 cos=0.0000 neg_dist=14.0798 anchor_dist=12.6435 pgd_disp=1.5000 mse_neg_init=0.748000 mse_neg_final=1.105536
+[TAM-GC-DIAG step=7400] mse_pos=0.060346 mse_neg=1.067163 mse_gap=1.006817 pred_norm=19.4563 pred_std=0.9793 pred_abs=0.7769 tgt_std=1.0003 tgt_abs=0.7985 cos=0.0018 neg_dist=15.2667 anchor_dist=13.8052 pgd_disp=1.5000 mse_neg_init=0.937773 mse_neg_final=1.373018
+[TAM-GC-DIAG step=7500] mse_pos=0.063719 mse_neg=1.072464 mse_gap=1.008745 pred_norm=19.8919 pred_std=1.0022 pred_abs=0.7942 tgt_std=1.0012 tgt_abs=0.7991 cos=-0.0007 neg_dist=15.8050 anchor_dist=14.3402 pgd_disp=1.5000 mse_neg_init=1.056313 mse_neg_final=1.526003
+[TAM-GC-DIAG step=7600] mse_pos=0.060299 mse_neg=1.060147 mse_gap=0.999849 pred_norm=18.9906 pred_std=0.9563 pred_abs=0.7575 tgt_std=1.0005 tgt_abs=0.7983 cos=-0.0008 neg_dist=14.0874 anchor_dist=12.6464 pgd_disp=1.5000 mse_neg_init=0.754193 mse_neg_final=1.127662
+[TAM-GC-DIAG step=7700] mse_pos=0.056982 mse_neg=1.060328 mse_gap=1.003345 pred_norm=19.0412 pred_std=0.9583 pred_abs=0.7598 tgt_std=1.0005 tgt_abs=0.7984 cos=0.0012 neg_dist=14.1478 anchor_dist=12.6988 pgd_disp=1.5000 mse_neg_init=0.756971 mse_neg_final=1.134500
+[TAM-GC-DIAG step=7800] mse_pos=0.061886 mse_neg=1.065846 mse_gap=1.003959 pred_norm=19.2389 pred_std=0.9685 pred_abs=0.7678 tgt_std=0.9993 tgt_abs=0.7972 cos=-0.0012 neg_dist=14.4314 anchor_dist=12.9805 pgd_disp=1.5000 mse_neg_init=0.817210 mse_neg_final=1.223438
+[TAM-GC-DIAG step=7900] mse_pos=0.060040 mse_neg=1.073727 mse_gap=1.013687 pred_norm=19.7848 pred_std=0.9958 pred_abs=0.7894 tgt_std=0.9982 tgt_abs=0.7964 cos=0.0028 neg_dist=14.9150 anchor_dist=13.4561 pgd_disp=1.5000 mse_neg_init=0.886015 mse_neg_final=1.316375
+[TAM-GC-DIAG step=8000] mse_pos=0.059952 mse_neg=1.056084 mse_gap=0.996132 pred_norm=18.8256 pred_std=0.9490 pred_abs=0.7515 tgt_std=1.0013 tgt_abs=0.7989 cos=0.0000 neg_dist=13.9946 anchor_dist=12.5483 pgd_disp=1.5000 mse_neg_init=0.742696 mse_neg_final=1.100181
+Running Evaluation...
+Validation Result @ Iteration 8000; Milestone = 8 (Train)
+---------  ---------
+mse_error  0.0111783
+---------  ---------
+Validation Result @ Iteration 8000; Milestone = 8 (ID: Validation)
+---  ---------
+mse  0.0112106
+---  ---------
+[TAM-GC-DIAG step=8100] mse_pos=0.055758 mse_neg=1.070935 mse_gap=1.015177 pred_norm=19.3587 pred_std=0.9729 pred_abs=0.7730 tgt_std=1.0001 tgt_abs=0.7981 cos=0.0007 neg_dist=14.4608 anchor_dist=13.0051 pgd_disp=1.5000 mse_neg_init=0.812255 mse_neg_final=1.227006
+[TAM-GC-DIAG step=8200] mse_pos=0.058702 mse_neg=1.103683 mse_gap=1.044981 pred_norm=19.3064 pred_std=0.9708 pred_abs=0.7705 tgt_std=1.0008 tgt_abs=0.7986 cos=-0.0005 neg_dist=15.3133 anchor_dist=13.8537 pgd_disp=1.5000 mse_neg_init=1.043704 mse_neg_final=1.529644
+[TAM-GC-DIAG step=8300] mse_pos=0.058174 mse_neg=1.072967 mse_gap=1.014793 pred_norm=19.6223 pred_std=0.9865 pred_abs=0.7836 tgt_std=1.0010 tgt_abs=0.7990 cos=-0.0007 neg_dist=14.5231 anchor_dist=13.0627 pgd_disp=1.5000 mse_neg_init=0.875132 mse_neg_final=1.320757
+[TAM-GC-DIAG step=8400] mse_pos=0.056393 mse_neg=1.074619 mse_gap=1.018226 pred_norm=19.2843 pred_std=0.9689 pred_abs=0.7699 tgt_std=1.0005 tgt_abs=0.7985 cos=-0.0001 neg_dist=14.5242 anchor_dist=13.0689 pgd_disp=1.5000 mse_neg_init=0.819656 mse_neg_final=1.238359
+[TAM-GC-DIAG step=8500] mse_pos=0.055805 mse_neg=1.076000 mse_gap=1.020195 pred_norm=19.5458 pred_std=0.9822 pred_abs=0.7799 tgt_std=1.0013 tgt_abs=0.7990 cos=0.0013 neg_dist=14.7215 anchor_dist=13.2597 pgd_disp=1.5000 mse_neg_init=0.840412 mse_neg_final=1.269838
+[TAM-GC-DIAG step=8600] mse_pos=0.055729 mse_neg=1.076775 mse_gap=1.021046 pred_norm=19.4653 pred_std=0.9780 pred_abs=0.7772 tgt_std=1.0002 tgt_abs=0.7982 cos=0.0003 neg_dist=14.5433 anchor_dist=13.0851 pgd_disp=1.5000 mse_neg_init=0.823402 mse_neg_final=1.250400
+[TAM-GC-DIAG step=8700] mse_pos=0.053888 mse_neg=1.070198 mse_gap=1.016310 pred_norm=19.1748 pred_std=0.9635 pred_abs=0.7651 tgt_std=1.0003 tgt_abs=0.7979 cos=-0.0001 neg_dist=14.1865 anchor_dist=12.7354 pgd_disp=1.5000 mse_neg_init=0.760522 mse_neg_final=1.163411
+[TAM-GC-DIAG step=8800] mse_pos=0.056828 mse_neg=1.076813 mse_gap=1.019985 pred_norm=19.2088 pred_std=0.9653 pred_abs=0.7666 tgt_std=0.9996 tgt_abs=0.7977 cos=0.0006 neg_dist=14.3354 anchor_dist=12.8821 pgd_disp=1.5000 mse_neg_init=0.793192 mse_neg_final=1.207711
+[TAM-GC-DIAG step=8900] mse_pos=0.056793 mse_neg=1.080272 mse_gap=1.023479 pred_norm=19.5537 pred_std=0.9827 pred_abs=0.7802 tgt_std=1.0011 tgt_abs=0.7987 cos=0.0004 neg_dist=15.5596 anchor_dist=14.0934 pgd_disp=1.5000 mse_neg_init=1.061188 mse_neg_final=1.550885
+[TAM-GC-DIAG step=9000] mse_pos=0.058879 mse_neg=1.078564 mse_gap=1.019685 pred_norm=19.6586 pred_std=0.9886 pred_abs=0.7847 tgt_std=1.0004 tgt_abs=0.7980 cos=-0.0004 neg_dist=14.5821 anchor_dist=13.1210 pgd_disp=1.5000 mse_neg_init=0.850032 mse_neg_final=1.289781
+Running Evaluation...
+Validation Result @ Iteration 9000; Milestone = 9 (Train)
+---------  ---------
+mse_error  0.0102516
+---------  ---------
+Validation Result @ Iteration 9000; Milestone = 9 (ID: Validation)
+---  ---------
+mse  0.0102523
+---  ---------
+[TAM-GC-DIAG step=9100] mse_pos=0.053902 mse_neg=1.080791 mse_gap=1.026889 pred_norm=19.6167 pred_std=0.9854 pred_abs=0.7829 tgt_std=1.0009 tgt_abs=0.7988 cos=0.0025 neg_dist=14.6787 anchor_dist=13.2178 pgd_disp=1.5000 mse_neg_init=0.843972 mse_neg_final=1.278794
+[TAM-GC-DIAG step=9200] mse_pos=0.058277 mse_neg=1.079296 mse_gap=1.021019 pred_norm=19.6509 pred_std=0.9881 pred_abs=0.7842 tgt_std=0.9997 tgt_abs=0.7978 cos=0.0016 neg_dist=14.5181 anchor_dist=13.0583 pgd_disp=1.5000 mse_neg_init=0.850573 mse_neg_final=1.291054
+[TAM-GC-DIAG step=9300] mse_pos=0.054586 mse_neg=1.076134 mse_gap=1.021548 pred_norm=19.2229 pred_std=0.9661 pred_abs=0.7675 tgt_std=1.0009 tgt_abs=0.7987 cos=0.0002 neg_dist=14.2495 anchor_dist=12.8053 pgd_disp=1.5000 mse_neg_init=0.760291 mse_neg_final=1.163289
+[TAM-GC-DIAG step=9400] mse_pos=0.054159 mse_neg=1.064714 mse_gap=1.010555 pred_norm=19.0133 pred_std=0.9563 pred_abs=0.7590 tgt_std=0.9991 tgt_abs=0.7976 cos=-0.0002 neg_dist=14.0250 anchor_dist=12.5939 pgd_disp=1.5000 mse_neg_init=0.726569 mse_neg_final=1.104042
+[TAM-GC-DIAG step=9500] mse_pos=0.056932 mse_neg=1.071853 mse_gap=1.014921 pred_norm=19.5847 pred_std=0.9844 pred_abs=0.7813 tgt_std=0.9994 tgt_abs=0.7975 cos=-0.0000 neg_dist=14.9005 anchor_dist=13.4384 pgd_disp=1.5000 mse_neg_init=0.923108 mse_neg_final=1.385001
+[TAM-GC-DIAG step=9600] mse_pos=0.055224 mse_neg=1.075174 mse_gap=1.019949 pred_norm=19.6304 pred_std=0.9863 pred_abs=0.7833 tgt_std=0.9998 tgt_abs=0.7978 cos=0.0010 neg_dist=14.6683 anchor_dist=13.2072 pgd_disp=1.5000 mse_neg_init=0.864661 mse_neg_final=1.311083
+[TAM-GC-DIAG step=9700] mse_pos=0.055148 mse_neg=1.063483 mse_gap=1.008335 pred_norm=19.0104 pred_std=0.9564 pred_abs=0.7587 tgt_std=1.0008 tgt_abs=0.7985 cos=-0.0001 neg_dist=14.0354 anchor_dist=12.6068 pgd_disp=1.5000 mse_neg_init=0.737792 mse_neg_final=1.119511
+[TAM-GC-DIAG step=9800] mse_pos=0.051873 mse_neg=1.060446 mse_gap=1.008573 pred_norm=19.1478 pred_std=0.9625 pred_abs=0.7640 tgt_std=1.0005 tgt_abs=0.7983 cos=0.0000 neg_dist=14.7472 anchor_dist=13.2955 pgd_disp=1.5000 mse_neg_init=0.824994 mse_neg_final=1.242154
+[TAM-GC-DIAG step=9900] mse_pos=0.054285 mse_neg=1.074851 mse_gap=1.020566 pred_norm=19.3926 pred_std=0.9744 pred_abs=0.7739 tgt_std=0.9995 tgt_abs=0.7971 cos=-0.0006 neg_dist=14.3658 anchor_dist=12.9144 pgd_disp=1.5000 mse_neg_init=0.786598 mse_neg_final=1.204293
+[TAM-GC-DIAG step=10000] mse_pos=0.059173 mse_neg=1.078764 mse_gap=1.019591 pred_norm=19.7032 pred_std=0.9910 pred_abs=0.7865 tgt_std=1.0002 tgt_abs=0.7976 cos=0.0003 neg_dist=14.4294 anchor_dist=12.9702 pgd_disp=1.5000 mse_neg_init=0.849609 mse_neg_final=1.297031
+Running Evaluation...
+Validation Result @ Iteration 10000; Milestone = 10 (Train)
+---------  ----------
+mse_error  0.00993522
+---------  ----------
+Validation Result @ Iteration 10000; Milestone = 10 (ID: Validation)
+---  ----------
+mse  0.00993101
+---  ----------
+[TAM-GC-DIAG step=10100] mse_pos=0.054081 mse_neg=1.080001 mse_gap=1.025919 pred_norm=19.2438 pred_std=0.9664 pred_abs=0.7682 tgt_std=0.9996 tgt_abs=0.7980 cos=-0.0004 neg_dist=14.3464 anchor_dist=12.8994 pgd_disp=1.5000 mse_neg_init=0.776495 mse_neg_final=1.191039
+[TAM-GC-DIAG step=10200] mse_pos=0.050792 mse_neg=1.083637 mse_gap=1.032846 pred_norm=19.4144 pred_std=0.9744 pred_abs=0.7751 tgt_std=0.9995 tgt_abs=0.7974 cos=0.0003 neg_dist=14.5857 anchor_dist=13.1277 pgd_disp=1.5000 mse_neg_init=0.798061 mse_neg_final=1.222234
+[TAM-GC-DIAG step=10300] mse_pos=0.052398 mse_neg=1.081270 mse_gap=1.028872 pred_norm=19.5091 pred_std=0.9793 pred_abs=0.7785 tgt_std=1.0002 tgt_abs=0.7981 cos=-0.0008 neg_dist=14.5132 anchor_dist=13.0552 pgd_disp=1.5000 mse_neg_init=0.820237 mse_neg_final=1.257721
+[TAM-GC-DIAG step=10400] mse_pos=0.054328 mse_neg=1.073575 mse_gap=1.019247 pred_norm=19.1804 pred_std=0.9635 pred_abs=0.7651 tgt_std=0.9998 tgt_abs=0.7981 cos=0.0023 neg_dist=14.1370 anchor_dist=12.6872 pgd_disp=1.5000 mse_neg_init=0.755154 mse_neg_final=1.171734
+[TAM-GC-DIAG step=10500] mse_pos=0.055205 mse_neg=1.077991 mse_gap=1.022786 pred_norm=19.1994 pred_std=0.9644 pred_abs=0.7663 tgt_std=0.9993 tgt_abs=0.7972 cos=-0.0007 neg_dist=13.8347 anchor_dist=12.3865 pgd_disp=1.5000 mse_neg_init=0.742418 mse_neg_final=1.157948
+[TAM-GC-DIAG step=10600] mse_pos=0.055038 mse_neg=1.081235 mse_gap=1.026197 pred_norm=19.6173 pred_std=0.9852 pred_abs=0.7830 tgt_std=1.0006 tgt_abs=0.7986 cos=0.0008 neg_dist=14.6625 anchor_dist=13.2032 pgd_disp=1.5000 mse_neg_init=0.862281 mse_neg_final=1.314024
+[TAM-GC-DIAG step=10700] mse_pos=0.052381 mse_neg=1.084949 mse_gap=1.032568 pred_norm=19.4544 pred_std=0.9763 pred_abs=0.7762 tgt_std=1.0000 tgt_abs=0.7978 cos=0.0010 neg_dist=14.3288 anchor_dist=12.8725 pgd_disp=1.5000 mse_neg_init=0.811586 mse_neg_final=1.251695
+[TAM-GC-DIAG step=10800] mse_pos=0.049923 mse_neg=1.080956 mse_gap=1.031033 pred_norm=19.3443 pred_std=0.9708 pred_abs=0.7722 tgt_std=1.0004 tgt_abs=0.7985 cos=-0.0001 neg_dist=14.2810 anchor_dist=12.8327 pgd_disp=1.5000 mse_neg_init=0.752461 mse_neg_final=1.167114
+[TAM-GC-DIAG step=10900] mse_pos=0.049257 mse_neg=1.069291 mse_gap=1.020034 pred_norm=19.3626 pred_std=0.9716 pred_abs=0.7727 tgt_std=0.9999 tgt_abs=0.7980 cos=-0.0002 neg_dist=14.8652 anchor_dist=13.4071 pgd_disp=1.5000 mse_neg_init=0.848984 mse_neg_final=1.294488
+[TAM-GC-DIAG step=11000] mse_pos=0.052062 mse_neg=1.085686 mse_gap=1.033624 pred_norm=19.4573 pred_std=0.9765 pred_abs=0.7767 tgt_std=0.9992 tgt_abs=0.7967 cos=0.0009 neg_dist=14.3714 anchor_dist=12.9138 pgd_disp=1.5000 mse_neg_init=0.810220 mse_neg_final=1.249332
+Running Evaluation...
+Validation Result @ Iteration 11000; Milestone = 11 (Train)
+---------  ----------
+mse_error  0.00985839
+---------  ----------
+Validation Result @ Iteration 11000; Milestone = 11 (ID: Validation)
+---  ----------
+mse  0.00978356
+---  ----------
+[TAM-GC-DIAG step=11100] mse_pos=0.053921 mse_neg=1.082759 mse_gap=1.028838 pred_norm=19.5055 pred_std=0.9793 pred_abs=0.7789 tgt_std=1.0001 tgt_abs=0.7977 cos=0.0010 neg_dist=14.3757 anchor_dist=12.9156 pgd_disp=1.5000 mse_neg_init=0.818520 mse_neg_final=1.263313
+[TAM-GC-DIAG step=11200] mse_pos=0.052332 mse_neg=1.074427 mse_gap=1.022094 pred_norm=19.1705 pred_std=0.9634 pred_abs=0.7655 tgt_std=0.9987 tgt_abs=0.7969 cos=0.0009 neg_dist=14.0574 anchor_dist=12.6234 pgd_disp=1.5000 mse_neg_init=0.732742 mse_neg_final=1.132121
+[TAM-GC-DIAG step=11300] mse_pos=0.054444 mse_neg=1.081831 mse_gap=1.027387 pred_norm=19.6843 pred_std=0.9886 pred_abs=0.7858 tgt_std=1.0005 tgt_abs=0.7982 cos=-0.0023 neg_dist=14.5389 anchor_dist=13.0774 pgd_disp=1.5000 mse_neg_init=0.831446 mse_neg_final=1.279746
+[TAM-GC-DIAG step=11400] mse_pos=0.055851 mse_neg=1.117002 mse_gap=1.061151 pred_norm=19.6043 pred_std=0.9847 pred_abs=0.7825 tgt_std=1.0003 tgt_abs=0.7982 cos=0.0003 neg_dist=15.4542 anchor_dist=13.9910 pgd_disp=1.5000 mse_neg_init=1.049215 mse_neg_final=1.556477
+[TAM-GC-DIAG step=11500] mse_pos=0.052710 mse_neg=1.075179 mse_gap=1.022469 pred_norm=19.5188 pred_std=0.9797 pred_abs=0.7791 tgt_std=1.0007 tgt_abs=0.7987 cos=-0.0009 neg_dist=14.9944 anchor_dist=13.5314 pgd_disp=1.5000 mse_neg_init=0.901629 mse_neg_final=1.365535
+[TAM-GC-DIAG step=11600] mse_pos=0.053788 mse_neg=1.073135 mse_gap=1.019347 pred_norm=19.6045 pred_std=0.9843 pred_abs=0.7823 tgt_std=0.9992 tgt_abs=0.7971 cos=-0.0016 neg_dist=14.7798 anchor_dist=13.3166 pgd_disp=1.5000 mse_neg_init=0.906322 mse_neg_final=1.379441
+[TAM-GC-DIAG step=11700] mse_pos=0.055757 mse_neg=1.081230 mse_gap=1.025473 pred_norm=19.1059 pred_std=0.9602 pred_abs=0.7625 tgt_std=0.9988 tgt_abs=0.7970 cos=0.0004 neg_dist=14.0252 anchor_dist=12.5879 pgd_disp=1.5000 mse_neg_init=0.745924 mse_neg_final=1.155767
+[TAM-GC-DIAG step=11800] mse_pos=0.053472 mse_neg=1.082425 mse_gap=1.028953 pred_norm=19.2488 pred_std=0.9664 pred_abs=0.7680 tgt_std=1.0003 tgt_abs=0.7977 cos=-0.0010 neg_dist=13.9777 anchor_dist=12.5287 pgd_disp=1.5000 mse_neg_init=0.761056 mse_neg_final=1.188487
+[TAM-GC-DIAG step=11900] mse_pos=0.050876 mse_neg=1.070281 mse_gap=1.019405 pred_norm=19.2973 pred_std=0.9685 pred_abs=0.7698 tgt_std=0.9987 tgt_abs=0.7971 cos=0.0011 neg_dist=14.7765 anchor_dist=13.3226 pgd_disp=1.5000 mse_neg_init=0.834978 mse_neg_final=1.278866
+[TAM-GC-DIAG step=12000] mse_pos=0.051939 mse_neg=1.078537 mse_gap=1.026598 pred_norm=19.3018 pred_std=0.9689 pred_abs=0.7706 tgt_std=0.9998 tgt_abs=0.7976 cos=-0.0006 neg_dist=14.1036 anchor_dist=12.6581 pgd_disp=1.5000 mse_neg_init=0.749375 mse_neg_final=1.169906
+Running Evaluation...
+Validation Result @ Iteration 12000; Milestone = 12 (Train)
+---------  ---------
+mse_error  0.0098304
+---------  ---------
+Validation Result @ Iteration 12000; Milestone = 12 (ID: Validation)
+---  ---------
+mse  0.0097798
+---  ---------
+[TAM-GC-DIAG step=12100] mse_pos=0.050882 mse_neg=1.085394 mse_gap=1.034511 pred_norm=19.3928 pred_std=0.9730 pred_abs=0.7737 tgt_std=0.9995 tgt_abs=0.7972 cos=0.0001 neg_dist=15.7628 anchor_dist=14.2962 pgd_disp=1.5000 mse_neg_init=1.062408 mse_neg_final=1.564586
+[TAM-GC-DIAG step=12200] mse_pos=0.049730 mse_neg=1.084851 mse_gap=1.035121 pred_norm=19.4829 pred_std=0.9773 pred_abs=0.7775 tgt_std=0.9996 tgt_abs=0.7976 cos=0.0000 neg_dist=14.4837 anchor_dist=13.0232 pgd_disp=1.5000 mse_neg_init=0.800435 mse_neg_final=1.239936
+[TAM-GC-DIAG step=12300] mse_pos=0.052936 mse_neg=1.081624 mse_gap=1.028688 pred_norm=19.2931 pred_std=0.9681 pred_abs=0.7701 tgt_std=1.0001 tgt_abs=0.7977 cos=-0.0010 neg_dist=13.8312 anchor_dist=12.3784 pgd_disp=1.5000 mse_neg_init=0.750301 mse_neg_final=1.185218
+[TAM-GC-DIAG step=12400] mse_pos=0.052895 mse_neg=1.118511 mse_gap=1.065616 pred_norm=19.4812 pred_std=0.9776 pred_abs=0.7776 tgt_std=0.9986 tgt_abs=0.7968 cos=-0.0011 neg_dist=15.4716 anchor_dist=14.0081 pgd_disp=1.5000 mse_neg_init=1.047199 mse_neg_final=1.558010
+[TAM-GC-DIAG step=12500] mse_pos=0.049648 mse_neg=1.082245 mse_gap=1.032597 pred_norm=19.3637 pred_std=0.9712 pred_abs=0.7727 tgt_std=0.9990 tgt_abs=0.7972 cos=-0.0003 neg_dist=14.2000 anchor_dist=12.7476 pgd_disp=1.5000 mse_neg_init=0.759122 mse_neg_final=1.187394
+[TAM-GC-DIAG step=12600] mse_pos=0.053810 mse_neg=1.083767 mse_gap=1.029957 pred_norm=19.2810 pred_std=0.9677 pred_abs=0.7698 tgt_std=1.0003 tgt_abs=0.7980 cos=-0.0011 neg_dist=14.0186 anchor_dist=12.5699 pgd_disp=1.5000 mse_neg_init=0.765210 mse_neg_final=1.198888
+[TAM-GC-DIAG step=12700] mse_pos=0.051148 mse_neg=1.090131 mse_gap=1.038983 pred_norm=19.4287 pred_std=0.9746 pred_abs=0.7754 tgt_std=0.9998 tgt_abs=0.7974 cos=0.0006 neg_dist=14.3786 anchor_dist=12.9233 pgd_disp=1.5000 mse_neg_init=0.782395 mse_neg_final=1.217947
+[TAM-GC-DIAG step=12800] mse_pos=0.049186 mse_neg=1.084323 mse_gap=1.035137 pred_norm=19.4219 pred_std=0.9740 pred_abs=0.7752 tgt_std=0.9985 tgt_abs=0.7964 cos=0.0000 neg_dist=14.5038 anchor_dist=13.0448 pgd_disp=1.5000 mse_neg_init=0.801204 mse_neg_final=1.243171
+[TAM-GC-DIAG step=12900] mse_pos=0.049085 mse_neg=1.084430 mse_gap=1.035344 pred_norm=19.3882 pred_std=0.9724 pred_abs=0.7731 tgt_std=0.9997 tgt_abs=0.7977 cos=0.0031 neg_dist=14.4200 anchor_dist=12.9640 pgd_disp=1.5000 mse_neg_init=0.773958 mse_neg_final=1.206680
+[TAM-GC-DIAG step=13000] mse_pos=0.053385 mse_neg=1.095610 mse_gap=1.042224 pred_norm=19.5468 pred_std=0.9808 pred_abs=0.7805 tgt_std=1.0004 tgt_abs=0.7981 cos=-0.0004 neg_dist=15.6941 anchor_dist=14.2282 pgd_disp=1.5000 mse_neg_init=1.087195 mse_neg_final=1.603432
+Running Evaluation...
+Validation Result @ Iteration 13000; Milestone = 13 (Train)
+---------  ----------
+mse_error  0.00976092
+---------  ----------
+Validation Result @ Iteration 13000; Milestone = 13 (ID: Validation)
+---  ----------
+mse  0.00979454
+---  ----------
+[TAM-GC-DIAG step=13100] mse_pos=0.050646 mse_neg=1.088335 mse_gap=1.037689 pred_norm=19.6045 pred_std=0.9835 pred_abs=0.7825 tgt_std=1.0005 tgt_abs=0.7983 cos=0.0010 neg_dist=14.4288 anchor_dist=12.9678 pgd_disp=1.5000 mse_neg_init=0.822020 mse_neg_final=1.276963
+[TAM-GC-DIAG step=13200] mse_pos=0.054028 mse_neg=1.088495 mse_gap=1.034468 pred_norm=19.4636 pred_std=0.9766 pred_abs=0.7768 tgt_std=1.0001 tgt_abs=0.7984 cos=0.0011 neg_dist=14.3597 anchor_dist=12.9016 pgd_disp=1.5000 mse_neg_init=0.823701 mse_neg_final=1.279054
+[TAM-GC-DIAG step=13300] mse_pos=0.050601 mse_neg=1.077150 mse_gap=1.026549 pred_norm=19.4788 pred_std=0.9768 pred_abs=0.7779 tgt_std=1.0002 tgt_abs=0.7982 cos=-0.0003 neg_dist=14.8374 anchor_dist=13.3739 pgd_disp=1.5000 mse_neg_init=0.883513 mse_neg_final=1.355141
+[TAM-GC-DIAG step=13400] mse_pos=0.055293 mse_neg=1.123766 mse_gap=1.068473 pred_norm=19.3297 pred_std=0.9700 pred_abs=0.7719 tgt_std=0.9996 tgt_abs=0.7980 cos=0.0010 neg_dist=15.2912 anchor_dist=13.8304 pgd_disp=1.5000 mse_neg_init=1.050718 mse_neg_final=1.570849
+[TAM-GC-DIAG step=13500] mse_pos=0.052031 mse_neg=1.088655 mse_gap=1.036624 pred_norm=19.4650 pred_std=0.9765 pred_abs=0.7768 tgt_std=1.0007 tgt_abs=0.7981 cos=-0.0007 neg_dist=14.2181 anchor_dist=12.7623 pgd_disp=1.5000 mse_neg_init=0.806533 mse_neg_final=1.259502
+[TAM-GC-DIAG step=13600] mse_pos=0.050040 mse_neg=1.087396 mse_gap=1.037356 pred_norm=19.3734 pred_std=0.9717 pred_abs=0.7729 tgt_std=0.9994 tgt_abs=0.7975 cos=0.0009 neg_dist=14.2087 anchor_dist=12.7505 pgd_disp=1.5000 mse_neg_init=0.776424 mse_neg_final=1.218036
+[TAM-GC-DIAG step=13700] mse_pos=0.051582 mse_neg=1.094603 mse_gap=1.043021 pred_norm=19.5029 pred_std=0.9782 pred_abs=0.7783 tgt_std=1.0007 tgt_abs=0.7983 cos=0.0006 neg_dist=14.4340 anchor_dist=12.9743 pgd_disp=1.5000 mse_neg_init=0.830925 mse_neg_final=1.289365
+[TAM-GC-DIAG step=13800] mse_pos=0.051581 mse_neg=1.091644 mse_gap=1.040062 pred_norm=19.4475 pred_std=0.9755 pred_abs=0.7763 tgt_std=0.9997 tgt_abs=0.7976 cos=0.0024 neg_dist=14.3811 anchor_dist=12.9244 pgd_disp=1.5000 mse_neg_init=0.803731 mse_neg_final=1.252172
+[TAM-GC-DIAG step=13900] mse_pos=0.054127 mse_neg=1.071302 mse_gap=1.017176 pred_norm=19.2769 pred_std=0.9673 pred_abs=0.7697 tgt_std=0.9996 tgt_abs=0.7978 cos=0.0005 neg_dist=14.5047 anchor_dist=13.0515 pgd_disp=1.5000 mse_neg_init=0.852428 mse_neg_final=1.318456
+[TAM-GC-DIAG step=14000] mse_pos=0.051121 mse_neg=1.091119 mse_gap=1.039998 pred_norm=19.5488 pred_std=0.9807 pred_abs=0.7801 tgt_std=0.9981 tgt_abs=0.7964 cos=0.0011 neg_dist=14.4476 anchor_dist=12.9893 pgd_disp=1.5000 mse_neg_init=0.818646 mse_neg_final=1.273143
+Running Evaluation...
+Validation Result @ Iteration 14000; Milestone = 14 (Train)
+---------  ----------
+mse_error  0.00975321
+---------  ----------
+Validation Result @ Iteration 14000; Milestone = 14 (ID: Validation)
+---  ----------
+mse  0.00975495
+---  ----------
+[TAM-GC-DIAG step=14100] mse_pos=0.052710 mse_neg=1.085405 mse_gap=1.032695 pred_norm=19.3468 pred_std=0.9706 pred_abs=0.7723 tgt_std=1.0005 tgt_abs=0.7984 cos=-0.0005 neg_dist=14.0006 anchor_dist=12.5479 pgd_disp=1.5000 mse_neg_init=0.754110 mse_neg_final=1.191761
+[TAM-GC-DIAG step=14200] mse_pos=0.049998 mse_neg=1.085845 mse_gap=1.035846 pred_norm=19.3868 pred_std=0.9722 pred_abs=0.7740 tgt_std=0.9992 tgt_abs=0.7973 cos=0.0005 neg_dist=14.2426 anchor_dist=12.7853 pgd_disp=1.5000 mse_neg_init=0.779210 mse_neg_final=1.223914
+[TAM-GC-DIAG step=14300] mse_pos=0.051036 mse_neg=1.092302 mse_gap=1.041266 pred_norm=19.4458 pred_std=0.9751 pred_abs=0.7759 tgt_std=1.0006 tgt_abs=0.7985 cos=0.0021 neg_dist=14.4045 anchor_dist=12.9482 pgd_disp=1.5000 mse_neg_init=0.813497 mse_neg_final=1.266338
+[TAM-GC-DIAG step=14400] mse_pos=0.051558 mse_neg=1.123093 mse_gap=1.071535 pred_norm=19.3435 pred_std=0.9702 pred_abs=0.7719 tgt_std=0.9996 tgt_abs=0.7974 cos=-0.0015 neg_dist=15.4061 anchor_dist=13.9436 pgd_disp=1.5000 mse_neg_init=1.050891 mse_neg_final=1.571265
+[TAM-GC-DIAG step=14500] mse_pos=0.048819 mse_neg=1.086911 mse_gap=1.038092 pred_norm=19.5036 pred_std=0.9779 pred_abs=0.7786 tgt_std=0.9989 tgt_abs=0.7970 cos=-0.0012 neg_dist=14.4719 anchor_dist=13.0138 pgd_disp=1.5000 mse_neg_init=0.815902 mse_neg_final=1.271154
+[TAM-GC-DIAG step=14600] mse_pos=0.053838 mse_neg=1.125998 mse_gap=1.072160 pred_norm=19.3179 pred_std=0.9691 pred_abs=0.7711 tgt_std=0.9997 tgt_abs=0.7979 cos=-0.0005 neg_dist=15.3019 anchor_dist=13.8400 pgd_disp=1.5000 mse_neg_init=1.052910 mse_neg_final=1.577468
+[TAM-GC-DIAG step=14700] mse_pos=0.051287 mse_neg=1.089625 mse_gap=1.038338 pred_norm=19.3552 pred_std=0.9707 pred_abs=0.7726 tgt_std=0.9998 tgt_abs=0.7979 cos=-0.0001 neg_dist=14.2816 anchor_dist=12.8265 pgd_disp=1.5000 mse_neg_init=0.766929 mse_neg_final=1.204912
+[TAM-GC-DIAG step=14800] mse_pos=0.049348 mse_neg=1.078148 mse_gap=1.028800 pred_norm=19.4243 pred_std=0.9741 pred_abs=0.7753 tgt_std=1.0000 tgt_abs=0.7982 cos=0.0022 neg_dist=14.7636 anchor_dist=13.3037 pgd_disp=1.5000 mse_neg_init=0.867423 mse_neg_final=1.339005
+[TAM-GC-DIAG step=14900] mse_pos=0.051216 mse_neg=1.124385 mse_gap=1.073169 pred_norm=19.4417 pred_std=0.9750 pred_abs=0.7759 tgt_std=1.0012 tgt_abs=0.7986 cos=0.0001 neg_dist=15.4599 anchor_dist=13.9957 pgd_disp=1.5000 mse_neg_init=1.054608 mse_neg_final=1.579277
+[TAM-GC-DIAG step=15000] mse_pos=0.050593 mse_neg=1.096674 mse_gap=1.046081 pred_norm=19.4767 pred_std=0.9767 pred_abs=0.7774 tgt_std=0.9993 tgt_abs=0.7970 cos=0.0008 neg_dist=14.3998 anchor_dist=12.9417 pgd_disp=1.5000 mse_neg_init=0.825542 mse_neg_final=1.285403
+Running Evaluation...
+Validation Result @ Iteration 15000; Milestone = 15 (Train)
+---------  ----------
+mse_error  0.00973569
+---------  ----------
+Validation Result @ Iteration 15000; Milestone = 15 (ID: Validation)
+---  ----------
+mse  0.00976195
+---  ----------
+[TAM-GC-DIAG step=15100] mse_pos=0.048831 mse_neg=1.089564 mse_gap=1.040733 pred_norm=19.4356 pred_std=0.9745 pred_abs=0.7756 tgt_std=1.0004 tgt_abs=0.7983 cos=-0.0009 neg_dist=14.3900 anchor_dist=12.9302 pgd_disp=1.5000 mse_neg_init=0.789585 mse_neg_final=1.237159
+[TAM-GC-DIAG step=15200] mse_pos=0.050886 mse_neg=1.089417 mse_gap=1.038531 pred_norm=19.4019 pred_std=0.9730 pred_abs=0.7745 tgt_std=0.9988 tgt_abs=0.7964 cos=0.0003 neg_dist=14.2443 anchor_dist=12.7867 pgd_disp=1.5000 mse_neg_init=0.786037 mse_neg_final=1.235114
+[TAM-GC-DIAG step=15300] mse_pos=0.049524 mse_neg=1.094982 mse_gap=1.045458 pred_norm=19.4381 pred_std=0.9746 pred_abs=0.7760 tgt_std=1.0007 tgt_abs=0.7986 cos=-0.0010 neg_dist=15.7176 anchor_dist=14.2528 pgd_disp=1.5000 mse_neg_init=1.066688 mse_neg_final=1.583908
+[TAM-GC-DIAG step=15400] mse_pos=0.050757 mse_neg=1.088517 mse_gap=1.037760 pred_norm=19.3994 pred_std=0.9729 pred_abs=0.7745 tgt_std=0.9997 tgt_abs=0.7985 cos=-0.0002 neg_dist=14.3152 anchor_dist=12.8571 pgd_disp=1.5000 mse_neg_init=0.796606 mse_neg_final=1.249390
+[TAM-GC-DIAG step=15500] mse_pos=0.049793 mse_neg=1.089413 mse_gap=1.039620 pred_norm=19.3955 pred_std=0.9725 pred_abs=0.7742 tgt_std=1.0001 tgt_abs=0.7981 cos=0.0000 neg_dist=14.2912 anchor_dist=12.8343 pgd_disp=1.5000 mse_neg_init=0.776973 mse_neg_final=1.223089
+[TAM-GC-DIAG step=15600] mse_pos=0.052661 mse_neg=1.092191 mse_gap=1.039530 pred_norm=19.3777 pred_std=0.9717 pred_abs=0.7734 tgt_std=1.0012 tgt_abs=0.7990 cos=0.0011 neg_dist=14.3355 anchor_dist=12.8813 pgd_disp=1.5000 mse_neg_init=0.802453 mse_neg_final=1.256265
+[TAM-GC-DIAG step=15700] mse_pos=0.050300 mse_neg=1.093562 mse_gap=1.043263 pred_norm=19.4173 pred_std=0.9737 pred_abs=0.7747 tgt_std=1.0001 tgt_abs=0.7977 cos=0.0013 neg_dist=15.5001 anchor_dist=14.0379 pgd_disp=1.5000 mse_neg_init=1.054019 mse_neg_final=1.572848
+[TAM-GC-DIAG step=15800] mse_pos=0.049762 mse_neg=1.090692 mse_gap=1.040930 pred_norm=19.4161 pred_std=0.9735 pred_abs=0.7747 tgt_std=0.9992 tgt_abs=0.7973 cos=0.0020 neg_dist=14.3945 anchor_dist=12.9384 pgd_disp=1.5000 mse_neg_init=0.784735 mse_neg_final=1.229339
+[TAM-GC-DIAG step=15900] mse_pos=0.051311 mse_neg=1.091936 mse_gap=1.040625 pred_norm=19.3986 pred_std=0.9727 pred_abs=0.7737 tgt_std=0.9991 tgt_abs=0.7971 cos=-0.0002 neg_dist=14.2593 anchor_dist=12.8042 pgd_disp=1.5000 mse_neg_init=0.776449 mse_neg_final=1.221713
+[TAM-GC-DIAG step=16000] mse_pos=0.048591 mse_neg=1.093024 mse_gap=1.044433 pred_norm=19.4288 pred_std=0.9740 pred_abs=0.7755 tgt_std=1.0015 tgt_abs=0.7993 cos=-0.0006 neg_dist=14.2967 anchor_dist=12.8410 pgd_disp=1.5000 mse_neg_init=0.773023 mse_neg_final=1.217395
+Running Evaluation...
+Validation Result @ Iteration 16000; Milestone = 16 (Train)
+---------  ----------
+mse_error  0.00971839
+---------  ----------
+Validation Result @ Iteration 16000; Milestone = 16 (ID: Validation)
+---  ----------
+mse  0.00971319
+---  ----------
+[TAM-GC-DIAG step=16100] mse_pos=0.048273 mse_neg=1.088449 mse_gap=1.040176 pred_norm=19.4436 pred_std=0.9748 pred_abs=0.7757 tgt_std=1.0020 tgt_abs=0.7996 cos=0.0008 neg_dist=14.5723 anchor_dist=13.1161 pgd_disp=1.5000 mse_neg_init=0.791348 mse_neg_final=1.239217
+[TAM-GC-DIAG step=16200] mse_pos=0.049322 mse_neg=1.127502 mse_gap=1.078180 pred_norm=19.4622 pred_std=0.9758 pred_abs=0.7764 tgt_std=0.9992 tgt_abs=0.7972 cos=-0.0008 neg_dist=15.5305 anchor_dist=14.0670 pgd_disp=1.5000 mse_neg_init=1.051343 mse_neg_final=1.575394
+[TAM-GC-DIAG step=16300] mse_pos=0.049497 mse_neg=1.093400 mse_gap=1.043903 pred_norm=19.4150 pred_std=0.9735 pred_abs=0.7750 tgt_std=1.0009 tgt_abs=0.7985 cos=-0.0004 neg_dist=14.5294 anchor_dist=13.0741 pgd_disp=1.5000 mse_neg_init=0.805340 mse_neg_final=1.254981
+[TAM-GC-DIAG step=16400] mse_pos=0.053441 mse_neg=1.094548 mse_gap=1.041107 pred_norm=19.3863 pred_std=0.9723 pred_abs=0.7738 tgt_std=0.9985 tgt_abs=0.7966 cos=-0.0014 neg_dist=15.4806 anchor_dist=14.0179 pgd_disp=1.5000 mse_neg_init=1.074129 mse_neg_final=1.600620
+[TAM-GC-DIAG step=16500] mse_pos=0.049350 mse_neg=1.093871 mse_gap=1.044521 pred_norm=19.4357 pred_std=0.9744 pred_abs=0.7757 tgt_std=0.9991 tgt_abs=0.7971 cos=-0.0010 neg_dist=14.3661 anchor_dist=12.9099 pgd_disp=1.5000 mse_neg_init=0.793578 mse_neg_final=1.245479
+[TAM-GC-DIAG step=16600] mse_pos=0.050153 mse_neg=1.097697 mse_gap=1.047545 pred_norm=19.4323 pred_std=0.9743 pred_abs=0.7754 tgt_std=0.9999 tgt_abs=0.7977 cos=0.0002 neg_dist=15.6470 anchor_dist=14.1821 pgd_disp=1.5000 mse_neg_init=1.075188 mse_neg_final=1.598828
+[TAM-GC-DIAG step=16700] mse_pos=0.050424 mse_neg=1.089905 mse_gap=1.039481 pred_norm=19.3936 pred_std=0.9724 pred_abs=0.7738 tgt_std=0.9998 tgt_abs=0.7978 cos=-0.0005 neg_dist=14.2473 anchor_dist=12.7936 pgd_disp=1.5000 mse_neg_init=0.775932 mse_neg_final=1.222875
+[TAM-GC-DIAG step=16800] mse_pos=0.050010 mse_neg=1.129007 mse_gap=1.078997 pred_norm=19.4517 pred_std=0.9753 pred_abs=0.7764 tgt_std=0.9999 tgt_abs=0.7975 cos=0.0007 neg_dist=15.4992 anchor_dist=14.0344 pgd_disp=1.5000 mse_neg_init=1.053206 mse_neg_final=1.579734
+[TAM-GC-DIAG step=16900] mse_pos=0.052738 mse_neg=1.094111 mse_gap=1.041373 pred_norm=19.3832 pred_std=0.9719 pred_abs=0.7736 tgt_std=0.9994 tgt_abs=0.7970 cos=0.0013 neg_dist=14.1559 anchor_dist=12.7024 pgd_disp=1.5000 mse_neg_init=0.790368 mse_neg_final=1.245845
+[TAM-GC-DIAG step=17000] mse_pos=0.049709 mse_neg=1.093805 mse_gap=1.044096 pred_norm=19.3886 pred_std=0.9722 pred_abs=0.7740 tgt_std=0.9996 tgt_abs=0.7978 cos=0.0001 neg_dist=14.4389 anchor_dist=12.9828 pgd_disp=1.5000 mse_neg_init=0.775695 mse_neg_final=1.217595
+Running Evaluation...
+Validation Result @ Iteration 17000; Milestone = 17 (Train)
+---------  ----------
+mse_error  0.00975787
+---------  ----------
+Validation Result @ Iteration 17000; Milestone = 17 (ID: Validation)
+---  ----------
+mse  0.00973166
+---  ----------
+[TAM-GC-DIAG step=17100] mse_pos=0.049162 mse_neg=1.099322 mse_gap=1.050160 pred_norm=19.4913 pred_std=0.9771 pred_abs=0.7775 tgt_std=1.0003 tgt_abs=0.7985 cos=-0.0005 neg_dist=15.6770 anchor_dist=14.2111 pgd_disp=1.5000 mse_neg_init=1.082182 mse_neg_final=1.609628
+[TAM-GC-DIAG step=17200] mse_pos=0.051570 mse_neg=1.095076 mse_gap=1.043506 pred_norm=19.3731 pred_std=0.9714 pred_abs=0.7733 tgt_std=1.0002 tgt_abs=0.7981 cos=0.0011 neg_dist=14.1747 anchor_dist=12.7233 pgd_disp=1.5000 mse_neg_init=0.784621 mse_neg_final=1.235027
+[TAM-GC-DIAG step=17300] mse_pos=0.046699 mse_neg=1.124791 mse_gap=1.078092 pred_norm=19.4844 pred_std=0.9765 pred_abs=0.7776 tgt_std=0.9999 tgt_abs=0.7975 cos=-0.0002 neg_dist=15.7447 anchor_dist=14.2780 pgd_disp=1.5000 mse_neg_init=1.053553 mse_neg_final=1.575455
+[TAM-GC-DIAG step=17400] mse_pos=0.049757 mse_neg=1.093589 mse_gap=1.043832 pred_norm=19.4095 pred_std=0.9731 pred_abs=0.7746 tgt_std=0.9998 tgt_abs=0.7981 cos=0.0007 neg_dist=14.3583 anchor_dist=12.9004 pgd_disp=1.5000 mse_neg_init=0.792050 mse_neg_final=1.243747
+[TAM-GC-DIAG step=17500] mse_pos=0.048947 mse_neg=1.097044 mse_gap=1.048096 pred_norm=19.4312 pred_std=0.9741 pred_abs=0.7752 tgt_std=0.9994 tgt_abs=0.7977 cos=0.0016 neg_dist=14.4226 anchor_dist=12.9694 pgd_disp=1.5000 mse_neg_init=0.786713 mse_neg_final=1.232051
+[TAM-GC-DIAG step=17600] mse_pos=0.053069 mse_neg=1.092282 mse_gap=1.039214 pred_norm=19.3567 pred_std=0.9706 pred_abs=0.7723 tgt_std=0.9999 tgt_abs=0.7979 cos=-0.0009 neg_dist=14.1460 anchor_dist=12.6907 pgd_disp=1.5000 mse_neg_init=0.803901 mse_neg_final=1.265945
+[TAM-GC-DIAG step=17700] mse_pos=0.052592 mse_neg=1.093140 mse_gap=1.040549 pred_norm=19.3906 pred_std=0.9723 pred_abs=0.7733 tgt_std=0.9996 tgt_abs=0.7976 cos=0.0022 neg_dist=14.2396 anchor_dist=12.7838 pgd_disp=1.5000 mse_neg_init=0.801994 mse_neg_final=1.260741
+[TAM-GC-DIAG step=17800] mse_pos=0.050493 mse_neg=1.099047 mse_gap=1.048555 pred_norm=19.4324 pred_std=0.9743 pred_abs=0.7756 tgt_std=0.9987 tgt_abs=0.7969 cos=0.0015 neg_dist=14.3334 anchor_dist=12.8742 pgd_disp=1.5000 mse_neg_init=0.817833 mse_neg_final=1.279171
+[TAM-GC-DIAG step=17900] mse_pos=0.051747 mse_neg=1.092000 mse_gap=1.040253 pred_norm=19.3663 pred_std=0.9711 pred_abs=0.7728 tgt_std=0.9994 tgt_abs=0.7972 cos=0.0003 neg_dist=14.2195 anchor_dist=12.7649 pgd_disp=1.5000 mse_neg_init=0.780192 mse_neg_final=1.232136
+[TAM-GC-DIAG step=18000] mse_pos=0.050760 mse_neg=1.092078 mse_gap=1.041318 pred_norm=19.4056 pred_std=0.9730 pred_abs=0.7745 tgt_std=0.9992 tgt_abs=0.7968 cos=0.0000 neg_dist=14.2816 anchor_dist=12.8248 pgd_disp=1.5000 mse_neg_init=0.799915 mse_neg_final=1.257028
+Running Evaluation...
+Validation Result @ Iteration 18000; Milestone = 18 (Train)
+---------  ----------
+mse_error  0.00975205
+---------  ----------
+Validation Result @ Iteration 18000; Milestone = 18 (ID: Validation)
+---  ----------
+mse  0.00970802
+---  ----------
+[TAM-GC-DIAG step=18100] mse_pos=0.048832 mse_neg=1.098042 mse_gap=1.049210 pred_norm=19.4668 pred_std=0.9759 pred_abs=0.7770 tgt_std=1.0000 tgt_abs=0.7980 cos=0.0013 neg_dist=14.3975 anchor_dist=12.9401 pgd_disp=1.5000 mse_neg_init=0.794023 mse_neg_final=1.246004
+[TAM-GC-DIAG step=18200] mse_pos=0.049268 mse_neg=1.097620 mse_gap=1.048352 pred_norm=19.4418 pred_std=0.9747 pred_abs=0.7760 tgt_std=1.0011 tgt_abs=0.7990 cos=0.0011 neg_dist=14.3859 anchor_dist=12.9291 pgd_disp=1.5000 mse_neg_init=0.787491 mse_neg_final=1.238843
+[TAM-GC-DIAG step=18300] mse_pos=0.050898 mse_neg=1.080601 mse_gap=1.029703 pred_norm=19.4111 pred_std=0.9731 pred_abs=0.7748 tgt_std=1.0007 tgt_abs=0.7989 cos=-0.0002 neg_dist=14.6606 anchor_dist=13.2021 pgd_disp=1.5000 mse_neg_init=0.869304 mse_neg_final=1.349079
+[TAM-GC-DIAG step=18400] mse_pos=0.049921 mse_neg=1.096689 mse_gap=1.046768 pred_norm=19.4322 pred_std=0.9743 pred_abs=0.7755 tgt_std=0.9998 tgt_abs=0.7976 cos=0.0007 neg_dist=14.4224 anchor_dist=12.9686 pgd_disp=1.5000 mse_neg_init=0.821922 mse_neg_final=1.285413
+[TAM-GC-DIAG step=18500] mse_pos=0.052147 mse_neg=1.128426 mse_gap=1.076279 pred_norm=19.3916 pred_std=0.9723 pred_abs=0.7739 tgt_std=0.9998 tgt_abs=0.7978 cos=-0.0009 neg_dist=15.3838 anchor_dist=13.9206 pgd_disp=1.5000 mse_neg_init=1.054814 mse_neg_final=1.586634
+[TAM-GC-DIAG step=18600] mse_pos=0.049185 mse_neg=1.094508 mse_gap=1.045323 pred_norm=19.4357 pred_std=0.9743 pred_abs=0.7761 tgt_std=0.9983 tgt_abs=0.7968 cos=0.0008 neg_dist=14.2599 anchor_dist=12.8031 pgd_disp=1.5000 mse_neg_init=0.781034 mse_neg_final=1.232537
+[TAM-GC-DIAG step=18700] mse_pos=0.049499 mse_neg=1.095902 mse_gap=1.046403 pred_norm=19.4625 pred_std=0.9757 pred_abs=0.7771 tgt_std=1.0010 tgt_abs=0.7988 cos=0.0003 neg_dist=14.4405 anchor_dist=12.9808 pgd_disp=1.5000 mse_neg_init=0.797943 mse_neg_final=1.253117
+[TAM-GC-DIAG step=18800] mse_pos=0.050845 mse_neg=1.092568 mse_gap=1.041722 pred_norm=19.4438 pred_std=0.9748 pred_abs=0.7759 tgt_std=1.0002 tgt_abs=0.7981 cos=0.0016 neg_dist=14.1556 anchor_dist=12.7003 pgd_disp=1.5000 mse_neg_init=0.797564 mse_neg_final=1.259611
+[TAM-GC-DIAG step=18900] mse_pos=0.048022 mse_neg=1.097201 mse_gap=1.049178 pred_norm=19.4628 pred_std=0.9755 pred_abs=0.7766 tgt_std=0.9990 tgt_abs=0.7972 cos=-0.0006 neg_dist=15.7144 anchor_dist=14.2469 pgd_disp=1.5000 mse_neg_init=1.078473 mse_neg_final=1.605800
+[TAM-GC-DIAG step=19000] mse_pos=0.049825 mse_neg=1.094259 mse_gap=1.044435 pred_norm=19.4250 pred_std=0.9737 pred_abs=0.7755 tgt_std=0.9978 tgt_abs=0.7959 cos=-0.0004 neg_dist=14.1865 anchor_dist=12.7348 pgd_disp=1.5000 mse_neg_init=0.775473 mse_neg_final=1.224724
+Running Evaluation...
+Validation Result @ Iteration 19000; Milestone = 19 (Train)
+---------  ----------
+mse_error  0.00978266
+---------  ----------
+Validation Result @ Iteration 19000; Milestone = 19 (ID: Validation)
+---  ----------
+mse  0.00970831
+---  ----------
+[TAM-GC-DIAG step=19100] mse_pos=0.049705 mse_neg=1.081744 mse_gap=1.032039 pred_norm=19.4251 pred_std=0.9739 pred_abs=0.7753 tgt_std=0.9996 tgt_abs=0.7969 cos=0.0018 neg_dist=14.7820 anchor_dist=13.3233 pgd_disp=1.5000 mse_neg_init=0.862941 mse_neg_final=1.337240
+[TAM-GC-DIAG step=19200] mse_pos=0.049955 mse_neg=1.080093 mse_gap=1.030139 pred_norm=19.4146 pred_std=0.9733 pred_abs=0.7751 tgt_std=0.9997 tgt_abs=0.7975 cos=0.0001 neg_dist=14.7835 anchor_dist=13.3239 pgd_disp=1.5000 mse_neg_init=0.866705 mse_neg_final=1.342304
+[TAM-GC-DIAG step=19300] mse_pos=0.053612 mse_neg=1.096908 mse_gap=1.043297 pred_norm=19.3687 pred_std=0.9713 pred_abs=0.7733 tgt_std=1.0004 tgt_abs=0.7983 cos=-0.0018 neg_dist=14.2748 anchor_dist=12.8209 pgd_disp=1.5000 mse_neg_init=0.812873 mse_neg_final=1.273316
+[TAM-GC-DIAG step=19400] mse_pos=0.050724 mse_neg=1.094390 mse_gap=1.043665 pred_norm=19.3889 pred_std=0.9720 pred_abs=0.7741 tgt_std=0.9992 tgt_abs=0.7974 cos=-0.0007 neg_dist=14.2967 anchor_dist=12.8422 pgd_disp=1.5000 mse_neg_init=0.796062 mse_neg_final=1.253609
+[TAM-GC-DIAG step=19500] mse_pos=0.049295 mse_neg=1.097475 mse_gap=1.048180 pred_norm=19.4370 pred_std=0.9743 pred_abs=0.7757 tgt_std=0.9996 tgt_abs=0.7976 cos=-0.0006 neg_dist=14.3566 anchor_dist=12.8998 pgd_disp=1.5000 mse_neg_init=0.781496 mse_neg_final=1.230745
+[TAM-GC-DIAG step=19600] mse_pos=0.052983 mse_neg=1.099214 mse_gap=1.046231 pred_norm=19.3560 pred_std=0.9705 pred_abs=0.7721 tgt_std=0.9996 tgt_abs=0.7975 cos=-0.0006 neg_dist=14.2260 anchor_dist=12.7770 pgd_disp=1.5000 mse_neg_init=0.801901 mse_neg_final=1.259110
+[TAM-GC-DIAG step=19700] mse_pos=0.050986 mse_neg=1.132781 mse_gap=1.081796 pred_norm=19.3960 pred_std=0.9724 pred_abs=0.7739 tgt_std=0.9998 tgt_abs=0.7982 cos=0.0013 neg_dist=15.4352 anchor_dist=13.9723 pgd_disp=1.5000 mse_neg_init=1.054495 mse_neg_final=1.584964
+[TAM-GC-DIAG step=19800] mse_pos=0.052138 mse_neg=1.096375 mse_gap=1.044237 pred_norm=19.4097 pred_std=0.9731 pred_abs=0.7748 tgt_std=0.9992 tgt_abs=0.7971 cos=0.0004 neg_dist=14.1980 anchor_dist=12.7458 pgd_disp=1.5000 mse_neg_init=0.788445 mse_neg_final=1.242996
+[TAM-GC-DIAG step=19900] mse_pos=0.051463 mse_neg=1.081856 mse_gap=1.030393 pred_norm=19.4282 pred_std=0.9741 pred_abs=0.7752 tgt_std=1.0007 tgt_abs=0.7984 cos=0.0007 neg_dist=14.8365 anchor_dist=13.3787 pgd_disp=1.5000 mse_neg_init=0.886829 mse_neg_final=1.369179
+[TAM-GC-DIAG step=20000] mse_pos=0.047622 mse_neg=1.075556 mse_gap=1.027934 pred_norm=19.4447 pred_std=0.9747 pred_abs=0.7765 tgt_std=1.0009 tgt_abs=0.7988 cos=0.0012 neg_dist=14.8203 anchor_dist=13.3594 pgd_disp=1.5000 mse_neg_init=0.846203 mse_neg_final=1.317824
+Running Evaluation...
+Validation Result @ Iteration 20000; Milestone = 20 (Train)
+---------  ----------
+mse_error  0.00972263
+---------  ----------
+Validation Result @ Iteration 20000; Milestone = 20 (ID: Validation)
+---  ----------
+mse  0.00970497
+---  ----------
+[TAM-GC-DIAG step=20100] mse_pos=0.048639 mse_neg=1.099197 mse_gap=1.050558 pred_norm=19.4609 pred_std=0.9755 pred_abs=0.7769 tgt_std=1.0008 tgt_abs=0.7982 cos=0.0023 neg_dist=14.3541 anchor_dist=12.8968 pgd_disp=1.5000 mse_neg_init=0.803522 mse_neg_final=1.262529
+[TAM-GC-DIAG step=20200] mse_pos=0.051392 mse_neg=1.095658 mse_gap=1.044266 pred_norm=19.3987 pred_std=0.9725 pred_abs=0.7743 tgt_std=0.9989 tgt_abs=0.7967 cos=0.0007 neg_dist=14.2004 anchor_dist=12.7450 pgd_disp=1.5000 mse_neg_init=0.794674 mse_neg_final=1.254085
+[TAM-GC-DIAG step=20300] mse_pos=0.049618 mse_neg=1.096745 mse_gap=1.047127 pred_norm=19.4419 pred_std=0.9746 pred_abs=0.7755 tgt_std=0.9997 tgt_abs=0.7975 cos=0.0013 neg_dist=14.2829 anchor_dist=12.8256 pgd_disp=1.5000 mse_neg_init=0.802155 mse_neg_final=1.261690
+[TAM-GC-DIAG step=20400] mse_pos=0.049435 mse_neg=1.083879 mse_gap=1.034444 pred_norm=19.4612 pred_std=0.9757 pred_abs=0.7766 tgt_std=1.0001 tgt_abs=0.7977 cos=0.0003 neg_dist=14.8858 anchor_dist=13.4250 pgd_disp=1.5000 mse_neg_init=0.881428 mse_neg_final=1.362262
+[TAM-GC-DIAG step=20500] mse_pos=0.050919 mse_neg=1.098379 mse_gap=1.047459 pred_norm=19.4165 pred_std=0.9735 pred_abs=0.7747 tgt_std=1.0006 tgt_abs=0.7984 cos=0.0001 neg_dist=14.1737 anchor_dist=12.7191 pgd_disp=1.5000 mse_neg_init=0.792350 mse_neg_final=1.250006
+[TAM-GC-DIAG step=20600] mse_pos=0.047035 mse_neg=1.081563 mse_gap=1.034528 pred_norm=19.4637 pred_std=0.9755 pred_abs=0.7770 tgt_std=0.9997 tgt_abs=0.7975 cos=-0.0005 neg_dist=15.0149 anchor_dist=13.5540 pgd_disp=1.5000 mse_neg_init=0.878766 mse_neg_final=1.354530
+[TAM-GC-DIAG step=20700] mse_pos=0.050534 mse_neg=1.099905 mse_gap=1.049371 pred_norm=19.4283 pred_std=0.9740 pred_abs=0.7755 tgt_std=1.0007 tgt_abs=0.7983 cos=0.0002 neg_dist=14.3544 anchor_dist=12.8976 pgd_disp=1.5000 mse_neg_init=0.799615 mse_neg_final=1.255780
+[TAM-GC-DIAG step=20800] mse_pos=0.049150 mse_neg=1.095912 mse_gap=1.046762 pred_norm=19.4134 pred_std=0.9732 pred_abs=0.7750 tgt_std=0.9996 tgt_abs=0.7974 cos=-0.0012 neg_dist=14.3826 anchor_dist=12.9271 pgd_disp=1.5000 mse_neg_init=0.793111 mse_neg_final=1.245182
+[TAM-GC-DIAG step=20900] mse_pos=0.050052 mse_neg=1.078562 mse_gap=1.028509 pred_norm=19.4204 pred_std=0.9736 pred_abs=0.7752 tgt_std=1.0005 tgt_abs=0.7983 cos=0.0005 neg_dist=14.7245 anchor_dist=13.2620 pgd_disp=1.5000 mse_neg_init=0.862681 mse_neg_final=1.341860
+[TAM-GC-DIAG step=21000] mse_pos=0.049241 mse_neg=1.092618 mse_gap=1.043377 pred_norm=19.4852 pred_std=0.9767 pred_abs=0.7771 tgt_std=0.9999 tgt_abs=0.7976 cos=0.0005 neg_dist=14.1645 anchor_dist=12.7093 pgd_disp=1.5000 mse_neg_init=0.784163 mse_neg_final=1.242090
+Running Evaluation...
+Validation Result @ Iteration 21000; Milestone = 21 (Train)
+---------  ----------
+mse_error  0.00977514
+---------  ----------
+Validation Result @ Iteration 21000; Milestone = 21 (ID: Validation)
+---  ---------
+mse  0.0097363
+---  ---------
+[TAM-GC-DIAG step=21100] mse_pos=0.049898 mse_neg=1.085649 mse_gap=1.035751 pred_norm=19.4583 pred_std=0.9754 pred_abs=0.7769 tgt_std=0.9997 tgt_abs=0.7977 cos=-0.0018 neg_dist=14.6992 anchor_dist=13.2374 pgd_disp=1.5000 mse_neg_init=0.880202 mse_neg_final=1.366024
+[TAM-GC-DIAG step=21200] mse_pos=0.050233 mse_neg=1.083330 mse_gap=1.033097 pred_norm=19.4295 pred_std=0.9740 pred_abs=0.7753 tgt_std=0.9991 tgt_abs=0.7974 cos=0.0010 neg_dist=14.8451 anchor_dist=13.3861 pgd_disp=1.5000 mse_neg_init=0.876330 mse_neg_final=1.355240
+[TAM-GC-DIAG step=21300] mse_pos=0.050632 mse_neg=1.098591 mse_gap=1.047959 pred_norm=19.4232 pred_std=0.9738 pred_abs=0.7753 tgt_std=0.9986 tgt_abs=0.7968 cos=0.0010 neg_dist=15.5354 anchor_dist=14.0722 pgd_disp=1.5000 mse_neg_init=1.083057 mse_neg_final=1.615549
+[TAM-GC-DIAG step=21400] mse_pos=0.051037 mse_neg=1.078253 mse_gap=1.027216 pred_norm=19.3942 pred_std=0.9722 pred_abs=0.7741 tgt_std=0.9986 tgt_abs=0.7969 cos=0.0010 neg_dist=14.7184 anchor_dist=13.2581 pgd_disp=1.5000 mse_neg_init=0.865980 mse_neg_final=1.344809
+[TAM-GC-DIAG step=21500] mse_pos=0.049823 mse_neg=1.129572 mse_gap=1.079749 pred_norm=19.4560 pred_std=0.9754 pred_abs=0.7766 tgt_std=1.0002 tgt_abs=0.7981 cos=0.0007 neg_dist=15.6937 anchor_dist=14.2291 pgd_disp=1.5000 mse_neg_init=1.053335 mse_neg_final=1.579383
+[TAM-GC-DIAG step=21600] mse_pos=0.052354 mse_neg=1.093090 mse_gap=1.040735 pred_norm=19.3656 pred_std=0.9711 pred_abs=0.7730 tgt_std=0.9999 tgt_abs=0.7977 cos=-0.0000 neg_dist=14.0637 anchor_dist=12.6119 pgd_disp=1.5000 mse_neg_init=0.769775 mse_neg_final=1.221809
+[TAM-GC-DIAG step=21700] mse_pos=0.049726 mse_neg=1.098739 mse_gap=1.049012 pred_norm=19.4367 pred_std=0.9743 pred_abs=0.7759 tgt_std=1.0010 tgt_abs=0.7989 cos=0.0016 neg_dist=14.2311 anchor_dist=12.7786 pgd_disp=1.5000 mse_neg_init=0.790814 mse_neg_final=1.245474
+[TAM-GC-DIAG step=21800] mse_pos=0.051339 mse_neg=1.097924 mse_gap=1.046585 pred_norm=19.4114 pred_std=0.9732 pred_abs=0.7749 tgt_std=1.0005 tgt_abs=0.7985 cos=0.0003 neg_dist=14.2226 anchor_dist=12.7690 pgd_disp=1.5000 mse_neg_init=0.797563 mse_neg_final=1.257001
+[TAM-GC-DIAG step=21900] mse_pos=0.051223 mse_neg=1.099080 mse_gap=1.047857 pred_norm=19.4054 pred_std=0.9728 pred_abs=0.7742 tgt_std=1.0010 tgt_abs=0.7987 cos=0.0020 neg_dist=14.2207 anchor_dist=12.7661 pgd_disp=1.5000 mse_neg_init=0.803746 mse_neg_final=1.265177
+[TAM-GC-DIAG step=22000] mse_pos=0.049711 mse_neg=1.094207 mse_gap=1.044496 pred_norm=19.4153 pred_std=0.9733 pred_abs=0.7750 tgt_std=1.0003 tgt_abs=0.7982 cos=0.0009 neg_dist=14.3768 anchor_dist=12.9224 pgd_disp=1.5000 mse_neg_init=0.795227 mse_neg_final=1.249299
+Running Evaluation...
+Validation Result @ Iteration 22000; Milestone = 22 (Train)
+---------  ----------
+mse_error  0.00971232
+---------  ----------
+Validation Result @ Iteration 22000; Milestone = 22 (ID: Validation)
+---  ----------
+mse  0.00978514
+---  ----------
+[TAM-GC-DIAG step=22100] mse_pos=0.051064 mse_neg=1.099317 mse_gap=1.048253 pred_norm=19.4184 pred_std=0.9735 pred_abs=0.7747 tgt_std=1.0007 tgt_abs=0.7987 cos=0.0003 neg_dist=14.2285 anchor_dist=12.7769 pgd_disp=1.5000 mse_neg_init=0.794587 mse_neg_final=1.252261
+[TAM-GC-DIAG step=22200] mse_pos=0.051073 mse_neg=1.095615 mse_gap=1.044542 pred_norm=19.4195 pred_std=0.9735 pred_abs=0.7750 tgt_std=0.9989 tgt_abs=0.7972 cos=0.0012 neg_dist=14.1874 anchor_dist=12.7333 pgd_disp=1.5000 mse_neg_init=0.792194 mse_neg_final=1.251969
+[TAM-GC-DIAG step=22300] mse_pos=0.052122 mse_neg=1.100835 mse_gap=1.048713 pred_norm=19.3781 pred_std=0.9716 pred_abs=0.7735 tgt_std=0.9989 tgt_abs=0.7966 cos=-0.0009 neg_dist=14.2558 anchor_dist=12.8049 pgd_disp=1.5000 mse_neg_init=0.802786 mse_neg_final=1.260144
+[TAM-GC-DIAG step=22400] mse_pos=0.052447 mse_neg=1.081242 mse_gap=1.028795 pred_norm=19.3622 pred_std=0.9708 pred_abs=0.7726 tgt_std=0.9984 tgt_abs=0.7965 cos=-0.0015 neg_dist=14.7251 anchor_dist=13.2663 pgd_disp=1.5000 mse_neg_init=0.868940 mse_neg_final=1.347835
+[TAM-GC-DIAG step=22500] mse_pos=0.049774 mse_neg=1.084373 mse_gap=1.034599 pred_norm=19.4362 pred_std=0.9743 pred_abs=0.7756 tgt_std=1.0005 tgt_abs=0.7983 cos=-0.0001 neg_dist=14.7477 anchor_dist=13.2909 pgd_disp=1.5000 mse_neg_init=0.877471 mse_neg_final=1.358814
+[TAM-GC-DIAG step=22600] mse_pos=0.051205 mse_neg=1.097890 mse_gap=1.046685 pred_norm=19.4234 pred_std=0.9737 pred_abs=0.7754 tgt_std=0.9996 tgt_abs=0.7979 cos=0.0009 neg_dist=14.0698 anchor_dist=12.6145 pgd_disp=1.5000 mse_neg_init=0.797351 mse_neg_final=1.262713
+[TAM-GC-DIAG step=22700] mse_pos=0.048285 mse_neg=1.126987 mse_gap=1.078702 pred_norm=19.4371 pred_std=0.9742 pred_abs=0.7760 tgt_std=0.9993 tgt_abs=0.7973 cos=-0.0008 neg_dist=15.6577 anchor_dist=14.1920 pgd_disp=1.5000 mse_neg_init=1.052005 mse_neg_final=1.578488
+[TAM-GC-DIAG step=22800] mse_pos=0.048982 mse_neg=1.104227 mse_gap=1.055245 pred_norm=19.4704 pred_std=0.9760 pred_abs=0.7771 tgt_std=1.0006 tgt_abs=0.7984 cos=0.0004 neg_dist=15.7840 anchor_dist=14.3192 pgd_disp=1.5000 mse_neg_init=1.086392 mse_neg_final=1.615646
+[TAM-GC-DIAG step=22900] mse_pos=0.049502 mse_neg=1.093256 mse_gap=1.043754 pred_norm=19.4344 pred_std=0.9742 pred_abs=0.7754 tgt_std=1.0000 tgt_abs=0.7981 cos=0.0001 neg_dist=14.3287 anchor_dist=12.8740 pgd_disp=1.5000 mse_neg_init=0.794997 mse_neg_final=1.253272
+[TAM-GC-DIAG step=23000] mse_pos=0.049541 mse_neg=1.100005 mse_gap=1.050463 pred_norm=19.4428 pred_std=0.9747 pred_abs=0.7760 tgt_std=1.0009 tgt_abs=0.7990 cos=0.0036 neg_dist=15.7180 anchor_dist=14.2513 pgd_disp=1.5000 mse_neg_init=1.078191 mse_neg_final=1.607484
+Running Evaluation...
+Validation Result @ Iteration 23000; Milestone = 23 (Train)
+---------  ----------
+mse_error  0.00973898
+---------  ----------
+Validation Result @ Iteration 23000; Milestone = 23 (ID: Validation)
+---  ----------
+mse  0.00975368
+---  ----------
+[TAM-GC-DIAG step=23100] mse_pos=0.051254 mse_neg=1.096562 mse_gap=1.045307 pred_norm=19.4168 pred_std=0.9733 pred_abs=0.7749 tgt_std=1.0012 tgt_abs=0.7989 cos=-0.0025 neg_dist=14.2968 anchor_dist=12.8423 pgd_disp=1.5000 mse_neg_init=0.800231 mse_neg_final=1.259435
+[TAM-GC-DIAG step=23200] mse_pos=0.051357 mse_neg=1.097445 mse_gap=1.046088 pred_norm=19.4141 pred_std=0.9734 pred_abs=0.7750 tgt_std=0.9999 tgt_abs=0.7984 cos=0.0004 neg_dist=14.2713 anchor_dist=12.8221 pgd_disp=1.5000 mse_neg_init=0.789207 mse_neg_final=1.241913
+[TAM-GC-DIAG step=23300] mse_pos=0.049270 mse_neg=1.094180 mse_gap=1.044911 pred_norm=19.4541 pred_std=0.9751 pred_abs=0.7772 tgt_std=1.0004 tgt_abs=0.7981 cos=0.0019 neg_dist=14.4222 anchor_dist=12.9660 pgd_disp=1.5000 mse_neg_init=0.818075 mse_neg_final=1.283170
+[TAM-GC-DIAG step=23400] mse_pos=0.048906 mse_neg=1.078820 mse_gap=1.029914 pred_norm=19.4373 pred_std=0.9743 pred_abs=0.7758 tgt_std=0.9991 tgt_abs=0.7970 cos=0.0002 neg_dist=14.7691 anchor_dist=13.3097 pgd_disp=1.5000 mse_neg_init=0.875459 mse_neg_final=1.358424
+[TAM-GC-DIAG step=23500] mse_pos=0.053097 mse_neg=1.096948 mse_gap=1.043851 pred_norm=19.3875 pred_std=0.9722 pred_abs=0.7737 tgt_std=0.9985 tgt_abs=0.7967 cos=-0.0006 neg_dist=14.0862 anchor_dist=12.6309 pgd_disp=1.5000 mse_neg_init=0.788255 mse_neg_final=1.248399
+[TAM-GC-DIAG step=23600] mse_pos=0.047390 mse_neg=1.099179 mse_gap=1.051788 pred_norm=19.4795 pred_std=0.9763 pred_abs=0.7775 tgt_std=0.9995 tgt_abs=0.7973 cos=0.0015 neg_dist=14.4658 anchor_dist=13.0085 pgd_disp=1.5000 mse_neg_init=0.792970 mse_neg_final=1.244746
+[TAM-GC-DIAG step=23700] mse_pos=0.051030 mse_neg=1.099707 mse_gap=1.048676 pred_norm=19.4281 pred_std=0.9740 pred_abs=0.7752 tgt_std=0.9984 tgt_abs=0.7962 cos=-0.0001 neg_dist=15.5594 anchor_dist=14.0975 pgd_disp=1.5000 mse_neg_init=1.077265 mse_neg_final=1.607622
+[TAM-GC-DIAG step=23800] mse_pos=0.049340 mse_neg=1.090664 mse_gap=1.041324 pred_norm=19.4246 pred_std=0.9737 pred_abs=0.7747 tgt_std=1.0005 tgt_abs=0.7982 cos=-0.0019 neg_dist=14.4191 anchor_dist=12.9636 pgd_disp=1.5000 mse_neg_init=0.804589 mse_neg_final=1.265383
+[TAM-GC-DIAG step=23900] mse_pos=0.049873 mse_neg=1.096930 mse_gap=1.047057 pred_norm=19.4211 pred_std=0.9735 pred_abs=0.7749 tgt_std=1.0000 tgt_abs=0.7977 cos=-0.0014 neg_dist=14.3220 anchor_dist=12.8682 pgd_disp=1.5000 mse_neg_init=0.783471 mse_neg_final=1.234431
+[TAM-GC-DIAG step=24000] mse_pos=0.051340 mse_neg=1.101897 mse_gap=1.050557 pred_norm=19.4205 pred_std=0.9737 pred_abs=0.7753 tgt_std=0.9999 tgt_abs=0.7976 cos=0.0012 neg_dist=15.4105 anchor_dist=13.9457 pgd_disp=1.5000 mse_neg_init=1.074342 mse_neg_final=1.610756
+Running Evaluation...
+Validation Result @ Iteration 24000; Milestone = 24 (Train)
+---------  ----------
+mse_error  0.00970711
+---------  ----------
+Validation Result @ Iteration 24000; Milestone = 24 (ID: Validation)
+---  ----------
+mse  0.00975545
+---  ----------
+[TAM-GC-DIAG step=24100] mse_pos=0.048286 mse_neg=1.102563 mse_gap=1.054277 pred_norm=19.4620 pred_std=0.9755 pred_abs=0.7770 tgt_std=0.9995 tgt_abs=0.7977 cos=-0.0005 neg_dist=14.2323 anchor_dist=12.7784 pgd_disp=1.5000 mse_neg_init=0.786156 mse_neg_final=1.239485
+[TAM-GC-DIAG step=24200] mse_pos=0.049590 mse_neg=1.097512 mse_gap=1.047922 pred_norm=19.4575 pred_std=0.9753 pred_abs=0.7766 tgt_std=1.0000 tgt_abs=0.7976 cos=0.0009 neg_dist=14.2069 anchor_dist=12.7503 pgd_disp=1.5000 mse_neg_init=0.774243 mse_neg_final=1.226816
+[TAM-GC-DIAG step=24300] mse_pos=0.047652 mse_neg=1.098030 mse_gap=1.050378 pred_norm=19.4627 pred_std=0.9754 pred_abs=0.7767 tgt_std=0.9996 tgt_abs=0.7976 cos=0.0020 neg_dist=14.2471 anchor_dist=12.7891 pgd_disp=1.5000 mse_neg_init=0.784673 mse_neg_final=1.240959
+[TAM-GC-DIAG step=24400] mse_pos=0.050043 mse_neg=1.095659 mse_gap=1.045617 pred_norm=19.4129 pred_std=0.9731 pred_abs=0.7747 tgt_std=0.9983 tgt_abs=0.7965 cos=0.0011 neg_dist=14.3061 anchor_dist=12.8485 pgd_disp=1.5000 mse_neg_init=0.792220 mse_neg_final=1.250297
+[TAM-GC-DIAG step=24500] mse_pos=0.049785 mse_neg=1.097640 mse_gap=1.047856 pred_norm=19.4348 pred_std=0.9742 pred_abs=0.7754 tgt_std=1.0002 tgt_abs=0.7983 cos=0.0012 neg_dist=14.4135 anchor_dist=12.9586 pgd_disp=1.5000 mse_neg_init=0.790968 mse_neg_final=1.243723
+[TAM-GC-DIAG step=24600] mse_pos=0.052917 mse_neg=1.088665 mse_gap=1.035748 pred_norm=19.3654 pred_std=0.9711 pred_abs=0.7729 tgt_std=1.0006 tgt_abs=0.7983 cos=0.0014 neg_dist=14.3083 anchor_dist=12.8534 pgd_disp=1.5000 mse_neg_init=0.806779 mse_neg_final=1.271493
+[TAM-GC-DIAG step=24700] mse_pos=0.049867 mse_neg=1.093682 mse_gap=1.043815 pred_norm=19.4119 pred_std=0.9731 pred_abs=0.7746 tgt_std=1.0000 tgt_abs=0.7980 cos=0.0001 neg_dist=14.3471 anchor_dist=12.8920 pgd_disp=1.5000 mse_neg_init=0.790499 mse_neg_final=1.246127
+[TAM-GC-DIAG step=24800] mse_pos=0.049723 mse_neg=1.094448 mse_gap=1.044725 pred_norm=19.4460 pred_std=0.9747 pred_abs=0.7759 tgt_std=0.9993 tgt_abs=0.7975 cos=0.0004 neg_dist=14.1587 anchor_dist=12.7021 pgd_disp=1.5000 mse_neg_init=0.773032 mse_neg_final=1.226708
+[TAM-GC-DIAG step=24900] mse_pos=0.050915 mse_neg=1.079619 mse_gap=1.028705 pred_norm=19.4208 pred_std=0.9736 pred_abs=0.7752 tgt_std=0.9997 tgt_abs=0.7972 cos=0.0000 neg_dist=14.7361 anchor_dist=13.2749 pgd_disp=1.5000 mse_neg_init=0.874794 mse_neg_final=1.358180
+[TAM-GC-DIAG step=25000] mse_pos=0.047188 mse_neg=1.078726 mse_gap=1.031538 pred_norm=19.4470 pred_std=0.9746 pred_abs=0.7764 tgt_std=1.0001 tgt_abs=0.7982 cos=-0.0001 neg_dist=14.8594 anchor_dist=13.3995 pgd_disp=1.5000 mse_neg_init=0.862194 mse_neg_final=1.337003
+Running Evaluation...
+Validation Result @ Iteration 25000; Milestone = 25 (Train)
+---------  ----------
+mse_error  0.00969432
+---------  ----------
+Validation Result @ Iteration 25000; Milestone = 25 (ID: Validation)
+---  ----------
+mse  0.00970771
+---  ----------
+[TAM-GC-DIAG step=25100] mse_pos=0.050866 mse_neg=1.099552 mse_gap=1.048686 pred_norm=19.4034 pred_std=0.9727 pred_abs=0.7745 tgt_std=1.0006 tgt_abs=0.7985 cos=-0.0012 neg_dist=14.2436 anchor_dist=12.7898 pgd_disp=1.5000 mse_neg_init=0.794995 mse_neg_final=1.253860
+[TAM-GC-DIAG step=25200] mse_pos=0.049849 mse_neg=1.097977 mse_gap=1.048127 pred_norm=19.4370 pred_std=0.9743 pred_abs=0.7751 tgt_std=1.0009 tgt_abs=0.7988 cos=-0.0009 neg_dist=14.3115 anchor_dist=12.8588 pgd_disp=1.5000 mse_neg_init=0.790440 mse_neg_final=1.245162
+[TAM-GC-DIAG step=25300] mse_pos=0.054819 mse_neg=1.079035 mse_gap=1.024216 pred_norm=19.3351 pred_std=0.9696 pred_abs=0.7718 tgt_std=1.0002 tgt_abs=0.7980 cos=-0.0001 neg_dist=14.4976 anchor_dist=13.0423 pgd_disp=1.5000 mse_neg_init=0.866905 mse_neg_final=1.352500
+[TAM-GC-DIAG step=25400] mse_pos=0.050792 mse_neg=1.101235 mse_gap=1.050443 pred_norm=19.4450 pred_std=0.9747 pred_abs=0.7764 tgt_std=1.0006 tgt_abs=0.7985 cos=0.0012 neg_dist=14.1544 anchor_dist=12.6977 pgd_disp=1.5000 mse_neg_init=0.791553 mse_neg_final=1.253451
+[TAM-GC-DIAG step=25500] mse_pos=0.049527 mse_neg=1.101028 mse_gap=1.051501 pred_norm=19.4481 pred_std=0.9749 pred_abs=0.7762 tgt_std=1.0003 tgt_abs=0.7983 cos=0.0011 neg_dist=15.5851 anchor_dist=14.1195 pgd_disp=1.5000 mse_neg_init=1.086618 mse_neg_final=1.621330
+[TAM-GC-DIAG step=25600] mse_pos=0.050503 mse_neg=1.089060 mse_gap=1.038557 pred_norm=19.4071 pred_std=0.9728 pred_abs=0.7748 tgt_std=1.0005 tgt_abs=0.7982 cos=0.0013 neg_dist=14.3963 anchor_dist=12.9388 pgd_disp=1.5000 mse_neg_init=0.785696 mse_neg_final=1.241133
+[TAM-GC-DIAG step=25700] mse_pos=0.047956 mse_neg=1.100697 mse_gap=1.052741 pred_norm=19.5049 pred_std=0.9776 pred_abs=0.7784 tgt_std=1.0011 tgt_abs=0.7987 cos=0.0005 neg_dist=14.4342 anchor_dist=12.9770 pgd_disp=1.5000 mse_neg_init=0.789148 mse_neg_final=1.242679
+[TAM-GC-DIAG step=25800] mse_pos=0.052288 mse_neg=1.097930 mse_gap=1.045643 pred_norm=19.4080 pred_std=0.9729 pred_abs=0.7745 tgt_std=1.0002 tgt_abs=0.7982 cos=-0.0017 neg_dist=14.1914 anchor_dist=12.7381 pgd_disp=1.5000 mse_neg_init=0.800449 mse_neg_final=1.262968
+[TAM-GC-DIAG step=25900] mse_pos=0.051155 mse_neg=1.098769 mse_gap=1.047614 pred_norm=19.4297 pred_std=0.9740 pred_abs=0.7756 tgt_std=0.9982 tgt_abs=0.7965 cos=0.0003 neg_dist=14.2968 anchor_dist=12.8440 pgd_disp=1.5000 mse_neg_init=0.804031 mse_neg_final=1.262910
+[TAM-GC-DIAG step=26000] mse_pos=0.045943 mse_neg=1.101200 mse_gap=1.055256 pred_norm=19.5262 pred_std=0.9785 pred_abs=0.7789 tgt_std=0.9998 tgt_abs=0.7980 cos=-0.0006 neg_dist=14.3535 anchor_dist=12.8987 pgd_disp=1.5000 mse_neg_init=0.777356 mse_neg_final=1.226399
+Running Evaluation...
+Validation Result @ Iteration 26000; Milestone = 26 (Train)
+---------  ---------
+mse_error  0.0097605
+---------  ---------
+Validation Result @ Iteration 26000; Milestone = 26 (ID: Validation)
+---  ----------
+mse  0.00969664
+---  ----------
+[TAM-GC-DIAG step=26100] mse_pos=0.050097 mse_neg=1.097571 mse_gap=1.047474 pred_norm=19.4183 pred_std=0.9734 pred_abs=0.7752 tgt_std=1.0005 tgt_abs=0.7982 cos=0.0006 neg_dist=14.2831 anchor_dist=12.8328 pgd_disp=1.5000 mse_neg_init=0.788299 mse_neg_final=1.242827
+[TAM-GC-DIAG step=26200] mse_pos=0.049482 mse_neg=1.127221 mse_gap=1.077740 pred_norm=19.4187 pred_std=0.9734 pred_abs=0.7753 tgt_std=0.9995 tgt_abs=0.7975 cos=0.0013 neg_dist=15.5388 anchor_dist=14.0740 pgd_disp=1.5000 mse_neg_init=1.052974 mse_neg_final=1.584034
+[TAM-GC-DIAG step=26300] mse_pos=0.048578 mse_neg=1.100165 mse_gap=1.051587 pred_norm=19.4653 pred_std=0.9757 pred_abs=0.7770 tgt_std=0.9995 tgt_abs=0.7972 cos=-0.0002 neg_dist=14.3794 anchor_dist=12.9202 pgd_disp=1.5000 mse_neg_init=0.796297 mse_neg_final=1.252723
+[TAM-GC-DIAG step=26400] mse_pos=0.050137 mse_neg=1.094347 mse_gap=1.044210 pred_norm=19.4098 pred_std=0.9730 pred_abs=0.7750 tgt_std=0.9998 tgt_abs=0.7977 cos=0.0019 neg_dist=14.3592 anchor_dist=12.9069 pgd_disp=1.5000 mse_neg_init=0.786339 mse_neg_final=1.238162
+[TAM-GC-DIAG step=26500] mse_pos=0.052786 mse_neg=1.097694 mse_gap=1.044908 pred_norm=19.3785 pred_std=0.9718 pred_abs=0.7734 tgt_std=0.9996 tgt_abs=0.7972 cos=-0.0022 neg_dist=14.2334 anchor_dist=12.7826 pgd_disp=1.5000 mse_neg_init=0.805936 mse_neg_final=1.267254
+[TAM-GC-DIAG step=26600] mse_pos=0.050208 mse_neg=1.097090 mse_gap=1.046882 pred_norm=19.4085 pred_std=0.9730 pred_abs=0.7747 tgt_std=1.0002 tgt_abs=0.7982 cos=0.0009 neg_dist=15.5780 anchor_dist=14.1190 pgd_disp=1.5000 mse_neg_init=1.078319 mse_neg_final=1.608302
+[TAM-GC-DIAG step=26700] mse_pos=0.052043 mse_neg=1.096563 mse_gap=1.044520 pred_norm=19.4037 pred_std=0.9727 pred_abs=0.7743 tgt_std=1.0000 tgt_abs=0.7980 cos=-0.0002 neg_dist=14.2340 anchor_dist=12.7793 pgd_disp=1.5000 mse_neg_init=0.825238 mse_neg_final=1.297189
+[TAM-GC-DIAG step=26800] mse_pos=0.050950 mse_neg=1.131883 mse_gap=1.080932 pred_norm=19.4031 pred_std=0.9727 pred_abs=0.7746 tgt_std=0.9994 tgt_abs=0.7974 cos=-0.0004 neg_dist=15.4530 anchor_dist=13.9891 pgd_disp=1.5000 mse_neg_init=1.053569 mse_neg_final=1.587049
+[TAM-GC-DIAG step=26900] mse_pos=0.049205 mse_neg=1.080693 mse_gap=1.031487 pred_norm=19.4373 pred_std=0.9745 pred_abs=0.7756 tgt_std=0.9997 tgt_abs=0.7978 cos=0.0013 neg_dist=14.7764 anchor_dist=13.3138 pgd_disp=1.5000 mse_neg_init=0.874424 mse_neg_final=1.356815
+[TAM-GC-DIAG step=27000] mse_pos=0.052239 mse_neg=1.099952 mse_gap=1.047713 pred_norm=19.3784 pred_std=0.9717 pred_abs=0.7730 tgt_std=0.9994 tgt_abs=0.7977 cos=0.0010 neg_dist=15.4625 anchor_dist=13.9999 pgd_disp=1.5000 mse_neg_init=1.071579 mse_neg_final=1.603996
+Running Evaluation...
+Validation Result @ Iteration 27000; Milestone = 27 (Train)
+---------  ---------
+mse_error  0.0097224
+---------  ---------
+Validation Result @ Iteration 27000; Milestone = 27 (ID: Validation)
+---  ----------
+mse  0.00972474
+---  ----------
+[TAM-GC-DIAG step=27100] mse_pos=0.050913 mse_neg=1.101129 mse_gap=1.050217 pred_norm=19.4269 pred_std=0.9739 pred_abs=0.7756 tgt_std=1.0004 tgt_abs=0.7981 cos=0.0005 neg_dist=15.4837 anchor_dist=14.0201 pgd_disp=1.5000 mse_neg_init=1.080598 mse_neg_final=1.615896
+[TAM-GC-DIAG step=27200] mse_pos=0.048784 mse_neg=1.134860 mse_gap=1.086075 pred_norm=19.4811 pred_std=0.9764 pred_abs=0.7771 tgt_std=0.9986 tgt_abs=0.7968 cos=0.0003 neg_dist=15.5148 anchor_dist=14.0508 pgd_disp=1.5000 mse_neg_init=1.053415 mse_neg_final=1.584209
+[TAM-GC-DIAG step=27300] mse_pos=0.050893 mse_neg=1.097183 mse_gap=1.046290 pred_norm=19.4127 pred_std=0.9732 pred_abs=0.7749 tgt_std=1.0003 tgt_abs=0.7981 cos=-0.0013 neg_dist=14.1879 anchor_dist=12.7351 pgd_disp=1.5000 mse_neg_init=0.792541 mse_neg_final=1.250312
+[TAM-GC-DIAG step=27400] mse_pos=0.048310 mse_neg=1.098222 mse_gap=1.049912 pred_norm=19.4367 pred_std=0.9742 pred_abs=0.7758 tgt_std=1.0003 tgt_abs=0.7983 cos=-0.0013 neg_dist=14.4582 anchor_dist=13.0046 pgd_disp=1.5000 mse_neg_init=0.799895 mse_neg_final=1.254563
+[TAM-GC-DIAG step=27500] mse_pos=0.051185 mse_neg=1.103120 mse_gap=1.051935 pred_norm=19.4388 pred_std=0.9744 pred_abs=0.7760 tgt_std=0.9990 tgt_abs=0.7971 cos=0.0013 neg_dist=14.3573 anchor_dist=12.9027 pgd_disp=1.5000 mse_neg_init=0.808225 mse_neg_final=1.265989
+[TAM-GC-DIAG step=27600] mse_pos=0.047781 mse_neg=1.092846 mse_gap=1.045066 pred_norm=19.4453 pred_std=0.9747 pred_abs=0.7763 tgt_std=0.9993 tgt_abs=0.7975 cos=0.0014 neg_dist=14.3940 anchor_dist=12.9373 pgd_disp=1.5000 mse_neg_init=0.779840 mse_neg_final=1.231603
+[TAM-GC-DIAG step=27700] mse_pos=0.049170 mse_neg=1.090854 mse_gap=1.041684 pred_norm=19.4524 pred_std=0.9751 pred_abs=0.7766 tgt_std=0.9991 tgt_abs=0.7971 cos=-0.0014 neg_dist=14.2792 anchor_dist=12.8214 pgd_disp=1.5000 mse_neg_init=0.799326 mse_neg_final=1.260978
+[TAM-GC-DIAG step=27800] mse_pos=0.048803 mse_neg=1.097616 mse_gap=1.048813 pred_norm=19.4509 pred_std=0.9749 pred_abs=0.7763 tgt_std=0.9979 tgt_abs=0.7962 cos=-0.0009 neg_dist=14.4130 anchor_dist=12.9577 pgd_disp=1.5000 mse_neg_init=0.800574 mse_neg_final=1.256395
+[TAM-GC-DIAG step=27900] mse_pos=0.050830 mse_neg=1.095523 mse_gap=1.044693 pred_norm=19.4050 pred_std=0.9728 pred_abs=0.7742 tgt_std=1.0004 tgt_abs=0.7984 cos=-0.0001 neg_dist=14.2351 anchor_dist=12.7814 pgd_disp=1.5000 mse_neg_init=0.780716 mse_neg_final=1.235040
+[TAM-GC-DIAG step=28000] mse_pos=0.052229 mse_neg=1.127812 mse_gap=1.075583 pred_norm=19.3981 pred_std=0.9725 pred_abs=0.7736 tgt_std=1.0000 tgt_abs=0.7981 cos=-0.0016 neg_dist=15.5108 anchor_dist=14.0487 pgd_disp=1.5000 mse_neg_init=1.054899 mse_neg_final=1.585807
+Running Evaluation...
+Validation Result @ Iteration 28000; Milestone = 28 (Train)
+---------  ----------
+mse_error  0.00978392
+---------  ----------
+Validation Result @ Iteration 28000; Milestone = 28 (ID: Validation)
+---  ----------
+mse  0.00974768
+---  ----------
+[TAM-GC-DIAG step=28100] mse_pos=0.049746 mse_neg=1.129681 mse_gap=1.079935 pred_norm=19.4295 pred_std=0.9740 pred_abs=0.7754 tgt_std=1.0004 tgt_abs=0.7985 cos=-0.0010 neg_dist=15.5011 anchor_dist=14.0370 pgd_disp=1.5000 mse_neg_init=1.057070 mse_neg_final=1.590207
+[TAM-GC-DIAG step=28200] mse_pos=0.049341 mse_neg=1.083920 mse_gap=1.034579 pred_norm=19.4535 pred_std=0.9752 pred_abs=0.7763 tgt_std=0.9996 tgt_abs=0.7971 cos=0.0016 neg_dist=14.9539 anchor_dist=13.4966 pgd_disp=1.5000 mse_neg_init=0.883226 mse_neg_final=1.361293
+[TAM-GC-DIAG step=28300] mse_pos=0.048233 mse_neg=1.097305 mse_gap=1.049072 pred_norm=19.4681 pred_std=0.9758 pred_abs=0.7767 tgt_std=1.0006 tgt_abs=0.7984 cos=0.0008 neg_dist=14.4435 anchor_dist=12.9865 pgd_disp=1.5000 mse_neg_init=0.805696 mse_neg_final=1.264994
+[TAM-GC-DIAG step=28400] mse_pos=0.049053 mse_neg=1.099765 mse_gap=1.050712 pred_norm=19.4246 pred_std=0.9738 pred_abs=0.7753 tgt_std=0.9997 tgt_abs=0.7978 cos=0.0019 neg_dist=14.5082 anchor_dist=13.0522 pgd_disp=1.5000 mse_neg_init=0.787318 mse_neg_final=1.235026
+[TAM-GC-DIAG step=28500] mse_pos=0.050349 mse_neg=1.096512 mse_gap=1.046164 pred_norm=19.4463 pred_std=0.9747 pred_abs=0.7759 tgt_std=0.9997 tgt_abs=0.7977 cos=0.0002 neg_dist=14.1868 anchor_dist=12.7297 pgd_disp=1.5000 mse_neg_init=0.789014 mse_neg_final=1.247661
+[TAM-GC-DIAG step=28600] mse_pos=0.051430 mse_neg=1.096747 mse_gap=1.045317 pred_norm=19.3736 pred_std=0.9713 pred_abs=0.7734 tgt_std=1.0004 tgt_abs=0.7981 cos=0.0039 neg_dist=14.2372 anchor_dist=12.7835 pgd_disp=1.5000 mse_neg_init=0.788076 mse_neg_final=1.243003
+[TAM-GC-DIAG step=28700] mse_pos=0.049795 mse_neg=1.089086 mse_gap=1.039291 pred_norm=19.3932 pred_std=0.9722 pred_abs=0.7737 tgt_std=0.9996 tgt_abs=0.7977 cos=-0.0004 neg_dist=14.3487 anchor_dist=12.8938 pgd_disp=1.5000 mse_neg_init=0.792373 mse_neg_final=1.249513
+[TAM-GC-DIAG step=28800] mse_pos=0.049757 mse_neg=1.129099 mse_gap=1.079342 pred_norm=19.4442 pred_std=0.9746 pred_abs=0.7761 tgt_std=1.0014 tgt_abs=0.7985 cos=0.0009 neg_dist=15.4911 anchor_dist=14.0263 pgd_disp=1.5000 mse_neg_init=1.057316 mse_neg_final=1.590668
+[TAM-GC-DIAG step=28900] mse_pos=0.051488 mse_neg=1.079905 mse_gap=1.028417 pred_norm=19.4055 pred_std=0.9729 pred_abs=0.7745 tgt_std=0.9994 tgt_abs=0.7974 cos=-0.0001 neg_dist=14.6482 anchor_dist=13.1888 pgd_disp=1.5000 mse_neg_init=0.874139 mse_neg_final=1.359917
+[TAM-GC-DIAG step=29000] mse_pos=0.050733 mse_neg=1.092873 mse_gap=1.042139 pred_norm=19.4039 pred_std=0.9727 pred_abs=0.7747 tgt_std=1.0000 tgt_abs=0.7979 cos=-0.0010 neg_dist=14.1197 anchor_dist=12.6652 pgd_disp=1.5000 mse_neg_init=0.772299 mse_neg_final=1.227324
+Running Evaluation...
+Validation Result @ Iteration 29000; Milestone = 29 (Train)
+---------  ----------
+mse_error  0.00969634
+---------  ----------
+Validation Result @ Iteration 29000; Milestone = 29 (ID: Validation)
+---  ----------
+mse  0.00972665
+---  ----------
+[TAM-GC-DIAG step=29100] mse_pos=0.048816 mse_neg=1.099121 mse_gap=1.050304 pred_norm=19.4430 pred_std=0.9745 pred_abs=0.7757 tgt_std=1.0001 tgt_abs=0.7977 cos=0.0016 neg_dist=14.3852 anchor_dist=12.9310 pgd_disp=1.5000 mse_neg_init=0.790419 mse_neg_final=1.242834
+[TAM-GC-DIAG step=29200] mse_pos=0.053445 mse_neg=1.083045 mse_gap=1.029600 pred_norm=19.3739 pred_std=0.9713 pred_abs=0.7734 tgt_std=0.9990 tgt_abs=0.7972 cos=0.0005 neg_dist=14.5775 anchor_dist=13.1186 pgd_disp=1.5000 mse_neg_init=0.886604 mse_neg_final=1.378031
+[TAM-GC-DIAG step=29300] mse_pos=0.052313 mse_neg=1.097961 mse_gap=1.045648 pred_norm=19.3714 pred_std=0.9712 pred_abs=0.7731 tgt_std=0.9992 tgt_abs=0.7974 cos=0.0019 neg_dist=14.2863 anchor_dist=12.8324 pgd_disp=1.5000 mse_neg_init=0.793746 mse_neg_final=1.249733
+[TAM-GC-DIAG step=29400] mse_pos=0.049220 mse_neg=1.095701 mse_gap=1.046481 pred_norm=19.4081 pred_std=0.9730 pred_abs=0.7747 tgt_std=0.9992 tgt_abs=0.7968 cos=-0.0004 neg_dist=14.1585 anchor_dist=12.7044 pgd_disp=1.5000 mse_neg_init=0.785393 mse_neg_final=1.242408
+[TAM-GC-DIAG step=29500] mse_pos=0.049040 mse_neg=1.096226 mse_gap=1.047186 pred_norm=19.4531 pred_std=0.9752 pred_abs=0.7762 tgt_std=0.9991 tgt_abs=0.7974 cos=-0.0010 neg_dist=14.2950 anchor_dist=12.8398 pgd_disp=1.5000 mse_neg_init=0.777182 mse_neg_final=1.228860
+[TAM-GC-DIAG step=29600] mse_pos=0.050733 mse_neg=1.098723 mse_gap=1.047990 pred_norm=19.4060 pred_std=0.9728 pred_abs=0.7743 tgt_std=1.0002 tgt_abs=0.7979 cos=0.0008 neg_dist=14.3289 anchor_dist=12.8724 pgd_disp=1.5000 mse_neg_init=0.805510 mse_neg_final=1.265581
+[TAM-GC-DIAG step=29700] mse_pos=0.050143 mse_neg=1.097666 mse_gap=1.047523 pred_norm=19.4304 pred_std=0.9739 pred_abs=0.7757 tgt_std=1.0007 tgt_abs=0.7983 cos=-0.0008 neg_dist=15.4487 anchor_dist=13.9847 pgd_disp=1.5000 mse_neg_init=1.069561 mse_neg_final=1.603546
+[TAM-GC-DIAG step=29800] mse_pos=0.052224 mse_neg=1.101669 mse_gap=1.049445 pred_norm=19.3779 pred_std=0.9715 pred_abs=0.7738 tgt_std=0.9998 tgt_abs=0.7978 cos=0.0004 neg_dist=15.6504 anchor_dist=14.1866 pgd_disp=1.5000 mse_neg_init=1.087150 mse_neg_final=1.619634
+[TAM-GC-DIAG step=29900] mse_pos=0.048866 mse_neg=1.093628 mse_gap=1.044763 pred_norm=19.4429 pred_std=0.9746 pred_abs=0.7763 tgt_std=0.9995 tgt_abs=0.7976 cos=0.0017 neg_dist=14.3667 anchor_dist=12.9081 pgd_disp=1.5000 mse_neg_init=0.794137 mse_neg_final=1.250294
+[TAM-GC-DIAG step=30000] mse_pos=0.051524 mse_neg=1.104021 mse_gap=1.052497 pred_norm=19.4325 pred_std=0.9741 pred_abs=0.7758 tgt_std=0.9991 tgt_abs=0.7974 cos=0.0010 neg_dist=15.6281 anchor_dist=14.1674 pgd_disp=1.5000 mse_neg_init=1.090141 mse_neg_final=1.622631
+Running Evaluation...
+Validation Result @ Iteration 30000; Milestone = 30 (Train)
+---------  ----------
+mse_error  0.00969263
+---------  ----------
+Validation Result @ Iteration 30000; Milestone = 30 (ID: Validation)
+---  ----------
+mse  0.00973805
+---  ----------
+[TAM-GC-DIAG step=30100] mse_pos=0.050085 mse_neg=1.097224 mse_gap=1.047139 pred_norm=19.4367 pred_std=0.9742 pred_abs=0.7755 tgt_std=1.0009 tgt_abs=0.7983 cos=0.0000 neg_dist=14.1172 anchor_dist=12.6601 pgd_disp=1.5000 mse_neg_init=0.786007 mse_neg_final=1.246794
+[TAM-GC-DIAG step=30200] mse_pos=0.049788 mse_neg=1.095800 mse_gap=1.046012 pred_norm=19.4080 pred_std=0.9729 pred_abs=0.7742 tgt_std=0.9999 tgt_abs=0.7975 cos=0.0012 neg_dist=14.3361 anchor_dist=12.8775 pgd_disp=1.5000 mse_neg_init=0.801140 mse_neg_final=1.260471
+[TAM-GC-DIAG step=30300] mse_pos=0.050765 mse_neg=1.097614 mse_gap=1.046849 pred_norm=19.4177 pred_std=0.9734 pred_abs=0.7748 tgt_std=1.0011 tgt_abs=0.7986 cos=0.0023 neg_dist=14.1991 anchor_dist=12.7459 pgd_disp=1.5000 mse_neg_init=0.787371 mse_neg_final=1.244765
+[TAM-GC-DIAG step=30400] mse_pos=0.047069 mse_neg=1.097432 mse_gap=1.050363 pred_norm=19.4578 pred_std=0.9752 pred_abs=0.7765 tgt_std=1.0012 tgt_abs=0.7986 cos=-0.0005 neg_dist=14.5416 anchor_dist=13.0828 pgd_disp=1.5000 mse_neg_init=0.799498 mse_neg_final=1.253146
+[TAM-GC-DIAG step=30500] mse_pos=0.050909 mse_neg=1.085222 mse_gap=1.034313 pred_norm=19.4074 pred_std=0.9729 pred_abs=0.7745 tgt_std=1.0012 tgt_abs=0.7991 cos=-0.0017 neg_dist=14.7035 anchor_dist=13.2464 pgd_disp=1.5000 mse_neg_init=0.886264 mse_neg_final=1.372957
+[TAM-GC-DIAG step=30600] mse_pos=0.048362 mse_neg=1.092988 mse_gap=1.044626 pred_norm=19.4403 pred_std=0.9744 pred_abs=0.7759 tgt_std=1.0009 tgt_abs=0.7986 cos=-0.0014 neg_dist=14.5218 anchor_dist=13.0663 pgd_disp=1.5000 mse_neg_init=0.813620 mse_neg_final=1.274006
+[TAM-GC-DIAG step=30700] mse_pos=0.050001 mse_neg=1.097650 mse_gap=1.047649 pred_norm=19.4268 pred_std=0.9738 pred_abs=0.7754 tgt_std=0.9990 tgt_abs=0.7971 cos=-0.0001 neg_dist=14.4217 anchor_dist=12.9629 pgd_disp=1.5000 mse_neg_init=0.796190 mse_neg_final=1.250774
+[TAM-GC-DIAG step=30800] mse_pos=0.049546 mse_neg=1.099226 mse_gap=1.049680 pred_norm=19.4501 pred_std=0.9751 pred_abs=0.7762 tgt_std=1.0000 tgt_abs=0.7973 cos=-0.0009 neg_dist=14.3309 anchor_dist=12.8806 pgd_disp=1.5000 mse_neg_init=0.778282 mse_neg_final=1.226148
+[TAM-GC-DIAG step=30900] mse_pos=0.048484 mse_neg=1.085927 mse_gap=1.037442 pred_norm=19.4436 pred_std=0.9746 pred_abs=0.7759 tgt_std=1.0001 tgt_abs=0.7981 cos=0.0011 neg_dist=14.9283 anchor_dist=13.4721 pgd_disp=1.5000 mse_neg_init=0.882754 mse_neg_final=1.360888
+[TAM-GC-DIAG step=31000] mse_pos=0.051277 mse_neg=1.099252 mse_gap=1.047975 pred_norm=19.4199 pred_std=0.9735 pred_abs=0.7755 tgt_std=0.9989 tgt_abs=0.7970 cos=0.0020 neg_dist=14.1999 anchor_dist=12.7451 pgd_disp=1.5000 mse_neg_init=0.793886 mse_neg_final=1.253697
+Running Evaluation...
+Validation Result @ Iteration 31000; Milestone = 31 (Train)
+---------  ---------
+mse_error  0.0096926
+---------  ---------
+Validation Result @ Iteration 31000; Milestone = 31 (ID: Validation)
+---  ----------
+mse  0.00974389
+---  ----------
+[TAM-GC-DIAG step=31100] mse_pos=0.049408 mse_neg=1.081467 mse_gap=1.032058 pred_norm=19.4585 pred_std=0.9754 pred_abs=0.7765 tgt_std=1.0006 tgt_abs=0.7986 cos=0.0009 neg_dist=14.8440 anchor_dist=13.3809 pgd_disp=1.5000 mse_neg_init=0.878383 mse_neg_final=1.361100
+[TAM-GC-DIAG step=31200] mse_pos=0.050579 mse_neg=1.095489 mse_gap=1.044910 pred_norm=19.4038 pred_std=0.9726 pred_abs=0.7746 tgt_std=0.9998 tgt_abs=0.7978 cos=0.0024 neg_dist=14.2496 anchor_dist=12.7954 pgd_disp=1.5000 mse_neg_init=0.780603 mse_neg_final=1.235034
+[TAM-GC-DIAG step=31300] mse_pos=0.051393 mse_neg=1.098066 mse_gap=1.046672 pred_norm=19.3862 pred_std=0.9719 pred_abs=0.7740 tgt_std=1.0010 tgt_abs=0.7984 cos=-0.0003 neg_dist=14.1047 anchor_dist=12.6509 pgd_disp=1.5000 mse_neg_init=0.779854 mse_neg_final=1.236499
+[TAM-GC-DIAG step=31400] mse_pos=0.046475 mse_neg=1.082546 mse_gap=1.036071 pred_norm=19.4683 pred_std=0.9757 pred_abs=0.7768 tgt_std=0.9996 tgt_abs=0.7979 cos=0.0017 neg_dist=14.9556 anchor_dist=13.4950 pgd_disp=1.5000 mse_neg_init=0.870041 mse_neg_final=1.344917
+[TAM-GC-DIAG step=31500] mse_pos=0.051564 mse_neg=1.100384 mse_gap=1.048820 pred_norm=19.3997 pred_std=0.9726 pred_abs=0.7741 tgt_std=1.0000 tgt_abs=0.7977 cos=0.0006 neg_dist=14.4019 anchor_dist=12.9453 pgd_disp=1.5000 mse_neg_init=0.809253 mse_neg_final=1.268002
+[TAM-GC-DIAG step=31600] mse_pos=0.048423 mse_neg=1.129896 mse_gap=1.081472 pred_norm=19.4382 pred_std=0.9743 pred_abs=0.7757 tgt_std=1.0011 tgt_abs=0.7986 cos=-0.0012 neg_dist=15.5455 anchor_dist=14.0797 pgd_disp=1.5000 mse_neg_init=1.056766 mse_neg_final=1.589441
+[TAM-GC-DIAG step=31700] mse_pos=0.051980 mse_neg=1.079865 mse_gap=1.027885 pred_norm=19.3966 pred_std=0.9725 pred_abs=0.7741 tgt_std=1.0007 tgt_abs=0.7987 cos=-0.0002 neg_dist=14.5245 anchor_dist=13.0644 pgd_disp=1.5000 mse_neg_init=0.876244 mse_neg_final=1.365530
+[TAM-GC-DIAG step=31800] mse_pos=0.051422 mse_neg=1.094169 mse_gap=1.042747 pred_norm=19.3912 pred_std=0.9721 pred_abs=0.7738 tgt_std=0.9986 tgt_abs=0.7970 cos=0.0006 neg_dist=14.1441 anchor_dist=12.6887 pgd_disp=1.5000 mse_neg_init=0.790317 mse_neg_final=1.249546
+[TAM-GC-DIAG step=31900] mse_pos=0.050250 mse_neg=1.096922 mse_gap=1.046672 pred_norm=19.4171 pred_std=0.9733 pred_abs=0.7749 tgt_std=1.0017 tgt_abs=0.7992 cos=0.0005 neg_dist=14.4672 anchor_dist=13.0110 pgd_disp=1.5000 mse_neg_init=0.791890 mse_neg_final=1.244385
+[TAM-GC-DIAG step=32000] mse_pos=0.050132 mse_neg=1.098452 mse_gap=1.048320 pred_norm=19.4215 pred_std=0.9736 pred_abs=0.7750 tgt_std=1.0002 tgt_abs=0.7983 cos=0.0010 neg_dist=14.3447 anchor_dist=12.8901 pgd_disp=1.5000 mse_neg_init=0.791148 mse_neg_final=1.245414
+Running Evaluation...
+Validation Result @ Iteration 32000; Milestone = 32 (Train)
+---------  ---------
+mse_error  0.0097025
+---------  ---------
+Validation Result @ Iteration 32000; Milestone = 32 (ID: Validation)
+---  ----------
+mse  0.00969131
+---  ----------
+[TAM-GC-DIAG step=32100] mse_pos=0.048857 mse_neg=1.095966 mse_gap=1.047109 pred_norm=19.4189 pred_std=0.9733 pred_abs=0.7754 tgt_std=0.9996 tgt_abs=0.7976 cos=0.0015 neg_dist=14.3962 anchor_dist=12.9406 pgd_disp=1.5000 mse_neg_init=0.784178 mse_neg_final=1.234792
+[TAM-GC-DIAG step=32200] mse_pos=0.048633 mse_neg=1.084296 mse_gap=1.035663 pred_norm=19.4632 pred_std=0.9755 pred_abs=0.7768 tgt_std=0.9983 tgt_abs=0.7966 cos=0.0020 neg_dist=14.9515 anchor_dist=13.4938 pgd_disp=1.5000 mse_neg_init=0.869179 mse_neg_final=1.343647
+[TAM-GC-DIAG step=32300] mse_pos=0.050610 mse_neg=1.082241 mse_gap=1.031631 pred_norm=19.4044 pred_std=0.9728 pred_abs=0.7747 tgt_std=1.0000 tgt_abs=0.7982 cos=-0.0010 neg_dist=14.6284 anchor_dist=13.1681 pgd_disp=1.5000 mse_neg_init=0.866438 mse_neg_final=1.348047
+[TAM-GC-DIAG step=32400] mse_pos=0.050144 mse_neg=1.104212 mse_gap=1.054068 pred_norm=19.4545 pred_std=0.9752 pred_abs=0.7762 tgt_std=1.0004 tgt_abs=0.7982 cos=0.0012 neg_dist=14.4551 anchor_dist=12.9998 pgd_disp=1.5000 mse_neg_init=0.811341 mse_neg_final=1.269043
+[TAM-GC-DIAG step=32500] mse_pos=0.048718 mse_neg=1.097349 mse_gap=1.048632 pred_norm=19.4275 pred_std=0.9738 pred_abs=0.7755 tgt_std=1.0006 tgt_abs=0.7983 cos=-0.0006 neg_dist=14.2911 anchor_dist=12.8332 pgd_disp=1.5000 mse_neg_init=0.792285 mse_neg_final=1.250473
+[TAM-GC-DIAG step=32600] mse_pos=0.049879 mse_neg=1.103407 mse_gap=1.053528 pred_norm=19.4371 pred_std=0.9744 pred_abs=0.7760 tgt_std=0.9994 tgt_abs=0.7973 cos=0.0009 neg_dist=15.7230 anchor_dist=14.2591 pgd_disp=1.5000 mse_neg_init=1.089171 mse_neg_final=1.620081
+[TAM-GC-DIAG step=32700] mse_pos=0.046327 mse_neg=1.128828 mse_gap=1.082502 pred_norm=19.5006 pred_std=0.9773 pred_abs=0.7783 tgt_std=1.0015 tgt_abs=0.7991 cos=-0.0000 neg_dist=15.8676 anchor_dist=14.4013 pgd_disp=1.5000 mse_neg_init=1.055555 mse_neg_final=1.579051
+[TAM-GC-DIAG step=32800] mse_pos=0.046929 mse_neg=1.093038 mse_gap=1.046109 pred_norm=19.5088 pred_std=0.9775 pred_abs=0.7783 tgt_std=1.0000 tgt_abs=0.7982 cos=-0.0008 neg_dist=14.4485 anchor_dist=12.9891 pgd_disp=1.5000 mse_neg_init=0.801713 mse_neg_final=1.262011
+[TAM-GC-DIAG step=32900] mse_pos=0.047985 mse_neg=1.094348 mse_gap=1.046363 pred_norm=19.4499 pred_std=0.9748 pred_abs=0.7760 tgt_std=1.0005 tgt_abs=0.7982 cos=-0.0001 neg_dist=14.4528 anchor_dist=12.9942 pgd_disp=1.5000 mse_neg_init=0.793477 mse_neg_final=1.247098
+[TAM-GC-DIAG step=33000] mse_pos=0.050272 mse_neg=1.094823 mse_gap=1.044551 pred_norm=19.3955 pred_std=0.9724 pred_abs=0.7740 tgt_std=0.9990 tgt_abs=0.7970 cos=0.0004 neg_dist=14.0829 anchor_dist=12.6272 pgd_disp=1.5000 mse_neg_init=0.777380 mse_neg_final=1.233966
+Running Evaluation...
+Validation Result @ Iteration 33000; Milestone = 33 (Train)
+---------  ----------
+mse_error  0.00967033
+---------  ----------
+Validation Result @ Iteration 33000; Milestone = 33 (ID: Validation)
+---  ----------
+mse  0.00972808
+---  ----------
+[TAM-GC-DIAG step=33100] mse_pos=0.050599 mse_neg=1.093539 mse_gap=1.042939 pred_norm=19.3941 pred_std=0.9723 pred_abs=0.7740 tgt_std=0.9994 tgt_abs=0.7975 cos=-0.0004 neg_dist=14.1394 anchor_dist=12.6851 pgd_disp=1.5000 mse_neg_init=0.786030 mse_neg_final=1.244506
+[TAM-GC-DIAG step=33200] mse_pos=0.048439 mse_neg=1.099974 mse_gap=1.051534 pred_norm=19.4607 pred_std=0.9755 pred_abs=0.7765 tgt_std=0.9999 tgt_abs=0.7977 cos=0.0017 neg_dist=14.3671 anchor_dist=12.9076 pgd_disp=1.5000 mse_neg_init=0.799399 mse_neg_final=1.258541
+[TAM-GC-DIAG step=33300] mse_pos=0.049997 mse_neg=1.097782 mse_gap=1.047786 pred_norm=19.4401 pred_std=0.9745 pred_abs=0.7758 tgt_std=1.0013 tgt_abs=0.7991 cos=0.0003 neg_dist=14.2534 anchor_dist=12.7988 pgd_disp=1.5000 mse_neg_init=0.798445 mse_neg_final=1.258795
+[TAM-GC-DIAG step=33400] mse_pos=0.049671 mse_neg=1.133476 mse_gap=1.083804 pred_norm=19.4494 pred_std=0.9750 pred_abs=0.7763 tgt_std=0.9986 tgt_abs=0.7966 cos=-0.0003 neg_dist=15.4790 anchor_dist=14.0143 pgd_disp=1.5000 mse_neg_init=1.052257 mse_neg_final=1.585004
+[TAM-GC-DIAG step=33500] mse_pos=0.048998 mse_neg=1.128506 mse_gap=1.079508 pred_norm=19.4506 pred_std=0.9750 pred_abs=0.7761 tgt_std=0.9992 tgt_abs=0.7973 cos=-0.0019 neg_dist=15.5872 anchor_dist=14.1250 pgd_disp=1.5000 mse_neg_init=1.053087 mse_neg_final=1.580846
+[TAM-GC-DIAG step=33600] mse_pos=0.050613 mse_neg=1.084156 mse_gap=1.033543 pred_norm=19.4288 pred_std=0.9740 pred_abs=0.7757 tgt_std=0.9992 tgt_abs=0.7975 cos=0.0018 neg_dist=14.8707 anchor_dist=13.4128 pgd_disp=1.5000 mse_neg_init=0.880675 mse_neg_final=1.359776
+[TAM-GC-DIAG step=33700] mse_pos=0.049228 mse_neg=1.097526 mse_gap=1.048299 pred_norm=19.4462 pred_std=0.9747 pred_abs=0.7758 tgt_std=1.0003 tgt_abs=0.7982 cos=-0.0011 neg_dist=14.3922 anchor_dist=12.9387 pgd_disp=1.5000 mse_neg_init=0.803109 mse_neg_final=1.260481
+[TAM-GC-DIAG step=33800] mse_pos=0.048285 mse_neg=1.099093 mse_gap=1.050808 pred_norm=19.4481 pred_std=0.9748 pred_abs=0.7763 tgt_std=0.9999 tgt_abs=0.7981 cos=-0.0003 neg_dist=14.4364 anchor_dist=12.9792 pgd_disp=1.5000 mse_neg_init=0.784239 mse_neg_final=1.233654
+[TAM-GC-DIAG step=33900] mse_pos=0.047615 mse_neg=1.094760 mse_gap=1.047145 pred_norm=19.4457 pred_std=0.9746 pred_abs=0.7764 tgt_std=0.9999 tgt_abs=0.7979 cos=-0.0006 neg_dist=14.5335 anchor_dist=13.0757 pgd_disp=1.5000 mse_neg_init=0.800239 mse_neg_final=1.254325
+[TAM-GC-DIAG step=34000] mse_pos=0.050362 mse_neg=1.124629 mse_gap=1.074267 pred_norm=19.3736 pred_std=0.9712 pred_abs=0.7731 tgt_std=1.0006 tgt_abs=0.7981 cos=-0.0006 neg_dist=15.4905 anchor_dist=14.0265 pgd_disp=1.5000 mse_neg_init=1.055770 mse_neg_final=1.588329
+Running Evaluation...
+Validation Result @ Iteration 34000; Milestone = 34 (Train)
+---------  ---------
+mse_error  0.0096615
+---------  ---------
+Validation Result @ Iteration 34000; Milestone = 34 (ID: Validation)
+---  ---------
+mse  0.0097281
+---  ---------
+[TAM-GC-DIAG step=34100] mse_pos=0.048273 mse_neg=1.097721 mse_gap=1.049448 pred_norm=19.4292 pred_std=0.9739 pred_abs=0.7754 tgt_std=1.0001 tgt_abs=0.7975 cos=-0.0018 neg_dist=14.4160 anchor_dist=12.9573 pgd_disp=1.5000 mse_neg_init=0.782301 mse_neg_final=1.232132
+[TAM-GC-DIAG step=34200] mse_pos=0.048542 mse_neg=1.077955 mse_gap=1.029413 pred_norm=19.4431 pred_std=0.9745 pred_abs=0.7761 tgt_std=1.0005 tgt_abs=0.7984 cos=0.0010 neg_dist=14.7144 anchor_dist=13.2550 pgd_disp=1.5000 mse_neg_init=0.868631 mse_neg_final=1.349458
+[TAM-GC-DIAG step=34300] mse_pos=0.048471 mse_neg=1.097534 mse_gap=1.049063 pred_norm=19.4759 pred_std=0.9761 pred_abs=0.7775 tgt_std=0.9993 tgt_abs=0.7976 cos=0.0012 neg_dist=14.3013 anchor_dist=12.8446 pgd_disp=1.5000 mse_neg_init=0.787750 mse_neg_final=1.243557
+[TAM-GC-DIAG step=34400] mse_pos=0.047327 mse_neg=1.092583 mse_gap=1.045257 pred_norm=19.4571 pred_std=0.9752 pred_abs=0.7763 tgt_std=0.9997 tgt_abs=0.7973 cos=0.0015 neg_dist=14.4908 anchor_dist=13.0315 pgd_disp=1.5000 mse_neg_init=0.802136 mse_neg_final=1.259238
+[TAM-GC-DIAG step=34500] mse_pos=0.053420 mse_neg=1.096304 mse_gap=1.042884 pred_norm=19.3685 pred_std=0.9711 pred_abs=0.7729 tgt_std=1.0004 tgt_abs=0.7982 cos=-0.0002 neg_dist=14.0242 anchor_dist=12.5704 pgd_disp=1.5000 mse_neg_init=0.796326 mse_neg_final=1.261342
+[TAM-GC-DIAG step=34600] mse_pos=0.051815 mse_neg=1.097963 mse_gap=1.046148 pred_norm=19.3941 pred_std=0.9722 pred_abs=0.7742 tgt_std=0.9985 tgt_abs=0.7970 cos=-0.0014 neg_dist=14.1876 anchor_dist=12.7312 pgd_disp=1.5000 mse_neg_init=0.787416 mse_neg_final=1.246358
+[TAM-GC-DIAG step=34700] mse_pos=0.050557 mse_neg=1.098296 mse_gap=1.047738 pred_norm=19.4218 pred_std=0.9736 pred_abs=0.7750 tgt_std=0.9998 tgt_abs=0.7975 cos=0.0003 neg_dist=14.2315 anchor_dist=12.7784 pgd_disp=1.5000 mse_neg_init=0.797852 mse_neg_final=1.256243
+[TAM-GC-DIAG step=34800] mse_pos=0.050032 mse_neg=1.087831 mse_gap=1.037799 pred_norm=19.4114 pred_std=0.9731 pred_abs=0.7750 tgt_std=1.0009 tgt_abs=0.7987 cos=-0.0013 neg_dist=14.2565 anchor_dist=12.8058 pgd_disp=1.5000 mse_neg_init=0.802529 mse_neg_final=1.263745
+[TAM-GC-DIAG step=34900] mse_pos=0.051472 mse_neg=1.091908 mse_gap=1.040436 pred_norm=19.4044 pred_std=0.9728 pred_abs=0.7743 tgt_std=0.9996 tgt_abs=0.7975 cos=-0.0007 neg_dist=14.0729 anchor_dist=12.6178 pgd_disp=1.5000 mse_neg_init=0.797701 mse_neg_final=1.264073
+[TAM-GC-DIAG step=35000] mse_pos=0.048135 mse_neg=1.099059 mse_gap=1.050925 pred_norm=19.4511 pred_std=0.9749 pred_abs=0.7764 tgt_std=0.9995 tgt_abs=0.7978 cos=0.0009 neg_dist=14.3526 anchor_dist=12.8940 pgd_disp=1.5000 mse_neg_init=0.787320 mse_neg_final=1.241031
+Running Evaluation...
+Validation Result @ Iteration 35000; Milestone = 35 (Train)
+---------  ----------
+mse_error  0.00972956
+---------  ----------
+Validation Result @ Iteration 35000; Milestone = 35 (ID: Validation)
+---  ----------
+mse  0.00972201
+---  ----------
+[TAM-GC-DIAG step=35100] mse_pos=0.049609 mse_neg=1.091886 mse_gap=1.042277 pred_norm=19.4172 pred_std=0.9733 pred_abs=0.7747 tgt_std=1.0015 tgt_abs=0.7995 cos=-0.0010 neg_dist=14.3673 anchor_dist=12.9102 pgd_disp=1.5000 mse_neg_init=0.796974 mse_neg_final=1.255981
+[TAM-GC-DIAG step=35200] mse_pos=0.050529 mse_neg=1.097105 mse_gap=1.046575 pred_norm=19.4349 pred_std=0.9743 pred_abs=0.7757 tgt_std=1.0009 tgt_abs=0.7988 cos=0.0010 neg_dist=14.3426 anchor_dist=12.8872 pgd_disp=1.5000 mse_neg_init=0.803705 mse_neg_final=1.263935
+[TAM-GC-DIAG step=35300] mse_pos=0.050754 mse_neg=1.095719 mse_gap=1.044965 pred_norm=19.3900 pred_std=0.9722 pred_abs=0.7736 tgt_std=1.0000 tgt_abs=0.7979 cos=-0.0005 neg_dist=14.3344 anchor_dist=12.8768 pgd_disp=1.5000 mse_neg_init=0.798327 mse_neg_final=1.256344
+[TAM-GC-DIAG step=35400] mse_pos=0.051539 mse_neg=1.084122 mse_gap=1.032584 pred_norm=19.4045 pred_std=0.9728 pred_abs=0.7745 tgt_std=1.0008 tgt_abs=0.7982 cos=0.0010 neg_dist=14.7583 anchor_dist=13.3050 pgd_disp=1.5000 mse_neg_init=0.883466 mse_neg_final=1.367218
+[TAM-GC-DIAG step=35500] mse_pos=0.051656 mse_neg=1.100677 mse_gap=1.049020 pred_norm=19.4174 pred_std=0.9735 pred_abs=0.7752 tgt_std=1.0011 tgt_abs=0.7987 cos=0.0002 neg_dist=14.1769 anchor_dist=12.7193 pgd_disp=1.5000 mse_neg_init=0.797560 mse_neg_final=1.259080
+[TAM-GC-DIAG step=35600] mse_pos=0.049441 mse_neg=1.096246 mse_gap=1.046806 pred_norm=19.4138 pred_std=0.9731 pred_abs=0.7748 tgt_std=0.9992 tgt_abs=0.7977 cos=-0.0016 neg_dist=14.3900 anchor_dist=12.9340 pgd_disp=1.5000 mse_neg_init=0.785698 mse_neg_final=1.237130
+[TAM-GC-DIAG step=35700] mse_pos=0.048845 mse_neg=1.096159 mse_gap=1.047315 pred_norm=19.4561 pred_std=0.9751 pred_abs=0.7763 tgt_std=0.9996 tgt_abs=0.7979 cos=-0.0025 neg_dist=14.3522 anchor_dist=12.8961 pgd_disp=1.5000 mse_neg_init=0.791146 mse_neg_final=1.245898
+[TAM-GC-DIAG step=35800] mse_pos=0.048520 mse_neg=1.094752 mse_gap=1.046232 pred_norm=19.4456 pred_std=0.9747 pred_abs=0.7762 tgt_std=0.9991 tgt_abs=0.7975 cos=0.0021 neg_dist=14.3732 anchor_dist=12.9198 pgd_disp=1.5000 mse_neg_init=0.787265 mse_neg_final=1.239875
+[TAM-GC-DIAG step=35900] mse_pos=0.051577 mse_neg=1.094273 mse_gap=1.042696 pred_norm=19.3854 pred_std=0.9719 pred_abs=0.7736 tgt_std=0.9987 tgt_abs=0.7969 cos=0.0010 neg_dist=14.1464 anchor_dist=12.6910 pgd_disp=1.5000 mse_neg_init=0.783971 mse_neg_final=1.241951
+[TAM-GC-DIAG step=36000] mse_pos=0.050058 mse_neg=1.095940 mse_gap=1.045881 pred_norm=19.4364 pred_std=0.9743 pred_abs=0.7758 tgt_std=0.9992 tgt_abs=0.7974 cos=-0.0003 neg_dist=14.4402 anchor_dist=12.9827 pgd_disp=1.5000 mse_neg_init=0.810408 mse_neg_final=1.271713
+Running Evaluation...
+Validation Result @ Iteration 36000; Milestone = 36 (Train)
+---------  ----------
+mse_error  0.00971609
+---------  ----------
+Validation Result @ Iteration 36000; Milestone = 36 (ID: Validation)
+---  ----------
+mse  0.00974145
+---  ----------
+[TAM-GC-DIAG step=36100] mse_pos=0.048913 mse_neg=1.092850 mse_gap=1.043936 pred_norm=19.4499 pred_std=0.9750 pred_abs=0.7764 tgt_std=1.0007 tgt_abs=0.7983 cos=-0.0001 neg_dist=14.4366 anchor_dist=12.9791 pgd_disp=1.5000 mse_neg_init=0.814020 mse_neg_final=1.277619
+[TAM-GC-DIAG step=36200] mse_pos=0.051073 mse_neg=1.093650 mse_gap=1.042577 pred_norm=19.4070 pred_std=0.9729 pred_abs=0.7747 tgt_std=1.0008 tgt_abs=0.7988 cos=-0.0004 neg_dist=14.1021 anchor_dist=12.6457 pgd_disp=1.5000 mse_neg_init=0.785062 mse_neg_final=1.245629
+[TAM-GC-DIAG step=36300] mse_pos=0.048710 mse_neg=1.096051 mse_gap=1.047341 pred_norm=19.4470 pred_std=0.9748 pred_abs=0.7759 tgt_std=0.9991 tgt_abs=0.7972 cos=0.0003 neg_dist=14.2494 anchor_dist=12.7947 pgd_disp=1.5000 mse_neg_init=0.790434 mse_neg_final=1.248291
+[TAM-GC-DIAG step=36400] mse_pos=0.046489 mse_neg=1.097709 mse_gap=1.051220 pred_norm=19.4800 pred_std=0.9762 pred_abs=0.7778 tgt_std=0.9997 tgt_abs=0.7977 cos=0.0005 neg_dist=14.4628 anchor_dist=13.0043 pgd_disp=1.5000 mse_neg_init=0.790093 mse_neg_final=1.242404
+[TAM-GC-DIAG step=36500] mse_pos=0.053136 mse_neg=1.090852 mse_gap=1.037716 pred_norm=19.3746 pred_std=0.9714 pred_abs=0.7730 tgt_std=0.9987 tgt_abs=0.7969 cos=-0.0002 neg_dist=14.0510 anchor_dist=12.5954 pgd_disp=1.5000 mse_neg_init=0.803982 mse_neg_final=1.272344
+[TAM-GC-DIAG step=36600] mse_pos=0.052153 mse_neg=1.099273 mse_gap=1.047121 pred_norm=19.3891 pred_std=0.9721 pred_abs=0.7737 tgt_std=1.0002 tgt_abs=0.7984 cos=0.0021 neg_dist=15.6322 anchor_dist=14.1686 pgd_disp=1.5000 mse_neg_init=1.084959 mse_neg_final=1.616351
+[TAM-GC-DIAG step=36700] mse_pos=0.050192 mse_neg=1.092973 mse_gap=1.042781 pred_norm=19.4179 pred_std=0.9735 pred_abs=0.7748 tgt_std=0.9999 tgt_abs=0.7979 cos=0.0001 neg_dist=14.1454 anchor_dist=12.6907 pgd_disp=1.5000 mse_neg_init=0.774625 mse_neg_final=1.228899
+[TAM-GC-DIAG step=36800] mse_pos=0.046812 mse_neg=1.099513 mse_gap=1.052701 pred_norm=19.5099 pred_std=0.9778 pred_abs=0.7787 tgt_std=0.9997 tgt_abs=0.7973 cos=-0.0006 neg_dist=14.5073 anchor_dist=13.0550 pgd_disp=1.5000 mse_neg_init=0.798530 mse_neg_final=1.251520
+[TAM-GC-DIAG step=36900] mse_pos=0.049990 mse_neg=1.097927 mse_gap=1.047938 pred_norm=19.4077 pred_std=0.9729 pred_abs=0.7745 tgt_std=1.0009 tgt_abs=0.7983 cos=-0.0001 neg_dist=14.3413 anchor_dist=12.8880 pgd_disp=1.5000 mse_neg_init=0.791933 mse_neg_final=1.244934
+[TAM-GC-DIAG step=37000] mse_pos=0.051411 mse_neg=1.081757 mse_gap=1.030346 pred_norm=19.3825 pred_std=0.9718 pred_abs=0.7735 tgt_std=0.9995 tgt_abs=0.7975 cos=-0.0000 neg_dist=14.6891 anchor_dist=13.2285 pgd_disp=1.5000 mse_neg_init=0.869673 mse_neg_final=1.351415
+Running Evaluation...
+Validation Result @ Iteration 37000; Milestone = 37 (Train)
+---------  ----------
+mse_error  0.00970327
+---------  ----------
+Validation Result @ Iteration 37000; Milestone = 37 (ID: Validation)
+---  ----------
+mse  0.00971573
+---  ----------
+[TAM-GC-DIAG step=37100] mse_pos=0.051424 mse_neg=1.100273 mse_gap=1.048849 pred_norm=19.4094 pred_std=0.9731 pred_abs=0.7746 tgt_std=0.9999 tgt_abs=0.7976 cos=-0.0020 neg_dist=15.5794 anchor_dist=14.1181 pgd_disp=1.5000 mse_neg_init=1.087533 mse_neg_final=1.622067
+[TAM-GC-DIAG step=37200] mse_pos=0.048979 mse_neg=1.093341 mse_gap=1.044362 pred_norm=19.4580 pred_std=0.9753 pred_abs=0.7767 tgt_std=1.0008 tgt_abs=0.7984 cos=0.0020 neg_dist=14.3455 anchor_dist=12.8893 pgd_disp=1.5000 mse_neg_init=0.792833 mse_neg_final=1.250854
+[TAM-GC-DIAG step=37300] mse_pos=0.050481 mse_neg=1.099866 mse_gap=1.049385 pred_norm=19.4030 pred_std=0.9726 pred_abs=0.7744 tgt_std=0.9997 tgt_abs=0.7977 cos=-0.0004 neg_dist=14.2430 anchor_dist=12.7866 pgd_disp=1.5000 mse_neg_init=0.809215 mse_neg_final=1.272183
+[TAM-GC-DIAG step=37400] mse_pos=0.047588 mse_neg=1.098326 mse_gap=1.050738 pred_norm=19.4586 pred_std=0.9752 pred_abs=0.7763 tgt_std=1.0003 tgt_abs=0.7979 cos=0.0012 neg_dist=14.3935 anchor_dist=12.9398 pgd_disp=1.5000 mse_neg_init=0.791048 mse_neg_final=1.243389
+[TAM-GC-DIAG step=37500] mse_pos=0.048611 mse_neg=1.131003 mse_gap=1.082391 pred_norm=19.4716 pred_std=0.9759 pred_abs=0.7771 tgt_std=1.0016 tgt_abs=0.7992 cos=-0.0003 neg_dist=15.5013 anchor_dist=14.0365 pgd_disp=1.5000 mse_neg_init=1.058478 mse_neg_final=1.591733
+[TAM-GC-DIAG step=37600] mse_pos=0.049440 mse_neg=1.105603 mse_gap=1.056164 pred_norm=19.4498 pred_std=0.9749 pred_abs=0.7762 tgt_std=0.9991 tgt_abs=0.7975 cos=0.0004 neg_dist=15.6755 anchor_dist=14.2109 pgd_disp=1.5000 mse_neg_init=1.085628 mse_neg_final=1.617708
+[TAM-GC-DIAG step=37700] mse_pos=0.051340 mse_neg=1.090822 mse_gap=1.039482 pred_norm=19.4125 pred_std=0.9730 pred_abs=0.7748 tgt_std=1.0000 tgt_abs=0.7978 cos=-0.0008 neg_dist=14.0396 anchor_dist=12.5855 pgd_disp=1.5000 mse_neg_init=0.789446 mse_neg_final=1.254202
+[TAM-GC-DIAG step=37800] mse_pos=0.049257 mse_neg=1.096200 mse_gap=1.046943 pred_norm=19.4494 pred_std=0.9750 pred_abs=0.7765 tgt_std=0.9999 tgt_abs=0.7976 cos=-0.0013 neg_dist=14.3504 anchor_dist=12.8927 pgd_disp=1.5000 mse_neg_init=0.790150 mse_neg_final=1.245841
+[TAM-GC-DIAG step=37900] mse_pos=0.051636 mse_neg=1.094049 mse_gap=1.042413 pred_norm=19.3602 pred_std=0.9707 pred_abs=0.7723 tgt_std=1.0006 tgt_abs=0.7984 cos=0.0004 neg_dist=14.2761 anchor_dist=12.8199 pgd_disp=1.5000 mse_neg_init=0.782438 mse_neg_final=1.234940
+[TAM-GC-DIAG step=38000] mse_pos=0.051547 mse_neg=1.131672 mse_gap=1.080124 pred_norm=19.3851 pred_std=0.9718 pred_abs=0.7738 tgt_std=0.9997 tgt_abs=0.7974 cos=0.0015 neg_dist=15.3972 anchor_dist=13.9354 pgd_disp=1.5000 mse_neg_init=1.054651 mse_neg_final=1.588543
+Running Evaluation...
+Validation Result @ Iteration 38000; Milestone = 38 (Train)
+---------  ----------
+mse_error  0.00974132
+---------  ----------
+Validation Result @ Iteration 38000; Milestone = 38 (ID: Validation)
+---  ----------
+mse  0.00968376
+---  ----------
+[TAM-GC-DIAG step=38100] mse_pos=0.051332 mse_neg=1.099531 mse_gap=1.048199 pred_norm=19.3864 pred_std=0.9719 pred_abs=0.7738 tgt_std=1.0009 tgt_abs=0.7984 cos=-0.0007 neg_dist=15.6974 anchor_dist=14.2346 pgd_disp=1.5000 mse_neg_init=1.087318 mse_neg_final=1.618767
+[TAM-GC-DIAG step=38200] mse_pos=0.051317 mse_neg=1.096436 mse_gap=1.045120 pred_norm=19.3789 pred_std=0.9715 pred_abs=0.7737 tgt_std=0.9997 tgt_abs=0.7977 cos=0.0008 neg_dist=14.2325 anchor_dist=12.7771 pgd_disp=1.5000 mse_neg_init=0.811964 mse_neg_final=1.276443
+[TAM-GC-DIAG step=38300] mse_pos=0.050279 mse_neg=1.097606 mse_gap=1.047327 pred_norm=19.4237 pred_std=0.9736 pred_abs=0.7749 tgt_std=1.0005 tgt_abs=0.7980 cos=-0.0002 neg_dist=14.2959 anchor_dist=12.8398 pgd_disp=1.5000 mse_neg_init=0.800302 mse_neg_final=1.259418
+[TAM-GC-DIAG step=38400] mse_pos=0.052343 mse_neg=1.132033 mse_gap=1.079689 pred_norm=19.3943 pred_std=0.9723 pred_abs=0.7738 tgt_std=1.0010 tgt_abs=0.7985 cos=-0.0002 neg_dist=15.3440 anchor_dist=13.8812 pgd_disp=1.5000 mse_neg_init=1.057706 mse_neg_final=1.594852
+[TAM-GC-DIAG step=38500] mse_pos=0.050830 mse_neg=1.097779 mse_gap=1.046949 pred_norm=19.3946 pred_std=0.9723 pred_abs=0.7741 tgt_std=0.9988 tgt_abs=0.7966 cos=0.0011 neg_dist=14.1625 anchor_dist=12.7086 pgd_disp=1.5000 mse_neg_init=0.787224 mse_neg_final=1.243546
+[TAM-GC-DIAG step=38600] mse_pos=0.049594 mse_neg=1.093110 mse_gap=1.043516 pred_norm=19.4350 pred_std=0.9744 pred_abs=0.7756 tgt_std=1.0016 tgt_abs=0.7993 cos=-0.0001 neg_dist=14.4491 anchor_dist=12.9922 pgd_disp=1.5000 mse_neg_init=0.818809 mse_neg_final=1.282472
+[TAM-GC-DIAG step=38700] mse_pos=0.051811 mse_neg=1.097577 mse_gap=1.045766 pred_norm=19.3861 pred_std=0.9719 pred_abs=0.7741 tgt_std=0.9990 tgt_abs=0.7976 cos=-0.0008 neg_dist=14.1560 anchor_dist=12.7033 pgd_disp=1.5000 mse_neg_init=0.790479 mse_neg_final=1.250131
+[TAM-GC-DIAG step=38800] mse_pos=0.051806 mse_neg=1.128295 mse_gap=1.076489 pred_norm=19.3891 pred_std=0.9721 pred_abs=0.7736 tgt_std=0.9992 tgt_abs=0.7978 cos=-0.0007 neg_dist=15.5533 anchor_dist=14.0900 pgd_disp=1.5000 mse_neg_init=1.052733 mse_neg_final=1.582253
+[TAM-GC-DIAG step=38900] mse_pos=0.050691 mse_neg=1.096101 mse_gap=1.045410 pred_norm=19.4374 pred_std=0.9743 pred_abs=0.7753 tgt_std=0.9998 tgt_abs=0.7980 cos=-0.0006 neg_dist=14.2327 anchor_dist=12.7819 pgd_disp=1.5000 mse_neg_init=0.781801 mse_neg_final=1.233959
+[TAM-GC-DIAG step=39000] mse_pos=0.049715 mse_neg=1.095695 mse_gap=1.045981 pred_norm=19.4449 pred_std=0.9747 pred_abs=0.7765 tgt_std=0.9985 tgt_abs=0.7966 cos=-0.0008 neg_dist=14.2567 anchor_dist=12.8016 pgd_disp=1.5000 mse_neg_init=0.791703 mse_neg_final=1.248247
+Running Evaluation...
+Validation Result @ Iteration 39000; Milestone = 39 (Train)
+---------  ----------
+mse_error  0.00969932
+---------  ----------
+Validation Result @ Iteration 39000; Milestone = 39 (ID: Validation)
+---  ----------
+mse  0.00975715
+---  ----------
+[TAM-GC-DIAG step=39100] mse_pos=0.053764 mse_neg=1.100330 mse_gap=1.046566 pred_norm=19.4039 pred_std=0.9729 pred_abs=0.7747 tgt_std=1.0004 tgt_abs=0.7984 cos=-0.0010 neg_dist=14.0642 anchor_dist=12.6119 pgd_disp=1.5000 mse_neg_init=0.808300 mse_neg_final=1.276581
+[TAM-GC-DIAG step=39200] mse_pos=0.050128 mse_neg=1.099885 mse_gap=1.049757 pred_norm=19.4201 pred_std=0.9736 pred_abs=0.7753 tgt_std=0.9995 tgt_abs=0.7974 cos=-0.0013 neg_dist=14.2839 anchor_dist=12.8274 pgd_disp=1.5000 mse_neg_init=0.790754 mse_neg_final=1.247571
+[TAM-GC-DIAG step=39300] mse_pos=0.051308 mse_neg=1.100579 mse_gap=1.049271 pred_norm=19.4103 pred_std=0.9731 pred_abs=0.7747 tgt_std=1.0000 tgt_abs=0.7977 cos=0.0012 neg_dist=14.3154 anchor_dist=12.8617 pgd_disp=1.5000 mse_neg_init=0.806700 mse_neg_final=1.267304
+[TAM-GC-DIAG step=39400] mse_pos=0.049912 mse_neg=1.098318 mse_gap=1.048406 pred_norm=19.4380 pred_std=0.9743 pred_abs=0.7759 tgt_std=1.0005 tgt_abs=0.7985 cos=-0.0000 neg_dist=14.3357 anchor_dist=12.8788 pgd_disp=1.5000 mse_neg_init=0.800444 mse_neg_final=1.259458
+[TAM-GC-DIAG step=39500] mse_pos=0.050507 mse_neg=1.132501 mse_gap=1.081995 pred_norm=19.4105 pred_std=0.9731 pred_abs=0.7749 tgt_std=0.9990 tgt_abs=0.7972 cos=0.0016 neg_dist=15.4204 anchor_dist=13.9567 pgd_disp=1.5000 mse_neg_init=1.053194 mse_neg_final=1.585741
+[TAM-GC-DIAG step=39600] mse_pos=0.048383 mse_neg=1.101325 mse_gap=1.052942 pred_norm=19.4625 pred_std=0.9755 pred_abs=0.7769 tgt_std=1.0005 tgt_abs=0.7989 cos=-0.0005 neg_dist=14.5088 anchor_dist=13.0506 pgd_disp=1.5000 mse_neg_init=0.791758 mse_neg_final=1.242936
+[TAM-GC-DIAG step=39700] mse_pos=0.049760 mse_neg=1.095522 mse_gap=1.045762 pred_norm=19.4143 pred_std=0.9732 pred_abs=0.7749 tgt_std=0.9989 tgt_abs=0.7968 cos=0.0009 neg_dist=14.3250 anchor_dist=12.8718 pgd_disp=1.5000 mse_neg_init=0.789958 mse_neg_final=1.243629
+[TAM-GC-DIAG step=39800] mse_pos=0.051271 mse_neg=1.079809 mse_gap=1.028538 pred_norm=19.3897 pred_std=0.9719 pred_abs=0.7744 tgt_std=1.0005 tgt_abs=0.7980 cos=0.0007 neg_dist=14.6682 anchor_dist=13.2108 pgd_disp=1.5000 mse_neg_init=0.866608 mse_neg_final=1.349012
+[TAM-GC-DIAG step=39900] mse_pos=0.049118 mse_neg=1.077236 mse_gap=1.028118 pred_norm=19.4135 pred_std=0.9732 pred_abs=0.7746 tgt_std=1.0005 tgt_abs=0.7981 cos=-0.0006 neg_dist=14.7012 anchor_dist=13.2406 pgd_disp=1.5000 mse_neg_init=0.861337 mse_neg_final=1.340901
+[TAM-GC-DIAG step=40000] mse_pos=0.050067 mse_neg=1.093167 mse_gap=1.043100 pred_norm=19.4337 pred_std=0.9742 pred_abs=0.7758 tgt_std=0.9997 tgt_abs=0.7976 cos=0.0011 neg_dist=14.3741 anchor_dist=12.9197 pgd_disp=1.5000 mse_neg_init=0.810063 mse_neg_final=1.273555
+Running Evaluation...
+Validation Result @ Iteration 40000; Milestone = 40 (Train)
+---------  ----------
+mse_error  0.00974652
+---------  ----------
+Validation Result @ Iteration 40000; Milestone = 40 (ID: Validation)
+---  ----------
+mse  0.00974419
+---  ----------
+[TAM-GC-DIAG step=40100] mse_pos=0.049655 mse_neg=1.088629 mse_gap=1.038973 pred_norm=19.4073 pred_std=0.9729 pred_abs=0.7746 tgt_std=0.9994 tgt_abs=0.7975 cos=-0.0004 neg_dist=14.3572 anchor_dist=12.8980 pgd_disp=1.5000 mse_neg_init=0.803910 mse_neg_final=1.265610
+[TAM-GC-DIAG step=40200] mse_pos=0.048811 mse_neg=1.102280 mse_gap=1.053468 pred_norm=19.4652 pred_std=0.9757 pred_abs=0.7767 tgt_std=1.0004 tgt_abs=0.7985 cos=-0.0006 neg_dist=14.3771 anchor_dist=12.9207 pgd_disp=1.5000 mse_neg_init=0.797562 mse_neg_final=1.251840
+[TAM-GC-DIAG step=40300] mse_pos=0.048963 mse_neg=1.078866 mse_gap=1.029903 pred_norm=19.4234 pred_std=0.9735 pred_abs=0.7750 tgt_std=1.0004 tgt_abs=0.7980 cos=-0.0014 neg_dist=14.7804 anchor_dist=13.3224 pgd_disp=1.5000 mse_neg_init=0.864284 mse_neg_final=1.341439
+[TAM-GC-DIAG step=40400] mse_pos=0.050740 mse_neg=1.094055 mse_gap=1.043314 pred_norm=19.4049 pred_std=0.9727 pred_abs=0.7747 tgt_std=0.9991 tgt_abs=0.7967 cos=0.0004 neg_dist=14.4236 anchor_dist=12.9683 pgd_disp=1.5000 mse_neg_init=0.807891 mse_neg_final=1.269045
+[TAM-GC-DIAG step=40500] mse_pos=0.052337 mse_neg=1.098390 mse_gap=1.046053 pred_norm=19.3888 pred_std=0.9721 pred_abs=0.7741 tgt_std=1.0006 tgt_abs=0.7989 cos=0.0009 neg_dist=14.1918 anchor_dist=12.7387 pgd_disp=1.5000 mse_neg_init=0.795898 mse_neg_final=1.254131
+[TAM-GC-DIAG step=40600] mse_pos=0.054635 mse_neg=1.099347 mse_gap=1.044712 pred_norm=19.3333 pred_std=0.9695 pred_abs=0.7713 tgt_std=0.9985 tgt_abs=0.7965 cos=0.0016 neg_dist=15.3665 anchor_dist=13.9047 pgd_disp=1.5000 mse_neg_init=1.072063 mse_neg_final=1.606079
+[TAM-GC-DIAG step=40700] mse_pos=0.049401 mse_neg=1.096066 mse_gap=1.046665 pred_norm=19.4641 pred_std=0.9757 pred_abs=0.7766 tgt_std=1.0008 tgt_abs=0.7987 cos=0.0013 neg_dist=14.4134 anchor_dist=12.9634 pgd_disp=1.5000 mse_neg_init=0.797184 mse_neg_final=1.252690
+[TAM-GC-DIAG step=40800] mse_pos=0.052943 mse_neg=1.098289 mse_gap=1.045346 pred_norm=19.3731 pred_std=0.9713 pred_abs=0.7734 tgt_std=1.0000 tgt_abs=0.7980 cos=0.0007 neg_dist=14.1016 anchor_dist=12.6508 pgd_disp=1.5000 mse_neg_init=0.796469 mse_neg_final=1.258024
+[TAM-GC-DIAG step=40900] mse_pos=0.045852 mse_neg=1.101457 mse_gap=1.055605 pred_norm=19.5136 pred_std=0.9779 pred_abs=0.7785 tgt_std=0.9992 tgt_abs=0.7975 cos=0.0011 neg_dist=14.4491 anchor_dist=12.9896 pgd_disp=1.5000 mse_neg_init=0.790967 mse_neg_final=1.243711
+[TAM-GC-DIAG step=41000] mse_pos=0.049041 mse_neg=1.083195 mse_gap=1.034154 pred_norm=19.4529 pred_std=0.9750 pred_abs=0.7763 tgt_std=0.9990 tgt_abs=0.7971 cos=-0.0001 neg_dist=14.6994 anchor_dist=13.2398 pgd_disp=1.5000 mse_neg_init=0.866138 mse_neg_final=1.347853
+Running Evaluation...
+Validation Result @ Iteration 41000; Milestone = 41 (Train)
+---------  ----------
+mse_error  0.00969975
+---------  ----------
+Validation Result @ Iteration 41000; Milestone = 41 (ID: Validation)
+---  ----------
+mse  0.00972299
+---  ----------
+[TAM-GC-DIAG step=41100] mse_pos=0.052688 mse_neg=1.096534 mse_gap=1.043845 pred_norm=19.3841 pred_std=0.9719 pred_abs=0.7730 tgt_std=1.0009 tgt_abs=0.7986 cos=0.0012 neg_dist=14.0649 anchor_dist=12.6141 pgd_disp=1.5000 mse_neg_init=0.778426 mse_neg_final=1.234099
+[TAM-GC-DIAG step=41200] mse_pos=0.048852 mse_neg=1.100966 mse_gap=1.052114 pred_norm=19.4383 pred_std=0.9744 pred_abs=0.7758 tgt_std=1.0012 tgt_abs=0.7992 cos=-0.0012 neg_dist=14.3627 anchor_dist=12.9077 pgd_disp=1.5000 mse_neg_init=0.810262 mse_neg_final=1.269749
+[TAM-GC-DIAG step=41300] mse_pos=0.048222 mse_neg=1.131304 mse_gap=1.083082 pred_norm=19.4862 pred_std=0.9766 pred_abs=0.7777 tgt_std=1.0001 tgt_abs=0.7980 cos=0.0007 neg_dist=15.5511 anchor_dist=14.0855 pgd_disp=1.5000 mse_neg_init=1.055151 mse_neg_final=1.586849
+[TAM-GC-DIAG step=41400] mse_pos=0.050232 mse_neg=1.098937 mse_gap=1.048705 pred_norm=19.4247 pred_std=0.9737 pred_abs=0.7751 tgt_std=1.0004 tgt_abs=0.7981 cos=0.0012 neg_dist=14.3415 anchor_dist=12.8848 pgd_disp=1.5000 mse_neg_init=0.787292 mse_neg_final=1.240882
+[TAM-GC-DIAG step=41500] mse_pos=0.051755 mse_neg=1.093774 mse_gap=1.042019 pred_norm=19.3823 pred_std=0.9718 pred_abs=0.7736 tgt_std=1.0006 tgt_abs=0.7983 cos=-0.0013 neg_dist=14.2762 anchor_dist=12.8227 pgd_disp=1.5000 mse_neg_init=0.794147 mse_neg_final=1.251505
+[TAM-GC-DIAG step=41600] mse_pos=0.051745 mse_neg=1.099362 mse_gap=1.047617 pred_norm=19.3791 pred_std=0.9717 pred_abs=0.7736 tgt_std=0.9995 tgt_abs=0.7976 cos=0.0004 neg_dist=14.3262 anchor_dist=12.8741 pgd_disp=1.5000 mse_neg_init=0.789762 mse_neg_final=1.241406
+[TAM-GC-DIAG step=41700] mse_pos=0.051601 mse_neg=1.098884 mse_gap=1.047284 pred_norm=19.4028 pred_std=0.9728 pred_abs=0.7747 tgt_std=1.0002 tgt_abs=0.7980 cos=0.0022 neg_dist=14.0570 anchor_dist=12.6021 pgd_disp=1.5000 mse_neg_init=0.787357 mse_neg_final=1.248435
+[TAM-GC-DIAG step=41800] mse_pos=0.054726 mse_neg=1.138324 mse_gap=1.083598 pred_norm=19.3678 pred_std=0.9711 pred_abs=0.7729 tgt_std=0.9994 tgt_abs=0.7977 cos=0.0020 neg_dist=15.0374 anchor_dist=13.5761 pgd_disp=1.5000 mse_neg_init=1.056862 mse_neg_final=1.601703
+[TAM-GC-DIAG step=41900] mse_pos=0.049247 mse_neg=1.101529 mse_gap=1.052282 pred_norm=19.4826 pred_std=0.9765 pred_abs=0.7778 tgt_std=0.9982 tgt_abs=0.7960 cos=-0.0019 neg_dist=14.3488 anchor_dist=12.8933 pgd_disp=1.5000 mse_neg_init=0.788396 mse_neg_final=1.241168
+[TAM-GC-DIAG step=42000] mse_pos=0.050119 mse_neg=1.087965 mse_gap=1.037845 pred_norm=19.3957 pred_std=0.9724 pred_abs=0.7745 tgt_std=0.9996 tgt_abs=0.7975 cos=-0.0009 neg_dist=14.2655 anchor_dist=12.8115 pgd_disp=1.5000 mse_neg_init=0.789997 mse_neg_final=1.247970
+Running Evaluation...
+Validation Result @ Iteration 42000; Milestone = 42 (Train)
+---------  ----------
+mse_error  0.00970284
+---------  ----------
+Validation Result @ Iteration 42000; Milestone = 42 (ID: Validation)
+---  ----------
+mse  0.00972581
+---  ----------
+[TAM-GC-DIAG step=42100] mse_pos=0.048433 mse_neg=1.079447 mse_gap=1.031014 pred_norm=19.4442 pred_std=0.9747 pred_abs=0.7757 tgt_std=1.0009 tgt_abs=0.7986 cos=-0.0009 neg_dist=14.8228 anchor_dist=13.3639 pgd_disp=1.5000 mse_neg_init=0.869405 mse_neg_final=1.349629
+[TAM-GC-DIAG step=42200] mse_pos=0.047223 mse_neg=1.096843 mse_gap=1.049621 pred_norm=19.4532 pred_std=0.9749 pred_abs=0.7765 tgt_std=0.9985 tgt_abs=0.7966 cos=0.0003 neg_dist=14.2861 anchor_dist=12.8303 pgd_disp=1.5000 mse_neg_init=0.773175 mse_neg_final=1.221291
+[TAM-GC-DIAG step=42300] mse_pos=0.050129 mse_neg=1.098562 mse_gap=1.048433 pred_norm=19.4029 pred_std=0.9726 pred_abs=0.7742 tgt_std=0.9997 tgt_abs=0.7977 cos=0.0015 neg_dist=14.2646 anchor_dist=12.8116 pgd_disp=1.5000 mse_neg_init=0.787714 mse_neg_final=1.240879
+[TAM-GC-DIAG step=42400] mse_pos=0.050149 mse_neg=1.094860 mse_gap=1.044711 pred_norm=19.4064 pred_std=0.9728 pred_abs=0.7744 tgt_std=0.9988 tgt_abs=0.7965 cos=0.0002 neg_dist=14.2712 anchor_dist=12.8165 pgd_disp=1.5000 mse_neg_init=0.793411 mse_neg_final=1.250329
+[TAM-GC-DIAG step=42500] mse_pos=0.051266 mse_neg=1.097552 mse_gap=1.046286 pred_norm=19.3965 pred_std=0.9725 pred_abs=0.7745 tgt_std=0.9997 tgt_abs=0.7973 cos=-0.0003 neg_dist=15.5398 anchor_dist=14.0786 pgd_disp=1.5000 mse_neg_init=1.071410 mse_neg_final=1.600868
+[TAM-GC-DIAG step=42600] mse_pos=0.046587 mse_neg=1.094979 mse_gap=1.048392 pred_norm=19.4919 pred_std=0.9767 pred_abs=0.7780 tgt_std=0.9998 tgt_abs=0.7975 cos=-0.0005 neg_dist=14.5957 anchor_dist=13.1374 pgd_disp=1.5000 mse_neg_init=0.815289 mse_neg_final=1.276736
+[TAM-GC-DIAG step=42700] mse_pos=0.050990 mse_neg=1.099444 mse_gap=1.048453 pred_norm=19.4323 pred_std=0.9741 pred_abs=0.7757 tgt_std=1.0006 tgt_abs=0.7983 cos=-0.0011 neg_dist=14.2536 anchor_dist=12.7986 pgd_disp=1.5000 mse_neg_init=0.809344 mse_neg_final=1.275802
+[TAM-GC-DIAG step=42800] mse_pos=0.051702 mse_neg=1.094510 mse_gap=1.042808 pred_norm=19.4230 pred_std=0.9736 pred_abs=0.7753 tgt_std=0.9985 tgt_abs=0.7967 cos=-0.0001 neg_dist=14.1343 anchor_dist=12.6777 pgd_disp=1.5000 mse_neg_init=0.786683 mse_neg_final=1.247372
+[TAM-GC-DIAG step=42900] mse_pos=0.051955 mse_neg=1.096013 mse_gap=1.044058 pred_norm=19.4103 pred_std=0.9731 pred_abs=0.7748 tgt_std=0.9996 tgt_abs=0.7977 cos=0.0009 neg_dist=14.2135 anchor_dist=12.7639 pgd_disp=1.5000 mse_neg_init=0.792384 mse_neg_final=1.250405
+[TAM-GC-DIAG step=43000] mse_pos=0.048102 mse_neg=1.094711 mse_gap=1.046608 pred_norm=19.4498 pred_std=0.9749 pred_abs=0.7762 tgt_std=1.0005 tgt_abs=0.7978 cos=0.0003 neg_dist=14.3746 anchor_dist=12.9158 pgd_disp=1.5000 mse_neg_init=0.780151 mse_neg_final=1.231292
+Running Evaluation...
+Validation Result @ Iteration 43000; Milestone = 43 (Train)
+---------  ----------
+mse_error  0.00974601
+---------  ----------
+Validation Result @ Iteration 43000; Milestone = 43 (ID: Validation)
+---  ----------
+mse  0.00970835
+---  ----------
+[TAM-GC-DIAG step=43100] mse_pos=0.049934 mse_neg=1.097183 mse_gap=1.047249 pred_norm=19.4142 pred_std=0.9732 pred_abs=0.7747 tgt_std=0.9995 tgt_abs=0.7977 cos=-0.0008 neg_dist=14.2927 anchor_dist=12.8363 pgd_disp=1.5000 mse_neg_init=0.790298 mse_neg_final=1.245616
+[TAM-GC-DIAG step=43200] mse_pos=0.050381 mse_neg=1.128728 mse_gap=1.078346 pred_norm=19.4038 pred_std=0.9726 pred_abs=0.7745 tgt_std=1.0013 tgt_abs=0.7986 cos=-0.0004 neg_dist=15.5753 anchor_dist=14.1109 pgd_disp=1.5000 mse_neg_init=1.057395 mse_neg_final=1.588820
+[TAM-GC-DIAG step=43300] mse_pos=0.048318 mse_neg=1.096843 mse_gap=1.048525 pred_norm=19.4563 pred_std=0.9752 pred_abs=0.7763 tgt_std=0.9998 tgt_abs=0.7978 cos=0.0003 neg_dist=14.4508 anchor_dist=12.9974 pgd_disp=1.5000 mse_neg_init=0.784592 mse_neg_final=1.233524
+[TAM-GC-DIAG step=43400] mse_pos=0.050778 mse_neg=1.096915 mse_gap=1.046137 pred_norm=19.3992 pred_std=0.9724 pred_abs=0.7742 tgt_std=0.9994 tgt_abs=0.7973 cos=-0.0033 neg_dist=14.3176 anchor_dist=12.8617 pgd_disp=1.5000 mse_neg_init=0.798520 mse_neg_final=1.255792
+[TAM-GC-DIAG step=43500] mse_pos=0.048727 mse_neg=1.082433 mse_gap=1.033706 pred_norm=19.4480 pred_std=0.9748 pred_abs=0.7761 tgt_std=1.0004 tgt_abs=0.7985 cos=0.0018 neg_dist=14.8990 anchor_dist=13.4389 pgd_disp=1.5000 mse_neg_init=0.876853 mse_neg_final=1.356902
+[TAM-GC-DIAG step=43600] mse_pos=0.050211 mse_neg=1.097513 mse_gap=1.047302 pred_norm=19.4260 pred_std=0.9737 pred_abs=0.7754 tgt_std=0.9994 tgt_abs=0.7976 cos=0.0018 neg_dist=14.2168 anchor_dist=12.7622 pgd_disp=1.5000 mse_neg_init=0.796100 mse_neg_final=1.256562
+[TAM-GC-DIAG step=43700] mse_pos=0.053386 mse_neg=1.098027 mse_gap=1.044641 pred_norm=19.3455 pred_std=0.9700 pred_abs=0.7719 tgt_std=1.0000 tgt_abs=0.7977 cos=0.0002 neg_dist=14.1838 anchor_dist=12.7336 pgd_disp=1.5000 mse_neg_init=0.808532 mse_neg_final=1.272237
+[TAM-GC-DIAG step=43800] mse_pos=0.051926 mse_neg=1.096859 mse_gap=1.044932 pred_norm=19.3846 pred_std=0.9720 pred_abs=0.7737 tgt_std=0.9998 tgt_abs=0.7975 cos=0.0013 neg_dist=14.1774 anchor_dist=12.7215 pgd_disp=1.5000 mse_neg_init=0.797357 mse_neg_final=1.259839
+[TAM-GC-DIAG step=43900] mse_pos=0.050754 mse_neg=1.097749 mse_gap=1.046995 pred_norm=19.4291 pred_std=0.9740 pred_abs=0.7757 tgt_std=0.9999 tgt_abs=0.7978 cos=0.0007 neg_dist=14.3053 anchor_dist=12.8509 pgd_disp=1.5000 mse_neg_init=0.794685 mse_neg_final=1.252292
+[TAM-GC-DIAG step=44000] mse_pos=0.048998 mse_neg=1.103769 mse_gap=1.054771 pred_norm=19.4760 pred_std=0.9761 pred_abs=0.7774 tgt_std=0.9996 tgt_abs=0.7976 cos=-0.0016 neg_dist=14.3574 anchor_dist=12.9020 pgd_disp=1.5000 mse_neg_init=0.800584 mse_neg_final=1.258230
+Running Evaluation...
+Validation Result @ Iteration 44000; Milestone = 44 (Train)
+---------  ----------
+mse_error  0.00974944
+---------  ----------
+Validation Result @ Iteration 44000; Milestone = 44 (ID: Validation)
+---  ----------
+mse  0.00973263
+---  ----------
+[TAM-GC-DIAG step=44100] mse_pos=0.050838 mse_neg=1.096822 mse_gap=1.045984 pred_norm=19.4130 pred_std=0.9732 pred_abs=0.7750 tgt_std=1.0008 tgt_abs=0.7989 cos=0.0000 neg_dist=14.1892 anchor_dist=12.7329 pgd_disp=1.5000 mse_neg_init=0.789032 mse_neg_final=1.247597
+[TAM-GC-DIAG step=44200] mse_pos=0.051326 mse_neg=1.093784 mse_gap=1.042458 pred_norm=19.3971 pred_std=0.9724 pred_abs=0.7739 tgt_std=0.9997 tgt_abs=0.7978 cos=-0.0005 neg_dist=14.1605 anchor_dist=12.7042 pgd_disp=1.5000 mse_neg_init=0.787010 mse_neg_final=1.246808
+[TAM-GC-DIAG step=44300] mse_pos=0.050207 mse_neg=1.100983 mse_gap=1.050776 pred_norm=19.4135 pred_std=0.9732 pred_abs=0.7751 tgt_std=1.0000 tgt_abs=0.7978 cos=0.0004 neg_dist=14.4199 anchor_dist=12.9660 pgd_disp=1.5000 mse_neg_init=0.793358 mse_neg_final=1.245036
+[TAM-GC-DIAG step=44400] mse_pos=0.050535 mse_neg=1.095429 mse_gap=1.044894 pred_norm=19.4287 pred_std=0.9741 pred_abs=0.7753 tgt_std=0.9994 tgt_abs=0.7970 cos=-0.0018 neg_dist=14.3346 anchor_dist=12.8799 pgd_disp=1.5000 mse_neg_init=0.817330 mse_neg_final=1.283791
+[TAM-GC-DIAG step=44500] mse_pos=0.049778 mse_neg=1.094016 mse_gap=1.044237 pred_norm=19.4433 pred_std=0.9745 pred_abs=0.7761 tgt_std=1.0013 tgt_abs=0.7991 cos=0.0004 neg_dist=14.1551 anchor_dist=12.7028 pgd_disp=1.5000 mse_neg_init=0.775412 mse_neg_final=1.230431
+[TAM-GC-DIAG step=44600] mse_pos=0.051271 mse_neg=1.099979 mse_gap=1.048709 pred_norm=19.4283 pred_std=0.9739 pred_abs=0.7756 tgt_std=1.0008 tgt_abs=0.7986 cos=0.0001 neg_dist=15.4782 anchor_dist=14.0141 pgd_disp=1.5000 mse_neg_init=1.075340 mse_neg_final=1.609621
+[TAM-GC-DIAG step=44700] mse_pos=0.050082 mse_neg=1.095086 mse_gap=1.045004 pred_norm=19.4139 pred_std=0.9733 pred_abs=0.7744 tgt_std=0.9990 tgt_abs=0.7970 cos=-0.0006 neg_dist=14.1557 anchor_dist=12.7024 pgd_disp=1.5000 mse_neg_init=0.784571 mse_neg_final=1.241055
+[TAM-GC-DIAG step=44800] mse_pos=0.049944 mse_neg=1.100471 mse_gap=1.050527 pred_norm=19.4142 pred_std=0.9733 pred_abs=0.7750 tgt_std=1.0004 tgt_abs=0.7982 cos=-0.0004 neg_dist=14.4642 anchor_dist=13.0090 pgd_disp=1.5000 mse_neg_init=0.807812 mse_neg_final=1.265421
+[TAM-GC-DIAG step=44900] mse_pos=0.049622 mse_neg=1.101170 mse_gap=1.051548 pred_norm=19.4187 pred_std=0.9735 pred_abs=0.7747 tgt_std=0.9997 tgt_abs=0.7975 cos=0.0015 neg_dist=15.7617 anchor_dist=14.2981 pgd_disp=1.5000 mse_neg_init=1.081758 mse_neg_final=1.609596
+[TAM-GC-DIAG step=45000] mse_pos=0.050407 mse_neg=1.100859 mse_gap=1.050452 pred_norm=19.4552 pred_std=0.9752 pred_abs=0.7766 tgt_std=1.0001 tgt_abs=0.7981 cos=-0.0003 neg_dist=14.2487 anchor_dist=12.7942 pgd_disp=1.5000 mse_neg_init=0.795258 mse_neg_final=1.254277
+Running Evaluation...
+Validation Result @ Iteration 45000; Milestone = 45 (Train)
+---------  ----------
+mse_error  0.00977216
+---------  ----------
+Validation Result @ Iteration 45000; Milestone = 45 (ID: Validation)
+---  --------
+mse  0.009673
+---  --------
+[TAM-GC-DIAG step=45100] mse_pos=0.051848 mse_neg=1.098533 mse_gap=1.046685 pred_norm=19.3946 pred_std=0.9724 pred_abs=0.7743 tgt_std=0.9990 tgt_abs=0.7969 cos=0.0010 neg_dist=14.2096 anchor_dist=12.7571 pgd_disp=1.5000 mse_neg_init=0.796145 mse_neg_final=1.254545
+[TAM-GC-DIAG step=45200] mse_pos=0.051018 mse_neg=1.098313 mse_gap=1.047295 pred_norm=19.4122 pred_std=0.9732 pred_abs=0.7748 tgt_std=1.0011 tgt_abs=0.7988 cos=-0.0003 neg_dist=14.3041 anchor_dist=12.8486 pgd_disp=1.5000 mse_neg_init=0.795968 mse_neg_final=1.252323
+[TAM-GC-DIAG step=45300] mse_pos=0.051518 mse_neg=1.095493 mse_gap=1.043975 pred_norm=19.3949 pred_std=0.9724 pred_abs=0.7742 tgt_std=1.0001 tgt_abs=0.7982 cos=-0.0007 neg_dist=14.3044 anchor_dist=12.8499 pgd_disp=1.5000 mse_neg_init=0.787004 mse_neg_final=1.242361
+[TAM-GC-DIAG step=45400] mse_pos=0.052531 mse_neg=1.096578 mse_gap=1.044046 pred_norm=19.3621 pred_std=0.9708 pred_abs=0.7727 tgt_std=0.9987 tgt_abs=0.7969 cos=-0.0010 neg_dist=14.2674 anchor_dist=12.8118 pgd_disp=1.5000 mse_neg_init=0.802886 mse_neg_final=1.263799
+[TAM-GC-DIAG step=45500] mse_pos=0.049930 mse_neg=1.100446 mse_gap=1.050516 pred_norm=19.4210 pred_std=0.9736 pred_abs=0.7752 tgt_std=1.0001 tgt_abs=0.7983 cos=-0.0008 neg_dist=14.3115 anchor_dist=12.8559 pgd_disp=1.5000 mse_neg_init=0.788876 mse_neg_final=1.243345
+[TAM-GC-DIAG step=45600] mse_pos=0.048815 mse_neg=1.098533 mse_gap=1.049718 pred_norm=19.4366 pred_std=0.9742 pred_abs=0.7759 tgt_std=0.9984 tgt_abs=0.7967 cos=-0.0012 neg_dist=14.3782 anchor_dist=12.9211 pgd_disp=1.5000 mse_neg_init=0.788441 mse_neg_final=1.242371
+[TAM-GC-DIAG step=45700] mse_pos=0.048238 mse_neg=1.099787 mse_gap=1.051549 pred_norm=19.4518 pred_std=0.9749 pred_abs=0.7759 tgt_std=1.0011 tgt_abs=0.7983 cos=-0.0006 neg_dist=14.5299 anchor_dist=13.0717 pgd_disp=1.5000 mse_neg_init=0.805823 mse_neg_final=1.261406
+[TAM-GC-DIAG step=45800] mse_pos=0.048896 mse_neg=1.100654 mse_gap=1.051758 pred_norm=19.4586 pred_std=0.9754 pred_abs=0.7768 tgt_std=1.0008 tgt_abs=0.7987 cos=-0.0025 neg_dist=15.7102 anchor_dist=14.2471 pgd_disp=1.5000 mse_neg_init=1.085440 mse_neg_final=1.616596
+[TAM-GC-DIAG step=45900] mse_pos=0.047453 mse_neg=1.096053 mse_gap=1.048600 pred_norm=19.4705 pred_std=0.9758 pred_abs=0.7770 tgt_std=0.9998 tgt_abs=0.7977 cos=-0.0003 neg_dist=14.3140 anchor_dist=12.8589 pgd_disp=1.5000 mse_neg_init=0.779223 mse_neg_final=1.231112
+[TAM-GC-DIAG step=46000] mse_pos=0.051760 mse_neg=1.096229 mse_gap=1.044469 pred_norm=19.4182 pred_std=0.9735 pred_abs=0.7747 tgt_std=1.0004 tgt_abs=0.7980 cos=0.0008 neg_dist=14.2250 anchor_dist=12.7677 pgd_disp=1.5000 mse_neg_init=0.794076 mse_neg_final=1.254803
+Running Evaluation...
+Validation Result @ Iteration 46000; Milestone = 46 (Train)
+---------  ----------
+mse_error  0.00975532
+---------  ----------
+Validation Result @ Iteration 46000; Milestone = 46 (ID: Validation)
+---  ---------
+mse  0.0097154
+---  ---------
+[TAM-GC-DIAG step=46100] mse_pos=0.049310 mse_neg=1.094964 mse_gap=1.045655 pred_norm=19.4366 pred_std=0.9743 pred_abs=0.7753 tgt_std=1.0019 tgt_abs=0.7993 cos=-0.0007 neg_dist=14.2527 anchor_dist=12.7986 pgd_disp=1.5000 mse_neg_init=0.784551 mse_neg_final=1.238950
+[TAM-GC-DIAG step=46200] mse_pos=0.047821 mse_neg=1.099595 mse_gap=1.051774 pred_norm=19.4382 pred_std=0.9743 pred_abs=0.7756 tgt_std=0.9998 tgt_abs=0.7976 cos=0.0026 neg_dist=14.2817 anchor_dist=12.8307 pgd_disp=1.5000 mse_neg_init=0.777419 mse_neg_final=1.227979
+[TAM-GC-DIAG step=46300] mse_pos=0.050797 mse_neg=1.092413 mse_gap=1.041616 pred_norm=19.4237 pred_std=0.9738 pred_abs=0.7750 tgt_std=1.0011 tgt_abs=0.7991 cos=-0.0010 neg_dist=14.3777 anchor_dist=12.9226 pgd_disp=1.5000 mse_neg_init=0.794048 mse_neg_final=1.251306
+[TAM-GC-DIAG step=46400] mse_pos=0.051934 mse_neg=1.098822 mse_gap=1.046888 pred_norm=19.4058 pred_std=0.9728 pred_abs=0.7749 tgt_std=1.0002 tgt_abs=0.7978 cos=-0.0016 neg_dist=14.1884 anchor_dist=12.7341 pgd_disp=1.5000 mse_neg_init=0.806586 mse_neg_final=1.270971
+[TAM-GC-DIAG step=46500] mse_pos=0.050330 mse_neg=1.097631 mse_gap=1.047301 pred_norm=19.4148 pred_std=0.9732 pred_abs=0.7747 tgt_std=0.9997 tgt_abs=0.7978 cos=0.0012 neg_dist=14.2413 anchor_dist=12.7867 pgd_disp=1.5000 mse_neg_init=0.787750 mse_neg_final=1.243271
+[TAM-GC-DIAG step=46600] mse_pos=0.051320 mse_neg=1.096442 mse_gap=1.045122 pred_norm=19.4059 pred_std=0.9729 pred_abs=0.7744 tgt_std=0.9999 tgt_abs=0.7980 cos=-0.0026 neg_dist=14.2575 anchor_dist=12.8025 pgd_disp=1.5000 mse_neg_init=0.794988 mse_neg_final=1.252928
+[TAM-GC-DIAG step=46700] mse_pos=0.050355 mse_neg=1.094011 mse_gap=1.043656 pred_norm=19.4170 pred_std=0.9733 pred_abs=0.7752 tgt_std=0.9992 tgt_abs=0.7977 cos=-0.0005 neg_dist=14.0494 anchor_dist=12.5960 pgd_disp=1.5000 mse_neg_init=0.769579 mse_neg_final=1.223436
+[TAM-GC-DIAG step=46800] mse_pos=0.050241 mse_neg=1.094160 mse_gap=1.043918 pred_norm=19.3955 pred_std=0.9724 pred_abs=0.7743 tgt_std=0.9996 tgt_abs=0.7974 cos=-0.0009 neg_dist=14.3279 anchor_dist=12.8726 pgd_disp=1.5000 mse_neg_init=0.783314 mse_neg_final=1.236762
+[TAM-GC-DIAG step=46900] mse_pos=0.048932 mse_neg=1.093949 mse_gap=1.045017 pred_norm=19.4613 pred_std=0.9755 pred_abs=0.7766 tgt_std=1.0013 tgt_abs=0.7987 cos=0.0006 neg_dist=14.4174 anchor_dist=12.9592 pgd_disp=1.5000 mse_neg_init=0.799083 mse_neg_final=1.257784
+[TAM-GC-DIAG step=47000] mse_pos=0.048743 mse_neg=1.101076 mse_gap=1.052333 pred_norm=19.4706 pred_std=0.9758 pred_abs=0.7774 tgt_std=0.9991 tgt_abs=0.7972 cos=-0.0003 neg_dist=14.3416 anchor_dist=12.8854 pgd_disp=1.5000 mse_neg_init=0.791094 mse_neg_final=1.245833
+Running Evaluation...
+Validation Result @ Iteration 47000; Milestone = 47 (Train)
+---------  ----------
+mse_error  0.00976534
+---------  ----------
+Validation Result @ Iteration 47000; Milestone = 47 (ID: Validation)
+---  ----------
+mse  0.00973219
+---  ----------
+[TAM-GC-DIAG step=47100] mse_pos=0.050366 mse_neg=1.097451 mse_gap=1.047086 pred_norm=19.4269 pred_std=0.9738 pred_abs=0.7754 tgt_std=0.9986 tgt_abs=0.7967 cos=-0.0012 neg_dist=14.3295 anchor_dist=12.8760 pgd_disp=1.5000 mse_neg_init=0.790600 mse_neg_final=1.243811
+[TAM-GC-DIAG step=47200] mse_pos=0.052183 mse_neg=1.099502 mse_gap=1.047319 pred_norm=19.3816 pred_std=0.9718 pred_abs=0.7735 tgt_std=0.9995 tgt_abs=0.7976 cos=0.0006 neg_dist=14.2662 anchor_dist=12.8147 pgd_disp=1.5000 mse_neg_init=0.806137 mse_neg_final=1.265518
+[TAM-GC-DIAG step=47300] mse_pos=0.048453 mse_neg=1.094766 mse_gap=1.046313 pred_norm=19.4339 pred_std=0.9741 pred_abs=0.7759 tgt_std=0.9982 tgt_abs=0.7963 cos=0.0011 neg_dist=14.1977 anchor_dist=12.7407 pgd_disp=1.5000 mse_neg_init=0.766397 mse_neg_final=1.216711
+[TAM-GC-DIAG step=47400] mse_pos=0.050510 mse_neg=1.132272 mse_gap=1.081762 pred_norm=19.3975 pred_std=0.9723 pred_abs=0.7740 tgt_std=0.9996 tgt_abs=0.7982 cos=-0.0007 neg_dist=15.3722 anchor_dist=13.9083 pgd_disp=1.5000 mse_neg_init=1.055478 mse_neg_final=1.591113
+[TAM-GC-DIAG step=47500] mse_pos=0.051667 mse_neg=1.093041 mse_gap=1.041374 pred_norm=19.3757 pred_std=0.9713 pred_abs=0.7732 tgt_std=0.9997 tgt_abs=0.7976 cos=0.0000 neg_dist=14.1017 anchor_dist=12.6457 pgd_disp=1.5000 mse_neg_init=0.782378 mse_neg_final=1.241191
+[TAM-GC-DIAG step=47600] mse_pos=0.050208 mse_neg=1.101800 mse_gap=1.051592 pred_norm=19.4490 pred_std=0.9749 pred_abs=0.7760 tgt_std=1.0002 tgt_abs=0.7986 cos=0.0011 neg_dist=15.6508 anchor_dist=14.1882 pgd_disp=1.5000 mse_neg_init=1.086111 mse_neg_final=1.617953
+[TAM-GC-DIAG step=47700] mse_pos=0.052258 mse_neg=1.096827 mse_gap=1.044568 pred_norm=19.3718 pred_std=0.9712 pred_abs=0.7728 tgt_std=1.0014 tgt_abs=0.7992 cos=-0.0001 neg_dist=14.2399 anchor_dist=12.7832 pgd_disp=1.5000 mse_neg_init=0.798713 mse_neg_final=1.260125
+[TAM-GC-DIAG step=47800] mse_pos=0.048988 mse_neg=1.098648 mse_gap=1.049660 pred_norm=19.4609 pred_std=0.9754 pred_abs=0.7771 tgt_std=1.0007 tgt_abs=0.7984 cos=-0.0002 neg_dist=14.2205 anchor_dist=12.7639 pgd_disp=1.5000 mse_neg_init=0.783990 mse_neg_final=1.239605
+[TAM-GC-DIAG step=47900] mse_pos=0.048589 mse_neg=1.097785 mse_gap=1.049196 pred_norm=19.4584 pred_std=0.9752 pred_abs=0.7766 tgt_std=0.9999 tgt_abs=0.7978 cos=-0.0004 neg_dist=14.4239 anchor_dist=12.9710 pgd_disp=1.5000 mse_neg_init=0.788576 mse_neg_final=1.239087
+[TAM-GC-DIAG step=48000] mse_pos=0.049312 mse_neg=1.100760 mse_gap=1.051448 pred_norm=19.4462 pred_std=0.9747 pred_abs=0.7762 tgt_std=0.9998 tgt_abs=0.7976 cos=0.0008 neg_dist=15.7214 anchor_dist=14.2579 pgd_disp=1.5000 mse_neg_init=1.082036 mse_neg_final=1.611511
+Running Evaluation...
+Validation Result @ Iteration 48000; Milestone = 48 (Train)
+---------  ----------
+mse_error  0.00972297
+---------  ----------
+Validation Result @ Iteration 48000; Milestone = 48 (ID: Validation)
+---  ----------
+mse  0.00972329
+---  ----------
+[TAM-GC-DIAG step=48100] mse_pos=0.050191 mse_neg=1.095724 mse_gap=1.045533 pred_norm=19.4467 pred_std=0.9748 pred_abs=0.7763 tgt_std=0.9989 tgt_abs=0.7972 cos=-0.0012 neg_dist=14.1865 anchor_dist=12.7323 pgd_disp=1.5000 mse_neg_init=0.782634 mse_neg_final=1.239883
+[TAM-GC-DIAG step=48200] mse_pos=0.051277 mse_neg=1.099119 mse_gap=1.047842 pred_norm=19.4111 pred_std=0.9732 pred_abs=0.7751 tgt_std=1.0003 tgt_abs=0.7980 cos=-0.0008 neg_dist=14.1584 anchor_dist=12.7076 pgd_disp=1.5000 mse_neg_init=0.784833 mse_neg_final=1.240906
+[TAM-GC-DIAG step=48300] mse_pos=0.047829 mse_neg=1.127219 mse_gap=1.079390 pred_norm=19.4395 pred_std=0.9744 pred_abs=0.7754 tgt_std=0.9985 tgt_abs=0.7967 cos=-0.0014 neg_dist=15.6781 anchor_dist=14.2122 pgd_disp=1.5000 mse_neg_init=1.050312 mse_neg_final=1.576612
+[TAM-GC-DIAG step=48400] mse_pos=0.049982 mse_neg=1.098021 mse_gap=1.048039 pred_norm=19.4195 pred_std=0.9735 pred_abs=0.7752 tgt_std=1.0011 tgt_abs=0.7986 cos=-0.0004 neg_dist=15.5966 anchor_dist=14.1316 pgd_disp=1.5000 mse_neg_init=1.088350 mse_neg_final=1.623364
+[TAM-GC-DIAG step=48500] mse_pos=0.049233 mse_neg=1.092769 mse_gap=1.043536 pred_norm=19.4300 pred_std=0.9739 pred_abs=0.7756 tgt_std=0.9997 tgt_abs=0.7976 cos=-0.0011 neg_dist=14.5370 anchor_dist=13.0803 pgd_disp=1.5000 mse_neg_init=0.822430 mse_neg_final=1.284681
+[TAM-GC-DIAG step=48600] mse_pos=0.048434 mse_neg=1.099133 mse_gap=1.050699 pred_norm=19.4223 pred_std=0.9735 pred_abs=0.7751 tgt_std=1.0008 tgt_abs=0.7986 cos=0.0009 neg_dist=14.4188 anchor_dist=12.9617 pgd_disp=1.5000 mse_neg_init=0.797683 mse_neg_final=1.250492
+[TAM-GC-DIAG step=48700] mse_pos=0.050048 mse_neg=1.094076 mse_gap=1.044028 pred_norm=19.4049 pred_std=0.9727 pred_abs=0.7747 tgt_std=1.0009 tgt_abs=0.7987 cos=-0.0006 neg_dist=14.2103 anchor_dist=12.7546 pgd_disp=1.5000 mse_neg_init=0.778705 mse_neg_final=1.233385
+[TAM-GC-DIAG step=48800] mse_pos=0.051042 mse_neg=1.095780 mse_gap=1.044738 pred_norm=19.3931 pred_std=0.9723 pred_abs=0.7741 tgt_std=0.9992 tgt_abs=0.7971 cos=0.0023 neg_dist=14.2012 anchor_dist=12.7459 pgd_disp=1.5000 mse_neg_init=0.790123 mse_neg_final=1.248746
+[TAM-GC-DIAG step=48900] mse_pos=0.051948 mse_neg=1.130235 mse_gap=1.078287 pred_norm=19.3965 pred_std=0.9725 pred_abs=0.7742 tgt_std=1.0009 tgt_abs=0.7981 cos=-0.0007 neg_dist=15.4650 anchor_dist=14.0018 pgd_disp=1.5000 mse_neg_init=1.056999 mse_neg_final=1.590635
+[TAM-GC-DIAG step=49000] mse_pos=0.048187 mse_neg=1.100342 mse_gap=1.052155 pred_norm=19.4510 pred_std=0.9750 pred_abs=0.7766 tgt_std=1.0000 tgt_abs=0.7977 cos=0.0012 neg_dist=14.4531 anchor_dist=12.9957 pgd_disp=1.5000 mse_neg_init=0.790981 mse_neg_final=1.242576
+Running Evaluation...
+Validation Result @ Iteration 49000; Milestone = 49 (Train)
+---------  ----------
+mse_error  0.00972027
+---------  ----------
+Validation Result @ Iteration 49000; Milestone = 49 (ID: Validation)
+---  ----------
+mse  0.00972143
+---  ----------
+[TAM-GC-DIAG step=49100] mse_pos=0.048614 mse_neg=1.129292 mse_gap=1.080677 pred_norm=19.4454 pred_std=0.9746 pred_abs=0.7761 tgt_std=1.0000 tgt_abs=0.7980 cos=-0.0008 neg_dist=15.4454 anchor_dist=13.9806 pgd_disp=1.5000 mse_neg_init=1.055316 mse_neg_final=1.589093
+[TAM-GC-DIAG step=49200] mse_pos=0.048961 mse_neg=1.129744 mse_gap=1.080782 pred_norm=19.4539 pred_std=0.9751 pred_abs=0.7763 tgt_std=1.0000 tgt_abs=0.7980 cos=0.0016 neg_dist=15.6617 anchor_dist=14.1964 pgd_disp=1.5000 mse_neg_init=1.053945 mse_neg_final=1.581849
+[TAM-GC-DIAG step=49300] mse_pos=0.050997 mse_neg=1.101213 mse_gap=1.050217 pred_norm=19.4315 pred_std=0.9741 pred_abs=0.7750 tgt_std=1.0001 tgt_abs=0.7978 cos=-0.0002 neg_dist=14.2429 anchor_dist=12.7878 pgd_disp=1.5000 mse_neg_init=0.801146 mse_neg_final=1.261265
+[TAM-GC-DIAG step=49400] mse_pos=0.050297 mse_neg=1.095049 mse_gap=1.044752 pred_norm=19.3733 pred_std=0.9712 pred_abs=0.7734 tgt_std=1.0003 tgt_abs=0.7981 cos=0.0002 neg_dist=14.2843 anchor_dist=12.8301 pgd_disp=1.5000 mse_neg_init=0.791477 mse_neg_final=1.246398
+[TAM-GC-DIAG step=49500] mse_pos=0.049945 mse_neg=1.102157 mse_gap=1.052212 pred_norm=19.4253 pred_std=0.9738 pred_abs=0.7752 tgt_std=0.9998 tgt_abs=0.7976 cos=0.0016 neg_dist=15.5615 anchor_dist=14.0960 pgd_disp=1.5000 mse_neg_init=1.081828 mse_neg_final=1.616686
+[TAM-GC-DIAG step=49600] mse_pos=0.053207 mse_neg=1.094251 mse_gap=1.041045 pred_norm=19.3420 pred_std=0.9699 pred_abs=0.7724 tgt_std=0.9995 tgt_abs=0.7975 cos=0.0012 neg_dist=14.1858 anchor_dist=12.7303 pgd_disp=1.5000 mse_neg_init=0.788139 mse_neg_final=1.245121
+[TAM-GC-DIAG step=49700] mse_pos=0.051972 mse_neg=1.095534 mse_gap=1.043562 pred_norm=19.4041 pred_std=0.9728 pred_abs=0.7745 tgt_std=0.9999 tgt_abs=0.7979 cos=-0.0004 neg_dist=14.1546 anchor_dist=12.7013 pgd_disp=1.5000 mse_neg_init=0.803527 mse_neg_final=1.268324
+[TAM-GC-DIAG step=49800] mse_pos=0.050514 mse_neg=1.091966 mse_gap=1.041452 pred_norm=19.4024 pred_std=0.9728 pred_abs=0.7746 tgt_std=1.0001 tgt_abs=0.7979 cos=-0.0014 neg_dist=14.3133 anchor_dist=12.8577 pgd_disp=1.5000 mse_neg_init=0.792585 mse_neg_final=1.249404
+[TAM-GC-DIAG step=49900] mse_pos=0.047452 mse_neg=1.096916 mse_gap=1.049464 pred_norm=19.4655 pred_std=0.9755 pred_abs=0.7770 tgt_std=0.9993 tgt_abs=0.7976 cos=-0.0004 neg_dist=14.4052 anchor_dist=12.9491 pgd_disp=1.5000 mse_neg_init=0.790212 mse_neg_final=1.242697
+[TAM-GC-DIAG step=50000] mse_pos=0.051551 mse_neg=1.101548 mse_gap=1.049996 pred_norm=19.4191 pred_std=0.9734 pred_abs=0.7748 tgt_std=1.0007 tgt_abs=0.7980 cos=0.0020 neg_dist=14.3865 anchor_dist=12.9304 pgd_disp=1.5000 mse_neg_init=0.799028 mse_neg_final=1.255113
+Running Evaluation...
+Validation Result @ Iteration 50000; Milestone = 50 (Train)
+---------  ----------
+mse_error  0.00974592
+---------  ----------
+Validation Result @ Iteration 50000; Milestone = 50 (ID: Validation)
+---  ----------
+mse  0.00972111
+---  ----------
+[TAM-GC-DIAG step=50100] mse_pos=0.051435 mse_neg=1.098434 mse_gap=1.046999 pred_norm=19.3923 pred_std=0.9722 pred_abs=0.7739 tgt_std=0.9995 tgt_abs=0.7974 cos=0.0009 neg_dist=14.1466 anchor_dist=12.6933 pgd_disp=1.5000 mse_neg_init=0.797254 mse_neg_final=1.257151
+[TAM-GC-DIAG step=50200] mse_pos=0.049305 mse_neg=1.078493 mse_gap=1.029188 pred_norm=19.4199 pred_std=0.9734 pred_abs=0.7752 tgt_std=0.9993 tgt_abs=0.7974 cos=0.0012 neg_dist=14.8562 anchor_dist=13.4000 pgd_disp=1.5000 mse_neg_init=0.874058 mse_neg_final=1.352556
+[TAM-GC-DIAG step=50300] mse_pos=0.049817 mse_neg=1.079896 mse_gap=1.030079 pred_norm=19.4192 pred_std=0.9735 pred_abs=0.7747 tgt_std=0.9997 tgt_abs=0.7980 cos=0.0003 neg_dist=14.7109 anchor_dist=13.2486 pgd_disp=1.5000 mse_neg_init=0.855054 mse_neg_final=1.332666
+[TAM-GC-DIAG step=50400] mse_pos=0.049764 mse_neg=1.129994 mse_gap=1.080230 pred_norm=19.4203 pred_std=0.9736 pred_abs=0.7755 tgt_std=0.9999 tgt_abs=0.7976 cos=-0.0009 neg_dist=15.4289 anchor_dist=13.9646 pgd_disp=1.5000 mse_neg_init=1.055034 mse_neg_final=1.588788
+[TAM-GC-DIAG step=50500] mse_pos=0.049151 mse_neg=1.093207 mse_gap=1.044055 pred_norm=19.4312 pred_std=0.9739 pred_abs=0.7754 tgt_std=1.0013 tgt_abs=0.7989 cos=-0.0003 neg_dist=14.3726 anchor_dist=12.9152 pgd_disp=1.5000 mse_neg_init=0.792535 mse_neg_final=1.251172
+[TAM-GC-DIAG step=50600] mse_pos=0.048368 mse_neg=1.101761 mse_gap=1.053393 pred_norm=19.4702 pred_std=0.9757 pred_abs=0.7772 tgt_std=0.9998 tgt_abs=0.7978 cos=-0.0000 neg_dist=14.3870 anchor_dist=12.9343 pgd_disp=1.5000 mse_neg_init=0.791146 mse_neg_final=1.243114
+[TAM-GC-DIAG step=50700] mse_pos=0.051808 mse_neg=1.093233 mse_gap=1.041425 pred_norm=19.3939 pred_std=0.9723 pred_abs=0.7743 tgt_std=0.9996 tgt_abs=0.7974 cos=-0.0025 neg_dist=13.9997 anchor_dist=12.5468 pgd_disp=1.5000 mse_neg_init=0.775238 mse_neg_final=1.232993
+[TAM-GC-DIAG step=50800] mse_pos=0.049258 mse_neg=1.100195 mse_gap=1.050937 pred_norm=19.4472 pred_std=0.9749 pred_abs=0.7763 tgt_std=0.9999 tgt_abs=0.7979 cos=-0.0011 neg_dist=14.3364 anchor_dist=12.8817 pgd_disp=1.5000 mse_neg_init=0.798852 mse_neg_final=1.256384
+[TAM-GC-DIAG step=50900] mse_pos=0.046607 mse_neg=1.083606 mse_gap=1.036999 pred_norm=19.4904 pred_std=0.9768 pred_abs=0.7774 tgt_std=1.0007 tgt_abs=0.7983 cos=-0.0018 neg_dist=14.7979 anchor_dist=13.3366 pgd_disp=1.5000 mse_neg_init=0.884265 mse_neg_final=1.369389
+[TAM-GC-DIAG step=51000] mse_pos=0.049295 mse_neg=1.099274 mse_gap=1.049979 pred_norm=19.4501 pred_std=0.9750 pred_abs=0.7765 tgt_std=1.0010 tgt_abs=0.7986 cos=-0.0010 neg_dist=14.3534 anchor_dist=12.8982 pgd_disp=1.5000 mse_neg_init=0.806623 mse_neg_final=1.266252
+Running Evaluation...
+Validation Result @ Iteration 51000; Milestone = 51 (Train)
+---------  ----------
+mse_error  0.00970498
+---------  ----------
+Validation Result @ Iteration 51000; Milestone = 51 (ID: Validation)
+---  ----------
+mse  0.00971247
+---  ----------
+[TAM-GC-DIAG step=51100] mse_pos=0.049380 mse_neg=1.099898 mse_gap=1.050518 pred_norm=19.4466 pred_std=0.9748 pred_abs=0.7761 tgt_std=0.9991 tgt_abs=0.7975 cos=-0.0000 neg_dist=14.3801 anchor_dist=12.9256 pgd_disp=1.5000 mse_neg_init=0.795973 mse_neg_final=1.251146
+[TAM-GC-DIAG step=51200] mse_pos=0.050939 mse_neg=1.100278 mse_gap=1.049340 pred_norm=19.4251 pred_std=0.9738 pred_abs=0.7750 tgt_std=1.0008 tgt_abs=0.7984 cos=0.0019 neg_dist=14.2895 anchor_dist=12.8347 pgd_disp=1.5000 mse_neg_init=0.790159 mse_neg_final=1.244670
+[TAM-GC-DIAG step=51300] mse_pos=0.049516 mse_neg=1.096454 mse_gap=1.046938 pred_norm=19.4185 pred_std=0.9733 pred_abs=0.7750 tgt_std=1.0009 tgt_abs=0.7984 cos=0.0011 neg_dist=14.3820 anchor_dist=12.9271 pgd_disp=1.5000 mse_neg_init=0.802139 mse_neg_final=1.259474
+[TAM-GC-DIAG step=51400] mse_pos=0.048778 mse_neg=1.100071 mse_gap=1.051293 pred_norm=19.4456 pred_std=0.9747 pred_abs=0.7762 tgt_std=0.9998 tgt_abs=0.7977 cos=-0.0003 neg_dist=14.3131 anchor_dist=12.8568 pgd_disp=1.5000 mse_neg_init=0.794152 mse_neg_final=1.249548
+[TAM-GC-DIAG step=51500] mse_pos=0.049815 mse_neg=1.101302 mse_gap=1.051486 pred_norm=19.4565 pred_std=0.9753 pred_abs=0.7767 tgt_std=1.0005 tgt_abs=0.7985 cos=0.0009 neg_dist=14.2141 anchor_dist=12.7600 pgd_disp=1.5000 mse_neg_init=0.794989 mse_neg_final=1.256220
+[TAM-GC-DIAG step=51600] mse_pos=0.052209 mse_neg=1.094033 mse_gap=1.041824 pred_norm=19.3599 pred_std=0.9708 pred_abs=0.7724 tgt_std=1.0009 tgt_abs=0.7987 cos=-0.0001 neg_dist=14.2281 anchor_dist=12.7742 pgd_disp=1.5000 mse_neg_init=0.776657 mse_neg_final=1.228445
+[TAM-GC-DIAG step=51700] mse_pos=0.049607 mse_neg=1.085592 mse_gap=1.035985 pred_norm=19.4446 pred_std=0.9747 pred_abs=0.7761 tgt_std=1.0000 tgt_abs=0.7977 cos=0.0004 neg_dist=14.8303 anchor_dist=13.3706 pgd_disp=1.5000 mse_neg_init=0.887201 mse_neg_final=1.372161
+[TAM-GC-DIAG step=51800] mse_pos=0.049674 mse_neg=1.088024 mse_gap=1.038351 pred_norm=19.4148 pred_std=0.9733 pred_abs=0.7754 tgt_std=1.0004 tgt_abs=0.7981 cos=-0.0008 neg_dist=14.3120 anchor_dist=12.8554 pgd_disp=1.5000 mse_neg_init=0.786759 mse_neg_final=1.245047
+[TAM-GC-DIAG step=51900] mse_pos=0.050049 mse_neg=1.098934 mse_gap=1.048885 pred_norm=19.4228 pred_std=0.9736 pred_abs=0.7754 tgt_std=1.0014 tgt_abs=0.7990 cos=0.0004 neg_dist=14.2738 anchor_dist=12.8176 pgd_disp=1.5000 mse_neg_init=0.792893 mse_neg_final=1.249754
+[TAM-GC-DIAG step=52000] mse_pos=0.052127 mse_neg=1.097910 mse_gap=1.045783 pred_norm=19.3636 pred_std=0.9708 pred_abs=0.7726 tgt_std=0.9989 tgt_abs=0.7966 cos=-0.0009 neg_dist=14.2207 anchor_dist=12.7651 pgd_disp=1.5000 mse_neg_init=0.786617 mse_neg_final=1.242272
+Running Evaluation...
+Validation Result @ Iteration 52000; Milestone = 52 (Train)
+---------  ----------
+mse_error  0.00974122
+---------  ----------
+Validation Result @ Iteration 52000; Milestone = 52 (ID: Validation)
+---  ----------
+mse  0.00974248
+---  ----------
+[TAM-GC-DIAG step=52100] mse_pos=0.049831 mse_neg=1.078109 mse_gap=1.028278 pred_norm=19.4128 pred_std=0.9731 pred_abs=0.7749 tgt_std=1.0005 tgt_abs=0.7979 cos=-0.0019 neg_dist=14.7522 anchor_dist=13.2917 pgd_disp=1.5000 mse_neg_init=0.874288 mse_neg_final=1.356742
+[TAM-GC-DIAG step=52200] mse_pos=0.049959 mse_neg=1.098657 mse_gap=1.048697 pred_norm=19.4294 pred_std=0.9739 pred_abs=0.7756 tgt_std=0.9999 tgt_abs=0.7977 cos=0.0002 neg_dist=14.3511 anchor_dist=12.8953 pgd_disp=1.5000 mse_neg_init=0.788826 mse_neg_final=1.242630
+[TAM-GC-DIAG step=52300] mse_pos=0.052394 mse_neg=1.100463 mse_gap=1.048069 pred_norm=19.3926 pred_std=0.9723 pred_abs=0.7740 tgt_std=1.0016 tgt_abs=0.7993 cos=0.0005 neg_dist=14.1649 anchor_dist=12.7123 pgd_disp=1.5000 mse_neg_init=0.801948 mse_neg_final=1.265101
+[TAM-GC-DIAG step=52400] mse_pos=0.050075 mse_neg=1.100616 mse_gap=1.050542 pred_norm=19.4456 pred_std=0.9748 pred_abs=0.7758 tgt_std=0.9990 tgt_abs=0.7969 cos=-0.0009 neg_dist=14.3758 anchor_dist=12.9203 pgd_disp=1.5000 mse_neg_init=0.808929 mse_neg_final=1.268828
+[TAM-GC-DIAG step=52500] mse_pos=0.049693 mse_neg=1.096502 mse_gap=1.046809 pred_norm=19.4128 pred_std=0.9733 pred_abs=0.7749 tgt_std=1.0013 tgt_abs=0.7989 cos=0.0004 neg_dist=14.3879 anchor_dist=12.9334 pgd_disp=1.5000 mse_neg_init=0.788163 mse_neg_final=1.241661
+[TAM-GC-DIAG step=52600] mse_pos=0.053058 mse_neg=1.083540 mse_gap=1.030481 pred_norm=19.3921 pred_std=0.9723 pred_abs=0.7741 tgt_std=1.0008 tgt_abs=0.7985 cos=0.0006 neg_dist=14.5644 anchor_dist=13.1065 pgd_disp=1.5000 mse_neg_init=0.875978 mse_neg_final=1.363631
+[TAM-GC-DIAG step=52700] mse_pos=0.051812 mse_neg=1.098251 mse_gap=1.046439 pred_norm=19.3761 pred_std=0.9715 pred_abs=0.7731 tgt_std=1.0005 tgt_abs=0.7982 cos=0.0009 neg_dist=14.0368 anchor_dist=12.5864 pgd_disp=1.5000 mse_neg_init=0.780844 mse_neg_final=1.237241
+[TAM-GC-DIAG step=52800] mse_pos=0.047850 mse_neg=1.129333 mse_gap=1.081482 pred_norm=19.4474 pred_std=0.9748 pred_abs=0.7764 tgt_std=0.9990 tgt_abs=0.7971 cos=0.0012 neg_dist=15.6433 anchor_dist=14.1775 pgd_disp=1.5000 mse_neg_init=1.051421 mse_neg_final=1.579289
+[TAM-GC-DIAG step=52900] mse_pos=0.050030 mse_neg=1.103308 mse_gap=1.053278 pred_norm=19.4365 pred_std=0.9742 pred_abs=0.7758 tgt_std=1.0008 tgt_abs=0.7987 cos=-0.0008 neg_dist=15.7313 anchor_dist=14.2672 pgd_disp=1.5000 mse_neg_init=1.087984 mse_neg_final=1.618704
+[TAM-GC-DIAG step=53000] mse_pos=0.048919 mse_neg=1.101035 mse_gap=1.052116 pred_norm=19.4408 pred_std=0.9745 pred_abs=0.7759 tgt_std=0.9999 tgt_abs=0.7979 cos=0.0002 neg_dist=14.3097 anchor_dist=12.8512 pgd_disp=1.5000 mse_neg_init=0.779153 mse_neg_final=1.231462
+Running Evaluation...
+Validation Result @ Iteration 53000; Milestone = 53 (Train)
+---------  ----------
+mse_error  0.00967871
+---------  ----------
+Validation Result @ Iteration 53000; Milestone = 53 (ID: Validation)
+---  ----------
+mse  0.00968253
+---  ----------
+[TAM-GC-DIAG step=53100] mse_pos=0.051116 mse_neg=1.095319 mse_gap=1.044202 pred_norm=19.3884 pred_std=0.9720 pred_abs=0.7740 tgt_std=0.9987 tgt_abs=0.7962 cos=-0.0001 neg_dist=14.1701 anchor_dist=12.7161 pgd_disp=1.5000 mse_neg_init=0.780936 mse_neg_final=1.237209
+[TAM-GC-DIAG step=53200] mse_pos=0.047455 mse_neg=1.095979 mse_gap=1.048524 pred_norm=19.4728 pred_std=0.9759 pred_abs=0.7773 tgt_std=0.9995 tgt_abs=0.7975 cos=0.0017 neg_dist=14.6446 anchor_dist=13.1899 pgd_disp=1.5000 mse_neg_init=0.804252 mse_neg_final=1.257095
+[TAM-GC-DIAG step=53300] mse_pos=0.050612 mse_neg=1.092917 mse_gap=1.042304 pred_norm=19.4268 pred_std=0.9737 pred_abs=0.7752 tgt_std=1.0006 tgt_abs=0.7982 cos=0.0025 neg_dist=14.2727 anchor_dist=12.8179 pgd_disp=1.5000 mse_neg_init=0.797520 mse_neg_final=1.258766
+[TAM-GC-DIAG step=53400] mse_pos=0.049633 mse_neg=1.098774 mse_gap=1.049141 pred_norm=19.4037 pred_std=0.9728 pred_abs=0.7743 tgt_std=0.9997 tgt_abs=0.7973 cos=0.0019 neg_dist=15.8518 anchor_dist=14.3911 pgd_disp=1.5000 mse_neg_init=1.083005 mse_neg_final=1.606737
+[TAM-GC-DIAG step=53500] mse_pos=0.048552 mse_neg=1.127245 mse_gap=1.078693 pred_norm=19.4388 pred_std=0.9743 pred_abs=0.7762 tgt_std=1.0003 tgt_abs=0.7978 cos=0.0002 neg_dist=15.6182 anchor_dist=14.1528 pgd_disp=1.5000 mse_neg_init=1.054817 mse_neg_final=1.584378
+[TAM-GC-DIAG step=53600] mse_pos=0.050898 mse_neg=1.098289 mse_gap=1.047391 pred_norm=19.3981 pred_std=0.9725 pred_abs=0.7741 tgt_std=0.9992 tgt_abs=0.7973 cos=-0.0010 neg_dist=14.2257 anchor_dist=12.7722 pgd_disp=1.5000 mse_neg_init=0.778022 mse_neg_final=1.229694
+[TAM-GC-DIAG step=53700] mse_pos=0.051194 mse_neg=1.133181 mse_gap=1.081986 pred_norm=19.4101 pred_std=0.9732 pred_abs=0.7748 tgt_std=1.0001 tgt_abs=0.7985 cos=-0.0011 neg_dist=15.4245 anchor_dist=13.9603 pgd_disp=1.5000 mse_neg_init=1.055651 mse_neg_final=1.588996
+[TAM-GC-DIAG step=53800] mse_pos=0.048949 mse_neg=1.097098 mse_gap=1.048149 pred_norm=19.4324 pred_std=0.9741 pred_abs=0.7757 tgt_std=1.0012 tgt_abs=0.7989 cos=-0.0008 neg_dist=14.3219 anchor_dist=12.8651 pgd_disp=1.5000 mse_neg_init=0.793722 mse_neg_final=1.251375
+[TAM-GC-DIAG step=53900] mse_pos=0.050148 mse_neg=1.103362 mse_gap=1.053214 pred_norm=19.4405 pred_std=0.9745 pred_abs=0.7760 tgt_std=1.0018 tgt_abs=0.7994 cos=0.0008 neg_dist=15.5594 anchor_dist=14.0967 pgd_disp=1.5000 mse_neg_init=1.088975 mse_neg_final=1.625372
+[TAM-GC-DIAG step=54000] mse_pos=0.049313 mse_neg=1.096314 mse_gap=1.047001 pred_norm=19.4478 pred_std=0.9748 pred_abs=0.7766 tgt_std=1.0014 tgt_abs=0.7991 cos=-0.0012 neg_dist=14.4956 anchor_dist=13.0407 pgd_disp=1.5000 mse_neg_init=0.805201 mse_neg_final=1.264256
+Running Evaluation...
+Validation Result @ Iteration 54000; Milestone = 54 (Train)
+---------  --------
+mse_error  0.009776
+---------  --------
+Validation Result @ Iteration 54000; Milestone = 54 (ID: Validation)
+---  ----------
+mse  0.00971085
+---  ----------
+[TAM-GC-DIAG step=54100] mse_pos=0.050292 mse_neg=1.098113 mse_gap=1.047821 pred_norm=19.4089 pred_std=0.9730 pred_abs=0.7746 tgt_std=0.9988 tgt_abs=0.7972 cos=0.0012 neg_dist=14.3258 anchor_dist=12.8699 pgd_disp=1.5000 mse_neg_init=0.797016 mse_neg_final=1.255463
+[TAM-GC-DIAG step=54200] mse_pos=0.048056 mse_neg=1.096581 mse_gap=1.048525 pred_norm=19.4707 pred_std=0.9758 pred_abs=0.7773 tgt_std=1.0000 tgt_abs=0.7978 cos=0.0009 neg_dist=14.3888 anchor_dist=12.9316 pgd_disp=1.5000 mse_neg_init=0.792667 mse_neg_final=1.247594
+[TAM-GC-DIAG step=54300] mse_pos=0.051326 mse_neg=1.099988 mse_gap=1.048662 pred_norm=19.4165 pred_std=0.9734 pred_abs=0.7754 tgt_std=0.9989 tgt_abs=0.7969 cos=0.0022 neg_dist=14.3298 anchor_dist=12.8750 pgd_disp=1.5000 mse_neg_init=0.812904 mse_neg_final=1.275042
+[TAM-GC-DIAG step=54400] mse_pos=0.050046 mse_neg=1.101622 mse_gap=1.051577 pred_norm=19.4223 pred_std=0.9737 pred_abs=0.7750 tgt_std=0.9996 tgt_abs=0.7975 cos=0.0015 neg_dist=14.2466 anchor_dist=12.7905 pgd_disp=1.5000 mse_neg_init=0.805807 mse_neg_final=1.267647
+[TAM-GC-DIAG step=54500] mse_pos=0.050698 mse_neg=1.096927 mse_gap=1.046229 pred_norm=19.4296 pred_std=0.9739 pred_abs=0.7754 tgt_std=1.0006 tgt_abs=0.7983 cos=0.0006 neg_dist=14.1733 anchor_dist=12.7211 pgd_disp=1.5000 mse_neg_init=0.794106 mse_neg_final=1.254677
+[TAM-GC-DIAG step=54600] mse_pos=0.049808 mse_neg=1.096294 mse_gap=1.046486 pred_norm=19.4138 pred_std=0.9732 pred_abs=0.7745 tgt_std=0.9996 tgt_abs=0.7977 cos=0.0006 neg_dist=14.3060 anchor_dist=12.8500 pgd_disp=1.5000 mse_neg_init=0.781997 mse_neg_final=1.235134
+[TAM-GC-DIAG step=54700] mse_pos=0.050098 mse_neg=1.090983 mse_gap=1.040885 pred_norm=19.4247 pred_std=0.9737 pred_abs=0.7753 tgt_std=1.0009 tgt_abs=0.7988 cos=0.0007 neg_dist=14.2612 anchor_dist=12.8057 pgd_disp=1.5000 mse_neg_init=0.797246 mse_neg_final=1.259923
+[TAM-GC-DIAG step=54800] mse_pos=0.049958 mse_neg=1.098362 mse_gap=1.048404 pred_norm=19.4094 pred_std=0.9730 pred_abs=0.7749 tgt_std=0.9998 tgt_abs=0.7973 cos=0.0002 neg_dist=15.6067 anchor_dist=14.1408 pgd_disp=1.5000 mse_neg_init=1.079291 mse_neg_final=1.611358
+[TAM-GC-DIAG step=54900] mse_pos=0.051129 mse_neg=1.094988 mse_gap=1.043859 pred_norm=19.4128 pred_std=0.9733 pred_abs=0.7750 tgt_std=0.9999 tgt_abs=0.7976 cos=-0.0014 neg_dist=14.2680 anchor_dist=12.8141 pgd_disp=1.5000 mse_neg_init=0.788560 mse_neg_final=1.245191
+[TAM-GC-DIAG step=55000] mse_pos=0.051523 mse_neg=1.097286 mse_gap=1.045762 pred_norm=19.4008 pred_std=0.9725 pred_abs=0.7744 tgt_std=0.9984 tgt_abs=0.7969 cos=0.0006 neg_dist=14.3302 anchor_dist=12.8769 pgd_disp=1.5000 mse_neg_init=0.789266 mse_neg_final=1.242098
+Running Evaluation...
+Validation Result @ Iteration 55000; Milestone = 55 (Train)
+---------  ----------
+mse_error  0.00975553
+---------  ----------
+Validation Result @ Iteration 55000; Milestone = 55 (ID: Validation)
+---  ----------
+mse  0.00975533
+---  ----------
+[TAM-GC-DIAG step=55100] mse_pos=0.050936 mse_neg=1.102113 mse_gap=1.051177 pred_norm=19.4477 pred_std=0.9749 pred_abs=0.7764 tgt_std=1.0010 tgt_abs=0.7985 cos=0.0011 neg_dist=15.5170 anchor_dist=14.0567 pgd_disp=1.5000 mse_neg_init=1.083081 mse_neg_final=1.618104
+[TAM-GC-DIAG step=55200] mse_pos=0.050828 mse_neg=1.097734 mse_gap=1.046906 pred_norm=19.4309 pred_std=0.9739 pred_abs=0.7752 tgt_std=0.9987 tgt_abs=0.7968 cos=0.0006 neg_dist=14.1124 anchor_dist=12.6579 pgd_disp=1.5000 mse_neg_init=0.777315 mse_neg_final=1.234037
+[TAM-GC-DIAG step=55300] mse_pos=0.050413 mse_neg=1.098766 mse_gap=1.048353 pred_norm=19.4032 pred_std=0.9726 pred_abs=0.7744 tgt_std=1.0014 tgt_abs=0.7988 cos=-0.0015 neg_dist=14.2475 anchor_dist=12.7948 pgd_disp=1.5000 mse_neg_init=0.784886 mse_neg_final=1.239246
+[TAM-GC-DIAG step=55400] mse_pos=0.049194 mse_neg=1.105077 mse_gap=1.055883 pred_norm=19.4348 pred_std=0.9744 pred_abs=0.7753 tgt_std=0.9999 tgt_abs=0.7973 cos=0.0005 neg_dist=15.9238 anchor_dist=14.4598 pgd_disp=1.5000 mse_neg_init=1.093642 mse_neg_final=1.619815
+[TAM-GC-DIAG step=55500] mse_pos=0.048168 mse_neg=1.096882 mse_gap=1.048714 pred_norm=19.4609 pred_std=0.9754 pred_abs=0.7766 tgt_std=1.0004 tgt_abs=0.7984 cos=-0.0028 neg_dist=14.3453 anchor_dist=12.8877 pgd_disp=1.5000 mse_neg_init=0.790707 mse_neg_final=1.247574
+[TAM-GC-DIAG step=55600] mse_pos=0.048552 mse_neg=1.096740 mse_gap=1.048188 pred_norm=19.4549 pred_std=0.9751 pred_abs=0.7765 tgt_std=0.9987 tgt_abs=0.7964 cos=-0.0004 neg_dist=14.5263 anchor_dist=13.0722 pgd_disp=1.5000 mse_neg_init=0.807336 mse_neg_final=1.262420
+[TAM-GC-DIAG step=55700] mse_pos=0.051021 mse_neg=1.095389 mse_gap=1.044368 pred_norm=19.3879 pred_std=0.9720 pred_abs=0.7737 tgt_std=1.0012 tgt_abs=0.7986 cos=-0.0017 neg_dist=14.2962 anchor_dist=12.8420 pgd_disp=1.5000 mse_neg_init=0.775355 mse_neg_final=1.224525
+[TAM-GC-DIAG step=55800] mse_pos=0.051721 mse_neg=1.099903 mse_gap=1.048182 pred_norm=19.4245 pred_std=0.9738 pred_abs=0.7752 tgt_std=1.0008 tgt_abs=0.7983 cos=0.0019 neg_dist=14.2560 anchor_dist=12.8036 pgd_disp=1.5000 mse_neg_init=0.817703 mse_neg_final=1.284647
+[TAM-GC-DIAG step=55900] mse_pos=0.049892 mse_neg=1.100505 mse_gap=1.050613 pred_norm=19.4287 pred_std=0.9740 pred_abs=0.7755 tgt_std=1.0005 tgt_abs=0.7984 cos=0.0004 neg_dist=14.4620 anchor_dist=13.0067 pgd_disp=1.5000 mse_neg_init=0.783290 mse_neg_final=1.230622
+[TAM-GC-DIAG step=56000] mse_pos=0.051609 mse_neg=1.097599 mse_gap=1.045989 pred_norm=19.4257 pred_std=0.9739 pred_abs=0.7755 tgt_std=1.0013 tgt_abs=0.7988 cos=-0.0006 neg_dist=15.3628 anchor_dist=13.8991 pgd_disp=1.5000 mse_neg_init=1.080235 mse_neg_final=1.620319
+Running Evaluation...
+Validation Result @ Iteration 56000; Milestone = 56 (Train)
+---------  ----------
+mse_error  0.00979038
+---------  ----------
+Validation Result @ Iteration 56000; Milestone = 56 (ID: Validation)
+---  ----------
+mse  0.00974028
+---  ----------
+[TAM-GC-DIAG step=56100] mse_pos=0.048848 mse_neg=1.096305 mse_gap=1.047457 pred_norm=19.4622 pred_std=0.9754 pred_abs=0.7766 tgt_std=1.0007 tgt_abs=0.7987 cos=0.0017 neg_dist=14.4012 anchor_dist=12.9482 pgd_disp=1.5000 mse_neg_init=0.802532 mse_neg_final=1.260509
+[TAM-GC-DIAG step=56200] mse_pos=0.046996 mse_neg=1.092100 mse_gap=1.045104 pred_norm=19.4967 pred_std=0.9770 pred_abs=0.7780 tgt_std=1.0009 tgt_abs=0.7987 cos=0.0013 neg_dist=14.4413 anchor_dist=12.9836 pgd_disp=1.5000 mse_neg_init=0.791302 mse_neg_final=1.247561
+[TAM-GC-DIAG step=56300] mse_pos=0.047730 mse_neg=1.102162 mse_gap=1.054431 pred_norm=19.4995 pred_std=0.9775 pred_abs=0.7782 tgt_std=0.9997 tgt_abs=0.7978 cos=-0.0017 neg_dist=14.4368 anchor_dist=12.9823 pgd_disp=1.5000 mse_neg_init=0.795962 mse_neg_final=1.247959
+[TAM-GC-DIAG step=56400] mse_pos=0.048832 mse_neg=1.103596 mse_gap=1.054764 pred_norm=19.4674 pred_std=0.9757 pred_abs=0.7768 tgt_std=1.0015 tgt_abs=0.7988 cos=-0.0005 neg_dist=14.3803 anchor_dist=12.9227 pgd_disp=1.5000 mse_neg_init=0.807660 mse_neg_final=1.266663
+[TAM-GC-DIAG step=56500] mse_pos=0.050934 mse_neg=1.098377 mse_gap=1.047443 pred_norm=19.4084 pred_std=0.9730 pred_abs=0.7748 tgt_std=1.0001 tgt_abs=0.7976 cos=0.0011 neg_dist=14.2127 anchor_dist=12.7625 pgd_disp=1.5000 mse_neg_init=0.802171 mse_neg_final=1.263188
+[TAM-GC-DIAG step=56600] mse_pos=0.051851 mse_neg=1.097026 mse_gap=1.045175 pred_norm=19.3766 pred_std=0.9715 pred_abs=0.7732 tgt_std=1.0015 tgt_abs=0.7991 cos=0.0002 neg_dist=14.1356 anchor_dist=12.6805 pgd_disp=1.5000 mse_neg_init=0.788880 mse_neg_final=1.248805
+[TAM-GC-DIAG step=56700] mse_pos=0.050521 mse_neg=1.094759 mse_gap=1.044238 pred_norm=19.4210 pred_std=0.9736 pred_abs=0.7754 tgt_std=0.9998 tgt_abs=0.7973 cos=-0.0004 neg_dist=14.3441 anchor_dist=12.8875 pgd_disp=1.5000 mse_neg_init=0.815118 mse_neg_final=1.279963
+[TAM-GC-DIAG step=56800] mse_pos=0.046955 mse_neg=1.096656 mse_gap=1.049700 pred_norm=19.4594 pred_std=0.9753 pred_abs=0.7770 tgt_std=1.0020 tgt_abs=0.7999 cos=-0.0009 neg_dist=14.4653 anchor_dist=13.0074 pgd_disp=1.5000 mse_neg_init=0.792592 mse_neg_final=1.245555
+[TAM-GC-DIAG step=56900] mse_pos=0.048774 mse_neg=1.097519 mse_gap=1.048745 pred_norm=19.4267 pred_std=0.9738 pred_abs=0.7757 tgt_std=1.0005 tgt_abs=0.7984 cos=-0.0010 neg_dist=14.3332 anchor_dist=12.8764 pgd_disp=1.5000 mse_neg_init=0.784694 mse_neg_final=1.235801
+[TAM-GC-DIAG step=57000] mse_pos=0.048465 mse_neg=1.098298 mse_gap=1.049833 pred_norm=19.4412 pred_std=0.9745 pred_abs=0.7756 tgt_std=1.0004 tgt_abs=0.7980 cos=-0.0020 neg_dist=14.3069 anchor_dist=12.8485 pgd_disp=1.5000 mse_neg_init=0.792078 mse_neg_final=1.248791
+Running Evaluation...
+Validation Result @ Iteration 57000; Milestone = 57 (Train)
+---------  ----------
+mse_error  0.00971152
+---------  ----------
+Validation Result @ Iteration 57000; Milestone = 57 (ID: Validation)
+---  ----------
+mse  0.00975818
+---  ----------
+[TAM-GC-DIAG step=57100] mse_pos=0.046750 mse_neg=1.096656 mse_gap=1.049906 pred_norm=19.4390 pred_std=0.9742 pred_abs=0.7761 tgt_std=0.9999 tgt_abs=0.7979 cos=-0.0005 neg_dist=15.7697 anchor_dist=14.3033 pgd_disp=1.5000 mse_neg_init=1.088719 mse_neg_final=1.619261
+[TAM-GC-DIAG step=57200] mse_pos=0.046034 mse_neg=1.098273 mse_gap=1.052239 pred_norm=19.4880 pred_std=0.9766 pred_abs=0.7780 tgt_std=1.0004 tgt_abs=0.7988 cos=-0.0000 neg_dist=14.5643 anchor_dist=13.1083 pgd_disp=1.5000 mse_neg_init=0.796612 mse_neg_final=1.245665
+[TAM-GC-DIAG step=57300] mse_pos=0.050949 mse_neg=1.094177 mse_gap=1.043228 pred_norm=19.4086 pred_std=0.9730 pred_abs=0.7747 tgt_std=0.9994 tgt_abs=0.7977 cos=0.0022 neg_dist=14.2105 anchor_dist=12.7535 pgd_disp=1.5000 mse_neg_init=0.781195 mse_neg_final=1.238279
+[TAM-GC-DIAG step=57400] mse_pos=0.052938 mse_neg=1.099223 mse_gap=1.046285 pred_norm=19.3742 pred_std=0.9715 pred_abs=0.7735 tgt_std=0.9994 tgt_abs=0.7975 cos=-0.0008 neg_dist=15.6113 anchor_dist=14.1499 pgd_disp=1.5000 mse_neg_init=1.084995 mse_neg_final=1.616126
+[TAM-GC-DIAG step=57500] mse_pos=0.050671 mse_neg=1.097734 mse_gap=1.047063 pred_norm=19.3924 pred_std=0.9721 pred_abs=0.7738 tgt_std=0.9992 tgt_abs=0.7972 cos=-0.0008 neg_dist=14.2816 anchor_dist=12.8247 pgd_disp=1.5000 mse_neg_init=0.785865 mse_neg_final=1.239895
+[TAM-GC-DIAG step=57600] mse_pos=0.053036 mse_neg=1.095449 mse_gap=1.042413 pred_norm=19.3650 pred_std=0.9709 pred_abs=0.7730 tgt_std=0.9995 tgt_abs=0.7975 cos=0.0000 neg_dist=14.3609 anchor_dist=12.9099 pgd_disp=1.5000 mse_neg_init=0.792730 mse_neg_final=1.246475
+[TAM-GC-DIAG step=57700] mse_pos=0.048576 mse_neg=1.097743 mse_gap=1.049167 pred_norm=19.4470 pred_std=0.9748 pred_abs=0.7766 tgt_std=1.0002 tgt_abs=0.7981 cos=-0.0010 neg_dist=14.5836 anchor_dist=13.1276 pgd_disp=1.5000 mse_neg_init=0.791352 mse_neg_final=1.239583
+[TAM-GC-DIAG step=57800] mse_pos=0.049940 mse_neg=1.095405 mse_gap=1.045465 pred_norm=19.3884 pred_std=0.9721 pred_abs=0.7735 tgt_std=0.9997 tgt_abs=0.7979 cos=-0.0015 neg_dist=14.3691 anchor_dist=12.9131 pgd_disp=1.5000 mse_neg_init=0.775804 mse_neg_final=1.223520
+[TAM-GC-DIAG step=57900] mse_pos=0.049398 mse_neg=1.095835 mse_gap=1.046438 pred_norm=19.4328 pred_std=0.9740 pred_abs=0.7755 tgt_std=0.9994 tgt_abs=0.7972 cos=0.0012 neg_dist=14.5124 anchor_dist=13.0605 pgd_disp=1.5000 mse_neg_init=0.813048 mse_neg_final=1.271094
+[TAM-GC-DIAG step=58000] mse_pos=0.050610 mse_neg=1.100071 mse_gap=1.049461 pred_norm=19.4492 pred_std=0.9750 pred_abs=0.7766 tgt_std=0.9998 tgt_abs=0.7979 cos=-0.0000 neg_dist=14.3442 anchor_dist=12.8917 pgd_disp=1.5000 mse_neg_init=0.807265 mse_neg_final=1.267112
+Running Evaluation...
+Validation Result @ Iteration 58000; Milestone = 58 (Train)
+---------  ----------
+mse_error  0.00970612
+---------  ----------

@@ -1,0 +1,175 @@
+Job started at Sun Feb 22 13:28:39 EST 2026
+Running on host: holygpu8a27201.rc.fas.harvard.edu
+Job ID: 61637386
+GPU info:
+Sun Feb 22 13:28:39 2026       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 575.57.08              Driver Version: 575.57.08      CUDA Version: 12.9     |
+|-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA A100-SXM4-80GB          On  |   00000000:31:00.0 Off |                    0 |
+| N/A   27C    P0             59W /  500W |       0MiB /  81920MiB |      0%      Default |
+|                                         |                        |             Disabled |
++-----------------------------------------+------------------------+----------------------+
+                                                                                         
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+
+Cloning repository...
+Repository cloned and checked out to: e0a551c
+e0a551c Resubmit q220 after force push (job 61628694)
+Starting q211: Baseline (no mining, scalar energy, no energy loss) — 8 seeds for paired comparison...
+Loading configuration from: projects/ired/configs/q211_scalar_baseline_newcode.json
+Configuration saved to: results/ds_inverse/q211_scalar_baseline_newcode/experiment_config.json
+Setting random seed: 7
+Starting experiment with mining strategy: none
+Configuration: {
+  "experiment_name": "q211_scalar_baseline_newcode",
+  "description": "SANITY CHECK: Scalar energy head, no mining, using current codebase (q210 code path with grad_norm_ref=2048). Should reproduce q209 val MSE ~0.0097. If it fails, the new code path itself is broken independent of contrastive changes.",
+  "investigation": "ired-cd",
+  "ablation_stage": "sanity_check_new_code",
+  "mining_strategy": "none",
+  "rank": 20,
+  "ood": false,
+  "diffusion_steps": 10,
+  "batch_size": 2048,
+  "train_steps": 100000,
+  "learning_rate": 0.0001,
+  "use_scalar_energy": true,
+  "use_ired_contrastive_loss": false,
+  "use_cd_loss": false,
+  "use_langevin": false,
+  "use_replay_buffer": false,
+  "energy_loss_weight": 0.0,
+  "energy_reg_weight": 0.0,
+  "use_residual_filter": false,
+  "use_energy_schedule": false,
+  "adam_betas": [
+    0.0,
+    0.999
+  ],
+  "output_dir": "results/ds_inverse/q211_scalar_baseline_newcode",
+  "notes": "Sanity check q211: if val MSE converges to ~0.0097 => new code fine. Check MSE-DIAG pred_norm/tgt_norm/cos to verify pred grows with training. pred_norm at 100k should be ~19-20 (matching tgt_norm ~ sqrt(400)).",
+  "seed": 7
+}
+Dataset: Inverse matrices (20x20)
+Input dimension: 400, Output dimension: 400
+Trainer initialized. Output directory: results/ds_inverse/q211_scalar_baseline_newcode
+Training for 100000 steps...
+[CD-DIAG step=100] E_pos=0.6732 E_neg=0.6732 margin=0.0000 E_wtd=0.000000 MSE=0.997301 gradE=0.0331 pred_norm=0.0000 pred_std=0.0000 pred_abs=0.0000 tgt_std=0.9999 tgt_abs=0.7980 cos=0.0010 neg_dist=0.0000 lang_grad0=0.0000 lang_gradK=0.0000 lang_disp=0.0000 step=0.0000 sigma=0.0000
+[CD-DIAG step=200] E_pos=9.4481 E_neg=9.4481 margin=0.0000 E_wtd=0.000000 MSE=0.998248 gradE=0.3161 pred_norm=0.0002 pred_std=0.0000 pred_abs=0.0000 tgt_std=0.9975 tgt_abs=0.7962 cos=0.0006 neg_dist=0.0000 lang_grad0=0.0000 lang_gradK=0.0000 lang_disp=0.0000 step=0.0000 sigma=0.0000
+[CD-DIAG step=300] E_pos=219.6250 E_neg=219.6250 margin=0.0000 E_wtd=0.000000 MSE=0.997478 gradE=36.0608 pred_norm=0.0176 pred_std=0.0009 pred_abs=0.0007 tgt_std=0.9987 tgt_abs=0.7971 cos=0.0006 neg_dist=0.0000 lang_grad0=0.0000 lang_gradK=0.0000 lang_disp=0.0000 step=0.0000 sigma=0.0000
+[CD-DIAG step=400] E_pos=5804.3691 E_neg=5804.3691 margin=0.0000 E_wtd=0.000000 MSE=0.990874 gradE=898.5387 pred_norm=0.4384 pred_std=0.0223 pred_abs=0.0175 tgt_std=0.9990 tgt_abs=0.7971 cos=-0.0004 neg_dist=0.0000 lang_grad0=0.0000 lang_gradK=0.0000 lang_disp=0.0000 step=0.0000 sigma=0.0000
+[CD-DIAG step=500] E_pos=40218.0781 E_neg=40218.0781 margin=0.0000 E_wtd=0.000000 MSE=0.875262 gradE=6862.5801 pred_norm=3.3450 pred_std=0.1724 pred_abs=0.1335 tgt_std=1.0018 tgt_abs=0.7993 cos=-0.0002 neg_dist=0.0000 lang_grad0=0.0000 lang_gradK=0.0000 lang_disp=0.0000 step=0.0000 sigma=0.0000
+[CD-DIAG step=600] E_pos=114077.3203 E_neg=114077.3203 margin=0.0000 E_wtd=0.000000 MSE=0.662109 gradE=18984.1875 pred_norm=9.2332 pred_std=0.4878 pred_abs=0.3687 tgt_std=1.0006 tgt_abs=0.7984 cos=0.0019 neg_dist=0.0000 lang_grad0=0.0000 lang_gradK=0.0000 lang_disp=0.0000 step=0.0000 sigma=0.0000
+[CD-DIAG step=700] E_pos=164351.2500 E_neg=164351.2500 margin=0.0000 E_wtd=0.000000 MSE=0.566947 gradE=23921.0215 pred_norm=11.6416 pred_std=0.6198 pred_abs=0.4650 tgt_std=0.9999 tgt_abs=0.7979 cos=0.0003 neg_dist=0.0000 lang_grad0=0.0000 lang_gradK=0.0000 lang_disp=0.0000 step=0.0000 sigma=0.0000
+[CD-DIAG step=800] E_pos=298736.2500 E_neg=298736.2500 margin=0.0000 E_wtd=0.000000 MSE=0.501444 gradE=25970.4023 pred_norm=12.6713 pred_std=0.6661 pred_abs=0.5060 tgt_std=1.0000 tgt_abs=0.7981 cos=-0.0021 neg_dist=0.0000 lang_grad0=0.0000 lang_gradK=0.0000 lang_disp=0.0000 step=0.0000 sigma=0.0000
+[CD-DIAG step=900] E_pos=332027.9062 E_neg=332027.9062 margin=0.0000 E_wtd=0.000000 MSE=0.448071 gradE=28293.0195 pred_norm=13.8060 pred_std=0.7214 pred_abs=0.5510 tgt_std=0.9996 tgt_abs=0.7976 cos=-0.0009 neg_dist=0.0000 lang_grad0=0.0000 lang_gradK=0.0000 lang_disp=0.0000 step=0.0000 sigma=0.0000
+[CD-DIAG step=1000] E_pos=329241.5938 E_neg=329241.5938 margin=0.0000 E_wtd=0.000000 MSE=0.408267 gradE=29743.6973 pred_norm=14.5309 pred_std=0.7583 pred_abs=0.5801 tgt_std=0.9996 tgt_abs=0.7976 cos=0.0007 neg_dist=0.0000 lang_grad0=0.0000 lang_gradK=0.0000 lang_disp=0.0000 step=0.0000 sigma=0.0000
+Running Evaluation...
+Validation Result @ Iteration 1000; Milestone = 1 (Train)
+---------  -------
+mse_error  2.73487
+---------  -------
+Validation Result @ Iteration 1000; Milestone = 1 (ID: Validation)
+---  -------
+mse  2.73314
+---  -------
+[CD-DIAG step=1100] E_pos=334663.8125 E_neg=334663.8125 margin=0.0000 E_wtd=0.000000 MSE=0.374569 gradE=30906.8887 pred_norm=15.0710 pred_std=0.7850 pred_abs=0.6015 tgt_std=1.0005 tgt_abs=0.7981 cos=0.0015 neg_dist=0.0000 lang_grad0=0.0000 lang_gradK=0.0000 lang_disp=0.0000 step=0.0000 sigma=0.0000
+[CD-DIAG step=1200] E_pos=347707.8750 E_neg=347707.8750 margin=0.0000 E_wtd=0.000000 MSE=0.343726 gradE=31339.5742 pred_norm=15.3053 pred_std=0.7952 pred_abs=0.6112 tgt_std=1.0005 tgt_abs=0.7986 cos=-0.0007 neg_dist=0.0000 lang_grad0=0.0000 lang_gradK=0.0000 lang_disp=0.0000 step=0.0000 sigma=0.0000
+[CD-DIAG step=1300] E_pos=353256.7500 E_neg=353256.7500 margin=0.0000 E_wtd=0.000000 MSE=0.313156 gradE=32484.1875 pred_norm=15.8724 pred_std=0.8218 pred_abs=0.6337 tgt_std=1.0002 tgt_abs=0.7981 cos=0.0003 neg_dist=0.0000 lang_grad0=0.0000 lang_gradK=0.0000 lang_disp=0.0000 step=0.0000 sigma=0.0000
+[CD-DIAG step=1400] E_pos=346730.2500 E_neg=346730.2500 margin=0.0000 E_wtd=0.000000 MSE=0.293062 gradE=32942.1641 pred_norm=16.0941 pred_std=0.8331 pred_abs=0.6423 tgt_std=0.9995 tgt_abs=0.7975 cos=0.0010 neg_dist=0.0000 lang_grad0=0.0000 lang_gradK=0.0000 lang_disp=0.0000 step=0.0000 sigma=0.0000
+[CD-DIAG step=1500] E_pos=366211.6250 E_neg=366211.6250 margin=0.0000 E_wtd=0.000000 MSE=0.272391 gradE=33362.7227 pred_norm=16.3041 pred_std=0.8424 pred_abs=0.6507 tgt_std=0.9992 tgt_abs=0.7970 cos=-0.0001 neg_dist=0.0000 lang_grad0=0.0000 lang_gradK=0.0000 lang_disp=0.0000 step=0.0000 sigma=0.0000
+[CD-DIAG step=1600] E_pos=371510.0312 E_neg=371510.0312 margin=0.0000 E_wtd=0.000000 MSE=0.247886 gradE=34222.2070 pred_norm=16.7276 pred_std=0.8610 pred_abs=0.6676 tgt_std=1.0000 tgt_abs=0.7982 cos=-0.0002 neg_dist=0.0000 lang_grad0=0.0000 lang_gradK=0.0000 lang_disp=0.0000 step=0.0000 sigma=0.0000
+[CD-DIAG step=1700] E_pos=375426.2812 E_neg=375426.2812 margin=0.0000 E_wtd=0.000000 MSE=0.229280 gradE=34694.2656 pred_norm=16.9261 pred_std=0.8689 pred_abs=0.6757 tgt_std=1.0005 tgt_abs=0.7984 cos=0.0020 neg_dist=0.0000 lang_grad0=0.0000 lang_gradK=0.0000 lang_disp=0.0000 step=0.0000 sigma=0.0000
+[CD-DIAG step=1800] E_pos=350355.7188 E_neg=350355.7188 margin=0.0000 E_wtd=0.000000 MSE=0.210187 gradE=35922.4570 pred_norm=17.5252 pred_std=0.8987 pred_abs=0.6995 tgt_std=0.9997 tgt_abs=0.7977 cos=0.0014 neg_dist=0.0000 lang_grad0=0.0000 lang_gradK=0.0000 lang_disp=0.0000 step=0.0000 sigma=0.0000
+[CD-DIAG step=1900] E_pos=376787.3125 E_neg=376787.3125 margin=0.0000 E_wtd=0.000000 MSE=0.198282 gradE=35942.9141 pred_norm=17.5328 pred_std=0.8976 pred_abs=0.6997 tgt_std=1.0002 tgt_abs=0.7978 cos=0.0022 neg_dist=0.0000 lang_grad0=0.0000 lang_gradK=0.0000 lang_disp=0.0000 step=0.0000 sigma=0.0000
+[CD-DIAG step=2000] E_pos=418672.8750 E_neg=418672.8750 margin=0.0000 E_wtd=0.000000 MSE=0.184217 gradE=35830.9766 pred_norm=17.4873 pred_std=0.8929 pred_abs=0.6979 tgt_std=0.9992 tgt_abs=0.7972 cos=0.0006 neg_dist=0.0000 lang_grad0=0.0000 lang_gradK=0.0000 lang_disp=0.0000 step=0.0000 sigma=0.0000
+Running Evaluation...
+Validation Result @ Iteration 2000; Milestone = 2 (Train)
+---------  -------
+mse_error  1.22077
+---------  -------
+Validation Result @ Iteration 2000; Milestone = 2 (ID: Validation)
+---  -------
+mse  1.22011
+---  -------
+[CD-DIAG step=2100] E_pos=423201.8750 E_neg=423201.8750 margin=0.0000 E_wtd=0.000000 MSE=0.173504 gradE=35905.6016 pred_norm=17.4825 pred_std=0.8938 pred_abs=0.6975 tgt_std=1.0013 tgt_abs=0.7989 cos=0.0013 neg_dist=0.0000 lang_grad0=0.0000 lang_gradK=0.0000 lang_disp=0.0000 step=0.0000 sigma=0.0000
+[CD-DIAG step=2200] E_pos=382127.3438 E_neg=382127.3438 margin=0.0000 E_wtd=0.000000 MSE=0.163867 gradE=36859.5781 pred_norm=17.9867 pred_std=0.9198 pred_abs=0.7182 tgt_std=1.0002 tgt_abs=0.7981 cos=0.0009 neg_dist=0.0000 lang_grad0=0.0000 lang_gradK=0.0000 lang_disp=0.0000 step=0.0000 sigma=0.0000
+[CD-DIAG step=2300] E_pos=394835.5625 E_neg=394835.5625 margin=0.0000 E_wtd=0.000000 MSE=0.153088 gradE=37182.1641 pred_norm=18.1476 pred_std=0.9242 pred_abs=0.7244 tgt_std=1.0001 tgt_abs=0.7981 cos=0.0002 neg_dist=0.0000 lang_grad0=0.0000 lang_gradK=0.0000 lang_disp=0.0000 step=0.0000 sigma=0.0000
+[CD-DIAG step=2400] E_pos=408164.0312 E_neg=408164.0312 margin=0.0000 E_wtd=0.000000 MSE=0.141888 gradE=37138.1953 pred_norm=18.1589 pred_std=0.9238 pred_abs=0.7248 tgt_std=0.9998 tgt_abs=0.7978 cos=-0.0010 neg_dist=0.0000 lang_grad0=0.0000 lang_gradK=0.0000 lang_disp=0.0000 step=0.0000 sigma=0.0000
+[CD-DIAG step=2500] E_pos=415905.3125 E_neg=415905.3125 margin=0.0000 E_wtd=0.000000 MSE=0.138698 gradE=36816.9609 pred_norm=17.9940 pred_std=0.9168 pred_abs=0.7180 tgt_std=0.9994 tgt_abs=0.7975 cos=-0.0003 neg_dist=0.0000 lang_grad0=0.0000 lang_gradK=0.0000 lang_disp=0.0000 step=0.0000 sigma=0.0000
+[CD-DIAG step=2600] E_pos=400920.0938 E_neg=400920.0938 margin=0.0000 E_wtd=0.000000 MSE=0.128858 gradE=37698.3984 pred_norm=18.4104 pred_std=0.9361 pred_abs=0.7347 tgt_std=0.9999 tgt_abs=0.7977 cos=-0.0003 neg_dist=0.0000 lang_grad0=0.0000 lang_gradK=0.0000 lang_disp=0.0000 step=0.0000 sigma=0.0000
+[CD-DIAG step=2700] E_pos=451146.2500 E_neg=451146.2500 margin=0.0000 E_wtd=0.000000 MSE=0.124660 gradE=36807.2422 pred_norm=17.9494 pred_std=0.9132 pred_abs=0.7160 tgt_std=1.0015 tgt_abs=0.7988 cos=0.0006 neg_dist=0.0000 lang_grad0=0.0000 lang_gradK=0.0000 lang_disp=0.0000 step=0.0000 sigma=0.0000
+[CD-DIAG step=2800] E_pos=426991.4375 E_neg=426991.4375 margin=0.0000 E_wtd=0.000000 MSE=0.114609 gradE=37836.7891 pred_norm=18.4816 pred_std=0.9372 pred_abs=0.7377 tgt_std=0.9978 tgt_abs=0.7959 cos=-0.0001 neg_dist=0.0000 lang_grad0=0.0000 lang_gradK=0.0000 lang_disp=0.0000 step=0.0000 sigma=0.0000
+[CD-DIAG step=2900] E_pos=434721.7500 E_neg=434721.7500 margin=0.0000 E_wtd=0.000000 MSE=0.107968 gradE=37946.1562 pred_norm=18.4971 pred_std=0.9371 pred_abs=0.7383 tgt_std=1.0011 tgt_abs=0.7988 cos=0.0009 neg_dist=0.0000 lang_grad0=0.0000 lang_gradK=0.0000 lang_disp=0.0000 step=0.0000 sigma=0.0000
+[CD-DIAG step=3000] E_pos=400122.2500 E_neg=400122.2500 margin=0.0000 E_wtd=0.000000 MSE=0.107402 gradE=38767.2969 pred_norm=18.9200 pred_std=0.9598 pred_abs=0.7555 tgt_std=1.0007 tgt_abs=0.7988 cos=0.0010 neg_dist=0.0000 lang_grad0=0.0000 lang_gradK=0.0000 lang_disp=0.0000 step=0.0000 sigma=0.0000
+Running Evaluation...
+Validation Result @ Iteration 3000; Milestone = 3 (Train)
+---------  --------
+mse_error  0.643097
+---------  --------
+Validation Result @ Iteration 3000; Milestone = 3 (ID: Validation)
+---  --------
+mse  0.641772
+---  --------
+[CD-DIAG step=3100] E_pos=412916.3750 E_neg=412916.3750 margin=0.0000 E_wtd=0.000000 MSE=0.107670 gradE=38436.1328 pred_norm=18.7732 pred_std=0.9525 pred_abs=0.7494 tgt_std=1.0004 tgt_abs=0.7981 cos=-0.0008 neg_dist=0.0000 lang_grad0=0.0000 lang_gradK=0.0000 lang_disp=0.0000 step=0.0000 sigma=0.0000
+[CD-DIAG step=3200] E_pos=397266.4062 E_neg=397266.4062 margin=0.0000 E_wtd=0.000000 MSE=0.102019 gradE=39005.3281 pred_norm=19.0446 pred_std=0.9659 pred_abs=0.7602 tgt_std=0.9998 tgt_abs=0.7979 cos=0.0022 neg_dist=0.0000 lang_grad0=0.0000 lang_gradK=0.0000 lang_disp=0.0000 step=0.0000 sigma=0.0000
+[CD-DIAG step=3300] E_pos=431856.6562 E_neg=431856.6562 margin=0.0000 E_wtd=0.000000 MSE=0.103166 gradE=37919.3125 pred_norm=18.5187 pred_std=0.9401 pred_abs=0.7391 tgt_std=0.9997 tgt_abs=0.7975 cos=-0.0012 neg_dist=0.0000 lang_grad0=0.0000 lang_gradK=0.0000 lang_disp=0.0000 step=0.0000 sigma=0.0000
+[CD-DIAG step=3400] E_pos=462982.2500 E_neg=462982.2500 margin=0.0000 E_wtd=0.000000 MSE=0.091891 gradE=37616.1289 pred_norm=18.3662 pred_std=0.9311 pred_abs=0.7330 tgt_std=0.9993 tgt_abs=0.7973 cos=-0.0002 neg_dist=0.0000 lang_grad0=0.0000 lang_gradK=0.0000 lang_disp=0.0000 step=0.0000 sigma=0.0000
+[CD-DIAG step=3500] E_pos=450256.0000 E_neg=450256.0000 margin=0.0000 E_wtd=0.000000 MSE=0.092487 gradE=38088.1641 pred_norm=18.6127 pred_std=0.9431 pred_abs=0.7431 tgt_std=0.9984 tgt_abs=0.7965 cos=0.0018 neg_dist=0.0000 lang_grad0=0.0000 lang_gradK=0.0000 lang_disp=0.0000 step=0.0000 sigma=0.0000
+[CD-DIAG step=3600] E_pos=410105.2188 E_neg=410105.2188 margin=0.0000 E_wtd=0.000000 MSE=0.085807 gradE=39138.4883 pred_norm=19.1032 pred_std=0.9667 pred_abs=0.7626 tgt_std=0.9992 tgt_abs=0.7973 cos=-0.0014 neg_dist=0.0000 lang_grad0=0.0000 lang_gradK=0.0000 lang_disp=0.0000 step=0.0000 sigma=0.0000
+[CD-DIAG step=3700] E_pos=360581.1875 E_neg=360581.1875 margin=0.0000 E_wtd=0.000000 MSE=0.092799 gradE=40350.8672 pred_norm=19.7018 pred_std=1.0007 pred_abs=0.7865 tgt_std=1.0006 tgt_abs=0.7985 cos=-0.0002 neg_dist=0.0000 lang_grad0=0.0000 lang_gradK=0.0000 lang_disp=0.0000 step=0.0000 sigma=0.0000
+[CD-DIAG step=3800] E_pos=405624.0938 E_neg=405624.0938 margin=0.0000 E_wtd=0.000000 MSE=0.084638 gradE=39374.6250 pred_norm=19.1928 pred_std=0.9718 pred_abs=0.7662 tgt_std=1.0006 tgt_abs=0.7982 cos=-0.0021 neg_dist=0.0000 lang_grad0=0.0000 lang_gradK=0.0000 lang_disp=0.0000 step=0.0000 sigma=0.0000
+[CD-DIAG step=3900] E_pos=398796.5625 E_neg=398796.5625 margin=0.0000 E_wtd=0.000000 MSE=0.082910 gradE=39529.4844 pred_norm=19.2949 pred_std=0.9760 pred_abs=0.7699 tgt_std=1.0004 tgt_abs=0.7982 cos=-0.0009 neg_dist=0.0000 lang_grad0=0.0000 lang_gradK=0.0000 lang_disp=0.0000 step=0.0000 sigma=0.0000
+[CD-DIAG step=4000] E_pos=446067.0625 E_neg=446067.0625 margin=0.0000 E_wtd=0.000000 MSE=0.080027 gradE=38662.0703 pred_norm=18.8927 pred_std=0.9555 pred_abs=0.7543 tgt_std=0.9991 tgt_abs=0.7972 cos=-0.0001 neg_dist=0.0000 lang_grad0=0.0000 lang_gradK=0.0000 lang_disp=0.0000 step=0.0000 sigma=0.0000
+Running Evaluation...
+Validation Result @ Iteration 4000; Milestone = 4 (Train)
+---------  --------
+mse_error  0.181888
+---------  --------
+Validation Result @ Iteration 4000; Milestone = 4 (ID: Validation)
+---  --------
+mse  0.179633
+---  --------
+[CD-DIAG step=4100] E_pos=446698.9062 E_neg=446698.9062 margin=0.0000 E_wtd=0.000000 MSE=0.073460 gradE=38472.3828 pred_norm=18.7887 pred_std=0.9494 pred_abs=0.7499 tgt_std=1.0001 tgt_abs=0.7977 cos=0.0004 neg_dist=0.0000 lang_grad0=0.0000 lang_gradK=0.0000 lang_disp=0.0000 step=0.0000 sigma=0.0000
+[CD-DIAG step=4200] E_pos=397069.1875 E_neg=397069.1875 margin=0.0000 E_wtd=0.000000 MSE=0.075291 gradE=39589.4492 pred_norm=19.3511 pred_std=0.9787 pred_abs=0.7725 tgt_std=0.9990 tgt_abs=0.7969 cos=0.0006 neg_dist=0.0000 lang_grad0=0.0000 lang_gradK=0.0000 lang_disp=0.0000 step=0.0000 sigma=0.0000
+[CD-DIAG step=4300] E_pos=448304.6875 E_neg=448304.6875 margin=0.0000 E_wtd=0.000000 MSE=0.071493 gradE=38623.9688 pred_norm=18.8544 pred_std=0.9526 pred_abs=0.7526 tgt_std=0.9998 tgt_abs=0.7977 cos=-0.0006 neg_dist=0.0000 lang_grad0=0.0000 lang_gradK=0.0000 lang_disp=0.0000 step=0.0000 sigma=0.0000
+[CD-DIAG step=4400] E_pos=462731.1250 E_neg=462731.1250 margin=0.0000 E_wtd=0.000000 MSE=0.071822 gradE=38351.5039 pred_norm=18.7215 pred_std=0.9464 pred_abs=0.7471 tgt_std=0.9995 tgt_abs=0.7971 cos=-0.0024 neg_dist=0.0000 lang_grad0=0.0000 lang_gradK=0.0000 lang_disp=0.0000 step=0.0000 sigma=0.0000
+[CD-DIAG step=4500] E_pos=448311.3750 E_neg=448311.3750 margin=0.0000 E_wtd=0.000000 MSE=0.072786 gradE=38608.0469 pred_norm=18.8536 pred_std=0.9531 pred_abs=0.7527 tgt_std=1.0002 tgt_abs=0.7979 cos=0.0008 neg_dist=0.0000 lang_grad0=0.0000 lang_gradK=0.0000 lang_disp=0.0000 step=0.0000 sigma=0.0000
+[CD-DIAG step=4600] E_pos=397233.0000 E_neg=397233.0000 margin=0.0000 E_wtd=0.000000 MSE=0.075754 gradE=39895.2930 pred_norm=19.4884 pred_std=0.9854 pred_abs=0.7777 tgt_std=0.9997 tgt_abs=0.7983 cos=0.0004 neg_dist=0.0000 lang_grad0=0.0000 lang_gradK=0.0000 lang_disp=0.0000 step=0.0000 sigma=0.0000
+[CD-DIAG step=4700] E_pos=462458.6250 E_neg=462458.6250 margin=0.0000 E_wtd=0.000000 MSE=0.067774 gradE=38536.1836 pred_norm=18.8046 pred_std=0.9503 pred_abs=0.7508 tgt_std=0.9998 tgt_abs=0.7976 cos=-0.0005 neg_dist=0.0000 lang_grad0=0.0000 lang_gradK=0.0000 lang_disp=0.0000 step=0.0000 sigma=0.0000
+[CD-DIAG step=4800] E_pos=463333.8438 E_neg=463333.8438 margin=0.0000 E_wtd=0.000000 MSE=0.065529 gradE=38744.3438 pred_norm=18.9437 pred_std=0.9565 pred_abs=0.7562 tgt_std=0.9989 tgt_abs=0.7969 cos=0.0004 neg_dist=0.0000 lang_grad0=0.0000 lang_gradK=0.0000 lang_disp=0.0000 step=0.0000 sigma=0.0000
+[CD-DIAG step=4900] E_pos=419245.5938 E_neg=419245.5938 margin=0.0000 E_wtd=0.000000 MSE=0.067015 gradE=39584.8125 pred_norm=19.3617 pred_std=0.9778 pred_abs=0.7725 tgt_std=0.9996 tgt_abs=0.7976 cos=-0.0004 neg_dist=0.0000 lang_grad0=0.0000 lang_gradK=0.0000 lang_disp=0.0000 step=0.0000 sigma=0.0000
+[CD-DIAG step=5000] E_pos=474868.5000 E_neg=474868.5000 margin=0.0000 E_wtd=0.000000 MSE=0.067891 gradE=38348.3945 pred_norm=18.7049 pred_std=0.9448 pred_abs=0.7463 tgt_std=1.0007 tgt_abs=0.7990 cos=-0.0001 neg_dist=0.0000 lang_grad0=0.0000 lang_gradK=0.0000 lang_disp=0.0000 step=0.0000 sigma=0.0000
+Running Evaluation...
+Validation Result @ Iteration 5000; Milestone = 5 (Train)
+---------  ---------
+mse_error  0.0370349
+---------  ---------
+Validation Result @ Iteration 5000; Milestone = 5 (ID: Validation)
+---  ---------
+mse  0.0370542
+---  ---------
+[CD-DIAG step=5100] E_pos=434866.5000 E_neg=434866.5000 margin=0.0000 E_wtd=0.000000 MSE=0.063725 gradE=39612.3164 pred_norm=19.3296 pred_std=0.9750 pred_abs=0.7716 tgt_std=1.0007 tgt_abs=0.7985 cos=0.0005 neg_dist=0.0000 lang_grad0=0.0000 lang_gradK=0.0000 lang_disp=0.0000 step=0.0000 sigma=0.0000
+[CD-DIAG step=5200] E_pos=411345.6562 E_neg=411345.6562 margin=0.0000 E_wtd=0.000000 MSE=0.066526 gradE=39844.7930 pred_norm=19.4567 pred_std=0.9830 pred_abs=0.7769 tgt_std=0.9986 tgt_abs=0.7966 cos=0.0006 neg_dist=0.0000 lang_grad0=0.0000 lang_gradK=0.0000 lang_disp=0.0000 step=0.0000 sigma=0.0000
+[CD-DIAG step=5300] E_pos=453108.9375 E_neg=453108.9375 margin=0.0000 E_wtd=0.000000 MSE=0.060545 gradE=39021.1172 pred_norm=19.0492 pred_std=0.9608 pred_abs=0.7603 tgt_std=1.0007 tgt_abs=0.7988 cos=0.0002 neg_dist=0.0000 lang_grad0=0.0000 lang_gradK=0.0000 lang_disp=0.0000 step=0.0000 sigma=0.0000
+[CD-DIAG step=5400] E_pos=369652.7500 E_neg=369652.7500 margin=0.0000 E_wtd=0.000000 MSE=0.076847 gradE=40858.3477 pred_norm=19.9282 pred_std=1.0098 pred_abs=0.7955 tgt_std=1.0008 tgt_abs=0.7986 cos=-0.0005 neg_dist=0.0000 lang_grad0=0.0000 lang_gradK=0.0000 lang_disp=0.0000 step=0.0000 sigma=0.0000
+[CD-DIAG step=5500] E_pos=432799.4375 E_neg=432799.4375 margin=0.0000 E_wtd=0.000000 MSE=0.067768 gradE=39446.8672 pred_norm=19.2767 pred_std=0.9733 pred_abs=0.7693 tgt_std=0.9990 tgt_abs=0.7971 cos=0.0008 neg_dist=0.0000 lang_grad0=0.0000 lang_gradK=0.0000 lang_disp=0.0000 step=0.0000 sigma=0.0000
+[CD-DIAG step=5600] E_pos=471184.9062 E_neg=471184.9062 margin=0.0000 E_wtd=0.000000 MSE=0.063592 gradE=38468.8438 pred_norm=18.7574 pred_std=0.9478 pred_abs=0.7486 tgt_std=1.0009 tgt_abs=0.7988 cos=-0.0012 neg_dist=0.0000 lang_grad0=0.0000 lang_gradK=0.0000 lang_disp=0.0000 step=0.0000 sigma=0.0000
+[CD-DIAG step=5700] E_pos=480700.8750 E_neg=480700.8750 margin=0.0000 E_wtd=0.000000 MSE=0.062891 gradE=38354.7578 pred_norm=18.7282 pred_std=0.9464 pred_abs=0.7475 tgt_std=0.9999 tgt_abs=0.7978 cos=-0.0009 neg_dist=0.0000 lang_grad0=0.0000 lang_gradK=0.0000 lang_disp=0.0000 step=0.0000 sigma=0.0000
+[CD-DIAG step=5800] E_pos=417372.0938 E_neg=417372.0938 margin=0.0000 E_wtd=0.000000 MSE=0.061852 gradE=40096.2109 pred_norm=19.5979 pred_std=0.9892 pred_abs=0.7823 tgt_std=0.9990 tgt_abs=0.7968 cos=0.0001 neg_dist=0.0000 lang_grad0=0.0000 lang_gradK=0.0000 lang_disp=0.0000 step=0.0000 sigma=0.0000
+[CD-DIAG step=5900] E_pos=386211.6875 E_neg=386211.6875 margin=0.0000 E_wtd=0.000000 MSE=0.070968 gradE=40628.0977 pred_norm=19.8295 pred_std=1.0036 pred_abs=0.7912 tgt_std=1.0012 tgt_abs=0.7987 cos=-0.0003 neg_dist=0.0000 lang_grad0=0.0000 lang_gradK=0.0000 lang_disp=0.0000 step=0.0000 sigma=0.0000
+[CD-DIAG step=6000] E_pos=410361.5000 E_neg=410361.5000 margin=0.0000 E_wtd=0.000000 MSE=0.062648 gradE=40403.1641 pred_norm=19.7506 pred_std=0.9968 pred_abs=0.7884 tgt_std=1.0000 tgt_abs=0.7980 cos=0.0010 neg_dist=0.0000 lang_grad0=0.0000 lang_gradK=0.0000 lang_disp=0.0000 step=0.0000 sigma=0.0000
+Running Evaluation...
+Validation Result @ Iteration 6000; Milestone = 6 (Train)
+---------  ---------
+mse_error  0.0169345
+---------  ---------

@@ -1,0 +1,101 @@
+Job started at Thu Feb 26 10:38:55 EST 2026
+Running on host: holygpu7c26106.rc.fas.harvard.edu
+Job ID: 62419356, Array Task ID: 0
+Config: projects/ired/configs/q228_implied_noise.json
+Git URL: https://github.com/mdkrasnow/research-repo.git
+Git SHA: 8045a11b9e00147cc2971264dc13f892ff55e712
+Work directory: /tmp/ired-job-62419356
+GPU info:
+Thu Feb 26 10:38:55 2026       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 575.57.08              Driver Version: 575.57.08      CUDA Version: 12.9     |
+|-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA A100-SXM4-40GB          On  |   00000000:E3:00.0 Off |                   On |
+| N/A   24C    P0             44W /  400W |     213MiB /  40960MiB |     N/A      Default |
+|                                         |                        |              Enabled |
++-----------------------------------------+------------------------+----------------------+
+
++-----------------------------------------------------------------------------------------+
+| MIG devices:                                                                            |
++------------------+----------------------------------+-----------+-----------------------+
+| GPU  GI  CI  MIG |                     Memory-Usage |        Vol|        Shared         |
+|      ID  ID  Dev |                       BAR1-Usage | SM     Unc| CE ENC  DEC  OFA  JPG |
+|                  |                                  |        ECC|                       |
+|==================+==================================+===========+=======================|
+|  0    1   0   0  |             107MiB / 20096MiB    | 42      0 |  3   0    2    0    0 |
+|                  |                 0MiB / 32767MiB  |           |                       |
++------------------+----------------------------------+-----------+-----------------------+
+                                                                                         
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+
+Cloning repository...
+Repository cloned and checked out to: 8045a11
+Repository info:
+8045a11 Fix --train_steps -> --train-steps in sbatch (argparse uses hyphens)
+Starting smoke test (100 steps) with config: projects/ired/configs/q228_implied_noise.json
+Loading configuration from: projects/ired/configs/q228_implied_noise.json
+Configuration saved to: projects/ired/results/ds_inverse/q228_implied_noise/experiment_config.json
+Setting random seed: 0
+Starting experiment with mining strategy: tam
+Configuration: {
+  "experiment_name": "q228_implied_noise",
+  "description": "TAM-CTL v2 fix 1: implied noise target for recovery loss. Fixes off-manifold epsilon target.",
+  "investigation": "ired-pgd",
+  "ablation_stage": "tam_ctl_v2_implied_noise",
+  "mining_strategy": "tam",
+  "tam_anchor_step": 2,
+  "pgd_delta": 1.5,
+  "pgd_step_size": 0.5,
+  "mining_opt_steps": 3,
+  "use_recovery_loss": true,
+  "recovery_steps": 1,
+  "recovery_loss_weight": 0.1,
+  "recovery_target": "implied_noise",
+  "use_gradient_contrastive": false,
+  "energy_loss_weight": 0.0,
+  "use_scalar_energy": true,
+  "rank": 20,
+  "ood": false,
+  "diffusion_steps": 10,
+  "batch_size": 2048,
+  "train_steps": 100,
+  "learning_rate": 0.0001,
+  "adam_betas": [
+    0.0,
+    0.999
+  ],
+  "output_dir": "projects/ired/results/ds_inverse/q228_implied_noise",
+  "notes": "Ablation ladder step 1: only change recovery_target to implied_noise. Everything else identical to q225.",
+  "seed": 0
+}
+Dataset: Inverse matrices (20x20)
+Input dimension: 400, Output dimension: 400
+Trainer initialized. Output directory: projects/ired/results/ds_inverse/q228_implied_noise
+Training for 100 steps...
+[TAM-CTL-DIAG step=100] mse_pos=1.000336 mse_neg=1.000336 mse_rec=1.000336 neg_vs_rec=0.000000 rec_dist=0.0000 anchor_dist=1.0731 dist_rec_pos=1.0731 eps_gap_rel=0.0578 cos_rec=-0.1946
+training complete
+Training completed!
+Saving final model checkpoint to: projects/ired/results/ds_inverse/q228_implied_noise/final_model.pt
+Final model checkpoint saved successfully (0 EBM parameters)
+Results saved to: projects/ired/results/ds_inverse/q228_implied_noise/results.json
+Experiment completed at Thu Feb 26 10:39:25 EST 2026
+Copying results to persistent storage...
+sending incremental file list
+ds_inverse/q228_implied_noise/
+ds_inverse/q228_implied_noise/experiment_config.json
+ds_inverse/q228_implied_noise/final_model.pt
+ds_inverse/q228_implied_noise/results.json
+
+sent 3,173 bytes  received 80 bytes  6,506.00 bytes/sec
+total size is 5,642  speedup is 1.73
+Results copied to /n/home03/mkrasnow/research-repo/projects/ired/results/
+Cleaning up work directory...

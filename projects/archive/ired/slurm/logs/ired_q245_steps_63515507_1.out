@@ -1,0 +1,148 @@
+=== q245 Step-Semantics Check ===
+Array task: 1
+Inner-loop opt steps: 2
+Total opt steps (inner x 10 landscapes): 20
+Tue Mar  3 11:17:18 2026       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 575.57.08              Driver Version: 575.57.08      CUDA Version: 12.9     |
+|-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA A100-SXM4-80GB          On  |   00000000:E3:00.0 Off |                    0 |
+| N/A   26C    P0             59W /  500W |       0MiB /  81920MiB |      0%      Default |
+|                                         |                        |             Disabled |
++-----------------------------------------+------------------------+----------------------+
+                                                                                         
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+
+Copying baseline checkpoint to work directory...
+checkpoint copied
+
+=== OOD Evaluation (inner_steps=2, total=20) ===
+CLI override: inference_opt_steps=2
+Random seed set to: 0
+Configuration:
+{
+  "experiment_name": "q245_step_semantics_ood",
+  "description": "Paper-fidelity check: sweep inference inner-loop opt steps on OOD to compare with IRED Table 2. Uses baseline checkpoint (no mining). inference_opt_steps is overridden via CLI --inference-opt-steps.",
+  "investigation": "inference-first",
+  "evaluation_mode": true,
+  "mining_strategy": "none",
+  "use_gradient_contrastive": false,
+  "energy_loss_weight": 0.0,
+  "use_scalar_energy": true,
+  "rank": 20,
+  "ood": true,
+  "dataset": "inverse",
+  "batch_size": 2048,
+  "num_test_samples": 1024,
+  "diffusion_steps": 10,
+  "learning_rate": 0.0001,
+  "adam_betas": [
+    0.0,
+    0.999
+  ],
+  "model_checkpoints": [
+    "projects/ired/results/ds_inverse/q230_baseline_no_mining/final_model.pt"
+  ],
+  "output_dir": "projects/ired/results/evaluation/q245_step_semantics/ood_steps_2",
+  "notes": "Paper-fidelity check. IRED Table 2 harder-difficulty: 10 steps=0.2110, 20=0.2100, 30=0.2090, 40=0.2063. Our baseline OOD=0.2063 with default 5 inner steps x 10 landscapes = 50 total. Sweep inner steps {1,2,5,10,20} to map step semantics.",
+  "inference_opt_steps": 2
+}
+
+================================================================================
+Evaluating: q245_step_semantics_ood
+================================================================================
+Difficulty: ood=True, rank=20
+Using device: cuda
+Loading test dataset...
+  Input dimension: 400, Output dimension: 400
+
+Evaluating model: q230_baseline_no_mining
+  Loading checkpoint from: projects/ired/results/ds_inverse/q230_baseline_no_mining/final_model.pt
+  ✗ ERROR: Unrecognized checkpoint format. Keys: ['ebm_state', 'step', 'mining_strategy', 'config']
+
+Saving results to: projects/ired/results/evaluation/q245_step_semantics/ood_steps_2/q245_step_semantics_ood_results.json
+
+================================================================================
+Evaluation Summary: q245_step_semantics_ood
+================================================================================
+
+q230_baseline_no_mining: ERROR - Unrecognized checkpoint format. Keys: ['ebm_state', 'step', 'mining_strategy', 'config']
+
+================================================================================
+
+=== ID Evaluation (inner_steps=2, total=20) ===
+CLI override: inference_opt_steps=2
+Random seed set to: 0
+Configuration:
+{
+  "experiment_name": "q245_step_semantics_id",
+  "description": "Paper-fidelity check: sweep inference inner-loop opt steps on ID to compare with IRED Table 2. Uses baseline checkpoint (no mining). inference_opt_steps is overridden via CLI --inference-opt-steps.",
+  "investigation": "inference-first",
+  "evaluation_mode": true,
+  "mining_strategy": "none",
+  "use_gradient_contrastive": false,
+  "energy_loss_weight": 0.0,
+  "use_scalar_energy": true,
+  "rank": 20,
+  "ood": false,
+  "dataset": "inverse",
+  "batch_size": 2048,
+  "num_test_samples": 1024,
+  "diffusion_steps": 10,
+  "learning_rate": 0.0001,
+  "adam_betas": [
+    0.0,
+    0.999
+  ],
+  "model_checkpoints": [
+    "projects/ired/results/ds_inverse/q230_baseline_no_mining/final_model.pt"
+  ],
+  "output_dir": "projects/ired/results/evaluation/q245_step_semantics/id_steps_2",
+  "notes": "Paper-fidelity check (ID side). IRED Table 2 same-difficulty: 10 steps=0.0096, 20=0.0096, 30=0.0096, 40=0.0095. Sweep inner steps {1,2,5,10,20} to confirm ID is stable across step counts.",
+  "inference_opt_steps": 2
+}
+
+================================================================================
+Evaluating: q245_step_semantics_id
+================================================================================
+Difficulty: ood=False, rank=20
+Using device: cuda
+Loading test dataset...
+  Input dimension: 400, Output dimension: 400
+
+Evaluating model: q230_baseline_no_mining
+  Loading checkpoint from: projects/ired/results/ds_inverse/q230_baseline_no_mining/final_model.pt
+  ✗ ERROR: Unrecognized checkpoint format. Keys: ['ebm_state', 'step', 'mining_strategy', 'config']
+
+Saving results to: projects/ired/results/evaluation/q245_step_semantics/id_steps_2/q245_step_semantics_id_results.json
+
+================================================================================
+Evaluation Summary: q245_step_semantics_id
+================================================================================
+
+q230_baseline_no_mining: ERROR - Unrecognized checkpoint format. Keys: ['ebm_state', 'step', 'mining_strategy', 'config']
+
+================================================================================
+sending incremental file list
+./
+id_steps_2/
+id_steps_2/q245_step_semantics_id_results.json
+ood_steps_2/
+ood_steps_2/q245_step_semantics_ood_results.json
+
+sent 951 bytes  received 69 bytes  2,040.00 bytes/sec
+total size is 606  speedup is 0.59
+Results synced to persistent storage
+
+=== q245 Complete ===
+Inner steps: 2, Total steps: 20
+Expected IRED Table 2 (harder): 10→0.2110, 20→0.2100, 30→0.2090, 40→0.2063

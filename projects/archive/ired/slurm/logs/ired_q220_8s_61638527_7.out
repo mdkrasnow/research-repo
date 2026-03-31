@@ -1,0 +1,78 @@
+Job started at Sun Feb 22 13:37:24 EST 2026
+Running on host: holygpu8a27201.rc.fas.harvard.edu
+Job ID: 61638527
+GPU info:
+Sun Feb 22 13:37:25 2026       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 575.57.08              Driver Version: 575.57.08      CUDA Version: 12.9     |
+|-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA A100-SXM4-80GB          On  |   00000000:CA:00.0 Off |                    0 |
+| N/A   32C    P0             57W /  500W |       0MiB /  81920MiB |      0%      Default |
+|                                         |                        |             Disabled |
++-----------------------------------------+------------------------+----------------------+
+                                                                                         
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+
+Cloning repository...
+Repository cloned and checked out to: 09f3282
+09f3282 Resubmit q220 in parallel with q211 (job 61638142)
+Starting q220: TAM baseline (8 seeds for paired comparison with q211)...
+Loading configuration from: projects/ired/configs/q220_tam_base.json
+Configuration saved to: results/ds_inverse/q220_tam_base/experiment_config.json
+Setting random seed: 7
+Starting experiment with mining strategy: tam
+Configuration: {
+  "experiment_name": "q220_tam_base",
+  "description": "TAM baseline: anchor PGD on opt_step trajectory iterate (anchor_step=2) instead of data_sample. Identical to q218 (pgd_delta=1.5, 3 PGD steps, GC loss) except the PGD center is now x_anchor from 2 opt_step unrolls. Validates that (a) anchor moves away from x_pos (anchor_dist > 0), (b) neg_dist is ~1.5 from x_pos (not 25-45), (c) mse_neg_final > mse_neg_init. If neg_dist collapses to < 0.1, trajectory is not moving (reduce anchor_step or increase pgd_delta). SUCCESS: val MSE < 0.00969 at 100k AND anchor_dist in (0.2, 5.0).",
+  "investigation": "ired-pgd",
+  "ablation_stage": "tam_baseline",
+  "mining_strategy": "tam",
+  "tam_anchor_step": 2,
+  "rank": 20,
+  "ood": false,
+  "diffusion_steps": 10,
+  "batch_size": 2048,
+  "train_steps": 100000,
+  "learning_rate": 0.0001,
+  "use_scalar_energy": true,
+  "use_ired_contrastive_loss": false,
+  "use_gradient_contrastive": true,
+  "gc_temperature": 1.0,
+  "pgd_delta": 1.5,
+  "pgd_step_size": 0.5,
+  "mining_opt_steps": 3,
+  "use_replay_buffer": false,
+  "use_cd_loss": false,
+  "energy_loss_weight": 0.05,
+  "energy_reg_weight": 0.0,
+  "use_residual_filter": false,
+  "use_energy_schedule": false,
+  "adam_betas": [
+    0.0,
+    0.999
+  ],
+  "output_dir": "results/ds_inverse/q220_tam_base",
+  "notes": "TAM baseline. Key diagnostics in TAM-GC-DIAG: anchor_dist should be >0 (trajectory moves), neg_dist should be ~1.5 (PGD radius from x_anchor, not far from x_pos), pgd_disp should be ~pgd_delta (PGD saturates). mse_neg_final > mse_neg_init (PGD ascends). If successful, proceed to q221 sweep over anchor_step and pgd_delta.",
+  "seed": 7
+}
+Dataset: Inverse matrices (20x20)
+Input dimension: 400, Output dimension: 400
+Trainer initialized. Output directory: results/ds_inverse/q220_tam_base
+Training for 100000 steps...
+[TAM-GC-DIAG step=100] mse_pos=0.997301 mse_neg=0.997301 mse_gap=0.000000 pred_norm=0.0000 pred_std=0.0000 pred_abs=0.0000 tgt_std=0.9999 tgt_abs=0.7980 cos=0.0010 neg_dist=6.0544 anchor_dist=6.0544 pgd_disp=0.0000 mse_neg_init=0.999717 mse_neg_final=0.999717
+[TAM-GC-DIAG step=200] mse_pos=0.998248 mse_neg=0.998249 mse_gap=0.000002 pred_norm=0.0002 pred_std=0.0000 pred_abs=0.0000 tgt_std=0.9975 tgt_abs=0.7962 cos=0.0006 neg_dist=0.8442 anchor_dist=0.8441 pgd_disp=0.0001 mse_neg_init=0.995101 mse_neg_final=0.995101
+[TAM-GC-DIAG step=300] mse_pos=0.997477 mse_neg=0.997789 mse_gap=0.000313 pred_norm=0.0176 pred_std=0.0009 pred_abs=0.0007 tgt_std=0.9987 tgt_abs=0.7971 cos=0.0006 neg_dist=1.5839 anchor_dist=1.5753 pgd_disp=0.0193 mse_neg_init=0.997141 mse_neg_final=0.997142
+[TAM-GC-DIAG step=400] mse_pos=0.990801 mse_neg=1.003935 mse_gap=0.013134 pred_norm=0.4408 pred_std=0.0224 pred_abs=0.0176 tgt_std=0.9990 tgt_abs=0.7971 cos=-0.0004 neg_dist=2.7455 anchor_dist=2.2702 pgd_disp=0.7659 mse_neg_init=0.986779 mse_neg_final=0.987777
+[TAM-GC-DIAG step=500] mse_pos=0.878113 mse_neg=1.012463 mse_gap=0.134350 pred_norm=3.2403 pred_std=0.1682 pred_abs=0.1293 tgt_std=1.0018 tgt_abs=0.7993 cos=-0.0002 neg_dist=4.3132 anchor_dist=3.2358 pgd_disp=1.5000 mse_neg_init=0.907223 mse_neg_final=0.930618
+[TAM-GC-DIAG step=600] mse_pos=0.660791 mse_neg=1.044827 mse_gap=0.384036 pred_norm=9.2991 pred_std=0.4912 pred_abs=0.3714 tgt_std=1.0006 tgt_abs=0.7984 cos=0.0019 neg_dist=8.1209 anchor_dist=6.9755 pgd_disp=1.5000 mse_neg_init=0.798053 mse_neg_final=0.877180
+[TAM-GC-DIAG step=700] mse_pos=0.565929 mse_neg=1.045662 mse_gap=0.479733 pred_norm=11.4293 pred_std=0.6057 pred_abs=0.4565 tgt_std=0.9999 tgt_abs=0.7979 cos=0.0003 neg_dist=9.1945 anchor_dist=7.9397 pgd_disp=1.5000 mse_neg_init=0.762446 mse_neg_final=0.876943
+[TAM-GC-DIAG step=800] mse_pos=0.500359 mse_neg=1.068138 mse_gap=0.567779 pred_norm=12.8622 pred_std=0.6760 pred_abs=0.5138 tgt_std=1.0000 tgt_abs=0.7981 cos=-0.0021 neg_dist=15.1020 anchor_dist=13.9741 pgd_disp=1.5000 mse_neg_init=1.045186 mse_neg_final=1.222088
