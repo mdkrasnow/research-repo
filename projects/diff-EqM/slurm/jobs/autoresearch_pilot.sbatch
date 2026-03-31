@@ -30,8 +30,7 @@ export GIT_TERMINAL_PROMPT=0
 export GIT_SSH_COMMAND="ssh -o BatchMode=yes"
 
 echo "=== Cloning repo at SHA ${GIT_SHA} ===" >&2
-git clone --depth 1 "$GIT_URL" . 2>&1 | tail -20 || exit 1
-git fetch origin "${GIT_SHA}" 2>&1 | tail -5
+git clone "$GIT_URL" . 2>&1 | tail -20 || exit 1
 git checkout "${GIT_SHA}" 2>&1 | tail -5
 
 # Install dependencies if needed
