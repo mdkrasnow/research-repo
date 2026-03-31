@@ -17,9 +17,9 @@ eval_grep: "^short_horizon_recovery_distance:"
 
 ## Baseline
 
-baseline: null
-best_so_far: null
-best_commit: null
+baseline: 0.045237
+best_so_far: 0.045237
+best_commit: b44aa16
 
 ## Constraints
 
