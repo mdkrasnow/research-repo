@@ -1,0 +1,154 @@
+Job started at Tue Feb 24 13:02:15 EST 2026
+Running on host: holygpu7c26105.rc.fas.harvard.edu
+Job ID: 61945698
+Git URL: https://github.com/mdkrasnow/research-repo.git
+Git SHA: 1aa17179575c0f6110b1f529eb5bcc25489d91f8
+Work directory: /tmp/ired-eval-test-61945698
+GPU info:
+Tue Feb 24 13:02:15 2026       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 575.57.08              Driver Version: 575.57.08      CUDA Version: 12.9     |
+|-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA A100-SXM4-40GB          On  |   00000000:4B:00.0 Off |                   On |
+| N/A   25C    P0             47W /  400W |    1098MiB /  40960MiB |     N/A      Default |
+|                                         |                        |              Enabled |
++-----------------------------------------+------------------------+----------------------+
+
++-----------------------------------------------------------------------------------------+
+| MIG devices:                                                                            |
++------------------+----------------------------------+-----------+-----------------------+
+| GPU  GI  CI  MIG |                     Memory-Usage |        Vol|        Shared         |
+|      ID  ID  Dev |                       BAR1-Usage | SM     Unc| CE ENC  DEC  OFA  JPG |
+|                  |                                  |        ECC|                       |
+|==================+==================================+===========+=======================|
+|  0    1   0   0  |             107MiB / 20096MiB    | 42      0 |  3   0    2    0    0 |
+|                  |                 0MiB / 32767MiB  |           |                       |
++------------------+----------------------------------+-----------+-----------------------+
+                                                                                         
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+
+Cloning repository...
+Repository cloned and checked out to: 1aa1717
+Repository info:
+1aa1717 Add OOD robustness evaluation tests: baseline vs hard difficulty
+
+==========================================
+Running OOD Robustness Evaluation Tests
+==========================================
+
+Running Level 1 evaluation: Baseline difficulty (ood=false)...
+Configuration:
+{
+  "experiment_name": "q224_eval_test_L1_baseline",
+  "description": "Robustness evaluation Level 1: Baseline difficulty (ood=false, rank=20). Tests q223_test_minimal model on standard validation distribution.",
+  "investigation": "ired-robustness",
+  "evaluation_mode": true,
+  "rank": 20,
+  "ood": false,
+  "dataset": "inverse",
+  "batch_size": 256,
+  "num_test_samples": 1024,
+  "num_opt_steps": 10,
+  "target_mse_threshold": 0.001,
+  "model_checkpoints": [
+    "projects/ired/results/ds_inverse/q223_test_minimal/final_model.pt"
+  ],
+  "output_dir": "projects/ired/results/evaluation/q224_test_robustness",
+  "notes": "Level 1 baseline: ood=false uses 0.5*I (well-conditioned). Tests q223_test_minimal checkpoint on 1024 samples."
+}
+
+================================================================================
+Evaluating: q224_eval_test_L1_baseline
+================================================================================
+Difficulty: ood=False, rank=20
+Using device: cuda
+Loading test dataset...
+  Input dimension: 400, Output dimension: 400
+
+Evaluating model: q223_test_minimal
+  Loading model from: projects/ired/results/ds_inverse/q223_test_minimal/final_model.pt
+  ✗ ERROR: Checkpoint not found: projects/ired/results/ds_inverse/q223_test_minimal/final_model.pt
+
+Saving results to: projects/ired/results/evaluation/q224_test_robustness/q224_eval_test_L1_baseline_results.json
+
+================================================================================
+Evaluation Summary: q224_eval_test_L1_baseline
+================================================================================
+
+q223_test_minimal: ERROR - Checkpoint not found: projects/ired/results/ds_inverse/q223_test_minimal/final_model.pt
+
+================================================================================
+
+Level 1 evaluation completed at Tue Feb 24 13:02:31 EST 2026
+
+Running Level 2 evaluation: Hard difficulty (ood=true)...
+Configuration:
+{
+  "experiment_name": "q224_eval_test_L2_hard",
+  "description": "Robustness evaluation Level 2: Hard difficulty (ood=true, rank=20). Tests q223_test_minimal model on ill-conditioned matrices.",
+  "investigation": "ired-robustness",
+  "evaluation_mode": true,
+  "rank": 20,
+  "ood": true,
+  "dataset": "inverse",
+  "batch_size": 256,
+  "num_test_samples": 1024,
+  "num_opt_steps": 10,
+  "target_mse_threshold": 0.001,
+  "model_checkpoints": [
+    "projects/ired/results/ds_inverse/q223_test_minimal/final_model.pt"
+  ],
+  "output_dir": "projects/ired/results/evaluation/q224_test_robustness",
+  "notes": "Level 2 hard: ood=true uses 0.1*I (ill-conditioned). Tests q223_test_minimal checkpoint on 1024 samples to measure robustness degradation."
+}
+
+================================================================================
+Evaluating: q224_eval_test_L2_hard
+================================================================================
+Difficulty: ood=True, rank=20
+Using device: cuda
+Loading test dataset...
+  Input dimension: 400, Output dimension: 400
+
+Evaluating model: q223_test_minimal
+  Loading model from: projects/ired/results/ds_inverse/q223_test_minimal/final_model.pt
+  ✗ ERROR: Checkpoint not found: projects/ired/results/ds_inverse/q223_test_minimal/final_model.pt
+
+Saving results to: projects/ired/results/evaluation/q224_test_robustness/q224_eval_test_L2_hard_results.json
+
+================================================================================
+Evaluation Summary: q224_eval_test_L2_hard
+================================================================================
+
+q223_test_minimal: ERROR - Checkpoint not found: projects/ired/results/ds_inverse/q223_test_minimal/final_model.pt
+
+================================================================================
+
+Level 2 evaluation completed at Tue Feb 24 13:02:39 EST 2026
+
+==========================================
+All evaluations completed
+==========================================
+Copying evaluation results to persistent storage...
+sending incremental file list
+./
+q224_test_robustness/
+q224_test_robustness/q224_eval_test_L1_baseline_results.json
+q224_test_robustness/q224_eval_test_L2_hard_results.json
+
+sent 897 bytes  received 65 bytes  1,924.00 bytes/sec
+total size is 595  speedup is 0.62
+Evaluation results copied to /n/home03/mkrasnow/research-repo/projects/ired/results/evaluation/
+✓ Level 1 evaluation results synced
+✓ Level 2 evaluation results synced
+Cleaning up work directory...
+Job completed at Tue Feb 24 13:02:39 EST 2026

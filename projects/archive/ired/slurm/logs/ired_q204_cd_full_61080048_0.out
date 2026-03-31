@@ -1,0 +1,161 @@
+Job started at Wed Feb 18 21:41:45 EST 2026
+Running on host: holygpu8a22501.rc.fas.harvard.edu
+Job ID: 61080110
+Git URL: https://github.com/mdkrasnow/research-repo.git
+Git SHA: 9125a0270f59e8930ae21028cf3fbfb301762a93
+Work directory: /tmp/ired-job-61080110
+GPU info:
+Wed Feb 18 21:41:45 2026       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 575.57.08              Driver Version: 575.57.08      CUDA Version: 12.9     |
+|-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA A100-SXM4-80GB          On  |   00000000:CA:00.0 Off |                    0 |
+| N/A   27C    P0             62W /  500W |       0MiB /  81920MiB |      0%      Default |
+|                                         |                        |             Disabled |
++-----------------------------------------+------------------------+----------------------+
+                                                                                         
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+
+Cloning repository...
+Repository cloned and checked out to: 9125a02
+Repository info:
+9125a02 Add CD diagnostic logging and Langevin displacement tracking
+Starting IRED-CD Stage 3 (Full: CD + Langevin + Replay + Residual filter + Schedule)...
+Loading configuration from: projects/ired/configs/q204_cd_full.json
+Configuration saved to: results/ds_inverse/q204_cd_full/experiment_config.json
+Setting random seed: 0
+Starting experiment with mining strategy: cd_full
+Configuration: {
+  "experiment_name": "q204_cd_full",
+  "description": "IRED-CD Investigation - Stage 3: Full implementation (CD + Langevin + Replay + Residual filter + Schedule)",
+  "investigation": "ired-cd",
+  "ablation_stage": "cd_full",
+  "mining_strategy": "cd_full",
+  "rank": 20,
+  "ood": false,
+  "diffusion_steps": 10,
+  "batch_size": 2048,
+  "train_steps": 20000,
+  "learning_rate": 0.0001,
+  "mining_opt_steps": 10,
+  "energy_reg_weight": 0.1,
+  "mining_noise_scale": 1.5,
+  "langevin_sigma_multiplier": 0.1,
+  "use_langevin": true,
+  "use_replay_buffer": true,
+  "replay_buffer_size": 10000,
+  "replay_buffer_buckets": 16,
+  "replay_sample_prob": 0.95,
+  "use_cd_loss": true,
+  "use_residual_filter": true,
+  "residual_filter_quantile": 0.3,
+  "use_energy_schedule": true,
+  "use_timestep_range": true,
+  "energy_loss_warmup_steps": 4000,
+  "energy_loss_max_weight": 0.05,
+  "energy_loss_timestep_range": [
+    0.2,
+    0.8
+  ],
+  "adam_betas": [
+    0.0,
+    0.999
+  ],
+  "output_dir": "results/ds_inverse/q204_cd_full",
+  "notes": "Ablation 3 (FULL): All features enabled. Residual filtering (tau=30th percentile) prevents false negatives. Energy schedule (warmup 20K steps, max_weight=0.05). Timestep range filtering [0.2T, 0.8T]. Should have best shot at beating baseline MSE.",
+  "seed": 0
+}
+Dataset: Inverse matrices (20x20)
+Input dimension: 400, Output dimension: 400
+Trainer initialized. Output directory: results/ds_inverse/q204_cd_full
+Training for 20000 steps...
+[CD-DIAG step=100] E_pos=0.3610 E_neg=0.4964 CD_raw=-0.1354 CD_wtd=-0.000136 MSE=0.999794 neg_dist=24.5111 lang_grad0=0.0001 lang_gradK=0.0001 lang_disp=5.5399 step=0.4427 sigma=0.0909
+[CD-DIAG step=200] E_pos=0.2870 E_neg=0.5197 CD_raw=-0.2326 CD_wtd=-0.000533 MSE=1.000879 neg_dist=24.9056 lang_grad0=0.0002 lang_gradK=0.0002 lang_disp=5.5357 step=0.4414 sigma=0.0908
+[CD-DIAG step=300] E_pos=0.3019 E_neg=0.5373 CD_raw=-0.2354 CD_wtd=-0.000775 MSE=0.999123 neg_dist=25.2904 lang_grad0=0.0002 lang_gradK=0.0002 lang_disp=5.5681 step=0.4491 sigma=0.0915
+[CD-DIAG step=400] E_pos=0.2816 E_neg=0.5717 CD_raw=-0.2900 CD_wtd=-0.001284 MSE=0.999327 neg_dist=25.3867 lang_grad0=0.0002 lang_gradK=0.0002 lang_disp=5.5426 step=0.4444 sigma=0.0910
+[CD-DIAG step=500] E_pos=0.2719 E_neg=0.6144 CD_raw=-0.3426 CD_wtd=-0.001860 MSE=0.999045 neg_dist=25.8351 lang_grad0=0.0002 lang_gradK=0.0002 lang_disp=5.5224 step=0.4422 sigma=0.0909
+[CD-DIAG step=600] E_pos=0.2628 E_neg=0.5785 CD_raw=-0.3157 CD_wtd=-0.002035 MSE=1.000374 neg_dist=25.8440 lang_grad0=0.0002 lang_gradK=0.0002 lang_disp=5.5895 step=0.4546 sigma=0.0920
+[CD-DIAG step=700] E_pos=0.2535 E_neg=0.5844 CD_raw=-0.3309 CD_wtd=-0.002547 MSE=1.000186 neg_dist=25.4724 lang_grad0=0.0002 lang_gradK=0.0002 lang_disp=5.4926 step=0.4385 sigma=0.0904
+[CD-DIAG step=800] E_pos=0.2688 E_neg=0.6319 CD_raw=-0.3631 CD_wtd=-0.003173 MSE=1.003020 neg_dist=25.7018 lang_grad0=0.0002 lang_gradK=0.0002 lang_disp=5.5356 step=0.4460 sigma=0.0911
+[CD-DIAG step=900] E_pos=0.2640 E_neg=0.4565 CD_raw=-0.1924 CD_wtd=-0.002002 MSE=1.000539 neg_dist=23.2094 lang_grad0=0.0002 lang_gradK=0.0002 lang_disp=7.4536 step=0.4451 sigma=0.0911
+[CD-DIAG step=1000] E_pos=0.2750 E_neg=0.6917 CD_raw=-0.4167 CD_wtd=-0.004600 MSE=1.002887 neg_dist=25.7504 lang_grad0=0.0002 lang_gradK=0.0002 lang_disp=5.5866 step=0.4517 sigma=0.0918
+Running Evaluation...
+Validation Result @ Iteration 1000; Milestone = 1 (Train)
+---------  -------
+mse_error  3.87357
+---------  -------
+Validation Result @ Iteration 1000; Milestone = 1 (ID: Validation)
+---  -------
+mse  3.77656
+---  -------
+[CD-DIAG step=1100] E_pos=0.2704 E_neg=0.7558 CD_raw=-0.4854 CD_wtd=-0.005860 MSE=1.001731 neg_dist=25.7047 lang_grad0=0.0002 lang_gradK=0.0002 lang_disp=5.5760 step=0.4489 sigma=0.0916
+[CD-DIAG step=1200] E_pos=0.2557 E_neg=0.8257 CD_raw=-0.5700 CD_wtd=-0.007730 MSE=1.000190 neg_dist=25.8594 lang_grad0=0.0003 lang_gradK=0.0003 lang_disp=5.5486 step=0.4464 sigma=0.0913
+[CD-DIAG step=1300] E_pos=0.2707 E_neg=0.8859 CD_raw=-0.6152 CD_wtd=-0.009080 MSE=0.999317 neg_dist=25.7172 lang_grad0=0.0003 lang_gradK=0.0003 lang_disp=5.4936 step=0.4376 sigma=0.0903
+[CD-DIAG step=1400] E_pos=0.2622 E_neg=0.8936 CD_raw=-0.6315 CD_wtd=-0.009899 MSE=1.000619 neg_dist=25.6385 lang_grad0=0.0003 lang_gradK=0.0003 lang_disp=5.5218 step=0.4413 sigma=0.0908
+[CD-DIAG step=1500] E_pos=0.2629 E_neg=0.6076 CD_raw=-0.3448 CD_wtd=-0.006339 MSE=1.001754 neg_dist=23.1921 lang_grad0=0.0003 lang_gradK=0.0002 lang_disp=7.3826 step=0.4437 sigma=0.0909
+[CD-DIAG step=1600] E_pos=0.2580 E_neg=0.9245 CD_raw=-0.6665 CD_wtd=-0.012188 MSE=0.998227 neg_dist=25.5547 lang_grad0=0.0003 lang_gradK=0.0003 lang_disp=5.4890 step=0.4357 sigma=0.0903
+[CD-DIAG step=1700] E_pos=0.2630 E_neg=1.0196 CD_raw=-0.7567 CD_wtd=-0.014285 MSE=0.999292 neg_dist=26.0365 lang_grad0=0.0003 lang_gradK=0.0003 lang_disp=5.5796 step=0.4528 sigma=0.0919
+[CD-DIAG step=1800] E_pos=0.2587 E_neg=1.0107 CD_raw=-0.7520 CD_wtd=-0.015422 MSE=0.999729 neg_dist=25.9389 lang_grad0=0.0003 lang_gradK=0.0003 lang_disp=5.5580 step=0.4469 sigma=0.0914
+[CD-DIAG step=1900] E_pos=0.2563 E_neg=1.0789 CD_raw=-0.8226 CD_wtd=-0.017878 MSE=1.000407 neg_dist=25.8443 lang_grad0=0.0003 lang_gradK=0.0003 lang_disp=5.5393 step=0.4445 sigma=0.0912
+[CD-DIAG step=2000] E_pos=0.2698 E_neg=1.0500 CD_raw=-0.7802 CD_wtd=-0.018516 MSE=1.001180 neg_dist=25.7759 lang_grad0=0.0003 lang_gradK=0.0003 lang_disp=5.5463 step=0.4478 sigma=0.0913
+Running Evaluation...
+Validation Result @ Iteration 2000; Milestone = 2 (Train)
+---------  -------
+mse_error  3.87024
+---------  -------
+Validation Result @ Iteration 2000; Milestone = 2 (ID: Validation)
+---  -------
+mse  3.73666
+---  -------
+[CD-DIAG step=2100] E_pos=0.3410 E_neg=1.8077 CD_raw=-1.4667 CD_wtd=-0.032233 MSE=0.997859 neg_dist=25.9024 lang_grad0=0.0004 lang_gradK=0.0004 lang_disp=5.5110 step=0.4418 sigma=0.0908
+[CD-DIAG step=2200] E_pos=0.3007 E_neg=1.4577 CD_raw=-1.1570 CD_wtd=-0.027965 MSE=1.000962 neg_dist=25.8940 lang_grad0=0.0004 lang_gradK=0.0004 lang_disp=5.5792 step=0.4519 sigma=0.0918
+[CD-DIAG step=2300] E_pos=0.2762 E_neg=1.3217 CD_raw=-1.0456 CD_wtd=-0.027693 MSE=0.997666 neg_dist=25.6528 lang_grad0=0.0004 lang_gradK=0.0004 lang_disp=5.5194 step=0.4416 sigma=0.0907
+[CD-DIAG step=2400] E_pos=0.3392 E_neg=1.9536 CD_raw=-1.6143 CD_wtd=-0.040784 MSE=1.000988 neg_dist=25.6884 lang_grad0=0.0005 lang_gradK=0.0005 lang_disp=5.5355 step=0.4458 sigma=0.0912
+[CD-DIAG step=2500] E_pos=0.2830 E_neg=1.4274 CD_raw=-1.1444 CD_wtd=-0.031767 MSE=1.000063 neg_dist=26.0867 lang_grad0=0.0004 lang_gradK=0.0004 lang_disp=5.5612 step=0.4496 sigma=0.0915
+[CD-DIAG step=2600] E_pos=0.3076 E_neg=1.8716 CD_raw=-1.5640 CD_wtd=-0.043689 MSE=1.000181 neg_dist=25.6869 lang_grad0=0.0005 lang_gradK=0.0005 lang_disp=5.5442 step=0.4459 sigma=0.0912
+[CD-DIAG step=2700] E_pos=0.3263 E_neg=2.1544 CD_raw=-1.8281 CD_wtd=-0.050253 MSE=1.002134 neg_dist=26.0257 lang_grad0=0.0005 lang_gradK=0.0005 lang_disp=5.5420 step=0.4439 sigma=0.0911
+[CD-DIAG step=2800] E_pos=0.2839 E_neg=1.5041 CD_raw=-1.2202 CD_wtd=-0.038931 MSE=1.000327 neg_dist=25.9765 lang_grad0=0.0004 lang_gradK=0.0004 lang_disp=5.5647 step=0.4473 sigma=0.0914
+[CD-DIAG step=2900] E_pos=0.2696 E_neg=1.5242 CD_raw=-1.2546 CD_wtd=-0.040942 MSE=1.000735 neg_dist=25.9356 lang_grad0=0.0004 lang_gradK=0.0004 lang_disp=5.5577 step=0.4475 sigma=0.0915
+[CD-DIAG step=3000] E_pos=0.2715 E_neg=1.5362 CD_raw=-1.2647 CD_wtd=-0.042476 MSE=0.999420 neg_dist=26.2151 lang_grad0=0.0004 lang_gradK=0.0004 lang_disp=5.5754 step=0.4508 sigma=0.0918
+Running Evaluation...
+Validation Result @ Iteration 3000; Milestone = 3 (Train)
+---------  -------
+mse_error  3.86551
+---------  -------
+Validation Result @ Iteration 3000; Milestone = 3 (ID: Validation)
+---  ------
+mse  3.7039
+---  ------
+[CD-DIAG step=3100] E_pos=0.2712 E_neg=1.4410 CD_raw=-1.1698 CD_wtd=-0.041787 MSE=1.000242 neg_dist=25.6822 lang_grad0=0.0004 lang_gradK=0.0004 lang_disp=5.5523 step=0.4475 sigma=0.0913
+[CD-DIAG step=3200] E_pos=0.2652 E_neg=1.5030 CD_raw=-1.2377 CD_wtd=-0.045155 MSE=0.999495 neg_dist=25.9541 lang_grad0=0.0004 lang_gradK=0.0004 lang_disp=5.5411 step=0.4459 sigma=0.0912
+[CD-DIAG step=3300] E_pos=0.2547 E_neg=0.9351 CD_raw=-0.6804 CD_wtd=-0.028429 MSE=1.000951 neg_dist=23.3005 lang_grad0=0.0005 lang_gradK=0.0003 lang_disp=7.3720 step=0.4408 sigma=0.0908
+[CD-DIAG step=3400] E_pos=0.3494 E_neg=2.4816 CD_raw=-2.1323 CD_wtd=-0.073112 MSE=1.000806 neg_dist=26.1028 lang_grad0=0.0006 lang_gradK=0.0006 lang_disp=5.5992 step=0.4557 sigma=0.0922
+[CD-DIAG step=3500] E_pos=0.3154 E_neg=2.3968 CD_raw=-2.0815 CD_wtd=-0.074793 MSE=0.999576 neg_dist=25.9140 lang_grad0=0.0006 lang_gradK=0.0006 lang_disp=5.5726 step=0.4497 sigma=0.0916
+[CD-DIAG step=3600] E_pos=0.3137 E_neg=2.3796 CD_raw=-2.0659 CD_wtd=-0.075866 MSE=1.001686 neg_dist=25.9296 lang_grad0=0.0006 lang_gradK=0.0006 lang_disp=5.5736 step=0.4511 sigma=0.0917
+[CD-DIAG step=3700] E_pos=0.3089 E_neg=2.4422 CD_raw=-2.1332 CD_wtd=-0.081581 MSE=0.999229 neg_dist=26.1037 lang_grad0=0.0006 lang_gradK=0.0006 lang_disp=5.5485 step=0.4464 sigma=0.0913
+[CD-DIAG step=3800] E_pos=0.3163 E_neg=2.4369 CD_raw=-2.1206 CD_wtd=-0.082977 MSE=1.001334 neg_dist=25.8568 lang_grad0=0.0006 lang_gradK=0.0006 lang_disp=5.5119 step=0.4387 sigma=0.0906
+[CD-DIAG step=3900] E_pos=0.3345 E_neg=2.4749 CD_raw=-2.1404 CD_wtd=-0.085558 MSE=0.997164 neg_dist=25.9411 lang_grad0=0.0006 lang_gradK=0.0006 lang_disp=5.5480 step=0.4492 sigma=0.0915
+[CD-DIAG step=4000] E_pos=0.3312 E_neg=2.5253 CD_raw=-2.1941 CD_wtd=-0.090929 MSE=0.998422 neg_dist=25.7597 lang_grad0=0.0006 lang_gradK=0.0006 lang_disp=5.5529 step=0.4470 sigma=0.0914
+Running Evaluation...
+Validation Result @ Iteration 4000; Milestone = 4 (Train)
+---------  -------
+mse_error  3.86334
+---------  -------
+Validation Result @ Iteration 4000; Milestone = 4 (ID: Validation)
+---  -------
+mse  3.68845
+---  -------
+[CD-DIAG step=4100] E_pos=0.2732 E_neg=1.4717 CD_raw=-1.1985 CD_wtd=-0.055968 MSE=0.999992 neg_dist=23.2728 lang_grad0=0.0007 lang_gradK=0.0004 lang_disp=7.3654 step=0.4391 sigma=0.0907
+[CD-DIAG step=4200] E_pos=0.2758 E_neg=2.1633 CD_raw=-1.8875 CD_wtd=-0.082836 MSE=0.999433 neg_dist=25.5389 lang_grad0=0.0005 lang_gradK=0.0006 lang_disp=5.5189 step=0.4412 sigma=0.0907
+[CD-DIAG step=4300] E_pos=0.2543 E_neg=2.0521 CD_raw=-1.7978 CD_wtd=-0.078260 MSE=1.001651 neg_dist=25.4692 lang_grad0=0.0005 lang_gradK=0.0005 lang_disp=5.5300 step=0.4418 sigma=0.0909
+[CD-DIAG step=4400] E_pos=0.2720 E_neg=2.2530 CD_raw=-1.9810 CD_wtd=-0.086158 MSE=0.997663 neg_dist=25.4187 lang_grad0=0.0006 lang_gradK=0.0006 lang_disp=5.5345 step=0.4428 sigma=0.0910
+[CD-DIAG step=4500] E_pos=0.2590 E_neg=2.1904 CD_raw=-1.9314 CD_wtd=-0.084596 MSE=0.997581 neg_dist=25.6030 lang_grad0=0.0006 lang_gradK=0.0006 lang_disp=5.5421 step=0.4451 sigma=0.0912

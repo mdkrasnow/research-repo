@@ -1,0 +1,1665 @@
+Job started at Fri Feb 20 16:46:13 EST 2026
+Running on host: holygpu8a16103.rc.fas.harvard.edu
+Job ID: 61404323
+GPU info:
+Fri Feb 20 16:46:13 2026       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 575.57.08              Driver Version: 575.57.08      CUDA Version: 12.9     |
+|-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA H200                    On  |   00000000:06:00.0 Off |                    0 |
+| N/A   27C    P0             73W /  700W |       0MiB / 143771MiB |      0%      Default |
+|                                         |                        |             Disabled |
++-----------------------------------------+------------------------+----------------------+
+                                                                                         
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+
+Cloning repository...
+Repository cloned and checked out to: e76ec3f
+e76ec3f Implement q215 (falsification) and q216 (gradient-contrastive)
+Starting q216: gradient-contrastive (shape gradient field, not energy values)...
+Loading configuration from: projects/ired/configs/q216_grad_contrastive.json
+Configuration saved to: results/ds_inverse/q216_grad_contrastive/experiment_config.json
+Setting random seed: 1
+Starting experiment with mining strategy: cd_langevin_replay
+Configuration: {
+  "experiment_name": "q216_grad_contrastive",
+  "description": "NEW APPROACH: Gradient-contrastive loss. Instead of contrasting energy VALUES (which causes explosion or collapse), contrast DENOISING ERROR. Loss: softplus((MSE_pos.detach() - MSE_neg) / T) where MSE_pos = ||pred_pos - eps||^2, MSE_neg = ||pred_neg - eps||^2. Positive samples should denoise better than negative samples. No energy explosion risk: loss operates entirely in prediction space. Compatible with pred=grad(E)/B_norm architecture.",
+  "investigation": "ired-cd",
+  "ablation_stage": "gradient_contrastive",
+  "mining_strategy": "cd_langevin_replay",
+  "rank": 20,
+  "ood": false,
+  "diffusion_steps": 10,
+  "batch_size": 2048,
+  "train_steps": 100000,
+  "learning_rate": 0.0001,
+  "use_scalar_energy": true,
+  "use_ired_contrastive_loss": false,
+  "use_gradient_contrastive": true,
+  "gc_temperature": 1.0,
+  "use_langevin": true,
+  "mining_opt_steps": 1,
+  "mining_noise_scale": 1.5,
+  "langevin_sigma_multiplier": 0.05,
+  "use_replay_buffer": true,
+  "replay_buffer_size": 10000,
+  "replay_buffer_buckets": 16,
+  "replay_sample_prob": 0.95,
+  "use_cd_loss": false,
+  "energy_loss_weight": 0.05,
+  "energy_reg_weight": 0.0,
+  "use_residual_filter": false,
+  "use_energy_schedule": false,
+  "adam_betas": [
+    0.0,
+    0.999
+  ],
+  "output_dir": "results/ds_inverse/q216_grad_contrastive",
+  "notes": "Gradient-contrastive: shape gradient FIELD not energy values. Negatives from easy Langevin (noise_scale=1.5, steps=1). Loss pushes pred_neg away from eps at negative locations. MSE_pos detached so denoising objective is not double-counted. SUCCESS criteria: pred_norm\u219219.4 (like q211), val MSE approaches or beats 0.0097. If val MSE > 0.015 at 100k, gradient-contrastive does not improve over baseline. Key diagnostic: GC-DIAG shows mse_gap = mse_neg - mse_pos; should be > 0 and growing.",
+  "seed": 1
+}
+Dataset: Inverse matrices (20x20)
+Input dimension: 400, Output dimension: 400
+Trainer initialized. Output directory: results/ds_inverse/q216_grad_contrastive
+Training for 100000 steps...
+[GC-DIAG step=100] mse_pos=0.999983 mse_neg=0.999983 mse_gap=0.000000 pred_norm=0.0000 pred_std=0.0000 pred_abs=0.0000 tgt_std=1.0019 tgt_abs=0.7991 cos=-0.0006 neg_dist=23.2014
+[GC-DIAG step=200] mse_pos=0.998467 mse_neg=0.998468 mse_gap=0.000001 pred_norm=0.0001 pred_std=0.0000 pred_abs=0.0000 tgt_std=0.9991 tgt_abs=0.7971 cos=-0.0005 neg_dist=23.3977
+[GC-DIAG step=300] mse_pos=0.997905 mse_neg=0.998072 mse_gap=0.000167 pred_norm=0.0098 pred_std=0.0005 pred_abs=0.0004 tgt_std=1.0003 tgt_abs=0.7978 cos=0.0012 neg_dist=23.4867
+[GC-DIAG step=400] mse_pos=0.993107 mse_neg=1.002446 mse_gap=0.009339 pred_norm=0.3388 pred_std=0.0172 pred_abs=0.0135 tgt_std=0.9993 tgt_abs=0.7974 cos=0.0013 neg_dist=23.3436
+[GC-DIAG step=500] mse_pos=0.895248 mse_neg=1.020288 mse_gap=0.125041 pred_norm=2.8732 pred_std=0.1476 pred_abs=0.1147 tgt_std=1.0007 tgt_abs=0.7984 cos=-0.0000 neg_dist=22.2931
+[GC-DIAG step=600] mse_pos=0.670580 mse_neg=1.069342 mse_gap=0.398762 pred_norm=9.1621 pred_std=0.4822 pred_abs=0.3659 tgt_std=0.9997 tgt_abs=0.7978 cos=0.0012 neg_dist=19.5486
+[GC-DIAG step=700] mse_pos=0.576779 mse_neg=1.055461 mse_gap=0.478683 pred_norm=11.5823 pred_std=0.6152 pred_abs=0.4626 tgt_std=0.9996 tgt_abs=0.7977 cos=-0.0020 neg_dist=17.9766
+[GC-DIAG step=800] mse_pos=0.517158 mse_neg=1.045318 mse_gap=0.528160 pred_norm=12.6287 pred_std=0.6696 pred_abs=0.5042 tgt_std=1.0016 tgt_abs=0.7991 cos=0.0013 neg_dist=17.0934
+[GC-DIAG step=900] mse_pos=0.469072 mse_neg=1.048647 mse_gap=0.579574 pred_norm=13.2476 pred_std=0.6963 pred_abs=0.5290 tgt_std=1.0001 tgt_abs=0.7981 cos=-0.0005 neg_dist=16.2810
+[GC-DIAG step=1000] mse_pos=0.412760 mse_neg=1.410176 mse_gap=0.997416 pred_norm=14.5029 pred_std=0.7550 pred_abs=0.5792 tgt_std=0.9978 tgt_abs=0.7964 cos=-0.0023 neg_dist=20.2072
+Running Evaluation...
+Validation Result @ Iteration 1000; Milestone = 1 (Train)
+---------  -------
+mse_error  2.80736
+---------  -------
+Validation Result @ Iteration 1000; Milestone = 1 (ID: Validation)
+---  -------
+mse  2.80902
+---  -------
+[GC-DIAG step=1100] mse_pos=0.381397 mse_neg=1.059930 mse_gap=0.678534 pred_norm=14.6492 pred_std=0.7599 pred_abs=0.5845 tgt_std=0.9991 tgt_abs=0.7970 cos=0.0002 neg_dist=15.7590
+[GC-DIAG step=1200] mse_pos=0.348768 mse_neg=1.073329 mse_gap=0.724561 pred_norm=15.5813 pred_std=0.8055 pred_abs=0.6219 tgt_std=0.9996 tgt_abs=0.7977 cos=-0.0025 neg_dist=15.4145
+[GC-DIAG step=1300] mse_pos=0.317059 mse_neg=1.077459 mse_gap=0.760400 pred_norm=15.8748 pred_std=0.8158 pred_abs=0.6337 tgt_std=0.9992 tgt_abs=0.7976 cos=0.0007 neg_dist=15.1962
+[GC-DIAG step=1400] mse_pos=0.293458 mse_neg=1.094787 mse_gap=0.801329 pred_norm=16.5187 pred_std=0.8491 pred_abs=0.6595 tgt_std=0.9996 tgt_abs=0.7976 cos=-0.0004 neg_dist=15.3629
+[GC-DIAG step=1500] mse_pos=0.274417 mse_neg=1.094803 mse_gap=0.820386 pred_norm=16.4839 pred_std=0.8459 pred_abs=0.6583 tgt_std=0.9999 tgt_abs=0.7981 cos=-0.0009 neg_dist=15.3162
+[GC-DIAG step=1600] mse_pos=0.256308 mse_neg=1.079551 mse_gap=0.823243 pred_norm=16.8229 pred_std=0.8624 pred_abs=0.6715 tgt_std=0.9993 tgt_abs=0.7974 cos=0.0013 neg_dist=15.0171
+[GC-DIAG step=1700] mse_pos=0.238339 mse_neg=1.083539 mse_gap=0.845201 pred_norm=17.2724 pred_std=0.8853 pred_abs=0.6898 tgt_std=0.9999 tgt_abs=0.7977 cos=0.0002 neg_dist=15.1631
+[GC-DIAG step=1800] mse_pos=0.217703 mse_neg=1.065853 mse_gap=0.848150 pred_norm=17.0434 pred_std=0.8696 pred_abs=0.6804 tgt_std=0.9993 tgt_abs=0.7975 cos=-0.0002 neg_dist=15.0985
+[GC-DIAG step=1900] mse_pos=0.208204 mse_neg=1.060248 mse_gap=0.852044 pred_norm=16.8120 pred_std=0.8593 pred_abs=0.6714 tgt_std=1.0006 tgt_abs=0.7981 cos=-0.0002 neg_dist=14.7772
+[GC-DIAG step=2000] mse_pos=0.197146 mse_neg=1.056883 mse_gap=0.859738 pred_norm=17.2952 pred_std=0.8823 pred_abs=0.6905 tgt_std=1.0003 tgt_abs=0.7983 cos=0.0003 neg_dist=14.6498
+Running Evaluation...
+Validation Result @ Iteration 2000; Milestone = 2 (Train)
+---------  -------
+mse_error  1.23998
+---------  -------
+Validation Result @ Iteration 2000; Milestone = 2 (ID: Validation)
+---  -------
+mse  1.24123
+---  -------
+[GC-DIAG step=2100] mse_pos=0.182400 mse_neg=1.071214 mse_gap=0.888814 pred_norm=17.9779 pred_std=0.9173 pred_abs=0.7178 tgt_std=1.0010 tgt_abs=0.7990 cos=-0.0019 neg_dist=14.6185
+[GC-DIAG step=2200] mse_pos=0.170990 mse_neg=1.062390 mse_gap=0.891400 pred_norm=17.8771 pred_std=0.9096 pred_abs=0.7134 tgt_std=1.0002 tgt_abs=0.7980 cos=-0.0010 neg_dist=14.5788
+[GC-DIAG step=2300] mse_pos=0.164315 mse_neg=1.080646 mse_gap=0.916331 pred_norm=18.2304 pred_std=0.9282 pred_abs=0.7276 tgt_std=1.0000 tgt_abs=0.7982 cos=-0.0018 neg_dist=14.4581
+[GC-DIAG step=2400] mse_pos=0.156913 mse_neg=1.054146 mse_gap=0.897234 pred_norm=17.5009 pred_std=0.8910 pred_abs=0.6983 tgt_std=1.0005 tgt_abs=0.7982 cos=0.0001 neg_dist=14.5278
+[GC-DIAG step=2500] mse_pos=0.151629 mse_neg=1.079623 mse_gap=0.927995 pred_norm=18.4976 pred_std=0.9409 pred_abs=0.7382 tgt_std=0.9995 tgt_abs=0.7973 cos=-0.0012 neg_dist=14.3506
+[GC-DIAG step=2600] mse_pos=0.146697 mse_neg=1.076639 mse_gap=0.929942 pred_norm=18.7833 pred_std=0.9544 pred_abs=0.7498 tgt_std=1.0002 tgt_abs=0.7980 cos=0.0006 neg_dist=14.4644
+[GC-DIAG step=2700] mse_pos=0.138115 mse_neg=1.066099 mse_gap=0.927984 pred_norm=18.2518 pred_std=0.9257 pred_abs=0.7283 tgt_std=1.0005 tgt_abs=0.7984 cos=-0.0013 neg_dist=14.4167
+[GC-DIAG step=2800] mse_pos=0.130314 mse_neg=1.058506 mse_gap=0.928192 pred_norm=18.4082 pred_std=0.9339 pred_abs=0.7352 tgt_std=0.9998 tgt_abs=0.7979 cos=-0.0011 neg_dist=14.3788
+[GC-DIAG step=2900] mse_pos=0.125140 mse_neg=1.057581 mse_gap=0.932441 pred_norm=18.1774 pred_std=0.9218 pred_abs=0.7258 tgt_std=0.9982 tgt_abs=0.7965 cos=0.0007 neg_dist=14.3360
+[GC-DIAG step=3000] mse_pos=0.122775 mse_neg=1.056164 mse_gap=0.933390 pred_norm=18.6655 pred_std=0.9473 pred_abs=0.7451 tgt_std=1.0009 tgt_abs=0.7990 cos=-0.0010 neg_dist=14.0965
+Running Evaluation...
+Validation Result @ Iteration 3000; Milestone = 3 (Train)
+---------  --------
+mse_error  0.762742
+---------  --------
+Validation Result @ Iteration 3000; Milestone = 3 (ID: Validation)
+---  --------
+mse  0.763045
+---  --------
+[GC-DIAG step=3100] mse_pos=0.118302 mse_neg=1.050160 mse_gap=0.931858 pred_norm=17.9123 pred_std=0.9085 pred_abs=0.7150 tgt_std=1.0010 tgt_abs=0.7983 cos=-0.0014 neg_dist=14.1877
+[GC-DIAG step=3200] mse_pos=0.114427 mse_neg=1.067844 mse_gap=0.953417 pred_norm=18.3683 pred_std=0.9304 pred_abs=0.7333 tgt_std=1.0013 tgt_abs=0.7988 cos=-0.0001 neg_dist=14.3083
+[GC-DIAG step=3300] mse_pos=0.113698 mse_neg=1.064482 mse_gap=0.950784 pred_norm=19.2703 pred_std=0.9781 pred_abs=0.7692 tgt_std=1.0002 tgt_abs=0.7983 cos=0.0013 neg_dist=14.2142
+[GC-DIAG step=3400] mse_pos=0.110068 mse_neg=1.050368 mse_gap=0.940300 pred_norm=18.2792 pred_std=0.9273 pred_abs=0.7296 tgt_std=1.0010 tgt_abs=0.7987 cos=0.0007 neg_dist=14.0963
+[GC-DIAG step=3500] mse_pos=0.105198 mse_neg=1.048819 mse_gap=0.943621 pred_norm=18.1955 pred_std=0.9227 pred_abs=0.7265 tgt_std=1.0000 tgt_abs=0.7977 cos=0.0008 neg_dist=14.0972
+[GC-DIAG step=3600] mse_pos=0.102389 mse_neg=1.671486 mse_gap=1.569097 pred_norm=19.0648 pred_std=0.9662 pred_abs=0.7611 tgt_std=0.9999 tgt_abs=0.7978 cos=0.0005 neg_dist=17.5711
+[GC-DIAG step=3700] mse_pos=0.102766 mse_neg=1.045743 mse_gap=0.942977 pred_norm=18.1795 pred_std=0.9219 pred_abs=0.7256 tgt_std=1.0006 tgt_abs=0.7980 cos=-0.0001 neg_dist=14.0849
+[GC-DIAG step=3800] mse_pos=0.097446 mse_neg=1.052971 mse_gap=0.955526 pred_norm=19.0301 pred_std=0.9635 pred_abs=0.7595 tgt_std=0.9995 tgt_abs=0.7977 cos=0.0011 neg_dist=13.8902
+[GC-DIAG step=3900] mse_pos=0.097393 mse_neg=1.068518 mse_gap=0.971124 pred_norm=18.8858 pred_std=0.9560 pred_abs=0.7536 tgt_std=1.0004 tgt_abs=0.7982 cos=-0.0006 neg_dist=13.9849
+[GC-DIAG step=4000] mse_pos=0.089805 mse_neg=1.033724 mse_gap=0.943919 pred_norm=18.3020 pred_std=0.9267 pred_abs=0.7306 tgt_std=0.9999 tgt_abs=0.7981 cos=0.0011 neg_dist=14.0202
+Running Evaluation...
+Validation Result @ Iteration 4000; Milestone = 4 (Train)
+---------  --------
+mse_error  0.354863
+---------  --------
+Validation Result @ Iteration 4000; Milestone = 4 (ID: Validation)
+---  --------
+mse  0.356422
+---  --------
+[GC-DIAG step=4100] mse_pos=0.086991 mse_neg=1.047117 mse_gap=0.960126 pred_norm=18.5044 pred_std=0.9361 pred_abs=0.7387 tgt_std=0.9993 tgt_abs=0.7973 cos=-0.0005 neg_dist=13.9414
+[GC-DIAG step=4200] mse_pos=0.083153 mse_neg=1.075047 mse_gap=0.991894 pred_norm=19.0210 pred_std=0.9608 pred_abs=0.7591 tgt_std=1.0009 tgt_abs=0.7988 cos=0.0013 neg_dist=14.0953
+[GC-DIAG step=4300] mse_pos=0.081419 mse_neg=1.043540 mse_gap=0.962120 pred_norm=18.4643 pred_std=0.9330 pred_abs=0.7369 tgt_std=1.0006 tgt_abs=0.7980 cos=-0.0007 neg_dist=13.9492
+[GC-DIAG step=4400] mse_pos=0.077235 mse_neg=1.081323 mse_gap=1.004087 pred_norm=19.0999 pred_std=0.9635 pred_abs=0.7619 tgt_std=1.0000 tgt_abs=0.7979 cos=0.0006 neg_dist=14.1541
+[GC-DIAG step=4500] mse_pos=0.079581 mse_neg=1.067885 mse_gap=0.988304 pred_norm=19.0282 pred_std=0.9605 pred_abs=0.7597 tgt_std=0.9995 tgt_abs=0.7971 cos=-0.0001 neg_dist=14.0602
+[GC-DIAG step=4600] mse_pos=0.077558 mse_neg=1.064499 mse_gap=0.986941 pred_norm=18.7092 pred_std=0.9449 pred_abs=0.7468 tgt_std=0.9986 tgt_abs=0.7967 cos=0.0004 neg_dist=14.1113
+[GC-DIAG step=4700] mse_pos=0.074891 mse_neg=1.080694 mse_gap=1.005802 pred_norm=19.5443 pred_std=0.9865 pred_abs=0.7803 tgt_std=0.9994 tgt_abs=0.7975 cos=0.0016 neg_dist=14.2772
+[GC-DIAG step=4800] mse_pos=0.074046 mse_neg=1.072278 mse_gap=0.998232 pred_norm=18.7615 pred_std=0.9470 pred_abs=0.7488 tgt_std=1.0005 tgt_abs=0.7984 cos=-0.0017 neg_dist=14.2482
+[GC-DIAG step=4900] mse_pos=0.073090 mse_neg=1.069385 mse_gap=0.996295 pred_norm=18.9487 pred_std=0.9562 pred_abs=0.7563 tgt_std=1.0022 tgt_abs=0.7999 cos=-0.0013 neg_dist=14.2379
+[GC-DIAG step=5000] mse_pos=0.068916 mse_neg=1.069353 mse_gap=1.000437 pred_norm=19.3111 pred_std=0.9737 pred_abs=0.7709 tgt_std=1.0015 tgt_abs=0.7990 cos=-0.0011 neg_dist=14.3122
+Running Evaluation...
+Validation Result @ Iteration 5000; Milestone = 5 (Train)
+---------  ---------
+mse_error  0.0750346
+---------  ---------
+Validation Result @ Iteration 5000; Milestone = 5 (ID: Validation)
+---  ---------
+mse  0.0738689
+---  ---------
+[GC-DIAG step=5100] mse_pos=0.072467 mse_neg=1.061615 mse_gap=0.989148 pred_norm=19.0767 pred_std=0.9630 pred_abs=0.7618 tgt_std=1.0012 tgt_abs=0.7988 cos=-0.0006 neg_dist=13.9894
+[GC-DIAG step=5200] mse_pos=0.071895 mse_neg=1.065568 mse_gap=0.993673 pred_norm=19.3556 pred_std=0.9770 pred_abs=0.7725 tgt_std=0.9997 tgt_abs=0.7976 cos=-0.0002 neg_dist=14.1801
+[GC-DIAG step=5300] mse_pos=0.069114 mse_neg=1.061277 mse_gap=0.992163 pred_norm=19.7021 pred_std=0.9943 pred_abs=0.7859 tgt_std=0.9999 tgt_abs=0.7977 cos=-0.0008 neg_dist=14.3223
+[GC-DIAG step=5400] mse_pos=0.069289 mse_neg=1.055665 mse_gap=0.986377 pred_norm=18.7169 pred_std=0.9447 pred_abs=0.7473 tgt_std=0.9983 tgt_abs=0.7964 cos=0.0022 neg_dist=14.0045
+[GC-DIAG step=5500] mse_pos=0.070889 mse_neg=1.042652 mse_gap=0.971763 pred_norm=18.5077 pred_std=0.9349 pred_abs=0.7389 tgt_std=1.0003 tgt_abs=0.7981 cos=-0.0002 neg_dist=13.8993
+[GC-DIAG step=5600] mse_pos=0.070661 mse_neg=1.064733 mse_gap=0.994072 pred_norm=19.7157 pred_std=0.9953 pred_abs=0.7867 tgt_std=1.0005 tgt_abs=0.7983 cos=-0.0006 neg_dist=13.9124
+[GC-DIAG step=5700] mse_pos=0.075861 mse_neg=1.065447 mse_gap=0.989586 pred_norm=20.2038 pred_std=1.0219 pred_abs=0.8063 tgt_std=0.9998 tgt_abs=0.7975 cos=-0.0013 neg_dist=13.9855
+[GC-DIAG step=5800] mse_pos=0.066016 mse_neg=1.051577 mse_gap=0.985561 pred_norm=19.1492 pred_std=0.9659 pred_abs=0.7643 tgt_std=1.0016 tgt_abs=0.7989 cos=0.0000 neg_dist=14.0173
+[GC-DIAG step=5900] mse_pos=0.061397 mse_neg=1.062734 mse_gap=1.001337 pred_norm=18.9604 pred_std=0.9559 pred_abs=0.7569 tgt_std=0.9985 tgt_abs=0.7963 cos=0.0007 neg_dist=14.3177
+[GC-DIAG step=6000] mse_pos=0.067428 mse_neg=1.066198 mse_gap=0.998770 pred_norm=18.5017 pred_std=0.9351 pred_abs=0.7382 tgt_std=1.0009 tgt_abs=0.7983 cos=-0.0000 neg_dist=14.1891
+Running Evaluation...
+Validation Result @ Iteration 6000; Milestone = 6 (Train)
+---------  ---------
+mse_error  0.0213322
+---------  ---------
+Validation Result @ Iteration 6000; Milestone = 6 (ID: Validation)
+---  ---------
+mse  0.0214516
+---  ---------
+[GC-DIAG step=6100] mse_pos=0.064383 mse_neg=1.076219 mse_gap=1.011835 pred_norm=19.4872 pred_std=0.9822 pred_abs=0.7782 tgt_std=1.0002 tgt_abs=0.7985 cos=-0.0005 neg_dist=14.1973
+[GC-DIAG step=6200] mse_pos=0.065916 mse_neg=1.077598 mse_gap=1.011682 pred_norm=19.7151 pred_std=0.9942 pred_abs=0.7868 tgt_std=0.9999 tgt_abs=0.7976 cos=0.0005 neg_dist=13.9886
+[GC-DIAG step=6300] mse_pos=0.057936 mse_neg=1.064033 mse_gap=1.006097 pred_norm=19.2485 pred_std=0.9686 pred_abs=0.7680 tgt_std=1.0006 tgt_abs=0.7985 cos=0.0003 neg_dist=14.3196
+[GC-DIAG step=6400] mse_pos=0.059280 mse_neg=1.075078 mse_gap=1.015797 pred_norm=19.2555 pred_std=0.9693 pred_abs=0.7686 tgt_std=0.9982 tgt_abs=0.7964 cos=0.0004 neg_dist=14.0662
+[GC-DIAG step=6500] mse_pos=0.055019 mse_neg=1.078367 mse_gap=1.023348 pred_norm=19.3987 pred_std=0.9756 pred_abs=0.7747 tgt_std=0.9996 tgt_abs=0.7976 cos=0.0010 neg_dist=14.3774
+[GC-DIAG step=6600] mse_pos=0.068685 mse_neg=1.032476 mse_gap=0.963790 pred_norm=18.2434 pred_std=0.9237 pred_abs=0.7281 tgt_std=1.0028 tgt_abs=0.8002 cos=-0.0013 neg_dist=14.0105
+[GC-DIAG step=6700] mse_pos=0.062088 mse_neg=1.058794 mse_gap=0.996706 pred_norm=18.8459 pred_std=0.9500 pred_abs=0.7521 tgt_std=1.0001 tgt_abs=0.7978 cos=0.0007 neg_dist=13.9679
+[GC-DIAG step=6800] mse_pos=0.061786 mse_neg=1.065603 mse_gap=1.003817 pred_norm=19.3514 pred_std=0.9746 pred_abs=0.7727 tgt_std=1.0003 tgt_abs=0.7980 cos=-0.0001 neg_dist=13.8100
+[GC-DIAG step=6900] mse_pos=0.059239 mse_neg=1.055845 mse_gap=0.996606 pred_norm=18.7659 pred_std=0.9459 pred_abs=0.7492 tgt_std=1.0003 tgt_abs=0.7981 cos=-0.0004 neg_dist=14.2758
+[GC-DIAG step=7000] mse_pos=0.062852 mse_neg=1.044662 mse_gap=0.981810 pred_norm=18.5168 pred_std=0.9345 pred_abs=0.7393 tgt_std=1.0000 tgt_abs=0.7981 cos=0.0009 neg_dist=14.0680
+Running Evaluation...
+Validation Result @ Iteration 7000; Milestone = 7 (Train)
+---------  ---------
+mse_error  0.0129558
+---------  ---------
+Validation Result @ Iteration 7000; Milestone = 7 (ID: Validation)
+---  ---------
+mse  0.0128729
+---  ---------
+[GC-DIAG step=7100] mse_pos=0.059788 mse_neg=1.080039 mse_gap=1.020251 pred_norm=19.8162 pred_std=0.9980 pred_abs=0.7914 tgt_std=1.0008 tgt_abs=0.7985 cos=0.0015 neg_dist=14.2784
+[GC-DIAG step=7200] mse_pos=0.060148 mse_neg=1.083816 mse_gap=1.023667 pred_norm=19.6372 pred_std=0.9888 pred_abs=0.7838 tgt_std=1.0014 tgt_abs=0.7990 cos=-0.0001 neg_dist=14.1494
+[GC-DIAG step=7300] mse_pos=0.058337 mse_neg=1.051745 mse_gap=0.993407 pred_norm=19.2983 pred_std=0.9713 pred_abs=0.7702 tgt_std=0.9995 tgt_abs=0.7974 cos=-0.0001 neg_dist=13.8227
+[GC-DIAG step=7400] mse_pos=0.058749 mse_neg=1.079950 mse_gap=1.021200 pred_norm=19.4919 pred_std=0.9812 pred_abs=0.7781 tgt_std=1.0010 tgt_abs=0.7987 cos=0.0003 neg_dist=14.0020
+[GC-DIAG step=7500] mse_pos=0.055491 mse_neg=1.061620 mse_gap=1.006128 pred_norm=19.6015 pred_std=0.9860 pred_abs=0.7826 tgt_std=1.0016 tgt_abs=0.7994 cos=0.0004 neg_dist=14.3129
+[GC-DIAG step=7600] mse_pos=0.061420 mse_neg=1.068942 mse_gap=1.007522 pred_norm=19.2547 pred_std=0.9700 pred_abs=0.7686 tgt_std=1.0005 tgt_abs=0.7983 cos=-0.0001 neg_dist=13.9306
+[GC-DIAG step=7700] mse_pos=0.057080 mse_neg=1.071977 mse_gap=1.014897 pred_norm=19.5275 pred_std=0.9830 pred_abs=0.7793 tgt_std=1.0003 tgt_abs=0.7979 cos=-0.0008 neg_dist=14.2268
+[GC-DIAG step=7800] mse_pos=0.059082 mse_neg=1.067334 mse_gap=1.008252 pred_norm=19.5590 pred_std=0.9846 pred_abs=0.7808 tgt_std=0.9992 tgt_abs=0.7976 cos=-0.0012 neg_dist=14.0136
+[GC-DIAG step=7900] mse_pos=0.059126 mse_neg=1.070300 mse_gap=1.011174 pred_norm=19.5342 pred_std=0.9835 pred_abs=0.7799 tgt_std=0.9999 tgt_abs=0.7977 cos=-0.0007 neg_dist=14.0569
+[GC-DIAG step=8000] mse_pos=0.054284 mse_neg=1.077330 mse_gap=1.023046 pred_norm=18.9933 pred_std=0.9560 pred_abs=0.7580 tgt_std=1.0004 tgt_abs=0.7982 cos=-0.0004 neg_dist=14.3048
+Running Evaluation...
+Validation Result @ Iteration 8000; Milestone = 8 (Train)
+---------  --------
+mse_error  0.010827
+---------  --------
+Validation Result @ Iteration 8000; Milestone = 8 (ID: Validation)
+---  ---------
+mse  0.0107862
+---  ---------
+[GC-DIAG step=8100] mse_pos=0.055480 mse_neg=1.083036 mse_gap=1.027556 pred_norm=19.4995 pred_std=0.9803 pred_abs=0.7784 tgt_std=1.0009 tgt_abs=0.7985 cos=0.0011 neg_dist=14.1142
+[GC-DIAG step=8200] mse_pos=0.054523 mse_neg=1.078691 mse_gap=1.024168 pred_norm=19.5521 pred_std=0.9827 pred_abs=0.7804 tgt_std=0.9998 tgt_abs=0.7981 cos=0.0018 neg_dist=14.2567
+[GC-DIAG step=8300] mse_pos=0.055633 mse_neg=1.061039 mse_gap=1.005406 pred_norm=19.2501 pred_std=0.9681 pred_abs=0.7681 tgt_std=0.9996 tgt_abs=0.7979 cos=0.0017 neg_dist=13.8820
+[GC-DIAG step=8400] mse_pos=0.058296 mse_neg=1.072015 mse_gap=1.013720 pred_norm=18.9391 pred_std=0.9534 pred_abs=0.7559 tgt_std=1.0000 tgt_abs=0.7982 cos=0.0001 neg_dist=13.9380
+[GC-DIAG step=8500] mse_pos=0.054161 mse_neg=1.086602 mse_gap=1.032440 pred_norm=19.5954 pred_std=0.9852 pred_abs=0.7821 tgt_std=1.0003 tgt_abs=0.7983 cos=0.0014 neg_dist=14.2719
+[GC-DIAG step=8600] mse_pos=0.055548 mse_neg=1.052845 mse_gap=0.997297 pred_norm=19.0096 pred_std=0.9563 pred_abs=0.7581 tgt_std=1.0016 tgt_abs=0.7993 cos=-0.0012 neg_dist=13.9836
+[GC-DIAG step=8700] mse_pos=0.057776 mse_neg=1.064983 mse_gap=1.007207 pred_norm=19.0070 pred_std=0.9566 pred_abs=0.7588 tgt_std=0.9976 tgt_abs=0.7959 cos=-0.0007 neg_dist=14.0137
+[GC-DIAG step=8800] mse_pos=0.053115 mse_neg=1.057003 mse_gap=1.003888 pred_norm=19.0670 pred_std=0.9592 pred_abs=0.7615 tgt_std=0.9990 tgt_abs=0.7975 cos=-0.0001 neg_dist=14.2272
+[GC-DIAG step=8900] mse_pos=0.056292 mse_neg=1.061532 mse_gap=1.005240 pred_norm=19.1339 pred_std=0.9621 pred_abs=0.7636 tgt_std=1.0010 tgt_abs=0.7987 cos=0.0011 neg_dist=13.9318
+[GC-DIAG step=9000] mse_pos=0.057228 mse_neg=1.085831 mse_gap=1.028603 pred_norm=19.5468 pred_std=0.9832 pred_abs=0.7800 tgt_std=1.0000 tgt_abs=0.7976 cos=-0.0013 neg_dist=13.9130
+Running Evaluation...
+Validation Result @ Iteration 9000; Milestone = 9 (Train)
+---------  ---------
+mse_error  0.0100699
+---------  ---------
+Validation Result @ Iteration 9000; Milestone = 9 (ID: Validation)
+---  ---------
+mse  0.0100827
+---  ---------
+[GC-DIAG step=9100] mse_pos=0.055072 mse_neg=1.622850 mse_gap=1.567778 pred_norm=18.8375 pred_std=0.9485 pred_abs=0.7519 tgt_std=0.9990 tgt_abs=0.7966 cos=-0.0006 neg_dist=17.4474
+[GC-DIAG step=9200] mse_pos=0.059776 mse_neg=1.082036 mse_gap=1.022260 pred_norm=20.0828 pred_std=1.0113 pred_abs=0.8017 tgt_std=0.9978 tgt_abs=0.7964 cos=-0.0001 neg_dist=14.1394
+[GC-DIAG step=9300] mse_pos=0.056308 mse_neg=1.055401 mse_gap=0.999092 pred_norm=18.9857 pred_std=0.9553 pred_abs=0.7580 tgt_std=0.9999 tgt_abs=0.7980 cos=-0.0005 neg_dist=13.9684
+[GC-DIAG step=9400] mse_pos=0.051877 mse_neg=1.077276 mse_gap=1.025398 pred_norm=19.5046 pred_std=0.9800 pred_abs=0.7787 tgt_std=1.0003 tgt_abs=0.7978 cos=0.0014 neg_dist=14.2696
+[GC-DIAG step=9500] mse_pos=0.054911 mse_neg=1.076797 mse_gap=1.021886 pred_norm=19.6594 pred_std=0.9882 pred_abs=0.7847 tgt_std=0.9993 tgt_abs=0.7973 cos=0.0002 neg_dist=14.1154
+[GC-DIAG step=9600] mse_pos=0.057269 mse_neg=1.073574 mse_gap=1.016305 pred_norm=19.4771 pred_std=0.9793 pred_abs=0.7775 tgt_std=0.9995 tgt_abs=0.7979 cos=-0.0008 neg_dist=13.9411
+[GC-DIAG step=9700] mse_pos=0.054746 mse_neg=1.091284 mse_gap=1.036537 pred_norm=19.6597 pred_std=0.9881 pred_abs=0.7849 tgt_std=1.0004 tgt_abs=0.7984 cos=-0.0004 neg_dist=14.1333
+[GC-DIAG step=9800] mse_pos=0.056642 mse_neg=1.076317 mse_gap=1.019675 pred_norm=19.5866 pred_std=0.9847 pred_abs=0.7817 tgt_std=0.9991 tgt_abs=0.7974 cos=0.0003 neg_dist=13.9593
+[GC-DIAG step=9900] mse_pos=0.055453 mse_neg=1.057360 mse_gap=1.001908 pred_norm=19.0432 pred_std=0.9580 pred_abs=0.7601 tgt_std=1.0000 tgt_abs=0.7980 cos=-0.0011 neg_dist=14.1193
+[GC-DIAG step=10000] mse_pos=0.053602 mse_neg=1.075177 mse_gap=1.021575 pred_norm=19.8403 pred_std=0.9970 pred_abs=0.7921 tgt_std=0.9996 tgt_abs=0.7974 cos=0.0001 neg_dist=14.1953
+Running Evaluation...
+Validation Result @ Iteration 10000; Milestone = 10 (Train)
+---------  ----------
+mse_error  0.00991561
+---------  ----------
+Validation Result @ Iteration 10000; Milestone = 10 (ID: Validation)
+---  ----------
+mse  0.00990306
+---  ----------
+[GC-DIAG step=10100] mse_pos=0.052861 mse_neg=1.072628 mse_gap=1.019767 pred_norm=19.1851 pred_std=0.9640 pred_abs=0.7658 tgt_std=1.0004 tgt_abs=0.7986 cos=0.0018 neg_dist=14.2231
+[GC-DIAG step=10200] mse_pos=0.053284 mse_neg=1.061076 mse_gap=1.007792 pred_norm=19.1333 pred_std=0.9615 pred_abs=0.7640 tgt_std=0.9998 tgt_abs=0.7979 cos=-0.0002 neg_dist=14.0303
+[GC-DIAG step=10300] mse_pos=0.053655 mse_neg=1.064726 mse_gap=1.011070 pred_norm=19.2569 pred_std=0.9671 pred_abs=0.7687 tgt_std=0.9992 tgt_abs=0.7978 cos=0.0004 neg_dist=13.9882
+[GC-DIAG step=10400] mse_pos=0.051812 mse_neg=1.075103 mse_gap=1.023291 pred_norm=19.2816 pred_std=0.9681 pred_abs=0.7694 tgt_std=0.9996 tgt_abs=0.7973 cos=-0.0000 neg_dist=14.1708
+[GC-DIAG step=10500] mse_pos=0.053917 mse_neg=1.062023 mse_gap=1.008106 pred_norm=19.1886 pred_std=0.9640 pred_abs=0.7657 tgt_std=1.0005 tgt_abs=0.7981 cos=-0.0015 neg_dist=14.0111
+[GC-DIAG step=10600] mse_pos=0.053883 mse_neg=1.087264 mse_gap=1.033380 pred_norm=19.6558 pred_std=0.9874 pred_abs=0.7847 tgt_std=0.9993 tgt_abs=0.7973 cos=-0.0009 neg_dist=14.1087
+[GC-DIAG step=10700] mse_pos=0.053379 mse_neg=1.066409 mse_gap=1.013030 pred_norm=19.1915 pred_std=0.9642 pred_abs=0.7660 tgt_std=0.9996 tgt_abs=0.7977 cos=-0.0004 neg_dist=14.1003
+[GC-DIAG step=10800] mse_pos=0.052188 mse_neg=1.076285 mse_gap=1.024097 pred_norm=19.6697 pred_std=0.9879 pred_abs=0.7851 tgt_std=0.9998 tgt_abs=0.7977 cos=-0.0012 neg_dist=14.2045
+[GC-DIAG step=10900] mse_pos=0.054316 mse_neg=1.063874 mse_gap=1.009559 pred_norm=19.2403 pred_std=0.9663 pred_abs=0.7680 tgt_std=1.0004 tgt_abs=0.7978 cos=-0.0013 neg_dist=13.9156
+[GC-DIAG step=11000] mse_pos=0.054424 mse_neg=1.077143 mse_gap=1.022719 pred_norm=19.4456 pred_std=0.9766 pred_abs=0.7761 tgt_std=1.0000 tgt_abs=0.7980 cos=0.0005 neg_dist=14.1712
+Running Evaluation...
+Validation Result @ Iteration 11000; Milestone = 11 (Train)
+---------  ---------
+mse_error  0.0098847
+---------  ---------
+Validation Result @ Iteration 11000; Milestone = 11 (ID: Validation)
+---  ----------
+mse  0.00981829
+---  ----------
+[GC-DIAG step=11100] mse_pos=0.050953 mse_neg=1.071919 mse_gap=1.020966 pred_norm=19.2212 pred_std=0.9653 pred_abs=0.7675 tgt_std=0.9996 tgt_abs=0.7978 cos=-0.0023 neg_dist=14.1135
+[GC-DIAG step=11200] mse_pos=0.051315 mse_neg=1.083573 mse_gap=1.032258 pred_norm=19.3133 pred_std=0.9696 pred_abs=0.7703 tgt_std=0.9989 tgt_abs=0.7967 cos=0.0007 neg_dist=14.0586
+[GC-DIAG step=11300] mse_pos=0.054307 mse_neg=1.092522 mse_gap=1.038215 pred_norm=19.5339 pred_std=0.9809 pred_abs=0.7797 tgt_std=0.9990 tgt_abs=0.7972 cos=0.0012 neg_dist=14.0999
+[GC-DIAG step=11400] mse_pos=0.050797 mse_neg=1.112501 mse_gap=1.061704 pred_norm=19.6550 pred_std=0.9866 pred_abs=0.7847 tgt_std=0.9999 tgt_abs=0.7977 cos=0.0010 neg_dist=14.2915
+[GC-DIAG step=11500] mse_pos=0.050473 mse_neg=1.085521 mse_gap=1.035048 pred_norm=19.4948 pred_std=0.9785 pred_abs=0.7784 tgt_std=0.9987 tgt_abs=0.7969 cos=-0.0003 neg_dist=14.0260
+[GC-DIAG step=11600] mse_pos=0.054009 mse_neg=1.065696 mse_gap=1.011687 pred_norm=19.1763 pred_std=0.9632 pred_abs=0.7651 tgt_std=1.0002 tgt_abs=0.7986 cos=-0.0006 neg_dist=13.9521
+[GC-DIAG step=11700] mse_pos=0.051089 mse_neg=1.084692 mse_gap=1.033603 pred_norm=19.5464 pred_std=0.9811 pred_abs=0.7801 tgt_std=0.9995 tgt_abs=0.7978 cos=-0.0005 neg_dist=14.2881
+[GC-DIAG step=11800] mse_pos=0.051516 mse_neg=1.680262 mse_gap=1.628746 pred_norm=19.3808 pred_std=0.9727 pred_abs=0.7739 tgt_std=0.9999 tgt_abs=0.7975 cos=-0.0006 neg_dist=17.3623
+[GC-DIAG step=11900] mse_pos=0.053883 mse_neg=1.088306 mse_gap=1.034422 pred_norm=19.1173 pred_std=0.9607 pred_abs=0.7625 tgt_std=0.9992 tgt_abs=0.7972 cos=-0.0027 neg_dist=14.1508
+[GC-DIAG step=12000] mse_pos=0.050654 mse_neg=1.067466 mse_gap=1.016813 pred_norm=19.2057 pred_std=0.9648 pred_abs=0.7667 tgt_std=0.9994 tgt_abs=0.7972 cos=-0.0003 neg_dist=14.2027
+Running Evaluation...
+Validation Result @ Iteration 12000; Milestone = 12 (Train)
+---------  ----------
+mse_error  0.00975002
+---------  ----------
+Validation Result @ Iteration 12000; Milestone = 12 (ID: Validation)
+---  ----------
+mse  0.00978389
+---  ----------
+[GC-DIAG step=12100] mse_pos=0.049667 mse_neg=1.074582 mse_gap=1.024915 pred_norm=19.3328 pred_std=0.9702 pred_abs=0.7718 tgt_std=1.0006 tgt_abs=0.7985 cos=-0.0013 neg_dist=14.1727
+[GC-DIAG step=12200] mse_pos=0.053204 mse_neg=1.081337 mse_gap=1.028132 pred_norm=19.2509 pred_std=0.9666 pred_abs=0.7680 tgt_std=1.0006 tgt_abs=0.7988 cos=-0.0006 neg_dist=14.0857
+[GC-DIAG step=12300] mse_pos=0.051561 mse_neg=1.100147 mse_gap=1.048586 pred_norm=19.3535 pred_std=0.9711 pred_abs=0.7727 tgt_std=1.0008 tgt_abs=0.7984 cos=-0.0002 neg_dist=14.1492
+[GC-DIAG step=12400] mse_pos=0.052968 mse_neg=1.101318 mse_gap=1.048350 pred_norm=19.6927 pred_std=0.9890 pred_abs=0.7855 tgt_std=0.9998 tgt_abs=0.7980 cos=-0.0011 neg_dist=14.2168
+[GC-DIAG step=12500] mse_pos=0.052368 mse_neg=1.067134 mse_gap=1.014766 pred_norm=19.2832 pred_std=0.9681 pred_abs=0.7695 tgt_std=0.9993 tgt_abs=0.7974 cos=-0.0007 neg_dist=14.0922
+[GC-DIAG step=12600] mse_pos=0.050480 mse_neg=1.091543 mse_gap=1.041063 pred_norm=19.5028 pred_std=0.9786 pred_abs=0.7782 tgt_std=1.0011 tgt_abs=0.7990 cos=0.0015 neg_dist=14.1538
+[GC-DIAG step=12700] mse_pos=0.048671 mse_neg=1.085396 mse_gap=1.036725 pred_norm=19.5924 pred_std=0.9831 pred_abs=0.7821 tgt_std=1.0006 tgt_abs=0.7985 cos=0.0002 neg_dist=14.3509
+[GC-DIAG step=12800] mse_pos=0.050455 mse_neg=1.082690 mse_gap=1.032234 pred_norm=19.4148 pred_std=0.9740 pred_abs=0.7749 tgt_std=1.0003 tgt_abs=0.7982 cos=-0.0014 neg_dist=14.1557
+[GC-DIAG step=12900] mse_pos=0.052782 mse_neg=1.074952 mse_gap=1.022170 pred_norm=19.3675 pred_std=0.9720 pred_abs=0.7728 tgt_std=1.0005 tgt_abs=0.7979 cos=-0.0009 neg_dist=13.9561
+[GC-DIAG step=13000] mse_pos=0.051621 mse_neg=1.076074 mse_gap=1.024453 pred_norm=19.4863 pred_std=0.9778 pred_abs=0.7773 tgt_std=0.9998 tgt_abs=0.7978 cos=0.0004 neg_dist=14.0694
+Running Evaluation...
+Validation Result @ Iteration 13000; Milestone = 13 (Train)
+---------  ----------
+mse_error  0.00974894
+---------  ----------
+Validation Result @ Iteration 13000; Milestone = 13 (ID: Validation)
+---  ----------
+mse  0.00972052
+---  ----------
+[GC-DIAG step=13100] mse_pos=0.052815 mse_neg=1.082238 mse_gap=1.029423 pred_norm=19.2748 pred_std=0.9675 pred_abs=0.7694 tgt_std=0.9981 tgt_abs=0.7965 cos=0.0006 neg_dist=14.0488
+[GC-DIAG step=13200] mse_pos=0.051436 mse_neg=1.068795 mse_gap=1.017359 pred_norm=19.2698 pred_std=0.9674 pred_abs=0.7696 tgt_std=1.0004 tgt_abs=0.7985 cos=0.0019 neg_dist=14.0778
+[GC-DIAG step=13300] mse_pos=0.048058 mse_neg=1.073145 mse_gap=1.025088 pred_norm=19.4227 pred_std=0.9742 pred_abs=0.7755 tgt_std=1.0004 tgt_abs=0.7981 cos=-0.0005 neg_dist=14.3224
+[GC-DIAG step=13400] mse_pos=0.051188 mse_neg=1.084828 mse_gap=1.033639 pred_norm=19.4292 pred_std=0.9749 pred_abs=0.7754 tgt_std=1.0011 tgt_abs=0.7987 cos=0.0023 neg_dist=13.9663
+[GC-DIAG step=13500] mse_pos=0.050033 mse_neg=1.082399 mse_gap=1.032366 pred_norm=19.3778 pred_std=0.9722 pred_abs=0.7736 tgt_std=0.9990 tgt_abs=0.7974 cos=-0.0010 neg_dist=14.1726
+[GC-DIAG step=13600] mse_pos=0.051849 mse_neg=1.072000 mse_gap=1.020152 pred_norm=19.2646 pred_std=0.9670 pred_abs=0.7684 tgt_std=0.9989 tgt_abs=0.7969 cos=-0.0015 neg_dist=14.0984
+[GC-DIAG step=13700] mse_pos=0.052017 mse_neg=1.063505 mse_gap=1.011488 pred_norm=19.2179 pred_std=0.9651 pred_abs=0.7668 tgt_std=0.9988 tgt_abs=0.7967 cos=0.0001 neg_dist=14.1272
+[GC-DIAG step=13800] mse_pos=0.050261 mse_neg=1.081911 mse_gap=1.031650 pred_norm=19.4118 pred_std=0.9736 pred_abs=0.7745 tgt_std=0.9996 tgt_abs=0.7975 cos=0.0004 neg_dist=13.8498
+[GC-DIAG step=13900] mse_pos=0.050650 mse_neg=1.087383 mse_gap=1.036733 pred_norm=19.4270 pred_std=0.9747 pred_abs=0.7756 tgt_std=0.9998 tgt_abs=0.7974 cos=-0.0005 neg_dist=14.2142
+[GC-DIAG step=14000] mse_pos=0.051828 mse_neg=1.083168 mse_gap=1.031340 pred_norm=19.4701 pred_std=0.9770 pred_abs=0.7771 tgt_std=0.9996 tgt_abs=0.7977 cos=0.0006 neg_dist=14.0766
+Running Evaluation...
+Validation Result @ Iteration 14000; Milestone = 14 (Train)
+---------  ----------
+mse_error  0.00979632
+---------  ----------
+Validation Result @ Iteration 14000; Milestone = 14 (ID: Validation)
+---  ---------
+mse  0.0097394
+---  ---------
+[GC-DIAG step=14100] mse_pos=0.049668 mse_neg=1.088445 mse_gap=1.038777 pred_norm=19.4581 pred_std=0.9760 pred_abs=0.7765 tgt_std=1.0007 tgt_abs=0.7986 cos=-0.0012 neg_dist=14.0286
+[GC-DIAG step=14200] mse_pos=0.051781 mse_neg=1.092798 mse_gap=1.041017 pred_norm=19.3910 pred_std=0.9730 pred_abs=0.7739 tgt_std=0.9984 tgt_abs=0.7965 cos=0.0009 neg_dist=14.1451
+[GC-DIAG step=14300] mse_pos=0.050489 mse_neg=1.079002 mse_gap=1.028513 pred_norm=19.4174 pred_std=0.9741 pred_abs=0.7753 tgt_std=1.0001 tgt_abs=0.7979 cos=0.0016 neg_dist=14.1914
+[GC-DIAG step=14400] mse_pos=0.049177 mse_neg=1.081455 mse_gap=1.032278 pred_norm=19.3585 pred_std=0.9711 pred_abs=0.7726 tgt_std=0.9992 tgt_abs=0.7971 cos=-0.0014 neg_dist=14.3259
+[GC-DIAG step=14500] mse_pos=0.050302 mse_neg=1.078027 mse_gap=1.027724 pred_norm=19.4801 pred_std=0.9773 pred_abs=0.7777 tgt_std=0.9999 tgt_abs=0.7981 cos=-0.0003 neg_dist=14.2061
+[GC-DIAG step=14600] mse_pos=0.050601 mse_neg=1.083131 mse_gap=1.032530 pred_norm=19.3608 pred_std=0.9713 pred_abs=0.7728 tgt_std=1.0004 tgt_abs=0.7983 cos=0.0008 neg_dist=14.1790
+[GC-DIAG step=14700] mse_pos=0.052962 mse_neg=1.079728 mse_gap=1.026766 pred_norm=19.2600 pred_std=0.9668 pred_abs=0.7684 tgt_std=0.9997 tgt_abs=0.7977 cos=-0.0007 neg_dist=13.9373
+[GC-DIAG step=14800] mse_pos=0.051209 mse_neg=1.095685 mse_gap=1.044476 pred_norm=19.4760 pred_std=0.9770 pred_abs=0.7777 tgt_std=0.9992 tgt_abs=0.7975 cos=-0.0010 neg_dist=14.0446
+[GC-DIAG step=14900] mse_pos=0.051299 mse_neg=1.089232 mse_gap=1.037933 pred_norm=19.3665 pred_std=0.9717 pred_abs=0.7729 tgt_std=0.9996 tgt_abs=0.7977 cos=-0.0004 neg_dist=14.0563
+[GC-DIAG step=15000] mse_pos=0.051148 mse_neg=1.095490 mse_gap=1.044342 pred_norm=19.4097 pred_std=0.9736 pred_abs=0.7747 tgt_std=1.0001 tgt_abs=0.7979 cos=0.0023 neg_dist=14.0549
+Running Evaluation...
+Validation Result @ Iteration 15000; Milestone = 15 (Train)
+---------  ----------
+mse_error  0.00977749
+---------  ----------
+Validation Result @ Iteration 15000; Milestone = 15 (ID: Validation)
+---  ----------
+mse  0.00972015
+---  ----------
+[GC-DIAG step=15100] mse_pos=0.049187 mse_neg=1.094081 mse_gap=1.044893 pred_norm=19.4229 pred_std=0.9743 pred_abs=0.7749 tgt_std=0.9997 tgt_abs=0.7976 cos=-0.0012 neg_dist=14.1621
+[GC-DIAG step=15200] mse_pos=0.048264 mse_neg=1.086437 mse_gap=1.038172 pred_norm=19.4053 pred_std=0.9733 pred_abs=0.7746 tgt_std=1.0010 tgt_abs=0.7985 cos=-0.0005 neg_dist=14.1528
+[GC-DIAG step=15300] mse_pos=0.047664 mse_neg=1.094308 mse_gap=1.046644 pred_norm=19.4441 pred_std=0.9752 pred_abs=0.7758 tgt_std=0.9995 tgt_abs=0.7976 cos=0.0023 neg_dist=14.3462
+[GC-DIAG step=15400] mse_pos=0.052593 mse_neg=1.077138 mse_gap=1.024545 pred_norm=19.3734 pred_std=0.9720 pred_abs=0.7735 tgt_std=1.0004 tgt_abs=0.7978 cos=0.0007 neg_dist=14.0767
+[GC-DIAG step=15500] mse_pos=0.050599 mse_neg=1.082846 mse_gap=1.032247 pred_norm=19.3969 pred_std=0.9729 pred_abs=0.7738 tgt_std=1.0005 tgt_abs=0.7981 cos=-0.0016 neg_dist=13.9942
+[GC-DIAG step=15600] mse_pos=0.047827 mse_neg=1.093779 mse_gap=1.045953 pred_norm=19.5080 pred_std=0.9784 pred_abs=0.7786 tgt_std=0.9987 tgt_abs=0.7969 cos=-0.0006 neg_dist=14.3025
+[GC-DIAG step=15700] mse_pos=0.047757 mse_neg=1.081029 mse_gap=1.033271 pred_norm=19.3718 pred_std=0.9717 pred_abs=0.7733 tgt_std=1.0010 tgt_abs=0.7990 cos=-0.0012 neg_dist=14.3648
+[GC-DIAG step=15800] mse_pos=0.050869 mse_neg=1.089698 mse_gap=1.038829 pred_norm=19.3684 pred_std=0.9716 pred_abs=0.7726 tgt_std=1.0004 tgt_abs=0.7985 cos=-0.0012 neg_dist=14.1841
+[GC-DIAG step=15900] mse_pos=0.052182 mse_neg=1.077083 mse_gap=1.024901 pred_norm=19.3296 pred_std=0.9697 pred_abs=0.7716 tgt_std=0.9997 tgt_abs=0.7972 cos=-0.0011 neg_dist=13.8625
+[GC-DIAG step=16000] mse_pos=0.050691 mse_neg=1.073324 mse_gap=1.022633 pred_norm=19.3950 pred_std=0.9728 pred_abs=0.7739 tgt_std=0.9989 tgt_abs=0.7973 cos=-0.0029 neg_dist=14.0510
+Running Evaluation...
+Validation Result @ Iteration 16000; Milestone = 16 (Train)
+---------  ----------
+mse_error  0.00970302
+---------  ----------
+Validation Result @ Iteration 16000; Milestone = 16 (ID: Validation)
+---  ----------
+mse  0.00976175
+---  ----------
+[GC-DIAG step=16100] mse_pos=0.051981 mse_neg=1.081193 mse_gap=1.029212 pred_norm=19.3798 pred_std=0.9723 pred_abs=0.7731 tgt_std=1.0018 tgt_abs=0.7994 cos=-0.0007 neg_dist=14.0079
+[GC-DIAG step=16200] mse_pos=0.047028 mse_neg=1.080603 mse_gap=1.033575 pred_norm=19.5254 pred_std=0.9790 pred_abs=0.7795 tgt_std=0.9989 tgt_abs=0.7969 cos=0.0019 neg_dist=14.2590
+[GC-DIAG step=16300] mse_pos=0.049585 mse_neg=1.097482 mse_gap=1.047898 pred_norm=19.4941 pred_std=0.9778 pred_abs=0.7780 tgt_std=0.9992 tgt_abs=0.7973 cos=0.0006 neg_dist=14.2618
+[GC-DIAG step=16400] mse_pos=0.050298 mse_neg=1.076289 mse_gap=1.025991 pred_norm=19.3840 pred_std=0.9723 pred_abs=0.7736 tgt_std=1.0010 tgt_abs=0.7990 cos=-0.0003 neg_dist=14.0973
+[GC-DIAG step=16500] mse_pos=0.053138 mse_neg=1.077594 mse_gap=1.024456 pred_norm=19.3603 pred_std=0.9713 pred_abs=0.7724 tgt_std=1.0003 tgt_abs=0.7981 cos=0.0001 neg_dist=13.8570
+[GC-DIAG step=16600] mse_pos=0.050875 mse_neg=1.085796 mse_gap=1.034921 pred_norm=19.4437 pred_std=0.9752 pred_abs=0.7755 tgt_std=0.9984 tgt_abs=0.7969 cos=0.0005 neg_dist=14.1111
+[GC-DIAG step=16700] mse_pos=0.048882 mse_neg=1.083458 mse_gap=1.034576 pred_norm=19.4336 pred_std=0.9745 pred_abs=0.7753 tgt_std=1.0005 tgt_abs=0.7981 cos=-0.0001 neg_dist=14.2293
+[GC-DIAG step=16800] mse_pos=0.050024 mse_neg=1.087650 mse_gap=1.037625 pred_norm=19.3297 pred_std=0.9697 pred_abs=0.7715 tgt_std=1.0000 tgt_abs=0.7979 cos=-0.0015 neg_dist=14.1105
+[GC-DIAG step=16900] mse_pos=0.052710 mse_neg=1.677832 mse_gap=1.625122 pred_norm=19.3449 pred_std=0.9704 pred_abs=0.7715 tgt_std=0.9999 tgt_abs=0.7978 cos=0.0008 neg_dist=16.9484
+[GC-DIAG step=17000] mse_pos=0.047911 mse_neg=1.081653 mse_gap=1.033743 pred_norm=19.4863 pred_std=0.9771 pred_abs=0.7778 tgt_std=1.0005 tgt_abs=0.7980 cos=-0.0013 neg_dist=14.1783
+Running Evaluation...
+Validation Result @ Iteration 17000; Milestone = 17 (Train)
+---------  ----------
+mse_error  0.00980169
+---------  ----------
+Validation Result @ Iteration 17000; Milestone = 17 (ID: Validation)
+---  ----------
+mse  0.00976153
+---  ----------
+[GC-DIAG step=17100] mse_pos=0.052630 mse_neg=1.081576 mse_gap=1.028946 pred_norm=19.4234 pred_std=0.9742 pred_abs=0.7754 tgt_std=0.9995 tgt_abs=0.7973 cos=-0.0009 neg_dist=13.8517
+[GC-DIAG step=17200] mse_pos=0.049803 mse_neg=1.076972 mse_gap=1.027170 pred_norm=19.3849 pred_std=0.9723 pred_abs=0.7739 tgt_std=0.9996 tgt_abs=0.7974 cos=0.0018 neg_dist=14.0813
+[GC-DIAG step=17300] mse_pos=0.050860 mse_neg=1.076427 mse_gap=1.025566 pred_norm=19.3989 pred_std=0.9730 pred_abs=0.7745 tgt_std=1.0005 tgt_abs=0.7984 cos=0.0004 neg_dist=13.9259
+[GC-DIAG step=17400] mse_pos=0.048798 mse_neg=1.083229 mse_gap=1.034432 pred_norm=19.4892 pred_std=0.9772 pred_abs=0.7781 tgt_std=0.9994 tgt_abs=0.7973 cos=0.0003 neg_dist=14.0479
+[GC-DIAG step=17500] mse_pos=0.048931 mse_neg=1.107038 mse_gap=1.058108 pred_norm=19.5344 pred_std=0.9796 pred_abs=0.7796 tgt_std=1.0001 tgt_abs=0.7977 cos=0.0013 neg_dist=14.2885
+[GC-DIAG step=17600] mse_pos=0.052366 mse_neg=1.077111 mse_gap=1.024745 pred_norm=19.3340 pred_std=0.9699 pred_abs=0.7714 tgt_std=1.0007 tgt_abs=0.7985 cos=0.0002 neg_dist=14.0555
+[GC-DIAG step=17700] mse_pos=0.050227 mse_neg=1.112941 mse_gap=1.062713 pred_norm=19.4430 pred_std=0.9750 pred_abs=0.7761 tgt_std=1.0001 tgt_abs=0.7980 cos=-0.0006 neg_dist=14.1472
+[GC-DIAG step=17800] mse_pos=0.051515 mse_neg=1.687922 mse_gap=1.636407 pred_norm=19.4199 pred_std=0.9740 pred_abs=0.7749 tgt_std=0.9981 tgt_abs=0.7963 cos=-0.0011 neg_dist=17.1547
+[GC-DIAG step=17900] mse_pos=0.051718 mse_neg=1.091935 mse_gap=1.040217 pred_norm=19.3945 pred_std=0.9727 pred_abs=0.7737 tgt_std=0.9977 tgt_abs=0.7961 cos=-0.0008 neg_dist=14.0338
+[GC-DIAG step=18000] mse_pos=0.048181 mse_neg=1.095789 mse_gap=1.047608 pred_norm=19.4139 pred_std=0.9735 pred_abs=0.7750 tgt_std=1.0010 tgt_abs=0.7987 cos=-0.0001 neg_dist=14.1997
+Running Evaluation...
+Validation Result @ Iteration 18000; Milestone = 18 (Train)
+---------  ---------
+mse_error  0.0097458
+---------  ---------
+Validation Result @ Iteration 18000; Milestone = 18 (ID: Validation)
+---  ----------
+mse  0.00969245
+---  ----------
+[GC-DIAG step=18100] mse_pos=0.053631 mse_neg=1.091340 mse_gap=1.037708 pred_norm=19.3259 pred_std=0.9695 pred_abs=0.7713 tgt_std=0.9987 tgt_abs=0.7970 cos=-0.0006 neg_dist=13.7863
+[GC-DIAG step=18200] mse_pos=0.048816 mse_neg=1.087759 mse_gap=1.038942 pred_norm=19.4686 pred_std=0.9761 pred_abs=0.7776 tgt_std=0.9996 tgt_abs=0.7977 cos=-0.0021 neg_dist=14.0388
+[GC-DIAG step=18300] mse_pos=0.049807 mse_neg=1.098996 mse_gap=1.049188 pred_norm=19.4220 pred_std=0.9740 pred_abs=0.7748 tgt_std=1.0010 tgt_abs=0.7987 cos=-0.0015 neg_dist=14.2291
+[GC-DIAG step=18400] mse_pos=0.049280 mse_neg=1.094325 mse_gap=1.045044 pred_norm=19.4730 pred_std=0.9764 pred_abs=0.7775 tgt_std=1.0006 tgt_abs=0.7982 cos=-0.0000 neg_dist=14.2251
+[GC-DIAG step=18500] mse_pos=0.050859 mse_neg=1.692880 mse_gap=1.642020 pred_norm=19.4586 pred_std=0.9758 pred_abs=0.7770 tgt_std=0.9994 tgt_abs=0.7973 cos=-0.0012 neg_dist=17.1477
+[GC-DIAG step=18600] mse_pos=0.052514 mse_neg=1.090237 mse_gap=1.037722 pred_norm=19.3702 pred_std=0.9717 pred_abs=0.7731 tgt_std=0.9999 tgt_abs=0.7982 cos=0.0002 neg_dist=13.9499
+[GC-DIAG step=18700] mse_pos=0.050606 mse_neg=1.082434 mse_gap=1.031828 pred_norm=19.4346 pred_std=0.9745 pred_abs=0.7753 tgt_std=1.0006 tgt_abs=0.7983 cos=-0.0015 neg_dist=14.0864
+[GC-DIAG step=18800] mse_pos=0.050521 mse_neg=1.103290 mse_gap=1.052769 pred_norm=19.4380 pred_std=0.9749 pred_abs=0.7757 tgt_std=0.9999 tgt_abs=0.7976 cos=0.0015 neg_dist=14.2828
+[GC-DIAG step=18900] mse_pos=0.048331 mse_neg=1.084772 mse_gap=1.036441 pred_norm=19.4690 pred_std=0.9763 pred_abs=0.7774 tgt_std=0.9989 tgt_abs=0.7970 cos=0.0004 neg_dist=14.1832
+[GC-DIAG step=19000] mse_pos=0.048914 mse_neg=1.090718 mse_gap=1.041804 pred_norm=19.4225 pred_std=0.9740 pred_abs=0.7751 tgt_std=0.9990 tgt_abs=0.7968 cos=-0.0004 neg_dist=14.1718
+Running Evaluation...
+Validation Result @ Iteration 19000; Milestone = 19 (Train)
+---------  ----------
+mse_error  0.00967651
+---------  ----------
+Validation Result @ Iteration 19000; Milestone = 19 (ID: Validation)
+---  ----------
+mse  0.00969229
+---  ----------
+[GC-DIAG step=19100] mse_pos=0.048873 mse_neg=1.106080 mse_gap=1.057208 pred_norm=19.4195 pred_std=0.9738 pred_abs=0.7752 tgt_std=1.0002 tgt_abs=0.7983 cos=0.0026 neg_dist=14.3347
+[GC-DIAG step=19200] mse_pos=0.049141 mse_neg=1.090484 mse_gap=1.041343 pred_norm=19.4484 pred_std=0.9752 pred_abs=0.7762 tgt_std=0.9998 tgt_abs=0.7974 cos=0.0000 neg_dist=14.1264
+[GC-DIAG step=19300] mse_pos=0.054163 mse_neg=1.082510 mse_gap=1.028348 pred_norm=19.2852 pred_std=0.9676 pred_abs=0.7699 tgt_std=0.9988 tgt_abs=0.7968 cos=0.0007 neg_dist=13.8943
+[GC-DIAG step=19400] mse_pos=0.049357 mse_neg=1.083256 mse_gap=1.033899 pred_norm=19.4236 pred_std=0.9741 pred_abs=0.7752 tgt_std=1.0004 tgt_abs=0.7978 cos=0.0004 neg_dist=14.1733
+[GC-DIAG step=19500] mse_pos=0.049826 mse_neg=1.085486 mse_gap=1.035660 pred_norm=19.4224 pred_std=0.9740 pred_abs=0.7751 tgt_std=0.9991 tgt_abs=0.7972 cos=0.0024 neg_dist=14.0635
+[GC-DIAG step=19600] mse_pos=0.050432 mse_neg=1.078003 mse_gap=1.027572 pred_norm=19.3771 pred_std=0.9718 pred_abs=0.7733 tgt_std=0.9986 tgt_abs=0.7966 cos=-0.0002 neg_dist=14.0655
+[GC-DIAG step=19700] mse_pos=0.049166 mse_neg=1.098812 mse_gap=1.049646 pred_norm=19.4187 pred_std=0.9737 pred_abs=0.7755 tgt_std=0.9995 tgt_abs=0.7976 cos=-0.0008 neg_dist=13.9776
+[GC-DIAG step=19800] mse_pos=0.050119 mse_neg=1.088500 mse_gap=1.038380 pred_norm=19.4128 pred_std=0.9735 pred_abs=0.7747 tgt_std=1.0005 tgt_abs=0.7984 cos=0.0017 neg_dist=14.1740
+[GC-DIAG step=19900] mse_pos=0.052849 mse_neg=1.083349 mse_gap=1.030500 pred_norm=19.3917 pred_std=0.9727 pred_abs=0.7739 tgt_std=0.9983 tgt_abs=0.7967 cos=0.0006 neg_dist=14.0487
+[GC-DIAG step=20000] mse_pos=0.050377 mse_neg=1.090819 mse_gap=1.040442 pred_norm=19.4334 pred_std=0.9744 pred_abs=0.7756 tgt_std=1.0011 tgt_abs=0.7984 cos=0.0001 neg_dist=14.0530
+Running Evaluation...
+Validation Result @ Iteration 20000; Milestone = 20 (Train)
+---------  ----------
+mse_error  0.00975763
+---------  ----------
+Validation Result @ Iteration 20000; Milestone = 20 (ID: Validation)
+---  ----------
+mse  0.00968407
+---  ----------
+[GC-DIAG step=20100] mse_pos=0.049110 mse_neg=1.093401 mse_gap=1.044291 pred_norm=19.4750 pred_std=0.9765 pred_abs=0.7776 tgt_std=0.9990 tgt_abs=0.7974 cos=0.0007 neg_dist=14.1051
+[GC-DIAG step=20200] mse_pos=0.049804 mse_neg=1.097380 mse_gap=1.047576 pred_norm=19.4630 pred_std=0.9758 pred_abs=0.7769 tgt_std=1.0019 tgt_abs=0.7994 cos=0.0010 neg_dist=14.1722
+[GC-DIAG step=20300] mse_pos=0.050570 mse_neg=1.092808 mse_gap=1.042238 pred_norm=19.4241 pred_std=0.9741 pred_abs=0.7754 tgt_std=1.0008 tgt_abs=0.7988 cos=0.0025 neg_dist=14.0566
+[GC-DIAG step=20400] mse_pos=0.049723 mse_neg=1.079946 mse_gap=1.030223 pred_norm=19.4204 pred_std=0.9738 pred_abs=0.7752 tgt_std=1.0000 tgt_abs=0.7977 cos=0.0002 neg_dist=14.0645
+[GC-DIAG step=20500] mse_pos=0.046249 mse_neg=1.098511 mse_gap=1.052262 pred_norm=19.4799 pred_std=0.9765 pred_abs=0.7777 tgt_std=1.0000 tgt_abs=0.7976 cos=0.0007 neg_dist=14.3009
+[GC-DIAG step=20600] mse_pos=0.051850 mse_neg=1.087136 mse_gap=1.035286 pred_norm=19.3826 pred_std=0.9722 pred_abs=0.7736 tgt_std=0.9997 tgt_abs=0.7976 cos=-0.0017 neg_dist=14.0039
+[GC-DIAG step=20700] mse_pos=0.049196 mse_neg=1.084928 mse_gap=1.035732 pred_norm=19.4636 pred_std=0.9758 pred_abs=0.7769 tgt_std=1.0000 tgt_abs=0.7976 cos=-0.0011 neg_dist=14.1827
+[GC-DIAG step=20800] mse_pos=0.047947 mse_neg=1.087711 mse_gap=1.039764 pred_norm=19.4285 pred_std=0.9742 pred_abs=0.7755 tgt_std=1.0003 tgt_abs=0.7983 cos=0.0018 neg_dist=14.2205
+[GC-DIAG step=20900] mse_pos=0.048483 mse_neg=1.091922 mse_gap=1.043439 pred_norm=19.4421 pred_std=0.9749 pred_abs=0.7756 tgt_std=1.0005 tgt_abs=0.7983 cos=-0.0003 neg_dist=14.2097
+[GC-DIAG step=21000] mse_pos=0.051949 mse_neg=1.081145 mse_gap=1.029195 pred_norm=19.3715 pred_std=0.9716 pred_abs=0.7729 tgt_std=0.9998 tgt_abs=0.7974 cos=-0.0019 neg_dist=13.8912
+Running Evaluation...
+Validation Result @ Iteration 21000; Milestone = 21 (Train)
+---------  ----------
+mse_error  0.00971143
+---------  ----------
+Validation Result @ Iteration 21000; Milestone = 21 (ID: Validation)
+---  ----------
+mse  0.00975376
+---  ----------
+[GC-DIAG step=21100] mse_pos=0.049683 mse_neg=1.092805 mse_gap=1.043122 pred_norm=19.4564 pred_std=0.9757 pred_abs=0.7765 tgt_std=0.9995 tgt_abs=0.7972 cos=-0.0006 neg_dist=14.1081
+[GC-DIAG step=21200] mse_pos=0.050119 mse_neg=1.089873 mse_gap=1.039754 pred_norm=19.4174 pred_std=0.9737 pred_abs=0.7750 tgt_std=1.0003 tgt_abs=0.7984 cos=0.0009 neg_dist=14.0972
+[GC-DIAG step=21300] mse_pos=0.048786 mse_neg=1.102119 mse_gap=1.053333 pred_norm=19.4739 pred_std=0.9765 pred_abs=0.7773 tgt_std=0.9995 tgt_abs=0.7973 cos=-0.0008 neg_dist=14.1763
+[GC-DIAG step=21400] mse_pos=0.048761 mse_neg=1.096946 mse_gap=1.048184 pred_norm=19.4383 pred_std=0.9747 pred_abs=0.7759 tgt_std=1.0008 tgt_abs=0.7985 cos=0.0006 neg_dist=14.2726
+[GC-DIAG step=21500] mse_pos=0.048630 mse_neg=1.084798 mse_gap=1.036168 pred_norm=19.4148 pred_std=0.9735 pred_abs=0.7748 tgt_std=0.9995 tgt_abs=0.7979 cos=0.0024 neg_dist=14.0982
+[GC-DIAG step=21600] mse_pos=0.048136 mse_neg=1.100501 mse_gap=1.052365 pred_norm=19.4912 pred_std=0.9771 pred_abs=0.7780 tgt_std=1.0002 tgt_abs=0.7977 cos=-0.0014 neg_dist=14.1955
+[GC-DIAG step=21700] mse_pos=0.049437 mse_neg=1.088352 mse_gap=1.038915 pred_norm=19.4088 pred_std=0.9732 pred_abs=0.7746 tgt_std=0.9991 tgt_abs=0.7970 cos=0.0012 neg_dist=14.2029
+[GC-DIAG step=21800] mse_pos=0.047691 mse_neg=1.090325 mse_gap=1.042634 pred_norm=19.5070 pred_std=0.9780 pred_abs=0.7788 tgt_std=0.9990 tgt_abs=0.7971 cos=-0.0001 neg_dist=14.3229
+[GC-DIAG step=21900] mse_pos=0.048167 mse_neg=1.095688 mse_gap=1.047520 pred_norm=19.4677 pred_std=0.9760 pred_abs=0.7766 tgt_std=0.9993 tgt_abs=0.7974 cos=-0.0021 neg_dist=14.2055
+[GC-DIAG step=22000] mse_pos=0.049477 mse_neg=1.076643 mse_gap=1.027165 pred_norm=19.4077 pred_std=0.9733 pred_abs=0.7746 tgt_std=0.9994 tgt_abs=0.7976 cos=0.0005 neg_dist=14.1226
+Running Evaluation...
+Validation Result @ Iteration 22000; Milestone = 22 (Train)
+---------  ----------
+mse_error  0.00967765
+---------  ----------
+Validation Result @ Iteration 22000; Milestone = 22 (ID: Validation)
+---  ----------
+mse  0.00968666
+---  ----------
+[GC-DIAG step=22100] mse_pos=0.048727 mse_neg=1.094013 mse_gap=1.045286 pred_norm=19.4826 pred_std=0.9768 pred_abs=0.7776 tgt_std=1.0001 tgt_abs=0.7982 cos=0.0006 neg_dist=14.0611
+[GC-DIAG step=22200] mse_pos=0.048655 mse_neg=1.101748 mse_gap=1.053093 pred_norm=19.4354 pred_std=0.9745 pred_abs=0.7758 tgt_std=0.9998 tgt_abs=0.7978 cos=-0.0008 neg_dist=14.2212
+[GC-DIAG step=22300] mse_pos=0.050511 mse_neg=1.085858 mse_gap=1.035347 pred_norm=19.4139 pred_std=0.9736 pred_abs=0.7749 tgt_std=0.9992 tgt_abs=0.7972 cos=-0.0019 neg_dist=13.8933
+[GC-DIAG step=22400] mse_pos=0.048268 mse_neg=1.096412 mse_gap=1.048144 pred_norm=19.4457 pred_std=0.9752 pred_abs=0.7760 tgt_std=0.9997 tgt_abs=0.7976 cos=0.0015 neg_dist=14.1574
+[GC-DIAG step=22500] mse_pos=0.050692 mse_neg=1.094148 mse_gap=1.043456 pred_norm=19.4065 pred_std=0.9731 pred_abs=0.7741 tgt_std=0.9999 tgt_abs=0.7979 cos=-0.0020 neg_dist=14.0054
+[GC-DIAG step=22600] mse_pos=0.050514 mse_neg=1.095568 mse_gap=1.045054 pred_norm=19.4515 pred_std=0.9754 pred_abs=0.7771 tgt_std=0.9995 tgt_abs=0.7978 cos=0.0006 neg_dist=14.0739
+[GC-DIAG step=22700] mse_pos=0.052384 mse_neg=1.090113 mse_gap=1.037730 pred_norm=19.3560 pred_std=0.9709 pred_abs=0.7731 tgt_std=1.0003 tgt_abs=0.7983 cos=-0.0006 neg_dist=13.9248
+[GC-DIAG step=22800] mse_pos=0.049758 mse_neg=1.093399 mse_gap=1.043642 pred_norm=19.4643 pred_std=0.9759 pred_abs=0.7770 tgt_std=0.9997 tgt_abs=0.7975 cos=-0.0015 neg_dist=14.0377
+[GC-DIAG step=22900] mse_pos=0.050863 mse_neg=1.090173 mse_gap=1.039309 pred_norm=19.4002 pred_std=0.9728 pred_abs=0.7743 tgt_std=1.0002 tgt_abs=0.7983 cos=-0.0011 neg_dist=13.9768
+[GC-DIAG step=23000] mse_pos=0.049827 mse_neg=1.087303 mse_gap=1.037476 pred_norm=19.4521 pred_std=0.9753 pred_abs=0.7766 tgt_std=0.9998 tgt_abs=0.7978 cos=0.0003 neg_dist=14.0215
+Running Evaluation...
+Validation Result @ Iteration 23000; Milestone = 23 (Train)
+---------  ----------
+mse_error  0.00977343
+---------  ----------
+Validation Result @ Iteration 23000; Milestone = 23 (ID: Validation)
+---  ---------
+mse  0.0097373
+---  ---------
+[GC-DIAG step=23100] mse_pos=0.051887 mse_neg=1.089077 mse_gap=1.037191 pred_norm=19.3979 pred_std=0.9728 pred_abs=0.7741 tgt_std=0.9994 tgt_abs=0.7976 cos=0.0003 neg_dist=14.0831
+[GC-DIAG step=23200] mse_pos=0.050281 mse_neg=1.095797 mse_gap=1.045515 pred_norm=19.4014 pred_std=0.9729 pred_abs=0.7741 tgt_std=1.0008 tgt_abs=0.7988 cos=-0.0012 neg_dist=14.2305
+[GC-DIAG step=23300] mse_pos=0.051157 mse_neg=1.672119 mse_gap=1.620962 pred_norm=19.4024 pred_std=0.9730 pred_abs=0.7741 tgt_std=0.9993 tgt_abs=0.7971 cos=-0.0006 neg_dist=17.4293
+[GC-DIAG step=23400] mse_pos=0.050303 mse_neg=1.085105 mse_gap=1.034803 pred_norm=19.4161 pred_std=0.9737 pred_abs=0.7746 tgt_std=0.9979 tgt_abs=0.7964 cos=0.0011 neg_dist=14.2003
+[GC-DIAG step=23500] mse_pos=0.049496 mse_neg=1.098903 mse_gap=1.049408 pred_norm=19.4305 pred_std=0.9743 pred_abs=0.7754 tgt_std=0.9997 tgt_abs=0.7978 cos=-0.0019 neg_dist=14.1558
+[GC-DIAG step=23600] mse_pos=0.050577 mse_neg=1.085205 mse_gap=1.034629 pred_norm=19.4671 pred_std=0.9761 pred_abs=0.7768 tgt_std=0.9998 tgt_abs=0.7981 cos=0.0007 neg_dist=14.1398
+[GC-DIAG step=23700] mse_pos=0.051918 mse_neg=1.075487 mse_gap=1.023569 pred_norm=19.3635 pred_std=0.9711 pred_abs=0.7728 tgt_std=0.9995 tgt_abs=0.7976 cos=-0.0002 neg_dist=13.8173
+[GC-DIAG step=23800] mse_pos=0.051477 mse_neg=1.088777 mse_gap=1.037300 pred_norm=19.3937 pred_std=0.9726 pred_abs=0.7744 tgt_std=1.0000 tgt_abs=0.7978 cos=0.0010 neg_dist=14.1107
+[GC-DIAG step=23900] mse_pos=0.047719 mse_neg=1.082902 mse_gap=1.035183 pred_norm=19.4361 pred_std=0.9745 pred_abs=0.7761 tgt_std=1.0011 tgt_abs=0.7989 cos=-0.0005 neg_dist=14.2492
+[GC-DIAG step=24000] mse_pos=0.049686 mse_neg=1.094375 mse_gap=1.044689 pred_norm=19.4011 pred_std=0.9729 pred_abs=0.7747 tgt_std=1.0004 tgt_abs=0.7983 cos=-0.0002 neg_dist=14.1059
+Running Evaluation...
+Validation Result @ Iteration 24000; Milestone = 24 (Train)
+---------  ----------
+mse_error  0.00966789
+---------  ----------
+Validation Result @ Iteration 24000; Milestone = 24 (ID: Validation)
+---  ----------
+mse  0.00970113
+---  ----------
+[GC-DIAG step=24100] mse_pos=0.050106 mse_neg=1.073822 mse_gap=1.023717 pred_norm=19.4311 pred_std=0.9743 pred_abs=0.7757 tgt_std=1.0005 tgt_abs=0.7982 cos=0.0007 neg_dist=13.9029
+[GC-DIAG step=24200] mse_pos=0.050640 mse_neg=1.090806 mse_gap=1.040166 pred_norm=19.4173 pred_std=0.9736 pred_abs=0.7746 tgt_std=1.0012 tgt_abs=0.7987 cos=-0.0006 neg_dist=13.8444
+[GC-DIAG step=24300] mse_pos=0.051708 mse_neg=1.091746 mse_gap=1.040038 pred_norm=19.4168 pred_std=0.9738 pred_abs=0.7748 tgt_std=1.0006 tgt_abs=0.7980 cos=-0.0004 neg_dist=14.0218
+[GC-DIAG step=24400] mse_pos=0.048885 mse_neg=1.094212 mse_gap=1.045327 pred_norm=19.4314 pred_std=0.9743 pred_abs=0.7757 tgt_std=1.0002 tgt_abs=0.7979 cos=-0.0007 neg_dist=14.1468
+[GC-DIAG step=24500] mse_pos=0.050800 mse_neg=1.084482 mse_gap=1.033682 pred_norm=19.3924 pred_std=0.9724 pred_abs=0.7736 tgt_std=1.0001 tgt_abs=0.7981 cos=-0.0013 neg_dist=13.9949
+[GC-DIAG step=24600] mse_pos=0.049317 mse_neg=1.099330 mse_gap=1.050013 pred_norm=19.4379 pred_std=0.9747 pred_abs=0.7759 tgt_std=0.9999 tgt_abs=0.7978 cos=-0.0012 neg_dist=14.2958
+[GC-DIAG step=24700] mse_pos=0.048348 mse_neg=1.083604 mse_gap=1.035256 pred_norm=19.4481 pred_std=0.9751 pred_abs=0.7762 tgt_std=0.9999 tgt_abs=0.7980 cos=0.0019 neg_dist=14.2105
+[GC-DIAG step=24800] mse_pos=0.050521 mse_neg=1.080874 mse_gap=1.030353 pred_norm=19.3971 pred_std=0.9726 pred_abs=0.7743 tgt_std=0.9994 tgt_abs=0.7972 cos=-0.0004 neg_dist=13.9074
+[GC-DIAG step=24900] mse_pos=0.049006 mse_neg=1.076804 mse_gap=1.027798 pred_norm=19.4350 pred_std=0.9745 pred_abs=0.7757 tgt_std=1.0006 tgt_abs=0.7986 cos=0.0011 neg_dist=14.1576
+[GC-DIAG step=25000] mse_pos=0.049345 mse_neg=1.089997 mse_gap=1.040651 pred_norm=19.4767 pred_std=0.9765 pred_abs=0.7772 tgt_std=1.0002 tgt_abs=0.7976 cos=0.0006 neg_dist=14.0535
+Running Evaluation...
+Validation Result @ Iteration 25000; Milestone = 25 (Train)
+---------  ----------
+mse_error  0.00974685
+---------  ----------
+Validation Result @ Iteration 25000; Milestone = 25 (ID: Validation)
+---  ----------
+mse  0.00970272
+---  ----------
+[GC-DIAG step=25100] mse_pos=0.046625 mse_neg=1.693536 mse_gap=1.646911 pred_norm=19.4906 pred_std=0.9769 pred_abs=0.7781 tgt_std=0.9997 tgt_abs=0.7975 cos=-0.0018 neg_dist=17.5507
+[GC-DIAG step=25200] mse_pos=0.047784 mse_neg=1.093929 mse_gap=1.046145 pred_norm=19.4760 pred_std=0.9762 pred_abs=0.7775 tgt_std=0.9994 tgt_abs=0.7969 cos=-0.0002 neg_dist=14.1029
+[GC-DIAG step=25300] mse_pos=0.048956 mse_neg=1.091186 mse_gap=1.042230 pred_norm=19.4177 pred_std=0.9736 pred_abs=0.7749 tgt_std=1.0000 tgt_abs=0.7977 cos=0.0000 neg_dist=14.1500
+[GC-DIAG step=25400] mse_pos=0.045531 mse_neg=1.089023 mse_gap=1.043492 pred_norm=19.4993 pred_std=0.9774 pred_abs=0.7780 tgt_std=1.0003 tgt_abs=0.7983 cos=0.0000 neg_dist=14.4691
+[GC-DIAG step=25500] mse_pos=0.052238 mse_neg=1.093356 mse_gap=1.041117 pred_norm=19.4041 pred_std=0.9733 pred_abs=0.7748 tgt_std=1.0005 tgt_abs=0.7979 cos=0.0020 neg_dist=13.9837
+[GC-DIAG step=25600] mse_pos=0.051543 mse_neg=1.083539 mse_gap=1.031997 pred_norm=19.4245 pred_std=0.9742 pred_abs=0.7753 tgt_std=1.0008 tgt_abs=0.7983 cos=0.0004 neg_dist=14.0121
+[GC-DIAG step=25700] mse_pos=0.047224 mse_neg=1.087257 mse_gap=1.040032 pred_norm=19.4542 pred_std=0.9753 pred_abs=0.7765 tgt_std=0.9987 tgt_abs=0.7967 cos=-0.0003 neg_dist=14.2925
+[GC-DIAG step=25800] mse_pos=0.050994 mse_neg=1.098791 mse_gap=1.047797 pred_norm=19.3922 pred_std=0.9726 pred_abs=0.7740 tgt_std=0.9991 tgt_abs=0.7974 cos=0.0011 neg_dist=14.0130
+[GC-DIAG step=25900] mse_pos=0.050160 mse_neg=1.098554 mse_gap=1.048394 pred_norm=19.4169 pred_std=0.9736 pred_abs=0.7752 tgt_std=0.9997 tgt_abs=0.7978 cos=0.0000 neg_dist=14.1121
+[GC-DIAG step=26000] mse_pos=0.047650 mse_neg=1.079028 mse_gap=1.031377 pred_norm=19.4606 pred_std=0.9755 pred_abs=0.7767 tgt_std=1.0006 tgt_abs=0.7987 cos=0.0006 neg_dist=14.2248
+Running Evaluation...
+Validation Result @ Iteration 26000; Milestone = 26 (Train)
+---------  ----------
+mse_error  0.00975073
+---------  ----------
+Validation Result @ Iteration 26000; Milestone = 26 (ID: Validation)
+---  ---------
+mse  0.0096677
+---  ---------
+[GC-DIAG step=26100] mse_pos=0.049384 mse_neg=1.105669 mse_gap=1.056285 pred_norm=19.4404 pred_std=0.9748 pred_abs=0.7757 tgt_std=0.9993 tgt_abs=0.7975 cos=0.0008 neg_dist=14.1873
+[GC-DIAG step=26200] mse_pos=0.049534 mse_neg=1.086308 mse_gap=1.036775 pred_norm=19.4438 pred_std=0.9749 pred_abs=0.7759 tgt_std=0.9994 tgt_abs=0.7978 cos=-0.0011 neg_dist=13.9491
+[GC-DIAG step=26300] mse_pos=0.050265 mse_neg=1.097915 mse_gap=1.047649 pred_norm=19.4490 pred_std=0.9752 pred_abs=0.7761 tgt_std=1.0001 tgt_abs=0.7983 cos=-0.0002 neg_dist=13.9474
+[GC-DIAG step=26400] mse_pos=0.045283 mse_neg=1.079607 mse_gap=1.034324 pred_norm=19.4907 pred_std=0.9770 pred_abs=0.7778 tgt_std=1.0011 tgt_abs=0.7986 cos=-0.0002 neg_dist=14.2563
+[GC-DIAG step=26500] mse_pos=0.046518 mse_neg=1.083541 mse_gap=1.037023 pred_norm=19.4995 pred_std=0.9775 pred_abs=0.7792 tgt_std=0.9997 tgt_abs=0.7976 cos=-0.0006 neg_dist=14.2857
+[GC-DIAG step=26600] mse_pos=0.049912 mse_neg=1.085312 mse_gap=1.035400 pred_norm=19.4299 pred_std=0.9743 pred_abs=0.7752 tgt_std=1.0005 tgt_abs=0.7986 cos=-0.0004 neg_dist=14.0280
+[GC-DIAG step=26700] mse_pos=0.048851 mse_neg=1.083443 mse_gap=1.034592 pred_norm=19.4614 pred_std=0.9756 pred_abs=0.7767 tgt_std=1.0005 tgt_abs=0.7986 cos=-0.0000 neg_dist=14.1575
+[GC-DIAG step=26800] mse_pos=0.051154 mse_neg=1.094081 mse_gap=1.042927 pred_norm=19.4175 pred_std=0.9737 pred_abs=0.7753 tgt_std=0.9984 tgt_abs=0.7968 cos=-0.0002 neg_dist=13.9340
+[GC-DIAG step=26900] mse_pos=0.048914 mse_neg=1.085339 mse_gap=1.036426 pred_norm=19.4452 pred_std=0.9751 pred_abs=0.7765 tgt_std=1.0000 tgt_abs=0.7980 cos=0.0002 neg_dist=14.1495
+[GC-DIAG step=27000] mse_pos=0.051398 mse_neg=1.080244 mse_gap=1.028845 pred_norm=19.3991 pred_std=0.9729 pred_abs=0.7746 tgt_std=1.0008 tgt_abs=0.7985 cos=0.0017 neg_dist=13.9876
+Running Evaluation...
+Validation Result @ Iteration 27000; Milestone = 27 (Train)
+---------  ----------
+mse_error  0.00970134
+---------  ----------
+Validation Result @ Iteration 27000; Milestone = 27 (ID: Validation)
+---  ----------
+mse  0.00975847
+---  ----------
+[GC-DIAG step=27100] mse_pos=0.051007 mse_neg=1.083782 mse_gap=1.032775 pred_norm=19.4298 pred_std=0.9744 pred_abs=0.7754 tgt_std=1.0003 tgt_abs=0.7979 cos=0.0005 neg_dist=14.1265
+[GC-DIAG step=27200] mse_pos=0.050419 mse_neg=1.087297 mse_gap=1.036878 pred_norm=19.4376 pred_std=0.9747 pred_abs=0.7759 tgt_std=1.0004 tgt_abs=0.7981 cos=-0.0005 neg_dist=14.0400
+[GC-DIAG step=27300] mse_pos=0.048840 mse_neg=1.092174 mse_gap=1.043334 pred_norm=19.4425 pred_std=0.9748 pred_abs=0.7761 tgt_std=0.9995 tgt_abs=0.7972 cos=0.0013 neg_dist=14.1884
+[GC-DIAG step=27400] mse_pos=0.051094 mse_neg=1.087045 mse_gap=1.035951 pred_norm=19.4020 pred_std=0.9729 pred_abs=0.7742 tgt_std=1.0009 tgt_abs=0.7986 cos=-0.0020 neg_dist=14.1442
+[GC-DIAG step=27500] mse_pos=0.049495 mse_neg=1.082548 mse_gap=1.033054 pred_norm=19.4415 pred_std=0.9747 pred_abs=0.7754 tgt_std=1.0017 tgt_abs=0.7992 cos=0.0006 neg_dist=14.1136
+[GC-DIAG step=27600] mse_pos=0.051761 mse_neg=1.086705 mse_gap=1.034943 pred_norm=19.3881 pred_std=0.9723 pred_abs=0.7737 tgt_std=1.0007 tgt_abs=0.7982 cos=-0.0015 neg_dist=14.0205
+[GC-DIAG step=27700] mse_pos=0.050026 mse_neg=1.687967 mse_gap=1.637942 pred_norm=19.4503 pred_std=0.9753 pred_abs=0.7764 tgt_std=1.0003 tgt_abs=0.7985 cos=-0.0011 neg_dist=17.2623
+[GC-DIAG step=27800] mse_pos=0.048941 mse_neg=1.094229 mse_gap=1.045288 pred_norm=19.4571 pred_std=0.9756 pred_abs=0.7769 tgt_std=1.0017 tgt_abs=0.7990 cos=0.0013 neg_dist=14.2521
+[GC-DIAG step=27900] mse_pos=0.054003 mse_neg=1.098651 mse_gap=1.044648 pred_norm=19.3778 pred_std=0.9719 pred_abs=0.7733 tgt_std=0.9999 tgt_abs=0.7977 cos=-0.0011 neg_dist=13.8304
+[GC-DIAG step=28000] mse_pos=0.048246 mse_neg=1.103816 mse_gap=1.055570 pred_norm=19.4667 pred_std=0.9760 pred_abs=0.7769 tgt_std=0.9984 tgt_abs=0.7967 cos=0.0012 neg_dist=14.3249
+Running Evaluation...
+Validation Result @ Iteration 28000; Milestone = 28 (Train)
+---------  ----------
+mse_error  0.00971154
+---------  ----------
+Validation Result @ Iteration 28000; Milestone = 28 (ID: Validation)
+---  ---------
+mse  0.0097295
+---  ---------
+[GC-DIAG step=28100] mse_pos=0.050436 mse_neg=1.086945 mse_gap=1.036510 pred_norm=19.4240 pred_std=0.9741 pred_abs=0.7755 tgt_std=0.9996 tgt_abs=0.7979 cos=-0.0025 neg_dist=14.1537
+[GC-DIAG step=28200] mse_pos=0.048600 mse_neg=1.086994 mse_gap=1.038394 pred_norm=19.4229 pred_std=0.9740 pred_abs=0.7753 tgt_std=1.0013 tgt_abs=0.7989 cos=0.0010 neg_dist=14.2440
+[GC-DIAG step=28300] mse_pos=0.051583 mse_neg=1.081070 mse_gap=1.029487 pred_norm=19.4051 pred_std=0.9731 pred_abs=0.7747 tgt_std=1.0011 tgt_abs=0.7987 cos=0.0021 neg_dist=14.0403
+[GC-DIAG step=28400] mse_pos=0.051037 mse_neg=1.099330 mse_gap=1.048292 pred_norm=19.4465 pred_std=0.9752 pred_abs=0.7762 tgt_std=0.9996 tgt_abs=0.7976 cos=-0.0006 neg_dist=14.0950
+[GC-DIAG step=28500] mse_pos=0.049828 mse_neg=1.096657 mse_gap=1.046829 pred_norm=19.4143 pred_std=0.9735 pred_abs=0.7748 tgt_std=0.9998 tgt_abs=0.7979 cos=0.0011 neg_dist=14.2011
+[GC-DIAG step=28600] mse_pos=0.049229 mse_neg=1.090784 mse_gap=1.041555 pred_norm=19.4730 pred_std=0.9763 pred_abs=0.7773 tgt_std=0.9992 tgt_abs=0.7967 cos=-0.0012 neg_dist=14.0504
+[GC-DIAG step=28700] mse_pos=0.051568 mse_neg=1.086123 mse_gap=1.034555 pred_norm=19.3540 pred_std=0.9707 pred_abs=0.7722 tgt_std=0.9992 tgt_abs=0.7973 cos=-0.0001 neg_dist=13.9729
+[GC-DIAG step=28800] mse_pos=0.048541 mse_neg=1.089850 mse_gap=1.041309 pred_norm=19.4433 pred_std=0.9748 pred_abs=0.7760 tgt_std=0.9985 tgt_abs=0.7967 cos=0.0008 neg_dist=14.1983
+[GC-DIAG step=28900] mse_pos=0.051237 mse_neg=1.091721 mse_gap=1.040484 pred_norm=19.4049 pred_std=0.9731 pred_abs=0.7746 tgt_std=1.0003 tgt_abs=0.7983 cos=-0.0006 neg_dist=14.0190
+[GC-DIAG step=29000] mse_pos=0.047954 mse_neg=1.091442 mse_gap=1.043488 pred_norm=19.4420 pred_std=0.9747 pred_abs=0.7759 tgt_std=0.9994 tgt_abs=0.7973 cos=-0.0007 neg_dist=14.2364
+Running Evaluation...
+Validation Result @ Iteration 29000; Milestone = 29 (Train)
+---------  ----------
+mse_error  0.00963913
+---------  ----------
+Validation Result @ Iteration 29000; Milestone = 29 (ID: Validation)
+---  ----------
+mse  0.00968789
+---  ----------
+[GC-DIAG step=29100] mse_pos=0.048916 mse_neg=1.089481 mse_gap=1.040565 pred_norm=19.3810 pred_std=0.9719 pred_abs=0.7737 tgt_std=0.9999 tgt_abs=0.7977 cos=-0.0010 neg_dist=14.3248
+[GC-DIAG step=29200] mse_pos=0.046765 mse_neg=1.694099 mse_gap=1.647333 pred_norm=19.4483 pred_std=0.9749 pred_abs=0.7758 tgt_std=1.0016 tgt_abs=0.7984 cos=-0.0020 neg_dist=17.5564
+[GC-DIAG step=29300] mse_pos=0.050493 mse_neg=1.088623 mse_gap=1.038129 pred_norm=19.4101 pred_std=0.9733 pred_abs=0.7745 tgt_std=1.0007 tgt_abs=0.7983 cos=0.0014 neg_dist=14.2063
+[GC-DIAG step=29400] mse_pos=0.049003 mse_neg=1.087272 mse_gap=1.038269 pred_norm=19.4012 pred_std=0.9729 pred_abs=0.7742 tgt_std=1.0021 tgt_abs=0.7994 cos=0.0005 neg_dist=14.2260
+[GC-DIAG step=29500] mse_pos=0.049891 mse_neg=1.080452 mse_gap=1.030561 pred_norm=19.4086 pred_std=0.9732 pred_abs=0.7748 tgt_std=1.0003 tgt_abs=0.7981 cos=-0.0002 neg_dist=14.1409
+[GC-DIAG step=29600] mse_pos=0.049017 mse_neg=1.091173 mse_gap=1.042157 pred_norm=19.4232 pred_std=0.9737 pred_abs=0.7755 tgt_std=1.0017 tgt_abs=0.7989 cos=0.0012 neg_dist=14.0455
+[GC-DIAG step=29700] mse_pos=0.053402 mse_neg=1.079047 mse_gap=1.025645 pred_norm=19.3291 pred_std=0.9697 pred_abs=0.7710 tgt_std=1.0002 tgt_abs=0.7982 cos=-0.0008 neg_dist=13.9559
+[GC-DIAG step=29800] mse_pos=0.048836 mse_neg=1.081678 mse_gap=1.032842 pred_norm=19.4455 pred_std=0.9749 pred_abs=0.7762 tgt_std=1.0003 tgt_abs=0.7981 cos=0.0014 neg_dist=14.0821
+[GC-DIAG step=29900] mse_pos=0.050557 mse_neg=1.082246 mse_gap=1.031689 pred_norm=19.4089 pred_std=0.9734 pred_abs=0.7745 tgt_std=1.0003 tgt_abs=0.7983 cos=0.0000 neg_dist=14.0788
+[GC-DIAG step=30000] mse_pos=0.050097 mse_neg=1.096432 mse_gap=1.046335 pred_norm=19.4218 pred_std=0.9738 pred_abs=0.7755 tgt_std=0.9989 tgt_abs=0.7972 cos=-0.0002 neg_dist=14.0427
+Running Evaluation...
+Validation Result @ Iteration 30000; Milestone = 30 (Train)
+---------  ---------
+mse_error  0.0097252
+---------  ---------
+Validation Result @ Iteration 30000; Milestone = 30 (ID: Validation)
+---  ----------
+mse  0.00970215
+---  ----------
+[GC-DIAG step=30100] mse_pos=0.047677 mse_neg=1.088422 mse_gap=1.040745 pred_norm=19.4355 pred_std=0.9745 pred_abs=0.7755 tgt_std=0.9993 tgt_abs=0.7971 cos=-0.0011 neg_dist=14.3063
+[GC-DIAG step=30200] mse_pos=0.048790 mse_neg=1.091497 mse_gap=1.042707 pred_norm=19.4402 pred_std=0.9747 pred_abs=0.7756 tgt_std=0.9993 tgt_abs=0.7976 cos=-0.0012 neg_dist=14.1401
+[GC-DIAG step=30300] mse_pos=0.048170 mse_neg=1.097923 mse_gap=1.049753 pred_norm=19.4724 pred_std=0.9763 pred_abs=0.7774 tgt_std=1.0002 tgt_abs=0.7979 cos=-0.0020 neg_dist=14.0701
+[GC-DIAG step=30400] mse_pos=0.051572 mse_neg=1.085050 mse_gap=1.033478 pred_norm=19.3975 pred_std=0.9728 pred_abs=0.7741 tgt_std=1.0002 tgt_abs=0.7979 cos=-0.0017 neg_dist=14.0666
+[GC-DIAG step=30500] mse_pos=0.049879 mse_neg=1.087058 mse_gap=1.037179 pred_norm=19.4203 pred_std=0.9738 pred_abs=0.7750 tgt_std=1.0005 tgt_abs=0.7981 cos=0.0005 neg_dist=14.1713
+[GC-DIAG step=30600] mse_pos=0.047390 mse_neg=1.086220 mse_gap=1.038830 pred_norm=19.4676 pred_std=0.9762 pred_abs=0.7773 tgt_std=0.9988 tgt_abs=0.7966 cos=0.0003 neg_dist=14.2725
+[GC-DIAG step=30700] mse_pos=0.050970 mse_neg=1.090880 mse_gap=1.039911 pred_norm=19.3912 pred_std=0.9724 pred_abs=0.7737 tgt_std=1.0003 tgt_abs=0.7982 cos=0.0011 neg_dist=13.9800
+[GC-DIAG step=30800] mse_pos=0.049305 mse_neg=1.087568 mse_gap=1.038263 pred_norm=19.4341 pred_std=0.9744 pred_abs=0.7754 tgt_std=0.9997 tgt_abs=0.7977 cos=-0.0023 neg_dist=14.0027
+[GC-DIAG step=30900] mse_pos=0.053628 mse_neg=1.085060 mse_gap=1.031433 pred_norm=19.3600 pred_std=0.9711 pred_abs=0.7725 tgt_std=0.9995 tgt_abs=0.7974 cos=-0.0011 neg_dist=13.9420
+[GC-DIAG step=31000] mse_pos=0.047840 mse_neg=1.086765 mse_gap=1.038925 pred_norm=19.4547 pred_std=0.9753 pred_abs=0.7771 tgt_std=0.9997 tgt_abs=0.7976 cos=0.0009 neg_dist=14.2799
+Running Evaluation...
+Validation Result @ Iteration 31000; Milestone = 31 (Train)
+---------  ----------
+mse_error  0.00970388
+---------  ----------
+Validation Result @ Iteration 31000; Milestone = 31 (ID: Validation)
+---  ----------
+mse  0.00971221
+---  ----------
+[GC-DIAG step=31100] mse_pos=0.047593 mse_neg=1.090353 mse_gap=1.042759 pred_norm=19.4788 pred_std=0.9765 pred_abs=0.7779 tgt_std=0.9997 tgt_abs=0.7980 cos=-0.0013 neg_dist=14.1251
+[GC-DIAG step=31200] mse_pos=0.048643 mse_neg=1.100534 mse_gap=1.051891 pred_norm=19.4227 pred_std=0.9739 pred_abs=0.7751 tgt_std=1.0002 tgt_abs=0.7983 cos=0.0005 neg_dist=14.3331
+[GC-DIAG step=31300] mse_pos=0.049748 mse_neg=1.098593 mse_gap=1.048845 pred_norm=19.4400 pred_std=0.9747 pred_abs=0.7761 tgt_std=1.0007 tgt_abs=0.7985 cos=-0.0009 neg_dist=14.0464
+[GC-DIAG step=31400] mse_pos=0.049513 mse_neg=1.087568 mse_gap=1.038054 pred_norm=19.4177 pred_std=0.9736 pred_abs=0.7748 tgt_std=0.9996 tgt_abs=0.7973 cos=-0.0014 neg_dist=14.1102
+[GC-DIAG step=31500] mse_pos=0.048551 mse_neg=1.684664 mse_gap=1.636114 pred_norm=19.4313 pred_std=0.9743 pred_abs=0.7756 tgt_std=0.9994 tgt_abs=0.7974 cos=-0.0021 neg_dist=17.3990
+[GC-DIAG step=31600] mse_pos=0.049137 mse_neg=1.087366 mse_gap=1.038229 pred_norm=19.4283 pred_std=0.9741 pred_abs=0.7755 tgt_std=1.0001 tgt_abs=0.7980 cos=-0.0009 neg_dist=14.1633
+[GC-DIAG step=31700] mse_pos=0.050023 mse_neg=1.087289 mse_gap=1.037266 pred_norm=19.4425 pred_std=0.9748 pred_abs=0.7760 tgt_std=0.9992 tgt_abs=0.7974 cos=0.0004 neg_dist=13.9837
+[GC-DIAG step=31800] mse_pos=0.051972 mse_neg=1.086213 mse_gap=1.034241 pred_norm=19.3957 pred_std=0.9727 pred_abs=0.7742 tgt_std=0.9999 tgt_abs=0.7976 cos=-0.0018 neg_dist=13.9370
+[GC-DIAG step=31900] mse_pos=0.049526 mse_neg=1.694757 mse_gap=1.645232 pred_norm=19.4509 pred_std=0.9754 pred_abs=0.7765 tgt_std=0.9999 tgt_abs=0.7977 cos=0.0010 neg_dist=17.5087
+[GC-DIAG step=32000] mse_pos=0.047856 mse_neg=1.099362 mse_gap=1.051506 pred_norm=19.4893 pred_std=0.9770 pred_abs=0.7780 tgt_std=1.0007 tgt_abs=0.7986 cos=0.0011 neg_dist=14.1426
+Running Evaluation...
+Validation Result @ Iteration 32000; Milestone = 32 (Train)
+---------  ----------
+mse_error  0.00967663
+---------  ----------
+Validation Result @ Iteration 32000; Milestone = 32 (ID: Validation)
+---  ----------
+mse  0.00972043
+---  ----------
+[GC-DIAG step=32100] mse_pos=0.051425 mse_neg=1.084926 mse_gap=1.033501 pred_norm=19.3877 pred_std=0.9724 pred_abs=0.7734 tgt_std=0.9983 tgt_abs=0.7964 cos=0.0009 neg_dist=13.9222
+[GC-DIAG step=32200] mse_pos=0.051336 mse_neg=1.097030 mse_gap=1.045694 pred_norm=19.4178 pred_std=0.9739 pred_abs=0.7750 tgt_std=1.0016 tgt_abs=0.7996 cos=-0.0006 neg_dist=14.1007
+[GC-DIAG step=32300] mse_pos=0.049680 mse_neg=1.096610 mse_gap=1.046930 pred_norm=19.4359 pred_std=0.9745 pred_abs=0.7758 tgt_std=0.9996 tgt_abs=0.7980 cos=0.0000 neg_dist=14.0384
+[GC-DIAG step=32400] mse_pos=0.050316 mse_neg=1.080521 mse_gap=1.030205 pred_norm=19.4143 pred_std=0.9733 pred_abs=0.7748 tgt_std=1.0006 tgt_abs=0.7984 cos=0.0000 neg_dist=13.9335
+[GC-DIAG step=32500] mse_pos=0.052950 mse_neg=1.094794 mse_gap=1.041844 pred_norm=19.3769 pred_std=0.9717 pred_abs=0.7729 tgt_std=1.0001 tgt_abs=0.7982 cos=-0.0013 neg_dist=13.7133
+[GC-DIAG step=32600] mse_pos=0.050508 mse_neg=1.103497 mse_gap=1.052988 pred_norm=19.4212 pred_std=0.9739 pred_abs=0.7747 tgt_std=1.0015 tgt_abs=0.7993 cos=-0.0016 neg_dist=14.0244
+[GC-DIAG step=32700] mse_pos=0.046242 mse_neg=1.086386 mse_gap=1.040144 pred_norm=19.5329 pred_std=0.9790 pred_abs=0.7794 tgt_std=0.9995 tgt_abs=0.7975 cos=0.0011 neg_dist=14.2634
+[GC-DIAG step=32800] mse_pos=0.049318 mse_neg=1.109166 mse_gap=1.059848 pred_norm=19.4330 pred_std=0.9745 pred_abs=0.7756 tgt_std=1.0001 tgt_abs=0.7978 cos=0.0003 neg_dist=14.2979
+[GC-DIAG step=32900] mse_pos=0.048033 mse_neg=1.092642 mse_gap=1.044609 pred_norm=19.4729 pred_std=0.9762 pred_abs=0.7772 tgt_std=1.0002 tgt_abs=0.7982 cos=-0.0008 neg_dist=14.1425
+[GC-DIAG step=33000] mse_pos=0.048857 mse_neg=1.090978 mse_gap=1.042121 pred_norm=19.4374 pred_std=0.9746 pred_abs=0.7756 tgt_std=0.9999 tgt_abs=0.7975 cos=-0.0001 neg_dist=14.2102
+Running Evaluation...
+Validation Result @ Iteration 33000; Milestone = 33 (Train)
+---------  ---------
+mse_error  0.0097026
+---------  ---------
+Validation Result @ Iteration 33000; Milestone = 33 (ID: Validation)
+---  ---------
+mse  0.0097046
+---  ---------
+[GC-DIAG step=33100] mse_pos=0.049282 mse_neg=1.081162 mse_gap=1.031880 pred_norm=19.4126 pred_std=0.9733 pred_abs=0.7748 tgt_std=1.0006 tgt_abs=0.7984 cos=-0.0005 neg_dist=14.1944
+[GC-DIAG step=33200] mse_pos=0.047411 mse_neg=1.084892 mse_gap=1.037481 pred_norm=19.4625 pred_std=0.9757 pred_abs=0.7765 tgt_std=0.9996 tgt_abs=0.7974 cos=-0.0004 neg_dist=14.2273
+[GC-DIAG step=33300] mse_pos=0.049419 mse_neg=1.104116 mse_gap=1.054697 pred_norm=19.4216 pred_std=0.9739 pred_abs=0.7752 tgt_std=1.0001 tgt_abs=0.7981 cos=0.0000 neg_dist=14.3582
+[GC-DIAG step=33400] mse_pos=0.050337 mse_neg=1.080250 mse_gap=1.029912 pred_norm=19.4128 pred_std=0.9734 pred_abs=0.7746 tgt_std=1.0009 tgt_abs=0.7987 cos=0.0002 neg_dist=14.0232
+[GC-DIAG step=33500] mse_pos=0.049539 mse_neg=1.087919 mse_gap=1.038380 pred_norm=19.4079 pred_std=0.9732 pred_abs=0.7746 tgt_std=1.0001 tgt_abs=0.7981 cos=0.0005 neg_dist=14.0648
+[GC-DIAG step=33600] mse_pos=0.049484 mse_neg=1.101969 mse_gap=1.052486 pred_norm=19.4430 pred_std=0.9749 pred_abs=0.7760 tgt_std=1.0003 tgt_abs=0.7979 cos=-0.0009 neg_dist=14.3355
+[GC-DIAG step=33700] mse_pos=0.053090 mse_neg=1.084506 mse_gap=1.031416 pred_norm=19.3625 pred_std=0.9712 pred_abs=0.7724 tgt_std=0.9998 tgt_abs=0.7977 cos=0.0003 neg_dist=13.9499
+[GC-DIAG step=33800] mse_pos=0.047918 mse_neg=1.088526 mse_gap=1.040608 pred_norm=19.4689 pred_std=0.9761 pred_abs=0.7771 tgt_std=1.0002 tgt_abs=0.7979 cos=0.0006 neg_dist=14.3891
+[GC-DIAG step=33900] mse_pos=0.050231 mse_neg=1.091695 mse_gap=1.041464 pred_norm=19.4137 pred_std=0.9736 pred_abs=0.7744 tgt_std=0.9996 tgt_abs=0.7974 cos=0.0003 neg_dist=14.0600
+[GC-DIAG step=34000] mse_pos=0.050571 mse_neg=1.086607 mse_gap=1.036037 pred_norm=19.4043 pred_std=0.9730 pred_abs=0.7742 tgt_std=0.9996 tgt_abs=0.7980 cos=-0.0001 neg_dist=13.9835
+Running Evaluation...
+Validation Result @ Iteration 34000; Milestone = 34 (Train)
+---------  ---------
+mse_error  0.0097138
+---------  ---------
+Validation Result @ Iteration 34000; Milestone = 34 (ID: Validation)
+---  ----------
+mse  0.00972033
+---  ----------
+[GC-DIAG step=34100] mse_pos=0.049052 mse_neg=1.109112 mse_gap=1.060060 pred_norm=19.4409 pred_std=0.9749 pred_abs=0.7756 tgt_std=1.0003 tgt_abs=0.7984 cos=0.0003 neg_dist=14.2093
+[GC-DIAG step=34200] mse_pos=0.049484 mse_neg=1.103262 mse_gap=1.053778 pred_norm=19.4243 pred_std=0.9739 pred_abs=0.7748 tgt_std=0.9997 tgt_abs=0.7974 cos=-0.0000 neg_dist=14.1814
+[GC-DIAG step=34300] mse_pos=0.049998 mse_neg=1.090713 mse_gap=1.040715 pred_norm=19.4322 pred_std=0.9743 pred_abs=0.7760 tgt_std=1.0008 tgt_abs=0.7982 cos=0.0009 neg_dist=14.1298
+[GC-DIAG step=34400] mse_pos=0.048930 mse_neg=1.086375 mse_gap=1.037446 pred_norm=19.4788 pred_std=0.9766 pred_abs=0.7772 tgt_std=0.9997 tgt_abs=0.7978 cos=0.0013 neg_dist=14.0245
+[GC-DIAG step=34500] mse_pos=0.049433 mse_neg=1.089468 mse_gap=1.040035 pred_norm=19.4073 pred_std=0.9730 pred_abs=0.7744 tgt_std=1.0005 tgt_abs=0.7981 cos=-0.0001 neg_dist=14.1088
+[GC-DIAG step=34600] mse_pos=0.049974 mse_neg=1.087309 mse_gap=1.037335 pred_norm=19.3945 pred_std=0.9726 pred_abs=0.7739 tgt_std=0.9994 tgt_abs=0.7973 cos=-0.0005 neg_dist=14.0821
+[GC-DIAG step=34700] mse_pos=0.048728 mse_neg=1.694857 mse_gap=1.646129 pred_norm=19.4276 pred_std=0.9742 pred_abs=0.7751 tgt_std=1.0000 tgt_abs=0.7975 cos=0.0003 neg_dist=17.4435
+[GC-DIAG step=34800] mse_pos=0.050031 mse_neg=1.091371 mse_gap=1.041339 pred_norm=19.4304 pred_std=0.9743 pred_abs=0.7757 tgt_std=0.9993 tgt_abs=0.7973 cos=-0.0003 neg_dist=14.1133
+[GC-DIAG step=34900] mse_pos=0.049118 mse_neg=1.091314 mse_gap=1.042196 pred_norm=19.4359 pred_std=0.9745 pred_abs=0.7755 tgt_std=0.9995 tgt_abs=0.7975 cos=0.0002 neg_dist=14.1519
+[GC-DIAG step=35000] mse_pos=0.053268 mse_neg=1.672892 mse_gap=1.619624 pred_norm=19.3504 pred_std=0.9705 pred_abs=0.7725 tgt_std=1.0003 tgt_abs=0.7981 cos=-0.0016 neg_dist=17.1711
+Running Evaluation...
+Validation Result @ Iteration 35000; Milestone = 35 (Train)
+---------  ---------
+mse_error  0.0097133
+---------  ---------
+Validation Result @ Iteration 35000; Milestone = 35 (ID: Validation)
+---  ----------
+mse  0.00969295
+---  ----------
+[GC-DIAG step=35100] mse_pos=0.049529 mse_neg=1.105336 mse_gap=1.055807 pred_norm=19.4326 pred_std=0.9743 pred_abs=0.7755 tgt_std=1.0007 tgt_abs=0.7984 cos=-0.0012 neg_dist=14.2846
+[GC-DIAG step=35200] mse_pos=0.049664 mse_neg=1.103086 mse_gap=1.053422 pred_norm=19.4279 pred_std=0.9741 pred_abs=0.7755 tgt_std=1.0002 tgt_abs=0.7980 cos=-0.0001 neg_dist=14.2454
+[GC-DIAG step=35300] mse_pos=0.051074 mse_neg=1.092561 mse_gap=1.041487 pred_norm=19.3793 pred_std=0.9719 pred_abs=0.7736 tgt_std=1.0010 tgt_abs=0.7988 cos=0.0000 neg_dist=13.9968
+[GC-DIAG step=35400] mse_pos=0.050184 mse_neg=1.102498 mse_gap=1.052314 pred_norm=19.4255 pred_std=0.9740 pred_abs=0.7755 tgt_std=0.9997 tgt_abs=0.7978 cos=0.0006 neg_dist=14.2420
+[GC-DIAG step=35500] mse_pos=0.049867 mse_neg=1.082024 mse_gap=1.032156 pred_norm=19.4101 pred_std=0.9733 pred_abs=0.7746 tgt_std=1.0001 tgt_abs=0.7979 cos=0.0003 neg_dist=14.1170
+[GC-DIAG step=35600] mse_pos=0.047011 mse_neg=1.106678 mse_gap=1.059667 pred_norm=19.4809 pred_std=0.9764 pred_abs=0.7779 tgt_std=1.0009 tgt_abs=0.7988 cos=-0.0018 neg_dist=14.3327
+[GC-DIAG step=35700] mse_pos=0.053328 mse_neg=1.091276 mse_gap=1.037948 pred_norm=19.3914 pred_std=0.9726 pred_abs=0.7741 tgt_std=0.9996 tgt_abs=0.7975 cos=-0.0007 neg_dist=13.8857
+[GC-DIAG step=35800] mse_pos=0.049522 mse_neg=1.087592 mse_gap=1.038070 pred_norm=19.4378 pred_std=0.9746 pred_abs=0.7756 tgt_std=0.9999 tgt_abs=0.7980 cos=-0.0017 neg_dist=14.2762
+[GC-DIAG step=35900] mse_pos=0.046260 mse_neg=1.094792 mse_gap=1.048532 pred_norm=19.4537 pred_std=0.9753 pred_abs=0.7766 tgt_std=1.0003 tgt_abs=0.7982 cos=-0.0010 neg_dist=14.3952
+[GC-DIAG step=36000] mse_pos=0.049862 mse_neg=1.087865 mse_gap=1.038004 pred_norm=19.4264 pred_std=0.9742 pred_abs=0.7753 tgt_std=1.0008 tgt_abs=0.7983 cos=-0.0009 neg_dist=13.9551
+Running Evaluation...
+Validation Result @ Iteration 36000; Milestone = 36 (Train)
+---------  ----------
+mse_error  0.00968735
+---------  ----------
+Validation Result @ Iteration 36000; Milestone = 36 (ID: Validation)
+---  ----------
+mse  0.00973371
+---  ----------
+[GC-DIAG step=36100] mse_pos=0.049733 mse_neg=1.092161 mse_gap=1.042428 pred_norm=19.4375 pred_std=0.9745 pred_abs=0.7757 tgt_std=1.0004 tgt_abs=0.7980 cos=-0.0020 neg_dist=14.0424
+[GC-DIAG step=36200] mse_pos=0.050652 mse_neg=1.105060 mse_gap=1.054408 pred_norm=19.4236 pred_std=0.9740 pred_abs=0.7754 tgt_std=0.9998 tgt_abs=0.7980 cos=-0.0002 neg_dist=14.0376
+[GC-DIAG step=36300] mse_pos=0.048329 mse_neg=1.083949 mse_gap=1.035619 pred_norm=19.4376 pred_std=0.9747 pred_abs=0.7759 tgt_std=0.9996 tgt_abs=0.7977 cos=-0.0022 neg_dist=14.3572
+[GC-DIAG step=36400] mse_pos=0.051550 mse_neg=1.109884 mse_gap=1.058334 pred_norm=19.3995 pred_std=0.9729 pred_abs=0.7736 tgt_std=1.0001 tgt_abs=0.7978 cos=-0.0006 neg_dist=13.9884
+[GC-DIAG step=36500] mse_pos=0.051143 mse_neg=1.085998 mse_gap=1.034856 pred_norm=19.3897 pred_std=0.9725 pred_abs=0.7742 tgt_std=1.0005 tgt_abs=0.7983 cos=0.0010 neg_dist=14.0323
+[GC-DIAG step=36600] mse_pos=0.052261 mse_neg=1.091826 mse_gap=1.039565 pred_norm=19.3535 pred_std=0.9706 pred_abs=0.7722 tgt_std=0.9998 tgt_abs=0.7976 cos=-0.0006 neg_dist=14.0364
+[GC-DIAG step=36700] mse_pos=0.051117 mse_neg=1.084420 mse_gap=1.033303 pred_norm=19.3914 pred_std=0.9724 pred_abs=0.7738 tgt_std=1.0012 tgt_abs=0.7991 cos=0.0017 neg_dist=14.2034
+[GC-DIAG step=36800] mse_pos=0.050496 mse_neg=1.086892 mse_gap=1.036396 pred_norm=19.4170 pred_std=0.9737 pred_abs=0.7750 tgt_std=0.9993 tgt_abs=0.7974 cos=-0.0010 neg_dist=14.1424
+[GC-DIAG step=36900] mse_pos=0.049802 mse_neg=1.103342 mse_gap=1.053539 pred_norm=19.3836 pred_std=0.9720 pred_abs=0.7739 tgt_std=0.9991 tgt_abs=0.7973 cos=-0.0024 neg_dist=14.1304
+[GC-DIAG step=37000] mse_pos=0.050612 mse_neg=1.106547 mse_gap=1.055936 pred_norm=19.4148 pred_std=0.9736 pred_abs=0.7749 tgt_std=1.0005 tgt_abs=0.7982 cos=-0.0002 neg_dist=14.2917
+Running Evaluation...
+Validation Result @ Iteration 37000; Milestone = 37 (Train)
+---------  ----------
+mse_error  0.00968772
+---------  ----------
+Validation Result @ Iteration 37000; Milestone = 37 (ID: Validation)
+---  ----------
+mse  0.00975995
+---  ----------
+[GC-DIAG step=37100] mse_pos=0.048934 mse_neg=1.094184 mse_gap=1.045250 pred_norm=19.4470 pred_std=0.9751 pred_abs=0.7758 tgt_std=0.9985 tgt_abs=0.7961 cos=0.0009 neg_dist=14.1959
+[GC-DIAG step=37200] mse_pos=0.051634 mse_neg=1.087070 mse_gap=1.035436 pred_norm=19.3874 pred_std=0.9723 pred_abs=0.7737 tgt_std=1.0001 tgt_abs=0.7982 cos=-0.0003 neg_dist=14.0271
+[GC-DIAG step=37300] mse_pos=0.049814 mse_neg=1.086030 mse_gap=1.036216 pred_norm=19.4162 pred_std=0.9736 pred_abs=0.7746 tgt_std=0.9992 tgt_abs=0.7972 cos=-0.0004 neg_dist=14.2388
+[GC-DIAG step=37400] mse_pos=0.051164 mse_neg=1.085880 mse_gap=1.034715 pred_norm=19.4053 pred_std=0.9731 pred_abs=0.7741 tgt_std=0.9996 tgt_abs=0.7973 cos=0.0007 neg_dist=14.0007
+[GC-DIAG step=37500] mse_pos=0.052382 mse_neg=1.083586 mse_gap=1.031204 pred_norm=19.3714 pred_std=0.9715 pred_abs=0.7729 tgt_std=0.9985 tgt_abs=0.7966 cos=0.0017 neg_dist=13.9581
+[GC-DIAG step=37600] mse_pos=0.049504 mse_neg=1.108475 mse_gap=1.058971 pred_norm=19.4250 pred_std=0.9740 pred_abs=0.7754 tgt_std=1.0004 tgt_abs=0.7979 cos=0.0011 neg_dist=14.1093
+[GC-DIAG step=37700] mse_pos=0.049308 mse_neg=1.095642 mse_gap=1.046334 pred_norm=19.4448 pred_std=0.9749 pred_abs=0.7764 tgt_std=0.9991 tgt_abs=0.7970 cos=-0.0003 neg_dist=14.0840
+[GC-DIAG step=37800] mse_pos=0.048891 mse_neg=1.087147 mse_gap=1.038256 pred_norm=19.4180 pred_std=0.9735 pred_abs=0.7748 tgt_std=1.0011 tgt_abs=0.7988 cos=0.0002 neg_dist=14.1994
+[GC-DIAG step=37900] mse_pos=0.048242 mse_neg=1.077842 mse_gap=1.029601 pred_norm=19.4268 pred_std=0.9741 pred_abs=0.7756 tgt_std=1.0008 tgt_abs=0.7983 cos=0.0004 neg_dist=14.2064
+[GC-DIAG step=38000] mse_pos=0.049516 mse_neg=1.099057 mse_gap=1.049541 pred_norm=19.4050 pred_std=0.9731 pred_abs=0.7744 tgt_std=1.0009 tgt_abs=0.7987 cos=-0.0002 neg_dist=14.2281
+Running Evaluation...
+Validation Result @ Iteration 38000; Milestone = 38 (Train)
+---------  ----------
+mse_error  0.00969355
+---------  ----------
+Validation Result @ Iteration 38000; Milestone = 38 (ID: Validation)
+---  --------
+mse  0.009761
+---  --------
+[GC-DIAG step=38100] mse_pos=0.048839 mse_neg=1.084434 mse_gap=1.035595 pred_norm=19.4427 pred_std=0.9749 pred_abs=0.7761 tgt_std=0.9995 tgt_abs=0.7974 cos=0.0002 neg_dist=14.2100
+[GC-DIAG step=38200] mse_pos=0.049495 mse_neg=1.092197 mse_gap=1.042702 pred_norm=19.4053 pred_std=0.9730 pred_abs=0.7741 tgt_std=1.0003 tgt_abs=0.7981 cos=-0.0006 neg_dist=14.1118
+[GC-DIAG step=38300] mse_pos=0.048113 mse_neg=1.083584 mse_gap=1.035472 pred_norm=19.4685 pred_std=0.9760 pred_abs=0.7769 tgt_std=1.0006 tgt_abs=0.7982 cos=0.0006 neg_dist=14.1794
+[GC-DIAG step=38400] mse_pos=0.050931 mse_neg=1.086197 mse_gap=1.035266 pred_norm=19.4093 pred_std=0.9733 pred_abs=0.7748 tgt_std=0.9994 tgt_abs=0.7973 cos=-0.0009 neg_dist=13.9075
+[GC-DIAG step=38500] mse_pos=0.052162 mse_neg=1.679104 mse_gap=1.626943 pred_norm=19.3969 pred_std=0.9728 pred_abs=0.7737 tgt_std=0.9989 tgt_abs=0.7971 cos=-0.0009 neg_dist=17.2962
+[GC-DIAG step=38600] mse_pos=0.050654 mse_neg=1.096931 mse_gap=1.046277 pred_norm=19.4404 pred_std=0.9749 pred_abs=0.7759 tgt_std=0.9993 tgt_abs=0.7972 cos=-0.0001 neg_dist=14.0358
+[GC-DIAG step=38700] mse_pos=0.050195 mse_neg=1.089119 mse_gap=1.038924 pred_norm=19.3954 pred_std=0.9726 pred_abs=0.7741 tgt_std=0.9996 tgt_abs=0.7971 cos=-0.0002 neg_dist=14.1074
+[GC-DIAG step=38800] mse_pos=0.050685 mse_neg=1.096475 mse_gap=1.045790 pred_norm=19.4045 pred_std=0.9731 pred_abs=0.7746 tgt_std=1.0008 tgt_abs=0.7985 cos=0.0022 neg_dist=14.0186
+[GC-DIAG step=38900] mse_pos=0.050597 mse_neg=1.090705 mse_gap=1.040108 pred_norm=19.4221 pred_std=0.9740 pred_abs=0.7750 tgt_std=0.9997 tgt_abs=0.7977 cos=0.0005 neg_dist=14.1037
+[GC-DIAG step=39000] mse_pos=0.050934 mse_neg=1.082344 mse_gap=1.031410 pred_norm=19.3893 pred_std=0.9724 pred_abs=0.7735 tgt_std=0.9998 tgt_abs=0.7976 cos=-0.0006 neg_dist=14.0688
+Running Evaluation...
+Validation Result @ Iteration 39000; Milestone = 39 (Train)
+---------  ----------
+mse_error  0.00971335
+---------  ----------
+Validation Result @ Iteration 39000; Milestone = 39 (ID: Validation)
+---  ----------
+mse  0.00970985
+---  ----------
+[GC-DIAG step=39100] mse_pos=0.048530 mse_neg=1.089622 mse_gap=1.041092 pred_norm=19.4577 pred_std=0.9755 pred_abs=0.7767 tgt_std=1.0009 tgt_abs=0.7986 cos=0.0010 neg_dist=14.2050
+[GC-DIAG step=39200] mse_pos=0.050160 mse_neg=1.089501 mse_gap=1.039341 pred_norm=19.3883 pred_std=0.9724 pred_abs=0.7738 tgt_std=1.0004 tgt_abs=0.7982 cos=0.0018 neg_dist=14.2915
+[GC-DIAG step=39300] mse_pos=0.049978 mse_neg=1.096209 mse_gap=1.046231 pred_norm=19.4200 pred_std=0.9738 pred_abs=0.7753 tgt_std=1.0007 tgt_abs=0.7982 cos=0.0012 neg_dist=14.1760
+[GC-DIAG step=39400] mse_pos=0.048932 mse_neg=1.099369 mse_gap=1.050437 pred_norm=19.4342 pred_std=0.9744 pred_abs=0.7755 tgt_std=1.0000 tgt_abs=0.7980 cos=0.0004 neg_dist=14.1289
+[GC-DIAG step=39500] mse_pos=0.049405 mse_neg=1.094996 mse_gap=1.045591 pred_norm=19.4255 pred_std=0.9740 pred_abs=0.7755 tgt_std=0.9991 tgt_abs=0.7978 cos=-0.0004 neg_dist=14.1862
+[GC-DIAG step=39600] mse_pos=0.048342 mse_neg=1.077843 mse_gap=1.029501 pred_norm=19.4637 pred_std=0.9758 pred_abs=0.7767 tgt_std=0.9997 tgt_abs=0.7976 cos=0.0000 neg_dist=14.1273
+[GC-DIAG step=39700] mse_pos=0.050246 mse_neg=1.088734 mse_gap=1.038488 pred_norm=19.4028 pred_std=0.9729 pred_abs=0.7744 tgt_std=0.9993 tgt_abs=0.7970 cos=0.0004 neg_dist=14.1501
+[GC-DIAG step=39800] mse_pos=0.049105 mse_neg=1.085052 mse_gap=1.035946 pred_norm=19.4344 pred_std=0.9744 pred_abs=0.7755 tgt_std=1.0007 tgt_abs=0.7981 cos=0.0004 neg_dist=14.1016
+[GC-DIAG step=39900] mse_pos=0.053376 mse_neg=1.087828 mse_gap=1.034452 pred_norm=19.3555 pred_std=0.9709 pred_abs=0.7729 tgt_std=1.0011 tgt_abs=0.7990 cos=0.0008 neg_dist=13.8567
+[GC-DIAG step=40000] mse_pos=0.050178 mse_neg=1.101745 mse_gap=1.051567 pred_norm=19.4147 pred_std=0.9736 pred_abs=0.7749 tgt_std=1.0009 tgt_abs=0.7984 cos=0.0022 neg_dist=14.1633
+Running Evaluation...
+Validation Result @ Iteration 40000; Milestone = 40 (Train)
+---------  ----------
+mse_error  0.00975209
+---------  ----------
+Validation Result @ Iteration 40000; Milestone = 40 (ID: Validation)
+---  ----------
+mse  0.00974874
+---  ----------
+[GC-DIAG step=40100] mse_pos=0.046613 mse_neg=1.095753 mse_gap=1.049140 pred_norm=19.5032 pred_std=0.9776 pred_abs=0.7786 tgt_std=0.9988 tgt_abs=0.7967 cos=-0.0017 neg_dist=14.1870
+[GC-DIAG step=40200] mse_pos=0.048857 mse_neg=1.089404 mse_gap=1.040546 pred_norm=19.4468 pred_std=0.9750 pred_abs=0.7761 tgt_std=1.0005 tgt_abs=0.7985 cos=0.0008 neg_dist=14.0690
+[GC-DIAG step=40300] mse_pos=0.048685 mse_neg=1.089506 mse_gap=1.040822 pred_norm=19.4228 pred_std=0.9739 pred_abs=0.7754 tgt_std=1.0005 tgt_abs=0.7984 cos=-0.0018 neg_dist=14.2658
+[GC-DIAG step=40400] mse_pos=0.049649 mse_neg=1.104846 mse_gap=1.055197 pred_norm=19.4090 pred_std=0.9732 pred_abs=0.7745 tgt_std=0.9996 tgt_abs=0.7975 cos=0.0006 neg_dist=14.1784
+[GC-DIAG step=40500] mse_pos=0.050495 mse_neg=1.681453 mse_gap=1.630958 pred_norm=19.3839 pred_std=0.9720 pred_abs=0.7737 tgt_std=0.9988 tgt_abs=0.7972 cos=0.0017 neg_dist=17.2193
+[GC-DIAG step=40600] mse_pos=0.050278 mse_neg=1.099448 mse_gap=1.049170 pred_norm=19.4109 pred_std=0.9734 pred_abs=0.7746 tgt_std=0.9993 tgt_abs=0.7970 cos=0.0003 neg_dist=14.0155
+[GC-DIAG step=40700] mse_pos=0.048595 mse_neg=1.099959 mse_gap=1.051364 pred_norm=19.4669 pred_std=0.9761 pred_abs=0.7770 tgt_std=0.9998 tgt_abs=0.7980 cos=0.0018 neg_dist=14.1397
+[GC-DIAG step=40800] mse_pos=0.050437 mse_neg=1.082845 mse_gap=1.032408 pred_norm=19.3973 pred_std=0.9727 pred_abs=0.7745 tgt_std=0.9999 tgt_abs=0.7973 cos=-0.0019 neg_dist=14.1147
+[GC-DIAG step=40900] mse_pos=0.048076 mse_neg=1.685592 mse_gap=1.637516 pred_norm=19.4476 pred_std=0.9750 pred_abs=0.7761 tgt_std=1.0003 tgt_abs=0.7980 cos=0.0017 neg_dist=17.5618
+[GC-DIAG step=41000] mse_pos=0.048794 mse_neg=1.086171 mse_gap=1.037376 pred_norm=19.4329 pred_std=0.9744 pred_abs=0.7757 tgt_std=0.9991 tgt_abs=0.7969 cos=0.0006 neg_dist=14.2209
+Running Evaluation...
+Validation Result @ Iteration 41000; Milestone = 41 (Train)
+---------  ----------
+mse_error  0.00965996
+---------  ----------
+Validation Result @ Iteration 41000; Milestone = 41 (ID: Validation)
+---  --------
+mse  0.009724
+---  --------
+[GC-DIAG step=41100] mse_pos=0.049854 mse_neg=1.091006 mse_gap=1.041152 pred_norm=19.4078 pred_std=0.9732 pred_abs=0.7752 tgt_std=0.9998 tgt_abs=0.7975 cos=-0.0002 neg_dist=14.1370
+[GC-DIAG step=41200] mse_pos=0.044685 mse_neg=1.098906 mse_gap=1.054221 pred_norm=19.5129 pred_std=0.9780 pred_abs=0.7788 tgt_std=1.0003 tgt_abs=0.7981 cos=0.0008 neg_dist=14.5415
+[GC-DIAG step=41300] mse_pos=0.049981 mse_neg=1.090302 mse_gap=1.040321 pred_norm=19.4367 pred_std=0.9746 pred_abs=0.7761 tgt_std=1.0002 tgt_abs=0.7981 cos=-0.0005 neg_dist=14.0369
+[GC-DIAG step=41400] mse_pos=0.047741 mse_neg=1.096008 mse_gap=1.048267 pred_norm=19.4702 pred_std=0.9760 pred_abs=0.7770 tgt_std=0.9991 tgt_abs=0.7972 cos=0.0002 neg_dist=14.2700
+[GC-DIAG step=41500] mse_pos=0.049819 mse_neg=1.083917 mse_gap=1.034098 pred_norm=19.4039 pred_std=0.9731 pred_abs=0.7743 tgt_std=0.9992 tgt_abs=0.7971 cos=0.0007 neg_dist=14.0375
+[GC-DIAG step=41600] mse_pos=0.048043 mse_neg=1.090065 mse_gap=1.042021 pred_norm=19.4486 pred_std=0.9750 pred_abs=0.7764 tgt_std=1.0000 tgt_abs=0.7982 cos=-0.0015 neg_dist=14.2207
+[GC-DIAG step=41700] mse_pos=0.050889 mse_neg=1.084872 mse_gap=1.033983 pred_norm=19.4120 pred_std=0.9734 pred_abs=0.7747 tgt_std=0.9993 tgt_abs=0.7975 cos=0.0009 neg_dist=14.1776
+[GC-DIAG step=41800] mse_pos=0.050022 mse_neg=1.095832 mse_gap=1.045810 pred_norm=19.4198 pred_std=0.9737 pred_abs=0.7749 tgt_std=1.0001 tgt_abs=0.7979 cos=-0.0014 neg_dist=14.2622
+[GC-DIAG step=41900] mse_pos=0.050554 mse_neg=1.080069 mse_gap=1.029515 pred_norm=19.3984 pred_std=0.9728 pred_abs=0.7741 tgt_std=1.0016 tgt_abs=0.7992 cos=-0.0009 neg_dist=14.0428
+[GC-DIAG step=42000] mse_pos=0.049254 mse_neg=1.102379 mse_gap=1.053125 pred_norm=19.4211 pred_std=0.9738 pred_abs=0.7752 tgt_std=1.0007 tgt_abs=0.7986 cos=0.0002 neg_dist=14.1742
+Running Evaluation...
+Validation Result @ Iteration 42000; Milestone = 42 (Train)
+---------  ----------
+mse_error  0.00979109
+---------  ----------
+Validation Result @ Iteration 42000; Milestone = 42 (ID: Validation)
+---  ----------
+mse  0.00971332
+---  ----------
+[GC-DIAG step=42100] mse_pos=0.048001 mse_neg=1.089384 mse_gap=1.041383 pred_norm=19.4509 pred_std=0.9752 pred_abs=0.7765 tgt_std=0.9998 tgt_abs=0.7976 cos=-0.0003 neg_dist=14.2023
+[GC-DIAG step=42200] mse_pos=0.049285 mse_neg=1.091997 mse_gap=1.042712 pred_norm=19.4530 pred_std=0.9753 pred_abs=0.7759 tgt_std=1.0010 tgt_abs=0.7982 cos=-0.0004 neg_dist=14.0562
+[GC-DIAG step=42300] mse_pos=0.046256 mse_neg=1.091215 mse_gap=1.044959 pred_norm=19.4872 pred_std=0.9769 pred_abs=0.7779 tgt_std=0.9997 tgt_abs=0.7978 cos=0.0010 neg_dist=14.2280
+[GC-DIAG step=42400] mse_pos=0.048952 mse_neg=1.092353 mse_gap=1.043401 pred_norm=19.4466 pred_std=0.9750 pred_abs=0.7764 tgt_std=0.9998 tgt_abs=0.7975 cos=-0.0006 neg_dist=14.2017
+[GC-DIAG step=42500] mse_pos=0.053826 mse_neg=1.103883 mse_gap=1.050057 pred_norm=19.3763 pred_std=0.9719 pred_abs=0.7734 tgt_std=0.9990 tgt_abs=0.7972 cos=0.0012 neg_dist=14.0508
+[GC-DIAG step=42600] mse_pos=0.047686 mse_neg=1.093817 mse_gap=1.046131 pred_norm=19.4409 pred_std=0.9747 pred_abs=0.7764 tgt_std=1.0015 tgt_abs=0.7991 cos=0.0009 neg_dist=14.4543
+[GC-DIAG step=42700] mse_pos=0.051781 mse_neg=1.084117 mse_gap=1.032336 pred_norm=19.3687 pred_std=0.9714 pred_abs=0.7724 tgt_std=1.0000 tgt_abs=0.7977 cos=-0.0014 neg_dist=13.9659
+[GC-DIAG step=42800] mse_pos=0.046982 mse_neg=1.089944 mse_gap=1.042962 pred_norm=19.4652 pred_std=0.9758 pred_abs=0.7770 tgt_std=0.9997 tgt_abs=0.7978 cos=0.0017 neg_dist=14.2665
+[GC-DIAG step=42900] mse_pos=0.049107 mse_neg=1.105377 mse_gap=1.056270 pred_norm=19.4560 pred_std=0.9756 pred_abs=0.7767 tgt_std=0.9993 tgt_abs=0.7974 cos=-0.0016 neg_dist=14.1248
+[GC-DIAG step=43000] mse_pos=0.049734 mse_neg=1.096647 mse_gap=1.046913 pred_norm=19.4273 pred_std=0.9741 pred_abs=0.7756 tgt_std=0.9992 tgt_abs=0.7970 cos=0.0016 neg_dist=14.2107
+Running Evaluation...
+Validation Result @ Iteration 43000; Milestone = 43 (Train)
+---------  ----------
+mse_error  0.00970623
+---------  ----------
+Validation Result @ Iteration 43000; Milestone = 43 (ID: Validation)
+---  ----------
+mse  0.00973608
+---  ----------
+[GC-DIAG step=43100] mse_pos=0.048221 mse_neg=1.084310 mse_gap=1.036089 pred_norm=19.4737 pred_std=0.9764 pred_abs=0.7771 tgt_std=1.0004 tgt_abs=0.7982 cos=-0.0017 neg_dist=14.1784
+[GC-DIAG step=43200] mse_pos=0.047379 mse_neg=1.090808 mse_gap=1.043429 pred_norm=19.4482 pred_std=0.9750 pred_abs=0.7764 tgt_std=1.0005 tgt_abs=0.7981 cos=-0.0042 neg_dist=14.2635
+[GC-DIAG step=43300] mse_pos=0.045422 mse_neg=1.078855 mse_gap=1.033433 pred_norm=19.5117 pred_std=0.9780 pred_abs=0.7789 tgt_std=1.0005 tgt_abs=0.7983 cos=-0.0013 neg_dist=14.2977
+[GC-DIAG step=43400] mse_pos=0.051768 mse_neg=1.101906 mse_gap=1.050138 pred_norm=19.4271 pred_std=0.9742 pred_abs=0.7755 tgt_std=0.9993 tgt_abs=0.7969 cos=-0.0025 neg_dist=13.9489
+[GC-DIAG step=43500] mse_pos=0.051262 mse_neg=1.088373 mse_gap=1.037111 pred_norm=19.4223 pred_std=0.9740 pred_abs=0.7747 tgt_std=1.0005 tgt_abs=0.7985 cos=0.0003 neg_dist=13.9403
+[GC-DIAG step=43600] mse_pos=0.050033 mse_neg=1.098606 mse_gap=1.048573 pred_norm=19.4215 pred_std=0.9739 pred_abs=0.7753 tgt_std=1.0001 tgt_abs=0.7973 cos=-0.0017 neg_dist=14.1735
+[GC-DIAG step=43700] mse_pos=0.050748 mse_neg=1.087590 mse_gap=1.036841 pred_norm=19.4188 pred_std=0.9738 pred_abs=0.7755 tgt_std=0.9999 tgt_abs=0.7974 cos=0.0023 neg_dist=14.0113
+[GC-DIAG step=43800] mse_pos=0.046366 mse_neg=1.095216 mse_gap=1.048850 pred_norm=19.5002 pred_std=0.9774 pred_abs=0.7780 tgt_std=0.9982 tgt_abs=0.7964 cos=0.0006 neg_dist=14.2600
+[GC-DIAG step=43900] mse_pos=0.049230 mse_neg=1.084357 mse_gap=1.035126 pred_norm=19.4184 pred_std=0.9738 pred_abs=0.7749 tgt_std=0.9987 tgt_abs=0.7971 cos=-0.0012 neg_dist=14.1754
+[GC-DIAG step=44000] mse_pos=0.048721 mse_neg=1.085606 mse_gap=1.036885 pred_norm=19.4482 pred_std=0.9750 pred_abs=0.7762 tgt_std=1.0003 tgt_abs=0.7980 cos=0.0003 neg_dist=14.2710
+Running Evaluation...
+Validation Result @ Iteration 44000; Milestone = 44 (Train)
+---------  ----------
+mse_error  0.00971953
+---------  ----------
+Validation Result @ Iteration 44000; Milestone = 44 (ID: Validation)
+---  ----------
+mse  0.00967995
+---  ----------
+[GC-DIAG step=44100] mse_pos=0.049782 mse_neg=1.100075 mse_gap=1.050293 pred_norm=19.4473 pred_std=0.9751 pred_abs=0.7763 tgt_std=1.0009 tgt_abs=0.7987 cos=-0.0004 neg_dist=14.0486
+[GC-DIAG step=44200] mse_pos=0.047641 mse_neg=1.094259 mse_gap=1.046618 pred_norm=19.4856 pred_std=0.9768 pred_abs=0.7776 tgt_std=0.9993 tgt_abs=0.7976 cos=0.0008 neg_dist=14.1562
+[GC-DIAG step=44300] mse_pos=0.049422 mse_neg=1.089105 mse_gap=1.039683 pred_norm=19.4446 pred_std=0.9750 pred_abs=0.7758 tgt_std=1.0004 tgt_abs=0.7983 cos=-0.0006 neg_dist=14.0585
+[GC-DIAG step=44400] mse_pos=0.050567 mse_neg=1.089275 mse_gap=1.038707 pred_norm=19.4052 pred_std=0.9731 pred_abs=0.7746 tgt_std=1.0001 tgt_abs=0.7981 cos=0.0012 neg_dist=14.1764
+[GC-DIAG step=44500] mse_pos=0.050190 mse_neg=1.102720 mse_gap=1.052530 pred_norm=19.4200 pred_std=0.9737 pred_abs=0.7751 tgt_std=1.0006 tgt_abs=0.7979 cos=-0.0012 neg_dist=14.1842
+[GC-DIAG step=44600] mse_pos=0.050764 mse_neg=1.092008 mse_gap=1.041244 pred_norm=19.4144 pred_std=0.9736 pred_abs=0.7746 tgt_std=1.0003 tgt_abs=0.7981 cos=0.0002 neg_dist=14.1733
+[GC-DIAG step=44700] mse_pos=0.052286 mse_neg=1.086768 mse_gap=1.034482 pred_norm=19.3838 pred_std=0.9720 pred_abs=0.7740 tgt_std=0.9997 tgt_abs=0.7978 cos=0.0007 neg_dist=14.0101
+[GC-DIAG step=44800] mse_pos=0.050419 mse_neg=1.090192 mse_gap=1.039773 pred_norm=19.3871 pred_std=0.9722 pred_abs=0.7738 tgt_std=0.9993 tgt_abs=0.7977 cos=-0.0016 neg_dist=14.0356
+[GC-DIAG step=44900] mse_pos=0.050849 mse_neg=1.087675 mse_gap=1.036827 pred_norm=19.4094 pred_std=0.9734 pred_abs=0.7740 tgt_std=1.0000 tgt_abs=0.7981 cos=0.0020 neg_dist=14.0193
+[GC-DIAG step=45000] mse_pos=0.049199 mse_neg=1.086172 mse_gap=1.036973 pred_norm=19.4648 pred_std=0.9759 pred_abs=0.7766 tgt_std=0.9997 tgt_abs=0.7978 cos=0.0011 neg_dist=14.0649
+Running Evaluation...
+Validation Result @ Iteration 45000; Milestone = 45 (Train)
+---------  ----------
+mse_error  0.00966092
+---------  ----------
+Validation Result @ Iteration 45000; Milestone = 45 (ID: Validation)
+---  ----------
+mse  0.00971447
+---  ----------
+[GC-DIAG step=45100] mse_pos=0.051768 mse_neg=1.083665 mse_gap=1.031896 pred_norm=19.4009 pred_std=0.9730 pred_abs=0.7745 tgt_std=0.9985 tgt_abs=0.7971 cos=-0.0007 neg_dist=14.0473
+[GC-DIAG step=45200] mse_pos=0.050090 mse_neg=1.100179 mse_gap=1.050090 pred_norm=19.4118 pred_std=0.9735 pred_abs=0.7744 tgt_std=0.9991 tgt_abs=0.7971 cos=-0.0005 neg_dist=14.2895
+[GC-DIAG step=45300] mse_pos=0.050996 mse_neg=1.098785 mse_gap=1.047789 pred_norm=19.3886 pred_std=0.9723 pred_abs=0.7741 tgt_std=1.0000 tgt_abs=0.7981 cos=-0.0004 neg_dist=14.0275
+[GC-DIAG step=45400] mse_pos=0.048695 mse_neg=1.093810 mse_gap=1.045116 pred_norm=19.4453 pred_std=0.9750 pred_abs=0.7760 tgt_std=1.0006 tgt_abs=0.7985 cos=-0.0003 neg_dist=14.2440
+[GC-DIAG step=45500] mse_pos=0.049986 mse_neg=1.084618 mse_gap=1.034632 pred_norm=19.4141 pred_std=0.9735 pred_abs=0.7749 tgt_std=1.0011 tgt_abs=0.7985 cos=-0.0002 neg_dist=14.0293
+[GC-DIAG step=45600] mse_pos=0.048311 mse_neg=1.085187 mse_gap=1.036876 pred_norm=19.4218 pred_std=0.9736 pred_abs=0.7750 tgt_std=1.0005 tgt_abs=0.7982 cos=0.0004 neg_dist=14.1924
+[GC-DIAG step=45700] mse_pos=0.050730 mse_neg=1.081569 mse_gap=1.030839 pred_norm=19.4216 pred_std=0.9740 pred_abs=0.7753 tgt_std=0.9988 tgt_abs=0.7964 cos=-0.0010 neg_dist=13.9927
+[GC-DIAG step=45800] mse_pos=0.048753 mse_neg=1.082647 mse_gap=1.033894 pred_norm=19.4430 pred_std=0.9748 pred_abs=0.7764 tgt_std=1.0001 tgt_abs=0.7972 cos=0.0005 neg_dist=14.0533
+[GC-DIAG step=45900] mse_pos=0.050783 mse_neg=1.096160 mse_gap=1.045377 pred_norm=19.4088 pred_std=0.9733 pred_abs=0.7751 tgt_std=1.0000 tgt_abs=0.7979 cos=0.0030 neg_dist=14.1598
+[GC-DIAG step=46000] mse_pos=0.051021 mse_neg=1.673167 mse_gap=1.622145 pred_norm=19.3785 pred_std=0.9717 pred_abs=0.7731 tgt_std=0.9995 tgt_abs=0.7970 cos=-0.0006 neg_dist=17.3906
+Running Evaluation...
+Validation Result @ Iteration 46000; Milestone = 46 (Train)
+---------  ----------
+mse_error  0.00973336
+---------  ----------
+Validation Result @ Iteration 46000; Milestone = 46 (ID: Validation)
+---  ----------
+mse  0.00971619
+---  ----------
+[GC-DIAG step=46100] mse_pos=0.048041 mse_neg=1.083667 mse_gap=1.035626 pred_norm=19.4513 pred_std=0.9752 pred_abs=0.7763 tgt_std=0.9989 tgt_abs=0.7968 cos=0.0003 neg_dist=14.2740
+[GC-DIAG step=46200] mse_pos=0.048994 mse_neg=1.092000 mse_gap=1.043006 pred_norm=19.4718 pred_std=0.9763 pred_abs=0.7772 tgt_std=0.9992 tgt_abs=0.7973 cos=0.0009 neg_dist=14.0388
+[GC-DIAG step=46300] mse_pos=0.052718 mse_neg=1.101782 mse_gap=1.049064 pred_norm=19.3730 pred_std=0.9716 pred_abs=0.7732 tgt_std=1.0000 tgt_abs=0.7982 cos=0.0013 neg_dist=14.0902
+[GC-DIAG step=46400] mse_pos=0.051629 mse_neg=1.108045 mse_gap=1.056417 pred_norm=19.3832 pred_std=0.9721 pred_abs=0.7737 tgt_std=1.0003 tgt_abs=0.7977 cos=-0.0005 neg_dist=14.0794
+[GC-DIAG step=46500] mse_pos=0.050260 mse_neg=1.078219 mse_gap=1.027960 pred_norm=19.4211 pred_std=0.9739 pred_abs=0.7751 tgt_std=0.9988 tgt_abs=0.7969 cos=-0.0002 neg_dist=13.8741
+[GC-DIAG step=46600] mse_pos=0.052534 mse_neg=1.090398 mse_gap=1.037864 pred_norm=19.3946 pred_std=0.9727 pred_abs=0.7744 tgt_std=1.0017 tgt_abs=0.7993 cos=0.0011 neg_dist=14.0483
+[GC-DIAG step=46700] mse_pos=0.047308 mse_neg=1.116239 mse_gap=1.068931 pred_norm=19.4723 pred_std=0.9761 pred_abs=0.7773 tgt_std=1.0007 tgt_abs=0.7985 cos=0.0004 neg_dist=14.3668
+[GC-DIAG step=46800] mse_pos=0.048351 mse_neg=1.091297 mse_gap=1.042946 pred_norm=19.4366 pred_std=0.9744 pred_abs=0.7758 tgt_std=0.9992 tgt_abs=0.7972 cos=-0.0019 neg_dist=14.1629
+[GC-DIAG step=46900] mse_pos=0.050207 mse_neg=1.094704 mse_gap=1.044497 pred_norm=19.4133 pred_std=0.9735 pred_abs=0.7750 tgt_std=1.0004 tgt_abs=0.7980 cos=-0.0010 neg_dist=14.0899
+[GC-DIAG step=47000] mse_pos=0.052704 mse_neg=1.095408 mse_gap=1.042704 pred_norm=19.3700 pred_std=0.9716 pred_abs=0.7727 tgt_std=0.9991 tgt_abs=0.7973 cos=-0.0010 neg_dist=13.9973
+Running Evaluation...
+Validation Result @ Iteration 47000; Milestone = 47 (Train)
+---------  ---------
+mse_error  0.0097362
+---------  ---------
+Validation Result @ Iteration 47000; Milestone = 47 (ID: Validation)
+---  ----------
+mse  0.00973746
+---  ----------
+[GC-DIAG step=47100] mse_pos=0.049425 mse_neg=1.086687 mse_gap=1.037262 pred_norm=19.4039 pred_std=0.9729 pred_abs=0.7745 tgt_std=1.0009 tgt_abs=0.7989 cos=0.0017 neg_dist=14.1314
+[GC-DIAG step=47200] mse_pos=0.053812 mse_neg=1.098015 mse_gap=1.044203 pred_norm=19.3661 pred_std=0.9713 pred_abs=0.7726 tgt_std=0.9993 tgt_abs=0.7971 cos=0.0000 neg_dist=13.8873
+[GC-DIAG step=47300] mse_pos=0.050577 mse_neg=1.084889 mse_gap=1.034312 pred_norm=19.4142 pred_std=0.9736 pred_abs=0.7750 tgt_std=1.0007 tgt_abs=0.7985 cos=0.0018 neg_dist=14.1193
+[GC-DIAG step=47400] mse_pos=0.048888 mse_neg=1.081638 mse_gap=1.032750 pred_norm=19.3945 pred_std=0.9725 pred_abs=0.7740 tgt_std=0.9998 tgt_abs=0.7979 cos=-0.0007 neg_dist=14.2279
+[GC-DIAG step=47500] mse_pos=0.048658 mse_neg=1.101321 mse_gap=1.052663 pred_norm=19.4382 pred_std=0.9745 pred_abs=0.7755 tgt_std=1.0013 tgt_abs=0.7992 cos=-0.0010 neg_dist=14.2341
+[GC-DIAG step=47600] mse_pos=0.050396 mse_neg=1.086498 mse_gap=1.036102 pred_norm=19.4324 pred_std=0.9743 pred_abs=0.7754 tgt_std=0.9994 tgt_abs=0.7974 cos=0.0021 neg_dist=14.1196
+[GC-DIAG step=47700] mse_pos=0.050474 mse_neg=1.682754 mse_gap=1.632280 pred_norm=19.3934 pred_std=0.9725 pred_abs=0.7739 tgt_std=1.0015 tgt_abs=0.7994 cos=0.0011 neg_dist=17.1867
+[GC-DIAG step=47800] mse_pos=0.051558 mse_neg=1.087755 mse_gap=1.036197 pred_norm=19.4076 pred_std=0.9732 pred_abs=0.7745 tgt_std=0.9998 tgt_abs=0.7979 cos=0.0004 neg_dist=14.0037
+[GC-DIAG step=47900] mse_pos=0.046857 mse_neg=1.100881 mse_gap=1.054023 pred_norm=19.4973 pred_std=0.9773 pred_abs=0.7780 tgt_std=0.9998 tgt_abs=0.7980 cos=-0.0008 neg_dist=14.2548
+[GC-DIAG step=48000] mse_pos=0.049702 mse_neg=1.094020 mse_gap=1.044317 pred_norm=19.3793 pred_std=0.9719 pred_abs=0.7731 tgt_std=0.9996 tgt_abs=0.7976 cos=-0.0014 neg_dist=14.1955
+Running Evaluation...
+Validation Result @ Iteration 48000; Milestone = 48 (Train)
+---------  ----------
+mse_error  0.00962858
+---------  ----------
+Validation Result @ Iteration 48000; Milestone = 48 (ID: Validation)
+---  ----------
+mse  0.00971085
+---  ----------
+[GC-DIAG step=48100] mse_pos=0.050033 mse_neg=1.087175 mse_gap=1.037142 pred_norm=19.4044 pred_std=0.9731 pred_abs=0.7745 tgt_std=0.9994 tgt_abs=0.7974 cos=0.0009 neg_dist=14.3025
+[GC-DIAG step=48200] mse_pos=0.048695 mse_neg=1.091246 mse_gap=1.042551 pred_norm=19.4461 pred_std=0.9750 pred_abs=0.7759 tgt_std=0.9988 tgt_abs=0.7967 cos=-0.0000 neg_dist=14.2442
+[GC-DIAG step=48300] mse_pos=0.049751 mse_neg=1.102742 mse_gap=1.052991 pred_norm=19.4657 pred_std=0.9759 pred_abs=0.7773 tgt_std=0.9992 tgt_abs=0.7975 cos=0.0017 neg_dist=14.1433
+[GC-DIAG step=48400] mse_pos=0.048882 mse_neg=1.091531 mse_gap=1.042649 pred_norm=19.4514 pred_std=0.9752 pred_abs=0.7765 tgt_std=1.0001 tgt_abs=0.7983 cos=0.0005 neg_dist=14.1178
+[GC-DIAG step=48500] mse_pos=0.048724 mse_neg=1.092771 mse_gap=1.044047 pred_norm=19.4262 pred_std=0.9741 pred_abs=0.7751 tgt_std=0.9996 tgt_abs=0.7977 cos=0.0011 neg_dist=14.2781
+[GC-DIAG step=48600] mse_pos=0.047081 mse_neg=1.096873 mse_gap=1.049792 pred_norm=19.4849 pred_std=0.9766 pred_abs=0.7779 tgt_std=0.9983 tgt_abs=0.7963 cos=0.0000 neg_dist=14.3206
+[GC-DIAG step=48700] mse_pos=0.052890 mse_neg=1.089187 mse_gap=1.036298 pred_norm=19.3574 pred_std=0.9708 pred_abs=0.7727 tgt_std=0.9995 tgt_abs=0.7978 cos=-0.0004 neg_dist=13.8666
+[GC-DIAG step=48800] mse_pos=0.049083 mse_neg=1.092179 mse_gap=1.043096 pred_norm=19.4571 pred_std=0.9756 pred_abs=0.7767 tgt_std=1.0000 tgt_abs=0.7976 cos=-0.0012 neg_dist=14.1834
+[GC-DIAG step=48900] mse_pos=0.048710 mse_neg=1.102240 mse_gap=1.053530 pred_norm=19.4484 pred_std=0.9751 pred_abs=0.7760 tgt_std=1.0004 tgt_abs=0.7976 cos=-0.0000 neg_dist=14.2279
+[GC-DIAG step=49000] mse_pos=0.053545 mse_neg=1.100783 mse_gap=1.047237 pred_norm=19.3614 pred_std=0.9712 pred_abs=0.7726 tgt_std=0.9995 tgt_abs=0.7978 cos=0.0014 neg_dist=13.9573
+Running Evaluation...
+Validation Result @ Iteration 49000; Milestone = 49 (Train)
+---------  ----------
+mse_error  0.00971646
+---------  ----------
+Validation Result @ Iteration 49000; Milestone = 49 (ID: Validation)
+---  ----------
+mse  0.00973213
+---  ----------
+[GC-DIAG step=49100] mse_pos=0.048275 mse_neg=1.108303 mse_gap=1.060028 pred_norm=19.4576 pred_std=0.9757 pred_abs=0.7764 tgt_std=1.0011 tgt_abs=0.7989 cos=-0.0002 neg_dist=14.2081
+[GC-DIAG step=49200] mse_pos=0.047047 mse_neg=1.087551 mse_gap=1.040503 pred_norm=19.4640 pred_std=0.9758 pred_abs=0.7773 tgt_std=1.0001 tgt_abs=0.7982 cos=0.0008 neg_dist=14.3008
+[GC-DIAG step=49300] mse_pos=0.053015 mse_neg=1.087976 mse_gap=1.034961 pred_norm=19.3582 pred_std=0.9709 pred_abs=0.7725 tgt_std=1.0006 tgt_abs=0.7990 cos=0.0021 neg_dist=13.8076
+[GC-DIAG step=49400] mse_pos=0.050774 mse_neg=1.089676 mse_gap=1.038902 pred_norm=19.4205 pred_std=0.9739 pred_abs=0.7751 tgt_std=0.9990 tgt_abs=0.7969 cos=0.0008 neg_dist=13.9858
+[GC-DIAG step=49500] mse_pos=0.049416 mse_neg=1.082609 mse_gap=1.033192 pred_norm=19.4129 pred_std=0.9735 pred_abs=0.7746 tgt_std=0.9997 tgt_abs=0.7974 cos=-0.0007 neg_dist=14.1794
+[GC-DIAG step=49600] mse_pos=0.051927 mse_neg=1.094630 mse_gap=1.042703 pred_norm=19.3761 pred_std=0.9718 pred_abs=0.7732 tgt_std=1.0011 tgt_abs=0.7979 cos=0.0016 neg_dist=14.1497
+[GC-DIAG step=49700] mse_pos=0.051067 mse_neg=1.101510 mse_gap=1.050443 pred_norm=19.4313 pred_std=0.9745 pred_abs=0.7755 tgt_std=0.9993 tgt_abs=0.7973 cos=-0.0008 neg_dist=14.0685
+[GC-DIAG step=49800] mse_pos=0.051688 mse_neg=1.088644 mse_gap=1.036956 pred_norm=19.3948 pred_std=0.9727 pred_abs=0.7745 tgt_std=0.9994 tgt_abs=0.7972 cos=0.0008 neg_dist=14.1456
+[GC-DIAG step=49900] mse_pos=0.051013 mse_neg=1.096686 mse_gap=1.045673 pred_norm=19.3998 pred_std=0.9728 pred_abs=0.7744 tgt_std=1.0010 tgt_abs=0.7985 cos=-0.0010 neg_dist=14.0161
+[GC-DIAG step=50000] mse_pos=0.051696 mse_neg=1.108315 mse_gap=1.056619 pred_norm=19.4043 pred_std=0.9731 pred_abs=0.7745 tgt_std=1.0010 tgt_abs=0.7989 cos=-0.0003 neg_dist=14.2488
+Running Evaluation...
+Validation Result @ Iteration 50000; Milestone = 50 (Train)
+---------  ----------
+mse_error  0.00972768
+---------  ----------
+Validation Result @ Iteration 50000; Milestone = 50 (ID: Validation)
+---  ----------
+mse  0.00974576
+---  ----------
+[GC-DIAG step=50100] mse_pos=0.047533 mse_neg=1.091955 mse_gap=1.044422 pred_norm=19.4764 pred_std=0.9763 pred_abs=0.7772 tgt_std=0.9992 tgt_abs=0.7971 cos=0.0008 neg_dist=14.3446
+[GC-DIAG step=50200] mse_pos=0.049546 mse_neg=1.095025 mse_gap=1.045478 pred_norm=19.4510 pred_std=0.9752 pred_abs=0.7764 tgt_std=1.0003 tgt_abs=0.7982 cos=-0.0006 neg_dist=14.1468
+[GC-DIAG step=50300] mse_pos=0.049105 mse_neg=1.103864 mse_gap=1.054760 pred_norm=19.4570 pred_std=0.9755 pred_abs=0.7764 tgt_std=0.9991 tgt_abs=0.7971 cos=-0.0016 neg_dist=14.2955
+[GC-DIAG step=50400] mse_pos=0.050334 mse_neg=1.679079 mse_gap=1.628745 pred_norm=19.3887 pred_std=0.9724 pred_abs=0.7738 tgt_std=1.0003 tgt_abs=0.7982 cos=0.0011 neg_dist=17.4910
+[GC-DIAG step=50500] mse_pos=0.052147 mse_neg=1.074678 mse_gap=1.022531 pred_norm=19.3759 pred_std=0.9718 pred_abs=0.7734 tgt_std=1.0001 tgt_abs=0.7981 cos=-0.0014 neg_dist=14.0325
+[GC-DIAG step=50600] mse_pos=0.050323 mse_neg=1.087030 mse_gap=1.036708 pred_norm=19.4543 pred_std=0.9754 pred_abs=0.7765 tgt_std=1.0007 tgt_abs=0.7984 cos=-0.0009 neg_dist=13.9754
+[GC-DIAG step=50700] mse_pos=0.049834 mse_neg=1.100531 mse_gap=1.050697 pred_norm=19.4369 pred_std=0.9746 pred_abs=0.7757 tgt_std=1.0000 tgt_abs=0.7983 cos=0.0002 neg_dist=14.0432
+[GC-DIAG step=50800] mse_pos=0.048231 mse_neg=1.096074 mse_gap=1.047843 pred_norm=19.4416 pred_std=0.9749 pred_abs=0.7762 tgt_std=1.0008 tgt_abs=0.7989 cos=-0.0004 neg_dist=14.2342
+[GC-DIAG step=50900] mse_pos=0.049765 mse_neg=1.080747 mse_gap=1.030981 pred_norm=19.3915 pred_std=0.9724 pred_abs=0.7741 tgt_std=0.9995 tgt_abs=0.7974 cos=0.0003 neg_dist=14.0990
+[GC-DIAG step=51000] mse_pos=0.050136 mse_neg=1.692065 mse_gap=1.641930 pred_norm=19.4265 pred_std=0.9742 pred_abs=0.7752 tgt_std=1.0007 tgt_abs=0.7985 cos=0.0001 neg_dist=17.4006
+Running Evaluation...
+Validation Result @ Iteration 51000; Milestone = 51 (Train)
+---------  ----------
+mse_error  0.00974631
+---------  ----------
+Validation Result @ Iteration 51000; Milestone = 51 (ID: Validation)
+---  ----------
+mse  0.00974496
+---  ----------
+[GC-DIAG step=51100] mse_pos=0.049218 mse_neg=1.093168 mse_gap=1.043949 pred_norm=19.4061 pred_std=0.9730 pred_abs=0.7745 tgt_std=0.9991 tgt_abs=0.7969 cos=-0.0004 neg_dist=14.2740
+[GC-DIAG step=51200] mse_pos=0.052417 mse_neg=1.086608 mse_gap=1.034191 pred_norm=19.3873 pred_std=0.9724 pred_abs=0.7734 tgt_std=0.9995 tgt_abs=0.7981 cos=0.0024 neg_dist=13.9383
+[GC-DIAG step=51300] mse_pos=0.047041 mse_neg=1.090731 mse_gap=1.043689 pred_norm=19.4673 pred_std=0.9759 pred_abs=0.7769 tgt_std=1.0019 tgt_abs=0.7991 cos=0.0008 neg_dist=14.4263
+[GC-DIAG step=51400] mse_pos=0.051625 mse_neg=1.078983 mse_gap=1.027358 pred_norm=19.3853 pred_std=0.9722 pred_abs=0.7734 tgt_std=0.9996 tgt_abs=0.7974 cos=-0.0009 neg_dist=13.9260
+[GC-DIAG step=51500] mse_pos=0.046393 mse_neg=1.084225 mse_gap=1.037832 pred_norm=19.4511 pred_std=0.9752 pred_abs=0.7765 tgt_std=1.0011 tgt_abs=0.7987 cos=-0.0009 neg_dist=14.3714
+[GC-DIAG step=51600] mse_pos=0.050096 mse_neg=1.098862 mse_gap=1.048766 pred_norm=19.4317 pred_std=0.9744 pred_abs=0.7759 tgt_std=0.9994 tgt_abs=0.7975 cos=0.0004 neg_dist=14.1268
+[GC-DIAG step=51700] mse_pos=0.050704 mse_neg=1.118674 mse_gap=1.067969 pred_norm=19.3979 pred_std=0.9728 pred_abs=0.7744 tgt_std=1.0002 tgt_abs=0.7978 cos=0.0009 neg_dist=14.2354
+[GC-DIAG step=51800] mse_pos=0.046818 mse_neg=1.090466 mse_gap=1.043649 pred_norm=19.4689 pred_std=0.9761 pred_abs=0.7774 tgt_std=1.0003 tgt_abs=0.7979 cos=0.0005 neg_dist=14.2926
+[GC-DIAG step=51900] mse_pos=0.050255 mse_neg=1.100190 mse_gap=1.049935 pred_norm=19.4436 pred_std=0.9750 pred_abs=0.7762 tgt_std=1.0000 tgt_abs=0.7981 cos=-0.0006 neg_dist=14.2301
+[GC-DIAG step=52000] mse_pos=0.050326 mse_neg=1.091995 mse_gap=1.041669 pred_norm=19.3991 pred_std=0.9728 pred_abs=0.7741 tgt_std=0.9996 tgt_abs=0.7975 cos=-0.0028 neg_dist=14.1757
+Running Evaluation...
+Validation Result @ Iteration 52000; Milestone = 52 (Train)
+---------  ----------
+mse_error  0.00973391
+---------  ----------
+Validation Result @ Iteration 52000; Milestone = 52 (ID: Validation)
+---  ----------
+mse  0.00968823
+---  ----------
+[GC-DIAG step=52100] mse_pos=0.049382 mse_neg=1.688339 mse_gap=1.638956 pred_norm=19.4365 pred_std=0.9746 pred_abs=0.7754 tgt_std=1.0008 tgt_abs=0.7984 cos=0.0003 neg_dist=17.3709
+[GC-DIAG step=52200] mse_pos=0.049402 mse_neg=1.677856 mse_gap=1.628455 pred_norm=19.4282 pred_std=0.9742 pred_abs=0.7749 tgt_std=0.9992 tgt_abs=0.7972 cos=0.0011 neg_dist=17.4810
+[GC-DIAG step=52300] mse_pos=0.050080 mse_neg=1.085128 mse_gap=1.035048 pred_norm=19.3887 pred_std=0.9723 pred_abs=0.7737 tgt_std=1.0014 tgt_abs=0.7987 cos=0.0005 neg_dist=14.0401
+[GC-DIAG step=52400] mse_pos=0.049074 mse_neg=1.103930 mse_gap=1.054856 pred_norm=19.4101 pred_std=0.9731 pred_abs=0.7751 tgt_std=1.0001 tgt_abs=0.7981 cos=0.0031 neg_dist=14.2702
+[GC-DIAG step=52500] mse_pos=0.050684 mse_neg=1.087691 mse_gap=1.037007 pred_norm=19.3926 pred_std=0.9725 pred_abs=0.7737 tgt_std=0.9987 tgt_abs=0.7969 cos=-0.0009 neg_dist=14.1474
+[GC-DIAG step=52600] mse_pos=0.049877 mse_neg=1.092291 mse_gap=1.042414 pred_norm=19.4458 pred_std=0.9749 pred_abs=0.7760 tgt_std=1.0003 tgt_abs=0.7983 cos=-0.0028 neg_dist=14.1153
+[GC-DIAG step=52700] mse_pos=0.049585 mse_neg=1.079341 mse_gap=1.029756 pred_norm=19.4147 pred_std=0.9735 pred_abs=0.7746 tgt_std=1.0000 tgt_abs=0.7978 cos=0.0003 neg_dist=13.9835
+[GC-DIAG step=52800] mse_pos=0.050277 mse_neg=1.096184 mse_gap=1.045907 pred_norm=19.4127 pred_std=0.9735 pred_abs=0.7752 tgt_std=1.0009 tgt_abs=0.7982 cos=0.0006 neg_dist=14.2758
+[GC-DIAG step=52900] mse_pos=0.047837 mse_neg=1.074255 mse_gap=1.026418 pred_norm=19.4959 pred_std=0.9773 pred_abs=0.7777 tgt_std=0.9995 tgt_abs=0.7977 cos=-0.0012 neg_dist=14.0025
+[GC-DIAG step=53000] mse_pos=0.049957 mse_neg=1.089432 mse_gap=1.039475 pred_norm=19.3949 pred_std=0.9726 pred_abs=0.7742 tgt_std=0.9987 tgt_abs=0.7966 cos=0.0004 neg_dist=14.1404
+Running Evaluation...
+Validation Result @ Iteration 53000; Milestone = 53 (Train)
+---------  -------
+mse_error  0.00974
+---------  -------
+Validation Result @ Iteration 53000; Milestone = 53 (ID: Validation)
+---  ----------
+mse  0.00971963
+---  ----------
+[GC-DIAG step=53100] mse_pos=0.048230 mse_neg=1.091054 mse_gap=1.042824 pred_norm=19.4469 pred_std=0.9751 pred_abs=0.7760 tgt_std=0.9984 tgt_abs=0.7964 cos=0.0024 neg_dist=14.1263
+[GC-DIAG step=53200] mse_pos=0.049206 mse_neg=1.080555 mse_gap=1.031350 pred_norm=19.4235 pred_std=0.9740 pred_abs=0.7752 tgt_std=1.0010 tgt_abs=0.7989 cos=0.0006 neg_dist=14.0706
+[GC-DIAG step=53300] mse_pos=0.049504 mse_neg=1.095251 mse_gap=1.045747 pred_norm=19.4148 pred_std=0.9736 pred_abs=0.7749 tgt_std=1.0000 tgt_abs=0.7979 cos=0.0006 neg_dist=14.2083
+[GC-DIAG step=53400] mse_pos=0.052418 mse_neg=1.083602 mse_gap=1.031184 pred_norm=19.3944 pred_std=0.9725 pred_abs=0.7740 tgt_std=0.9990 tgt_abs=0.7968 cos=0.0013 neg_dist=13.8267
+[GC-DIAG step=53500] mse_pos=0.048310 mse_neg=1.096282 mse_gap=1.047971 pred_norm=19.4618 pred_std=0.9758 pred_abs=0.7768 tgt_std=0.9999 tgt_abs=0.7979 cos=-0.0002 neg_dist=14.1680
+[GC-DIAG step=53600] mse_pos=0.047167 mse_neg=1.094733 mse_gap=1.047567 pred_norm=19.4845 pred_std=0.9768 pred_abs=0.7779 tgt_std=0.9984 tgt_abs=0.7968 cos=-0.0015 neg_dist=14.2693
+[GC-DIAG step=53700] mse_pos=0.047947 mse_neg=1.085979 mse_gap=1.038031 pred_norm=19.4630 pred_std=0.9757 pred_abs=0.7769 tgt_std=0.9989 tgt_abs=0.7972 cos=-0.0019 neg_dist=14.1283
+[GC-DIAG step=53800] mse_pos=0.048765 mse_neg=1.105608 mse_gap=1.056842 pred_norm=19.4739 pred_std=0.9764 pred_abs=0.7772 tgt_std=1.0000 tgt_abs=0.7979 cos=0.0005 neg_dist=14.2044
+[GC-DIAG step=53900] mse_pos=0.047354 mse_neg=1.696129 mse_gap=1.648775 pred_norm=19.4544 pred_std=0.9753 pred_abs=0.7761 tgt_std=0.9995 tgt_abs=0.7975 cos=-0.0007 neg_dist=17.4125
+[GC-DIAG step=54000] mse_pos=0.048602 mse_neg=1.079286 mse_gap=1.030684 pred_norm=19.4563 pred_std=0.9756 pred_abs=0.7768 tgt_std=1.0001 tgt_abs=0.7979 cos=-0.0006 neg_dist=14.1348
+Running Evaluation...
+Validation Result @ Iteration 54000; Milestone = 54 (Train)
+---------  ----------
+mse_error  0.00964804
+---------  ----------
+Validation Result @ Iteration 54000; Milestone = 54 (ID: Validation)
+---  ----------
+mse  0.00974769
+---  ----------
+[GC-DIAG step=54100] mse_pos=0.051884 mse_neg=1.089566 mse_gap=1.037683 pred_norm=19.3723 pred_std=0.9716 pred_abs=0.7729 tgt_std=1.0007 tgt_abs=0.7986 cos=-0.0003 neg_dist=14.0755
+[GC-DIAG step=54200] mse_pos=0.051002 mse_neg=1.094728 mse_gap=1.043726 pred_norm=19.3990 pred_std=0.9729 pred_abs=0.7740 tgt_std=1.0004 tgt_abs=0.7982 cos=0.0008 neg_dist=14.0605
+[GC-DIAG step=54300] mse_pos=0.051287 mse_neg=1.099619 mse_gap=1.048331 pred_norm=19.3665 pred_std=0.9712 pred_abs=0.7729 tgt_std=1.0005 tgt_abs=0.7986 cos=-0.0003 neg_dist=13.9784
+[GC-DIAG step=54400] mse_pos=0.049311 mse_neg=1.098133 mse_gap=1.048822 pred_norm=19.4008 pred_std=0.9728 pred_abs=0.7744 tgt_std=0.9991 tgt_abs=0.7971 cos=-0.0005 neg_dist=14.2121
+[GC-DIAG step=54500] mse_pos=0.049495 mse_neg=1.105125 mse_gap=1.055630 pred_norm=19.4304 pred_std=0.9742 pred_abs=0.7751 tgt_std=0.9996 tgt_abs=0.7979 cos=-0.0012 neg_dist=14.1675
+[GC-DIAG step=54600] mse_pos=0.050808 mse_neg=1.091773 mse_gap=1.040965 pred_norm=19.4194 pred_std=0.9737 pred_abs=0.7752 tgt_std=1.0010 tgt_abs=0.7986 cos=0.0010 neg_dist=14.0156
+[GC-DIAG step=54700] mse_pos=0.052150 mse_neg=1.097409 mse_gap=1.045259 pred_norm=19.3655 pred_std=0.9713 pred_abs=0.7729 tgt_std=1.0000 tgt_abs=0.7973 cos=0.0002 neg_dist=14.0779
+[GC-DIAG step=54800] mse_pos=0.047938 mse_neg=1.089297 mse_gap=1.041359 pred_norm=19.4577 pred_std=0.9756 pred_abs=0.7767 tgt_std=1.0000 tgt_abs=0.7979 cos=0.0016 neg_dist=14.2290
+[GC-DIAG step=54900] mse_pos=0.049887 mse_neg=1.108409 mse_gap=1.058523 pred_norm=19.4182 pred_std=0.9736 pred_abs=0.7749 tgt_std=1.0001 tgt_abs=0.7984 cos=0.0001 neg_dist=14.2619
+[GC-DIAG step=55000] mse_pos=0.050039 mse_neg=1.086685 mse_gap=1.036646 pred_norm=19.4212 pred_std=0.9739 pred_abs=0.7755 tgt_std=0.9992 tgt_abs=0.7976 cos=0.0006 neg_dist=14.0442
+Running Evaluation...
+Validation Result @ Iteration 55000; Milestone = 55 (Train)
+---------  ----------
+mse_error  0.00974086
+---------  ----------
+Validation Result @ Iteration 55000; Milestone = 55 (ID: Validation)
+---  ----------
+mse  0.00971575
+---  ----------
+[GC-DIAG step=55100] mse_pos=0.050644 mse_neg=1.100397 mse_gap=1.049753 pred_norm=19.4030 pred_std=0.9730 pred_abs=0.7748 tgt_std=1.0002 tgt_abs=0.7979 cos=-0.0014 neg_dist=14.1169
+[GC-DIAG step=55200] mse_pos=0.050155 mse_neg=1.088185 mse_gap=1.038030 pred_norm=19.4386 pred_std=0.9749 pred_abs=0.7758 tgt_std=1.0000 tgt_abs=0.7983 cos=0.0004 neg_dist=14.1100
+[GC-DIAG step=55300] mse_pos=0.050669 mse_neg=1.093099 mse_gap=1.042430 pred_norm=19.3937 pred_std=0.9726 pred_abs=0.7738 tgt_std=0.9996 tgt_abs=0.7981 cos=0.0017 neg_dist=14.0729
+[GC-DIAG step=55400] mse_pos=0.050252 mse_neg=1.080534 mse_gap=1.030283 pred_norm=19.4059 pred_std=0.9730 pred_abs=0.7742 tgt_std=0.9996 tgt_abs=0.7979 cos=0.0005 neg_dist=13.9603
+[GC-DIAG step=55500] mse_pos=0.049711 mse_neg=1.096877 mse_gap=1.047166 pred_norm=19.4445 pred_std=0.9749 pred_abs=0.7762 tgt_std=1.0012 tgt_abs=0.7987 cos=-0.0000 neg_dist=14.1478
+[GC-DIAG step=55600] mse_pos=0.048217 mse_neg=1.087520 mse_gap=1.039303 pred_norm=19.4642 pred_std=0.9758 pred_abs=0.7772 tgt_std=1.0012 tgt_abs=0.7991 cos=-0.0015 neg_dist=14.2068
+[GC-DIAG step=55700] mse_pos=0.047763 mse_neg=1.094566 mse_gap=1.046803 pred_norm=19.4813 pred_std=0.9766 pred_abs=0.7778 tgt_std=1.0004 tgt_abs=0.7984 cos=0.0019 neg_dist=14.2005
+[GC-DIAG step=55800] mse_pos=0.048190 mse_neg=1.094593 mse_gap=1.046403 pred_norm=19.4598 pred_std=0.9757 pred_abs=0.7766 tgt_std=0.9996 tgt_abs=0.7975 cos=-0.0005 neg_dist=14.2824
+[GC-DIAG step=55900] mse_pos=0.048072 mse_neg=1.087134 mse_gap=1.039062 pred_norm=19.4460 pred_std=0.9748 pred_abs=0.7759 tgt_std=0.9998 tgt_abs=0.7979 cos=-0.0016 neg_dist=14.1845
+[GC-DIAG step=56000] mse_pos=0.049342 mse_neg=1.113027 mse_gap=1.063685 pred_norm=19.4345 pred_std=0.9745 pred_abs=0.7758 tgt_std=0.9993 tgt_abs=0.7973 cos=-0.0006 neg_dist=14.2158
+Running Evaluation...
+Validation Result @ Iteration 56000; Milestone = 56 (Train)
+---------  ----------
+mse_error  0.00974493
+---------  ----------
+Validation Result @ Iteration 56000; Milestone = 56 (ID: Validation)
+---  ---------
+mse  0.0097671
+---  ---------
+[GC-DIAG step=56100] mse_pos=0.050697 mse_neg=1.081644 mse_gap=1.030946 pred_norm=19.4209 pred_std=0.9738 pred_abs=0.7749 tgt_std=0.9997 tgt_abs=0.7972 cos=-0.0008 neg_dist=13.9447
+[GC-DIAG step=56200] mse_pos=0.049800 mse_neg=1.086166 mse_gap=1.036366 pred_norm=19.4144 pred_std=0.9737 pred_abs=0.7749 tgt_std=0.9991 tgt_abs=0.7967 cos=0.0019 neg_dist=14.1902
+[GC-DIAG step=56300] mse_pos=0.050198 mse_neg=1.096152 mse_gap=1.045953 pred_norm=19.3973 pred_std=0.9727 pred_abs=0.7744 tgt_std=1.0001 tgt_abs=0.7978 cos=0.0000 neg_dist=14.1856
+[GC-DIAG step=56400] mse_pos=0.045333 mse_neg=1.077780 mse_gap=1.032448 pred_norm=19.4898 pred_std=0.9768 pred_abs=0.7778 tgt_std=1.0001 tgt_abs=0.7972 cos=0.0001 neg_dist=14.2559
+[GC-DIAG step=56500] mse_pos=0.048119 mse_neg=1.078170 mse_gap=1.030051 pred_norm=19.4582 pred_std=0.9756 pred_abs=0.7769 tgt_std=0.9992 tgt_abs=0.7974 cos=-0.0015 neg_dist=13.9336
+[GC-DIAG step=56600] mse_pos=0.047331 mse_neg=1.091496 mse_gap=1.044164 pred_norm=19.4469 pred_std=0.9748 pred_abs=0.7764 tgt_std=1.0007 tgt_abs=0.7989 cos=0.0004 neg_dist=14.1524
+[GC-DIAG step=56700] mse_pos=0.048554 mse_neg=1.682305 mse_gap=1.633751 pred_norm=19.4376 pred_std=0.9745 pred_abs=0.7759 tgt_std=1.0009 tgt_abs=0.7984 cos=-0.0014 neg_dist=17.5125
+[GC-DIAG step=56800] mse_pos=0.051284 mse_neg=1.084838 mse_gap=1.033555 pred_norm=19.4021 pred_std=0.9730 pred_abs=0.7747 tgt_std=0.9991 tgt_abs=0.7972 cos=-0.0010 neg_dist=13.9302
+[GC-DIAG step=56900] mse_pos=0.052149 mse_neg=1.112123 mse_gap=1.059974 pred_norm=19.3965 pred_std=0.9727 pred_abs=0.7741 tgt_std=0.9999 tgt_abs=0.7976 cos=0.0012 neg_dist=14.0651
+[GC-DIAG step=57000] mse_pos=0.049839 mse_neg=1.080660 mse_gap=1.030820 pred_norm=19.4419 pred_std=0.9748 pred_abs=0.7761 tgt_std=1.0005 tgt_abs=0.7985 cos=0.0001 neg_dist=14.0121
+Running Evaluation...
+Validation Result @ Iteration 57000; Milestone = 57 (Train)
+---------  ----------
+mse_error  0.00961215
+---------  ----------
+Validation Result @ Iteration 57000; Milestone = 57 (ID: Validation)
+---  ----------
+mse  0.00970442
+---  ----------
+[GC-DIAG step=57100] mse_pos=0.050175 mse_neg=1.085074 mse_gap=1.034899 pred_norm=19.4225 pred_std=0.9740 pred_abs=0.7750 tgt_std=1.0008 tgt_abs=0.7988 cos=-0.0006 neg_dist=14.0845
+[GC-DIAG step=57200] mse_pos=0.051439 mse_neg=1.083327 mse_gap=1.031888 pred_norm=19.3710 pred_std=0.9715 pred_abs=0.7731 tgt_std=0.9993 tgt_abs=0.7972 cos=-0.0016 neg_dist=14.0096
+[GC-DIAG step=57300] mse_pos=0.047809 mse_neg=1.087776 mse_gap=1.039967 pred_norm=19.4542 pred_std=0.9754 pred_abs=0.7762 tgt_std=1.0005 tgt_abs=0.7986 cos=0.0018 neg_dist=14.2676
+[GC-DIAG step=57400] mse_pos=0.049548 mse_neg=1.083068 mse_gap=1.033521 pred_norm=19.4266 pred_std=0.9740 pred_abs=0.7754 tgt_std=1.0008 tgt_abs=0.7989 cos=0.0017 neg_dist=14.1131
+[GC-DIAG step=57500] mse_pos=0.050203 mse_neg=1.086253 mse_gap=1.036050 pred_norm=19.4369 pred_std=0.9747 pred_abs=0.7754 tgt_std=0.9997 tgt_abs=0.7981 cos=-0.0002 neg_dist=14.0245
+[GC-DIAG step=57600] mse_pos=0.050950 mse_neg=1.083379 mse_gap=1.032429 pred_norm=19.3931 pred_std=0.9725 pred_abs=0.7738 tgt_std=0.9994 tgt_abs=0.7972 cos=-0.0010 neg_dist=13.9934
+[GC-DIAG step=57700] mse_pos=0.051210 mse_neg=1.093076 mse_gap=1.041866 pred_norm=19.4256 pred_std=0.9741 pred_abs=0.7755 tgt_std=1.0006 tgt_abs=0.7982 cos=-0.0006 neg_dist=14.0521
+[GC-DIAG step=57800] mse_pos=0.049986 mse_neg=1.091099 mse_gap=1.041113 pred_norm=19.4291 pred_std=0.9742 pred_abs=0.7756 tgt_std=1.0012 tgt_abs=0.7989 cos=-0.0000 neg_dist=14.1284
+[GC-DIAG step=57900] mse_pos=0.049696 mse_neg=1.089911 mse_gap=1.040215 pred_norm=19.4487 pred_std=0.9751 pred_abs=0.7761 tgt_std=1.0005 tgt_abs=0.7987 cos=-0.0013 neg_dist=14.1204
+[GC-DIAG step=58000] mse_pos=0.050477 mse_neg=1.090002 mse_gap=1.039525 pred_norm=19.3893 pred_std=0.9725 pred_abs=0.7735 tgt_std=1.0001 tgt_abs=0.7979 cos=-0.0011 neg_dist=14.0912
+Running Evaluation...
+Validation Result @ Iteration 58000; Milestone = 58 (Train)
+---------  ----------
+mse_error  0.00977245
+---------  ----------
+Validation Result @ Iteration 58000; Milestone = 58 (ID: Validation)
+---  ----------
+mse  0.00970076
+---  ----------
+[GC-DIAG step=58100] mse_pos=0.047098 mse_neg=1.106797 mse_gap=1.059699 pred_norm=19.4639 pred_std=0.9758 pred_abs=0.7766 tgt_std=1.0005 tgt_abs=0.7982 cos=0.0010 neg_dist=14.3411
+[GC-DIAG step=58200] mse_pos=0.049350 mse_neg=1.111909 mse_gap=1.062559 pred_norm=19.4468 pred_std=0.9752 pred_abs=0.7760 tgt_std=1.0001 tgt_abs=0.7983 cos=-0.0029 neg_dist=14.3055
+[GC-DIAG step=58300] mse_pos=0.049971 mse_neg=1.080689 mse_gap=1.030718 pred_norm=19.4106 pred_std=0.9732 pred_abs=0.7744 tgt_std=0.9995 tgt_abs=0.7978 cos=0.0015 neg_dist=14.0518
+[GC-DIAG step=58400] mse_pos=0.049923 mse_neg=1.114470 mse_gap=1.064547 pred_norm=19.3934 pred_std=0.9726 pred_abs=0.7742 tgt_std=0.9999 tgt_abs=0.7976 cos=-0.0007 neg_dist=14.2065
+[GC-DIAG step=58500] mse_pos=0.049572 mse_neg=1.102135 mse_gap=1.052563 pred_norm=19.4055 pred_std=0.9730 pred_abs=0.7745 tgt_std=1.0000 tgt_abs=0.7984 cos=0.0004 neg_dist=14.1218
+[GC-DIAG step=58600] mse_pos=0.049390 mse_neg=1.091623 mse_gap=1.042233 pred_norm=19.4377 pred_std=0.9746 pred_abs=0.7756 tgt_std=1.0004 tgt_abs=0.7981 cos=-0.0017 neg_dist=14.1497
+[GC-DIAG step=58700] mse_pos=0.050145 mse_neg=1.077751 mse_gap=1.027606 pred_norm=19.3911 pred_std=0.9725 pred_abs=0.7739 tgt_std=1.0004 tgt_abs=0.7982 cos=0.0031 neg_dist=14.1788
+[GC-DIAG step=58800] mse_pos=0.050363 mse_neg=1.079936 mse_gap=1.029573 pred_norm=19.4402 pred_std=0.9747 pred_abs=0.7760 tgt_std=0.9999 tgt_abs=0.7979 cos=-0.0001 neg_dist=14.0596
+[GC-DIAG step=58900] mse_pos=0.051779 mse_neg=1.115082 mse_gap=1.063303 pred_norm=19.4144 pred_std=0.9735 pred_abs=0.7747 tgt_std=1.0011 tgt_abs=0.7989 cos=-0.0005 neg_dist=14.0418
+[GC-DIAG step=59000] mse_pos=0.049004 mse_neg=1.093010 mse_gap=1.044006 pred_norm=19.4481 pred_std=0.9752 pred_abs=0.7759 tgt_std=0.9997 tgt_abs=0.7976 cos=0.0007 neg_dist=14.2169
+Running Evaluation...
+Validation Result @ Iteration 59000; Milestone = 59 (Train)
+---------  ----------
+mse_error  0.00964854
+---------  ----------
+Validation Result @ Iteration 59000; Milestone = 59 (ID: Validation)
+---  ----------
+mse  0.00971835
+---  ----------
+[GC-DIAG step=59100] mse_pos=0.046634 mse_neg=1.100050 mse_gap=1.053416 pred_norm=19.4946 pred_std=0.9772 pred_abs=0.7782 tgt_std=1.0021 tgt_abs=0.7993 cos=0.0025 neg_dist=14.5183
+[GC-DIAG step=59200] mse_pos=0.051021 mse_neg=1.100812 mse_gap=1.049791 pred_norm=19.4360 pred_std=0.9746 pred_abs=0.7755 tgt_std=0.9996 tgt_abs=0.7975 cos=0.0002 neg_dist=14.1054
+[GC-DIAG step=59300] mse_pos=0.049618 mse_neg=1.094332 mse_gap=1.044714 pred_norm=19.4618 pred_std=0.9759 pred_abs=0.7769 tgt_std=0.9998 tgt_abs=0.7981 cos=0.0013 neg_dist=14.1684
+[GC-DIAG step=59400] mse_pos=0.049513 mse_neg=1.084955 mse_gap=1.035442 pred_norm=19.4293 pred_std=0.9742 pred_abs=0.7751 tgt_std=1.0014 tgt_abs=0.7988 cos=-0.0007 neg_dist=14.2366
+[GC-DIAG step=59500] mse_pos=0.050669 mse_neg=1.082367 mse_gap=1.031699 pred_norm=19.4132 pred_std=0.9735 pred_abs=0.7747 tgt_std=0.9999 tgt_abs=0.7977 cos=0.0000 neg_dist=14.0889
+[GC-DIAG step=59600] mse_pos=0.051641 mse_neg=1.085988 mse_gap=1.034347 pred_norm=19.3975 pred_std=0.9727 pred_abs=0.7742 tgt_std=1.0004 tgt_abs=0.7983 cos=-0.0004 neg_dist=14.0890
+[GC-DIAG step=59700] mse_pos=0.050253 mse_neg=1.092099 mse_gap=1.041847 pred_norm=19.3894 pred_std=0.9724 pred_abs=0.7739 tgt_std=0.9997 tgt_abs=0.7975 cos=-0.0010 neg_dist=14.1498
+[GC-DIAG step=59800] mse_pos=0.050822 mse_neg=1.687768 mse_gap=1.636946 pred_norm=19.4436 pred_std=0.9750 pred_abs=0.7765 tgt_std=1.0006 tgt_abs=0.7982 cos=0.0009 neg_dist=17.3509
+[GC-DIAG step=59900] mse_pos=0.050016 mse_neg=1.696520 mse_gap=1.646503 pred_norm=19.4534 pred_std=0.9754 pred_abs=0.7765 tgt_std=1.0010 tgt_abs=0.7984 cos=0.0008 neg_dist=17.1900
+[GC-DIAG step=60000] mse_pos=0.051533 mse_neg=1.098441 mse_gap=1.046907 pred_norm=19.4049 pred_std=0.9731 pred_abs=0.7745 tgt_std=0.9996 tgt_abs=0.7978 cos=0.0002 neg_dist=14.0335
+Running Evaluation...
+Validation Result @ Iteration 60000; Milestone = 60 (Train)
+---------  ----------
+mse_error  0.00969715
+---------  ----------
+Validation Result @ Iteration 60000; Milestone = 60 (ID: Validation)
+---  ----------
+mse  0.00967574
+---  ----------
+[GC-DIAG step=60100] mse_pos=0.050331 mse_neg=1.095035 mse_gap=1.044704 pred_norm=19.4000 pred_std=0.9727 pred_abs=0.7743 tgt_std=1.0010 tgt_abs=0.7990 cos=-0.0014 neg_dist=14.0496
+[GC-DIAG step=60200] mse_pos=0.052836 mse_neg=1.083358 mse_gap=1.030522 pred_norm=19.3467 pred_std=0.9703 pred_abs=0.7719 tgt_std=1.0006 tgt_abs=0.7980 cos=-0.0001 neg_dist=13.9380
+[GC-DIAG step=60300] mse_pos=0.050158 mse_neg=1.084298 mse_gap=1.034140 pred_norm=19.4288 pred_std=0.9744 pred_abs=0.7751 tgt_std=1.0001 tgt_abs=0.7980 cos=0.0001 neg_dist=14.1573
+[GC-DIAG step=60400] mse_pos=0.049835 mse_neg=1.081949 mse_gap=1.032114 pred_norm=19.4064 pred_std=0.9731 pred_abs=0.7745 tgt_std=1.0000 tgt_abs=0.7981 cos=0.0013 neg_dist=13.9590
+[GC-DIAG step=60500] mse_pos=0.051307 mse_neg=1.090336 mse_gap=1.039029 pred_norm=19.3827 pred_std=0.9720 pred_abs=0.7736 tgt_std=1.0000 tgt_abs=0.7974 cos=0.0022 neg_dist=14.0838
+[GC-DIAG step=60600] mse_pos=0.049665 mse_neg=1.094621 mse_gap=1.044955 pred_norm=19.4054 pred_std=0.9730 pred_abs=0.7744 tgt_std=1.0007 tgt_abs=0.7985 cos=0.0015 neg_dist=14.1225
+[GC-DIAG step=60700] mse_pos=0.048157 mse_neg=1.105240 mse_gap=1.057083 pred_norm=19.4484 pred_std=0.9751 pred_abs=0.7763 tgt_std=0.9999 tgt_abs=0.7979 cos=-0.0001 neg_dist=14.3732
+[GC-DIAG step=60800] mse_pos=0.047163 mse_neg=1.094085 mse_gap=1.046922 pred_norm=19.4840 pred_std=0.9766 pred_abs=0.7775 tgt_std=1.0010 tgt_abs=0.7986 cos=0.0006 neg_dist=14.2296
+[GC-DIAG step=60900] mse_pos=0.049485 mse_neg=1.093999 mse_gap=1.044514 pred_norm=19.4283 pred_std=0.9741 pred_abs=0.7753 tgt_std=0.9995 tgt_abs=0.7975 cos=-0.0005 neg_dist=14.1210
+[GC-DIAG step=61000] mse_pos=0.052576 mse_neg=1.090457 mse_gap=1.037881 pred_norm=19.3933 pred_std=0.9728 pred_abs=0.7739 tgt_std=1.0001 tgt_abs=0.7978 cos=-0.0016 neg_dist=14.0565
+Running Evaluation...
+Validation Result @ Iteration 61000; Milestone = 61 (Train)
+---------  ----------
+mse_error  0.00971341
+---------  ----------
+Validation Result @ Iteration 61000; Milestone = 61 (ID: Validation)
+---  ---------
+mse  0.0097074
+---  ---------
+[GC-DIAG step=61100] mse_pos=0.046752 mse_neg=1.084425 mse_gap=1.037673 pred_norm=19.4617 pred_std=0.9756 pred_abs=0.7770 tgt_std=1.0001 tgt_abs=0.7986 cos=0.0023 neg_dist=14.3810
+[GC-DIAG step=61200] mse_pos=0.050094 mse_neg=1.092413 mse_gap=1.042319 pred_norm=19.4570 pred_std=0.9757 pred_abs=0.7765 tgt_std=0.9988 tgt_abs=0.7968 cos=0.0008 neg_dist=14.1260
+[GC-DIAG step=61300] mse_pos=0.050988 mse_neg=1.093972 mse_gap=1.042984 pred_norm=19.4206 pred_std=0.9738 pred_abs=0.7747 tgt_std=0.9999 tgt_abs=0.7979 cos=-0.0002 neg_dist=14.0192
+[GC-DIAG step=61400] mse_pos=0.049748 mse_neg=1.091475 mse_gap=1.041728 pred_norm=19.4345 pred_std=0.9744 pred_abs=0.7755 tgt_std=1.0009 tgt_abs=0.7989 cos=-0.0011 neg_dist=14.1608
+[GC-DIAG step=61500] mse_pos=0.051248 mse_neg=1.084726 mse_gap=1.033478 pred_norm=19.4029 pred_std=0.9731 pred_abs=0.7742 tgt_std=1.0001 tgt_abs=0.7981 cos=-0.0001 neg_dist=14.1941
+[GC-DIAG step=61600] mse_pos=0.048134 mse_neg=1.095895 mse_gap=1.047761 pred_norm=19.4804 pred_std=0.9765 pred_abs=0.7775 tgt_std=0.9996 tgt_abs=0.7975 cos=0.0010 neg_dist=14.0543
+[GC-DIAG step=61700] mse_pos=0.050129 mse_neg=1.082581 mse_gap=1.032452 pred_norm=19.4028 pred_std=0.9731 pred_abs=0.7745 tgt_std=1.0013 tgt_abs=0.7990 cos=-0.0011 neg_dist=14.0599
+[GC-DIAG step=61800] mse_pos=0.049571 mse_neg=1.086640 mse_gap=1.037068 pred_norm=19.4398 pred_std=0.9749 pred_abs=0.7759 tgt_std=0.9994 tgt_abs=0.7974 cos=-0.0001 neg_dist=14.0367
+[GC-DIAG step=61900] mse_pos=0.050732 mse_neg=1.083470 mse_gap=1.032738 pred_norm=19.4026 pred_std=0.9730 pred_abs=0.7746 tgt_std=1.0008 tgt_abs=0.7988 cos=0.0007 neg_dist=14.1305
+[GC-DIAG step=62000] mse_pos=0.048542 mse_neg=1.097017 mse_gap=1.048475 pred_norm=19.4433 pred_std=0.9748 pred_abs=0.7762 tgt_std=0.9976 tgt_abs=0.7960 cos=0.0008 neg_dist=14.1794
+Running Evaluation...
+Validation Result @ Iteration 62000; Milestone = 62 (Train)
+---------  ----------
+mse_error  0.00974601
+---------  ----------
+Validation Result @ Iteration 62000; Milestone = 62 (ID: Validation)
+---  ----------
+mse  0.00969127
+---  ----------
+[GC-DIAG step=62100] mse_pos=0.047147 mse_neg=1.078069 mse_gap=1.030923 pred_norm=19.4715 pred_std=0.9762 pred_abs=0.7770 tgt_std=0.9994 tgt_abs=0.7982 cos=-0.0003 neg_dist=14.1776
+[GC-DIAG step=62200] mse_pos=0.048143 mse_neg=1.090171 mse_gap=1.042028 pred_norm=19.4615 pred_std=0.9757 pred_abs=0.7768 tgt_std=0.9990 tgt_abs=0.7965 cos=0.0011 neg_dist=14.2331
+[GC-DIAG step=62300] mse_pos=0.049103 mse_neg=1.693200 mse_gap=1.644097 pred_norm=19.4605 pred_std=0.9757 pred_abs=0.7770 tgt_std=0.9986 tgt_abs=0.7968 cos=-0.0002 neg_dist=17.3696
+[GC-DIAG step=62400] mse_pos=0.048052 mse_neg=1.101507 mse_gap=1.053455 pred_norm=19.4417 pred_std=0.9748 pred_abs=0.7763 tgt_std=1.0011 tgt_abs=0.7987 cos=0.0010 neg_dist=14.2972
+[GC-DIAG step=62500] mse_pos=0.054000 mse_neg=1.093688 mse_gap=1.039688 pred_norm=19.3392 pred_std=0.9700 pred_abs=0.7724 tgt_std=1.0004 tgt_abs=0.7980 cos=0.0010 neg_dist=13.8827
+[GC-DIAG step=62600] mse_pos=0.045435 mse_neg=1.091757 mse_gap=1.046322 pred_norm=19.4893 pred_std=0.9769 pred_abs=0.7778 tgt_std=0.9996 tgt_abs=0.7973 cos=0.0028 neg_dist=14.4778
+[GC-DIAG step=62700] mse_pos=0.048696 mse_neg=1.097826 mse_gap=1.049130 pred_norm=19.4513 pred_std=0.9752 pred_abs=0.7763 tgt_std=0.9993 tgt_abs=0.7974 cos=0.0006 neg_dist=14.4433
+[GC-DIAG step=62800] mse_pos=0.045825 mse_neg=1.094618 mse_gap=1.048793 pred_norm=19.5184 pred_std=0.9783 pred_abs=0.7789 tgt_std=0.9992 tgt_abs=0.7971 cos=-0.0016 neg_dist=14.3176
+[GC-DIAG step=62900] mse_pos=0.046638 mse_neg=1.090618 mse_gap=1.043980 pred_norm=19.4541 pred_std=0.9753 pred_abs=0.7765 tgt_std=1.0008 tgt_abs=0.7982 cos=-0.0009 neg_dist=14.3356
+[GC-DIAG step=63000] mse_pos=0.051859 mse_neg=1.095932 mse_gap=1.044073 pred_norm=19.4070 pred_std=0.9733 pred_abs=0.7745 tgt_std=1.0009 tgt_abs=0.7984 cos=-0.0015 neg_dist=14.1057
+Running Evaluation...
+Validation Result @ Iteration 63000; Milestone = 63 (Train)
+---------  ----------
+mse_error  0.00975833
+---------  ----------
+Validation Result @ Iteration 63000; Milestone = 63 (ID: Validation)
+---  ----------
+mse  0.00976753
+---  ----------
+[GC-DIAG step=63100] mse_pos=0.052403 mse_neg=1.100865 mse_gap=1.048462 pred_norm=19.3799 pred_std=0.9721 pred_abs=0.7737 tgt_std=0.9999 tgt_abs=0.7977 cos=-0.0004 neg_dist=14.0033
+[GC-DIAG step=63200] mse_pos=0.050990 mse_neg=1.083127 mse_gap=1.032137 pred_norm=19.3949 pred_std=0.9726 pred_abs=0.7744 tgt_std=1.0006 tgt_abs=0.7981 cos=-0.0006 neg_dist=13.9542
+[GC-DIAG step=63300] mse_pos=0.050521 mse_neg=1.088327 mse_gap=1.037806 pred_norm=19.4101 pred_std=0.9734 pred_abs=0.7745 tgt_std=0.9989 tgt_abs=0.7967 cos=0.0005 neg_dist=14.0536
+[GC-DIAG step=63400] mse_pos=0.053245 mse_neg=1.095617 mse_gap=1.042372 pred_norm=19.3787 pred_std=0.9720 pred_abs=0.7734 tgt_std=1.0009 tgt_abs=0.7979 cos=-0.0024 neg_dist=13.9597
+[GC-DIAG step=63500] mse_pos=0.050131 mse_neg=1.082298 mse_gap=1.032167 pred_norm=19.4073 pred_std=0.9732 pred_abs=0.7743 tgt_std=0.9996 tgt_abs=0.7977 cos=0.0011 neg_dist=14.1400
+[GC-DIAG step=63600] mse_pos=0.047673 mse_neg=1.086246 mse_gap=1.038573 pred_norm=19.4927 pred_std=0.9772 pred_abs=0.7782 tgt_std=1.0011 tgt_abs=0.7987 cos=-0.0007 neg_dist=14.2798
+[GC-DIAG step=63700] mse_pos=0.050141 mse_neg=1.105358 mse_gap=1.055217 pred_norm=19.4394 pred_std=0.9749 pred_abs=0.7760 tgt_std=1.0004 tgt_abs=0.7990 cos=0.0015 neg_dist=14.1881
+[GC-DIAG step=63800] mse_pos=0.050861 mse_neg=1.100731 mse_gap=1.049871 pred_norm=19.4014 pred_std=0.9729 pred_abs=0.7743 tgt_std=1.0000 tgt_abs=0.7978 cos=-0.0016 neg_dist=14.0137
+[GC-DIAG step=63900] mse_pos=0.047794 mse_neg=1.098348 mse_gap=1.050555 pred_norm=19.4552 pred_std=0.9755 pred_abs=0.7764 tgt_std=1.0002 tgt_abs=0.7982 cos=0.0004 neg_dist=14.4322
+[GC-DIAG step=64000] mse_pos=0.050950 mse_neg=1.101922 mse_gap=1.050973 pred_norm=19.3709 pred_std=0.9714 pred_abs=0.7731 tgt_std=0.9986 tgt_abs=0.7969 cos=0.0027 neg_dist=14.1379
+Running Evaluation...
+Validation Result @ Iteration 64000; Milestone = 64 (Train)
+---------  ----------
+mse_error  0.00981528
+---------  ----------
+Validation Result @ Iteration 64000; Milestone = 64 (ID: Validation)
+---  ----------
+mse  0.00970038
+---  ----------
+[GC-DIAG step=64100] mse_pos=0.051459 mse_neg=1.079396 mse_gap=1.027937 pred_norm=19.3746 pred_std=0.9716 pred_abs=0.7732 tgt_std=1.0003 tgt_abs=0.7983 cos=0.0000 neg_dist=13.9623
+[GC-DIAG step=64200] mse_pos=0.049237 mse_neg=1.086063 mse_gap=1.036826 pred_norm=19.4382 pred_std=0.9745 pred_abs=0.7758 tgt_std=1.0012 tgt_abs=0.7991 cos=0.0003 neg_dist=14.1087
+[GC-DIAG step=64300] mse_pos=0.048696 mse_neg=1.098676 mse_gap=1.049980 pred_norm=19.4647 pred_std=0.9758 pred_abs=0.7773 tgt_std=1.0000 tgt_abs=0.7978 cos=-0.0004 neg_dist=14.2218
+[GC-DIAG step=64400] mse_pos=0.050228 mse_neg=1.085674 mse_gap=1.035445 pred_norm=19.4140 pred_std=0.9735 pred_abs=0.7747 tgt_std=1.0001 tgt_abs=0.7978 cos=0.0007 neg_dist=14.1612
+[GC-DIAG step=64500] mse_pos=0.050470 mse_neg=1.089332 mse_gap=1.038862 pred_norm=19.4050 pred_std=0.9730 pred_abs=0.7743 tgt_std=1.0000 tgt_abs=0.7981 cos=-0.0009 neg_dist=14.1654
+[GC-DIAG step=64600] mse_pos=0.049659 mse_neg=1.096744 mse_gap=1.047085 pred_norm=19.4251 pred_std=0.9740 pred_abs=0.7755 tgt_std=0.9992 tgt_abs=0.7976 cos=-0.0002 neg_dist=13.9725
+[GC-DIAG step=64700] mse_pos=0.046579 mse_neg=1.100067 mse_gap=1.053489 pred_norm=19.4814 pred_std=0.9766 pred_abs=0.7776 tgt_std=0.9989 tgt_abs=0.7971 cos=0.0002 neg_dist=14.2999
+[GC-DIAG step=64800] mse_pos=0.049958 mse_neg=1.095068 mse_gap=1.045110 pred_norm=19.4267 pred_std=0.9740 pred_abs=0.7753 tgt_std=0.9997 tgt_abs=0.7975 cos=-0.0020 neg_dist=14.0676
+[GC-DIAG step=64900] mse_pos=0.048573 mse_neg=1.102402 mse_gap=1.053829 pred_norm=19.4422 pred_std=0.9748 pred_abs=0.7759 tgt_std=0.9989 tgt_abs=0.7966 cos=-0.0010 neg_dist=14.3859
+[GC-DIAG step=65000] mse_pos=0.048740 mse_neg=1.099700 mse_gap=1.050960 pred_norm=19.4378 pred_std=0.9746 pred_abs=0.7761 tgt_std=0.9996 tgt_abs=0.7973 cos=0.0011 neg_dist=14.2962
+Running Evaluation...
+Validation Result @ Iteration 65000; Milestone = 65 (Train)
+---------  ---------
+mse_error  0.0097121
+---------  ---------
+Validation Result @ Iteration 65000; Milestone = 65 (ID: Validation)
+---  ----------
+mse  0.00970946
+---  ----------
+[GC-DIAG step=65100] mse_pos=0.053000 mse_neg=1.090402 mse_gap=1.037401 pred_norm=19.3596 pred_std=0.9711 pred_abs=0.7727 tgt_std=1.0000 tgt_abs=0.7976 cos=0.0007 neg_dist=14.0338
+[GC-DIAG step=65200] mse_pos=0.051098 mse_neg=1.093946 mse_gap=1.042847 pred_norm=19.3956 pred_std=0.9728 pred_abs=0.7743 tgt_std=0.9999 tgt_abs=0.7975 cos=0.0017 neg_dist=13.9585
+[GC-DIAG step=65300] mse_pos=0.050513 mse_neg=1.081930 mse_gap=1.031417 pred_norm=19.4070 pred_std=0.9731 pred_abs=0.7746 tgt_std=0.9990 tgt_abs=0.7973 cos=-0.0024 neg_dist=14.2095
+[GC-DIAG step=65400] mse_pos=0.049404 mse_neg=1.091778 mse_gap=1.042374 pred_norm=19.4442 pred_std=0.9748 pred_abs=0.7764 tgt_std=1.0003 tgt_abs=0.7983 cos=0.0006 neg_dist=14.0511
+[GC-DIAG step=65500] mse_pos=0.047992 mse_neg=1.086615 mse_gap=1.038623 pred_norm=19.4313 pred_std=0.9741 pred_abs=0.7755 tgt_std=0.9995 tgt_abs=0.7978 cos=0.0009 neg_dist=14.2663
+[GC-DIAG step=65600] mse_pos=0.049148 mse_neg=1.096918 mse_gap=1.047770 pred_norm=19.4086 pred_std=0.9732 pred_abs=0.7743 tgt_std=0.9992 tgt_abs=0.7976 cos=-0.0014 neg_dist=14.3460
+[GC-DIAG step=65700] mse_pos=0.048757 mse_neg=1.082721 mse_gap=1.033964 pred_norm=19.4347 pred_std=0.9745 pred_abs=0.7751 tgt_std=1.0007 tgt_abs=0.7987 cos=0.0007 neg_dist=14.1881
+[GC-DIAG step=65800] mse_pos=0.051200 mse_neg=1.088753 mse_gap=1.037553 pred_norm=19.4129 pred_std=0.9735 pred_abs=0.7754 tgt_std=0.9995 tgt_abs=0.7974 cos=-0.0019 neg_dist=13.9985
+[GC-DIAG step=65900] mse_pos=0.050360 mse_neg=1.090928 mse_gap=1.040568 pred_norm=19.4250 pred_std=0.9742 pred_abs=0.7754 tgt_std=0.9988 tgt_abs=0.7971 cos=0.0021 neg_dist=14.1321
+[GC-DIAG step=66000] mse_pos=0.050682 mse_neg=1.094781 mse_gap=1.044099 pred_norm=19.4132 pred_std=0.9735 pred_abs=0.7747 tgt_std=0.9994 tgt_abs=0.7971 cos=0.0022 neg_dist=14.0481
+Running Evaluation...
+Validation Result @ Iteration 66000; Milestone = 66 (Train)
+---------  ----------
+mse_error  0.00978869
+---------  ----------
+Validation Result @ Iteration 66000; Milestone = 66 (ID: Validation)
+---  ----------
+mse  0.00973852
+---  ----------
+[GC-DIAG step=66100] mse_pos=0.053680 mse_neg=1.084445 mse_gap=1.030765 pred_norm=19.3429 pred_std=0.9703 pred_abs=0.7721 tgt_std=1.0004 tgt_abs=0.7981 cos=-0.0010 neg_dist=13.7821
+[GC-DIAG step=66200] mse_pos=0.051892 mse_neg=1.090427 mse_gap=1.038535 pred_norm=19.4085 pred_std=0.9733 pred_abs=0.7747 tgt_std=0.9992 tgt_abs=0.7972 cos=0.0002 neg_dist=13.9406
+[GC-DIAG step=66300] mse_pos=0.048062 mse_neg=1.103629 mse_gap=1.055566 pred_norm=19.4357 pred_std=0.9744 pred_abs=0.7757 tgt_std=1.0003 tgt_abs=0.7984 cos=-0.0010 neg_dist=14.4301
+[GC-DIAG step=66400] mse_pos=0.050872 mse_neg=1.091406 mse_gap=1.040534 pred_norm=19.4019 pred_std=0.9729 pred_abs=0.7745 tgt_std=0.9998 tgt_abs=0.7977 cos=-0.0013 neg_dist=14.0905
+[GC-DIAG step=66500] mse_pos=0.051106 mse_neg=1.097567 mse_gap=1.046461 pred_norm=19.4025 pred_std=0.9731 pred_abs=0.7743 tgt_std=0.9995 tgt_abs=0.7978 cos=0.0009 neg_dist=13.9976
+[GC-DIAG step=66600] mse_pos=0.049132 mse_neg=1.087555 mse_gap=1.038423 pred_norm=19.4065 pred_std=0.9730 pred_abs=0.7746 tgt_std=1.0014 tgt_abs=0.7990 cos=0.0010 neg_dist=14.1568
+[GC-DIAG step=66700] mse_pos=0.050763 mse_neg=1.093095 mse_gap=1.042332 pred_norm=19.4316 pred_std=0.9745 pred_abs=0.7757 tgt_std=1.0012 tgt_abs=0.7986 cos=-0.0005 neg_dist=14.1147
+[GC-DIAG step=66800] mse_pos=0.050513 mse_neg=1.109738 mse_gap=1.059225 pred_norm=19.4220 pred_std=0.9739 pred_abs=0.7749 tgt_std=1.0001 tgt_abs=0.7976 cos=0.0014 neg_dist=14.1344
+[GC-DIAG step=66900] mse_pos=0.050476 mse_neg=1.082786 mse_gap=1.032310 pred_norm=19.4051 pred_std=0.9731 pred_abs=0.7750 tgt_std=0.9998 tgt_abs=0.7979 cos=0.0009 neg_dist=14.0555
+[GC-DIAG step=67000] mse_pos=0.050129 mse_neg=1.099816 mse_gap=1.049686 pred_norm=19.4023 pred_std=0.9729 pred_abs=0.7743 tgt_std=1.0003 tgt_abs=0.7981 cos=-0.0027 neg_dist=14.0872
+Running Evaluation...
+Validation Result @ Iteration 67000; Milestone = 67 (Train)
+---------  ----------
+mse_error  0.00971275
+---------  ----------
+Validation Result @ Iteration 67000; Milestone = 67 (ID: Validation)
+---  ----------
+mse  0.00968844
+---  ----------
+[GC-DIAG step=67100] mse_pos=0.050856 mse_neg=1.681028 mse_gap=1.630172 pred_norm=19.3917 pred_std=0.9725 pred_abs=0.7740 tgt_std=1.0004 tgt_abs=0.7980 cos=-0.0004 neg_dist=17.2895
+[GC-DIAG step=67200] mse_pos=0.048670 mse_neg=1.093855 mse_gap=1.045185 pred_norm=19.4260 pred_std=0.9741 pred_abs=0.7754 tgt_std=1.0005 tgt_abs=0.7981 cos=-0.0003 neg_dist=14.4668
+[GC-DIAG step=67300] mse_pos=0.052037 mse_neg=1.091405 mse_gap=1.039368 pred_norm=19.4086 pred_std=0.9734 pred_abs=0.7746 tgt_std=0.9988 tgt_abs=0.7972 cos=0.0011 neg_dist=14.0214
+[GC-DIAG step=67400] mse_pos=0.050624 mse_neg=1.083408 mse_gap=1.032784 pred_norm=19.3888 pred_std=0.9724 pred_abs=0.7738 tgt_std=1.0013 tgt_abs=0.7994 cos=0.0001 neg_dist=14.1060
+[GC-DIAG step=67500] mse_pos=0.053670 mse_neg=1.080281 mse_gap=1.026611 pred_norm=19.3871 pred_std=0.9724 pred_abs=0.7737 tgt_std=1.0011 tgt_abs=0.7986 cos=-0.0001 neg_dist=13.7451
+[GC-DIAG step=67600] mse_pos=0.050785 mse_neg=1.095457 mse_gap=1.044672 pred_norm=19.4046 pred_std=0.9730 pred_abs=0.7744 tgt_std=1.0015 tgt_abs=0.7989 cos=-0.0008 neg_dist=14.2064
+[GC-DIAG step=67700] mse_pos=0.048618 mse_neg=1.096353 mse_gap=1.047734 pred_norm=19.4647 pred_std=0.9758 pred_abs=0.7770 tgt_std=1.0007 tgt_abs=0.7984 cos=0.0001 neg_dist=14.1925
+[GC-DIAG step=67800] mse_pos=0.049810 mse_neg=1.094469 mse_gap=1.044660 pred_norm=19.4319 pred_std=0.9745 pred_abs=0.7757 tgt_std=0.9991 tgt_abs=0.7969 cos=0.0010 neg_dist=14.1675
+[GC-DIAG step=67900] mse_pos=0.047743 mse_neg=1.084408 mse_gap=1.036665 pred_norm=19.4543 pred_std=0.9753 pred_abs=0.7765 tgt_std=1.0009 tgt_abs=0.7986 cos=-0.0002 neg_dist=14.1768
+[GC-DIAG step=68000] mse_pos=0.050680 mse_neg=1.095561 mse_gap=1.044881 pred_norm=19.4064 pred_std=0.9731 pred_abs=0.7746 tgt_std=0.9990 tgt_abs=0.7967 cos=0.0005 neg_dist=13.9559
+Running Evaluation...
+Validation Result @ Iteration 68000; Milestone = 68 (Train)
+---------  ---------
+mse_error  0.0097533
+---------  ---------
+Validation Result @ Iteration 68000; Milestone = 68 (ID: Validation)
+---  ---------
+mse  0.0097063
+---  ---------
+[GC-DIAG step=68100] mse_pos=0.049977 mse_neg=1.089125 mse_gap=1.039148 pred_norm=19.4213 pred_std=0.9739 pred_abs=0.7754 tgt_std=0.9997 tgt_abs=0.7975 cos=-0.0005 neg_dist=14.0661
+[GC-DIAG step=68200] mse_pos=0.049628 mse_neg=1.087116 mse_gap=1.037488 pred_norm=19.4444 pred_std=0.9749 pred_abs=0.7762 tgt_std=0.9998 tgt_abs=0.7977 cos=-0.0002 neg_dist=14.1036
+[GC-DIAG step=68300] mse_pos=0.049681 mse_neg=1.077914 mse_gap=1.028232 pred_norm=19.4427 pred_std=0.9748 pred_abs=0.7757 tgt_std=0.9996 tgt_abs=0.7975 cos=0.0005 neg_dist=14.0677
+[GC-DIAG step=68400] mse_pos=0.049571 mse_neg=1.085670 mse_gap=1.036098 pred_norm=19.4241 pred_std=0.9740 pred_abs=0.7754 tgt_std=1.0003 tgt_abs=0.7981 cos=0.0007 neg_dist=14.1597
+[GC-DIAG step=68500] mse_pos=0.050433 mse_neg=1.087624 mse_gap=1.037191 pred_norm=19.4299 pred_std=0.9742 pred_abs=0.7756 tgt_std=1.0003 tgt_abs=0.7984 cos=0.0004 neg_dist=13.9752
+[GC-DIAG step=68600] mse_pos=0.051736 mse_neg=1.080620 mse_gap=1.028884 pred_norm=19.4211 pred_std=0.9739 pred_abs=0.7751 tgt_std=0.9999 tgt_abs=0.7978 cos=-0.0004 neg_dist=13.9221
+[GC-DIAG step=68700] mse_pos=0.049512 mse_neg=1.679836 mse_gap=1.630324 pred_norm=19.4200 pred_std=0.9738 pred_abs=0.7751 tgt_std=1.0004 tgt_abs=0.7984 cos=-0.0007 neg_dist=17.3901
+[GC-DIAG step=68800] mse_pos=0.049614 mse_neg=1.080678 mse_gap=1.031063 pred_norm=19.4322 pred_std=0.9743 pred_abs=0.7755 tgt_std=0.9995 tgt_abs=0.7972 cos=-0.0007 neg_dist=14.1561
+[GC-DIAG step=68900] mse_pos=0.049598 mse_neg=1.097821 mse_gap=1.048223 pred_norm=19.4287 pred_std=0.9743 pred_abs=0.7756 tgt_std=1.0002 tgt_abs=0.7983 cos=-0.0011 neg_dist=14.2709
+[GC-DIAG step=69000] mse_pos=0.050221 mse_neg=1.091811 mse_gap=1.041590 pred_norm=19.4323 pred_std=0.9743 pred_abs=0.7757 tgt_std=1.0009 tgt_abs=0.7986 cos=-0.0000 neg_dist=14.0928
+Running Evaluation...
+Validation Result @ Iteration 69000; Milestone = 69 (Train)
+---------  ---------
+mse_error  0.0096964
+---------  ---------
+Validation Result @ Iteration 69000; Milestone = 69 (ID: Validation)
+---  ---------
+mse  0.0096744
+---  ---------
+[GC-DIAG step=69100] mse_pos=0.049429 mse_neg=1.090640 mse_gap=1.041211 pred_norm=19.4370 pred_std=0.9748 pred_abs=0.7756 tgt_std=0.9992 tgt_abs=0.7979 cos=-0.0007 neg_dist=14.1915
+[GC-DIAG step=69200] mse_pos=0.050229 mse_neg=1.094826 mse_gap=1.044597 pred_norm=19.4218 pred_std=0.9739 pred_abs=0.7747 tgt_std=0.9995 tgt_abs=0.7973 cos=-0.0003 neg_dist=14.0698
+[GC-DIAG step=69300] mse_pos=0.048603 mse_neg=1.088152 mse_gap=1.039549 pred_norm=19.4322 pred_std=0.9742 pred_abs=0.7754 tgt_std=1.0000 tgt_abs=0.7979 cos=-0.0012 neg_dist=14.1344
+[GC-DIAG step=69400] mse_pos=0.049205 mse_neg=1.088606 mse_gap=1.039401 pred_norm=19.4402 pred_std=0.9747 pred_abs=0.7757 tgt_std=0.9993 tgt_abs=0.7976 cos=0.0014 neg_dist=14.1007
+[GC-DIAG step=69500] mse_pos=0.049541 mse_neg=1.097991 mse_gap=1.048450 pred_norm=19.4440 pred_std=0.9749 pred_abs=0.7763 tgt_std=0.9987 tgt_abs=0.7969 cos=-0.0003 neg_dist=14.1084
+[GC-DIAG step=69600] mse_pos=0.051197 mse_neg=1.118273 mse_gap=1.067076 pred_norm=19.3920 pred_std=0.9726 pred_abs=0.7742 tgt_std=0.9989 tgt_abs=0.7973 cos=-0.0007 neg_dist=14.2044
+[GC-DIAG step=69700] mse_pos=0.047396 mse_neg=1.690030 mse_gap=1.642634 pred_norm=19.5006 pred_std=0.9777 pred_abs=0.7782 tgt_std=0.9994 tgt_abs=0.7973 cos=0.0020 neg_dist=17.5523
+[GC-DIAG step=69800] mse_pos=0.047997 mse_neg=1.100241 mse_gap=1.052244 pred_norm=19.4732 pred_std=0.9763 pred_abs=0.7768 tgt_std=1.0000 tgt_abs=0.7983 cos=0.0004 neg_dist=14.3164
+[GC-DIAG step=69900] mse_pos=0.048322 mse_neg=1.097395 mse_gap=1.049073 pred_norm=19.4454 pred_std=0.9749 pred_abs=0.7760 tgt_std=0.9985 tgt_abs=0.7964 cos=-0.0008 neg_dist=14.3525
+[GC-DIAG step=70000] mse_pos=0.052389 mse_neg=1.093950 mse_gap=1.041561 pred_norm=19.3745 pred_std=0.9717 pred_abs=0.7731 tgt_std=0.9997 tgt_abs=0.7979 cos=-0.0002 neg_dist=14.0157
+Running Evaluation...
+Validation Result @ Iteration 70000; Milestone = 70 (Train)
+---------  ----------
+mse_error  0.00969336
+---------  ----------
+Validation Result @ Iteration 70000; Milestone = 70 (ID: Validation)
+---  ---------
+mse  0.0097266
+---  ---------
+[GC-DIAG step=70100] mse_pos=0.048843 mse_neg=1.092325 mse_gap=1.043483 pred_norm=19.4322 pred_std=0.9743 pred_abs=0.7754 tgt_std=0.9999 tgt_abs=0.7978 cos=0.0015 neg_dist=14.1405
+[GC-DIAG step=70200] mse_pos=0.050281 mse_neg=1.085383 mse_gap=1.035103 pred_norm=19.4284 pred_std=0.9742 pred_abs=0.7754 tgt_std=1.0005 tgt_abs=0.7983 cos=0.0012 neg_dist=14.0208
+[GC-DIAG step=70300] mse_pos=0.049039 mse_neg=1.091403 mse_gap=1.042363 pred_norm=19.4357 pred_std=0.9745 pred_abs=0.7756 tgt_std=1.0001 tgt_abs=0.7980 cos=-0.0013 neg_dist=14.1892
+[GC-DIAG step=70400] mse_pos=0.049732 mse_neg=1.098873 mse_gap=1.049141 pred_norm=19.4157 pred_std=0.9736 pred_abs=0.7749 tgt_std=1.0008 tgt_abs=0.7983 cos=-0.0004 neg_dist=14.2066
+[GC-DIAG step=70500] mse_pos=0.050953 mse_neg=1.087023 mse_gap=1.036070 pred_norm=19.4350 pred_std=0.9747 pred_abs=0.7758 tgt_std=1.0001 tgt_abs=0.7986 cos=-0.0004 neg_dist=14.2289
+[GC-DIAG step=70600] mse_pos=0.051120 mse_neg=1.090590 mse_gap=1.039470 pred_norm=19.4411 pred_std=0.9749 pred_abs=0.7761 tgt_std=1.0015 tgt_abs=0.7989 cos=-0.0013 neg_dist=14.1112
+[GC-DIAG step=70700] mse_pos=0.049487 mse_neg=1.085490 mse_gap=1.036003 pred_norm=19.4431 pred_std=0.9749 pred_abs=0.7763 tgt_std=1.0021 tgt_abs=0.7993 cos=-0.0008 neg_dist=14.1973
+[GC-DIAG step=70800] mse_pos=0.049061 mse_neg=1.094268 mse_gap=1.045207 pred_norm=19.4252 pred_std=0.9740 pred_abs=0.7755 tgt_std=0.9999 tgt_abs=0.7984 cos=-0.0004 neg_dist=14.2320
+[GC-DIAG step=70900] mse_pos=0.047856 mse_neg=1.099023 mse_gap=1.051167 pred_norm=19.4672 pred_std=0.9760 pred_abs=0.7770 tgt_std=0.9995 tgt_abs=0.7973 cos=-0.0011 neg_dist=14.0475
+[GC-DIAG step=71000] mse_pos=0.052223 mse_neg=1.098950 mse_gap=1.046727 pred_norm=19.3902 pred_std=0.9725 pred_abs=0.7741 tgt_std=1.0002 tgt_abs=0.7983 cos=0.0003 neg_dist=13.9415
+Running Evaluation...
+Validation Result @ Iteration 71000; Milestone = 71 (Train)
+---------  ----------
+mse_error  0.00969822
+---------  ----------
+Validation Result @ Iteration 71000; Milestone = 71 (ID: Validation)
+---  ----------
+mse  0.00971413
+---  ----------
+[GC-DIAG step=71100] mse_pos=0.048851 mse_neg=1.687199 mse_gap=1.638348 pred_norm=19.4442 pred_std=0.9749 pred_abs=0.7764 tgt_std=1.0004 tgt_abs=0.7982 cos=-0.0002 neg_dist=17.3879
+[GC-DIAG step=71200] mse_pos=0.050282 mse_neg=1.685893 mse_gap=1.635611 pred_norm=19.4140 pred_std=0.9735 pred_abs=0.7747 tgt_std=0.9993 tgt_abs=0.7971 cos=0.0007 neg_dist=17.4966
+[GC-DIAG step=71300] mse_pos=0.051659 mse_neg=1.099710 mse_gap=1.048050 pred_norm=19.3873 pred_std=0.9724 pred_abs=0.7736 tgt_std=0.9998 tgt_abs=0.7973 cos=0.0016 neg_dist=14.1097
+[GC-DIAG step=71400] mse_pos=0.052664 mse_neg=1.088702 mse_gap=1.036038 pred_norm=19.3463 pred_std=0.9704 pred_abs=0.7725 tgt_std=0.9992 tgt_abs=0.7973 cos=0.0008 neg_dist=14.0691
+[GC-DIAG step=71500] mse_pos=0.049915 mse_neg=1.087640 mse_gap=1.037725 pred_norm=19.4345 pred_std=0.9745 pred_abs=0.7754 tgt_std=1.0007 tgt_abs=0.7986 cos=0.0009 neg_dist=14.2712
+[GC-DIAG step=71600] mse_pos=0.050471 mse_neg=1.091799 mse_gap=1.041328 pred_norm=19.4296 pred_std=0.9742 pred_abs=0.7755 tgt_std=0.9989 tgt_abs=0.7970 cos=-0.0018 neg_dist=13.9462
+[GC-DIAG step=71700] mse_pos=0.049458 mse_neg=1.091772 mse_gap=1.042314 pred_norm=19.4087 pred_std=0.9731 pred_abs=0.7747 tgt_std=1.0001 tgt_abs=0.7985 cos=-0.0006 neg_dist=14.1343
+[GC-DIAG step=71800] mse_pos=0.049507 mse_neg=1.097156 mse_gap=1.047649 pred_norm=19.4097 pred_std=0.9735 pred_abs=0.7746 tgt_std=1.0011 tgt_abs=0.7990 cos=-0.0015 neg_dist=14.3617
+[GC-DIAG step=71900] mse_pos=0.048701 mse_neg=1.084478 mse_gap=1.035776 pred_norm=19.4340 pred_std=0.9744 pred_abs=0.7760 tgt_std=0.9995 tgt_abs=0.7973 cos=-0.0010 neg_dist=14.1021
+[GC-DIAG step=72000] mse_pos=0.049849 mse_neg=1.088717 mse_gap=1.038868 pred_norm=19.4316 pred_std=0.9744 pred_abs=0.7752 tgt_std=0.9996 tgt_abs=0.7974 cos=-0.0006 neg_dist=14.1816
+Running Evaluation...
+Validation Result @ Iteration 72000; Milestone = 72 (Train)
+---------  ----------
+mse_error  0.00970404
+---------  ----------
+Validation Result @ Iteration 72000; Milestone = 72 (ID: Validation)
+---  ----------
+mse  0.00971888
+---  ----------
+[GC-DIAG step=72100] mse_pos=0.050808 mse_neg=1.085497 mse_gap=1.034689 pred_norm=19.3953 pred_std=0.9726 pred_abs=0.7737 tgt_std=1.0003 tgt_abs=0.7984 cos=-0.0007 neg_dist=14.0314
+[GC-DIAG step=72200] mse_pos=0.049036 mse_neg=1.089921 mse_gap=1.040885 pred_norm=19.4483 pred_std=0.9750 pred_abs=0.7763 tgt_std=0.9996 tgt_abs=0.7976 cos=-0.0021 neg_dist=14.0654
+[GC-DIAG step=72300] mse_pos=0.052088 mse_neg=1.091885 mse_gap=1.039798 pred_norm=19.3749 pred_std=0.9718 pred_abs=0.7733 tgt_std=1.0005 tgt_abs=0.7980 cos=0.0004 neg_dist=14.1431
+[GC-DIAG step=72400] mse_pos=0.048681 mse_neg=1.104266 mse_gap=1.055585 pred_norm=19.4657 pred_std=0.9759 pred_abs=0.7770 tgt_std=1.0006 tgt_abs=0.7983 cos=0.0003 neg_dist=14.1719
+[GC-DIAG step=72500] mse_pos=0.049266 mse_neg=1.079035 mse_gap=1.029769 pred_norm=19.4256 pred_std=0.9740 pred_abs=0.7756 tgt_std=0.9989 tgt_abs=0.7970 cos=0.0006 neg_dist=14.1605
+[GC-DIAG step=72600] mse_pos=0.050437 mse_neg=1.091184 mse_gap=1.040748 pred_norm=19.4113 pred_std=0.9734 pred_abs=0.7748 tgt_std=1.0013 tgt_abs=0.7988 cos=0.0019 neg_dist=14.0645
+[GC-DIAG step=72700] mse_pos=0.049483 mse_neg=1.093699 mse_gap=1.044215 pred_norm=19.4412 pred_std=0.9749 pred_abs=0.7759 tgt_std=1.0001 tgt_abs=0.7979 cos=-0.0011 neg_dist=14.2481
+[GC-DIAG step=72800] mse_pos=0.050157 mse_neg=1.086199 mse_gap=1.036042 pred_norm=19.4263 pred_std=0.9741 pred_abs=0.7751 tgt_std=0.9997 tgt_abs=0.7978 cos=-0.0013 neg_dist=14.0702
+[GC-DIAG step=72900] mse_pos=0.048852 mse_neg=1.091688 mse_gap=1.042835 pred_norm=19.4396 pred_std=0.9747 pred_abs=0.7757 tgt_std=1.0006 tgt_abs=0.7984 cos=0.0002 neg_dist=14.0947
+[GC-DIAG step=73000] mse_pos=0.051557 mse_neg=1.078444 mse_gap=1.026887 pred_norm=19.3877 pred_std=0.9724 pred_abs=0.7737 tgt_std=1.0005 tgt_abs=0.7979 cos=0.0005 neg_dist=13.9849
+Running Evaluation...
+Validation Result @ Iteration 73000; Milestone = 73 (Train)
+---------  ----------
+mse_error  0.00969434
+---------  ----------
+Validation Result @ Iteration 73000; Milestone = 73 (ID: Validation)
+---  ----------
+mse  0.00969229
+---  ----------
+[GC-DIAG step=73100] mse_pos=0.049304 mse_neg=1.079370 mse_gap=1.030065 pred_norm=19.4174 pred_std=0.9736 pred_abs=0.7750 tgt_std=0.9997 tgt_abs=0.7978 cos=-0.0011 neg_dist=13.9307
+[GC-DIAG step=73200] mse_pos=0.052645 mse_neg=1.092394 mse_gap=1.039749 pred_norm=19.4039 pred_std=0.9731 pred_abs=0.7743 tgt_std=0.9988 tgt_abs=0.7973 cos=0.0007 neg_dist=13.9193
+[GC-DIAG step=73300] mse_pos=0.048597 mse_neg=1.096471 mse_gap=1.047874 pred_norm=19.4549 pred_std=0.9754 pred_abs=0.7767 tgt_std=1.0005 tgt_abs=0.7985 cos=0.0007 neg_dist=14.0889
+[GC-DIAG step=73400] mse_pos=0.049277 mse_neg=1.083961 mse_gap=1.034684 pred_norm=19.4368 pred_std=0.9747 pred_abs=0.7757 tgt_std=0.9998 tgt_abs=0.7977 cos=-0.0001 neg_dist=14.1182
+[GC-DIAG step=73500] mse_pos=0.049570 mse_neg=1.077096 mse_gap=1.027526 pred_norm=19.4420 pred_std=0.9748 pred_abs=0.7762 tgt_std=1.0003 tgt_abs=0.7981 cos=0.0010 neg_dist=14.0887
+[GC-DIAG step=73600] mse_pos=0.048400 mse_neg=1.090351 mse_gap=1.041952 pred_norm=19.4592 pred_std=0.9756 pred_abs=0.7763 tgt_std=1.0009 tgt_abs=0.7982 cos=0.0007 neg_dist=14.3438
+[GC-DIAG step=73700] mse_pos=0.051338 mse_neg=1.093174 mse_gap=1.041836 pred_norm=19.4009 pred_std=0.9728 pred_abs=0.7742 tgt_std=1.0006 tgt_abs=0.7980 cos=-0.0012 neg_dist=14.1604
+[GC-DIAG step=73800] mse_pos=0.049195 mse_neg=1.086143 mse_gap=1.036947 pred_norm=19.4522 pred_std=0.9753 pred_abs=0.7764 tgt_std=0.9997 tgt_abs=0.7978 cos=-0.0005 neg_dist=14.0124
+[GC-DIAG step=73900] mse_pos=0.047600 mse_neg=1.094491 mse_gap=1.046891 pred_norm=19.4581 pred_std=0.9755 pred_abs=0.7762 tgt_std=0.9990 tgt_abs=0.7970 cos=-0.0003 neg_dist=14.2826
+[GC-DIAG step=74000] mse_pos=0.049184 mse_neg=1.085732 mse_gap=1.036548 pred_norm=19.4579 pred_std=0.9756 pred_abs=0.7763 tgt_std=0.9997 tgt_abs=0.7982 cos=-0.0011 neg_dist=14.2278
+Running Evaluation...
+Validation Result @ Iteration 74000; Milestone = 74 (Train)
+---------  ----------
+mse_error  0.00973704
+---------  ----------
+Validation Result @ Iteration 74000; Milestone = 74 (ID: Validation)
+---  ----------
+mse  0.00972133
+---  ----------
+[GC-DIAG step=74100] mse_pos=0.050489 mse_neg=1.081417 mse_gap=1.030928 pred_norm=19.4103 pred_std=0.9733 pred_abs=0.7747 tgt_std=1.0003 tgt_abs=0.7981 cos=-0.0002 neg_dist=14.1564
+[GC-DIAG step=74200] mse_pos=0.049480 mse_neg=1.092178 mse_gap=1.042699 pred_norm=19.4204 pred_std=0.9738 pred_abs=0.7755 tgt_std=0.9990 tgt_abs=0.7968 cos=-0.0004 neg_dist=14.2519
+[GC-DIAG step=74300] mse_pos=0.050257 mse_neg=1.098829 mse_gap=1.048572 pred_norm=19.4074 pred_std=0.9733 pred_abs=0.7747 tgt_std=0.9993 tgt_abs=0.7975 cos=0.0006 neg_dist=14.0553
+[GC-DIAG step=74400] mse_pos=0.051192 mse_neg=1.083123 mse_gap=1.031931 pred_norm=19.3974 pred_std=0.9729 pred_abs=0.7742 tgt_std=1.0013 tgt_abs=0.7993 cos=-0.0016 neg_dist=14.0729
+[GC-DIAG step=74500] mse_pos=0.049639 mse_neg=1.087398 mse_gap=1.037759 pred_norm=19.4115 pred_std=0.9734 pred_abs=0.7744 tgt_std=0.9993 tgt_abs=0.7971 cos=0.0008 neg_dist=14.0269
+[GC-DIAG step=74600] mse_pos=0.048409 mse_neg=1.109222 mse_gap=1.060813 pred_norm=19.4609 pred_std=0.9757 pred_abs=0.7766 tgt_std=0.9994 tgt_abs=0.7972 cos=-0.0003 neg_dist=14.1892
+[GC-DIAG step=74700] mse_pos=0.051700 mse_neg=1.097749 mse_gap=1.046049 pred_norm=19.3834 pred_std=0.9722 pred_abs=0.7733 tgt_std=0.9986 tgt_abs=0.7966 cos=-0.0010 neg_dist=14.0326
+[GC-DIAG step=74800] mse_pos=0.048174 mse_neg=1.090120 mse_gap=1.041945 pred_norm=19.4463 pred_std=0.9750 pred_abs=0.7762 tgt_std=0.9981 tgt_abs=0.7966 cos=-0.0001 neg_dist=14.2017
+[GC-DIAG step=74900] mse_pos=0.051606 mse_neg=1.098130 mse_gap=1.046523 pred_norm=19.4081 pred_std=0.9734 pred_abs=0.7749 tgt_std=1.0009 tgt_abs=0.7988 cos=-0.0014 neg_dist=13.9821
+[GC-DIAG step=75000] mse_pos=0.049708 mse_neg=1.082284 mse_gap=1.032577 pred_norm=19.4317 pred_std=0.9744 pred_abs=0.7759 tgt_std=1.0018 tgt_abs=0.7991 cos=-0.0024 neg_dist=14.0686
+Running Evaluation...
+Validation Result @ Iteration 75000; Milestone = 75 (Train)
+---------  ----------
+mse_error  0.00974289
+---------  ----------
+Validation Result @ Iteration 75000; Milestone = 75 (ID: Validation)
+---  ----------
+mse  0.00967628
+---  ----------
+[GC-DIAG step=75100] mse_pos=0.053135 mse_neg=1.088759 mse_gap=1.035624 pred_norm=19.3552 pred_std=0.9708 pred_abs=0.7725 tgt_std=1.0000 tgt_abs=0.7981 cos=0.0005 neg_dist=14.0558
+[GC-DIAG step=75200] mse_pos=0.049119 mse_neg=1.093934 mse_gap=1.044814 pred_norm=19.4394 pred_std=0.9746 pred_abs=0.7759 tgt_std=1.0000 tgt_abs=0.7982 cos=0.0014 neg_dist=14.2574
+[GC-DIAG step=75300] mse_pos=0.050759 mse_neg=1.089235 mse_gap=1.038476 pred_norm=19.4368 pred_std=0.9746 pred_abs=0.7759 tgt_std=1.0012 tgt_abs=0.7991 cos=-0.0013 neg_dist=14.0025
+[GC-DIAG step=75400] mse_pos=0.051192 mse_neg=1.093731 mse_gap=1.042539 pred_norm=19.4095 pred_std=0.9733 pred_abs=0.7746 tgt_std=1.0004 tgt_abs=0.7983 cos=-0.0011 neg_dist=14.2081
+[GC-DIAG step=75500] mse_pos=0.048400 mse_neg=1.092329 mse_gap=1.043930 pred_norm=19.4519 pred_std=0.9753 pred_abs=0.7765 tgt_std=0.9994 tgt_abs=0.7977 cos=0.0014 neg_dist=14.0944
+[GC-DIAG step=75600] mse_pos=0.051228 mse_neg=1.085364 mse_gap=1.034135 pred_norm=19.4224 pred_std=0.9739 pred_abs=0.7752 tgt_std=0.9997 tgt_abs=0.7974 cos=0.0018 neg_dist=14.0308
+[GC-DIAG step=75700] mse_pos=0.050387 mse_neg=1.087205 mse_gap=1.036818 pred_norm=19.4222 pred_std=0.9740 pred_abs=0.7752 tgt_std=1.0006 tgt_abs=0.7983 cos=0.0001 neg_dist=14.1372
+[GC-DIAG step=75800] mse_pos=0.052279 mse_neg=1.114093 mse_gap=1.061814 pred_norm=19.3751 pred_std=0.9717 pred_abs=0.7731 tgt_std=0.9999 tgt_abs=0.7975 cos=0.0005 neg_dist=14.1043
+[GC-DIAG step=75900] mse_pos=0.051314 mse_neg=1.094013 mse_gap=1.042699 pred_norm=19.3737 pred_std=0.9715 pred_abs=0.7734 tgt_std=0.9990 tgt_abs=0.7971 cos=0.0015 neg_dist=14.0518
+[GC-DIAG step=76000] mse_pos=0.048370 mse_neg=1.686331 mse_gap=1.637961 pred_norm=19.4577 pred_std=0.9755 pred_abs=0.7765 tgt_std=1.0012 tgt_abs=0.7985 cos=0.0027 neg_dist=17.4087
+Running Evaluation...
+Validation Result @ Iteration 76000; Milestone = 76 (Train)
+---------  ----------
+mse_error  0.00976905
+---------  ----------
+Validation Result @ Iteration 76000; Milestone = 76 (ID: Validation)
+---  ----------
+mse  0.00967987
+---  ----------
+[GC-DIAG step=76100] mse_pos=0.051324 mse_neg=1.099542 mse_gap=1.048218 pred_norm=19.4234 pred_std=0.9740 pred_abs=0.7752 tgt_std=0.9988 tgt_abs=0.7968 cos=-0.0019 neg_dist=13.9590
+[GC-DIAG step=76200] mse_pos=0.050731 mse_neg=1.099362 mse_gap=1.048631 pred_norm=19.3886 pred_std=0.9725 pred_abs=0.7737 tgt_std=0.9993 tgt_abs=0.7975 cos=-0.0021 neg_dist=14.1854
+[GC-DIAG step=76300] mse_pos=0.048613 mse_neg=1.096644 mse_gap=1.048032 pred_norm=19.4578 pred_std=0.9756 pred_abs=0.7763 tgt_std=0.9989 tgt_abs=0.7968 cos=0.0004 neg_dist=14.1235
+[GC-DIAG step=76400] mse_pos=0.048095 mse_neg=1.087281 mse_gap=1.039186 pred_norm=19.4785 pred_std=0.9766 pred_abs=0.7773 tgt_std=0.9997 tgt_abs=0.7975 cos=-0.0010 neg_dist=14.1875
+[GC-DIAG step=76500] mse_pos=0.051590 mse_neg=1.080284 mse_gap=1.028694 pred_norm=19.3982 pred_std=0.9728 pred_abs=0.7739 tgt_std=1.0002 tgt_abs=0.7980 cos=0.0010 neg_dist=14.0399
+[GC-DIAG step=76600] mse_pos=0.052357 mse_neg=1.087600 mse_gap=1.035242 pred_norm=19.4056 pred_std=0.9732 pred_abs=0.7747 tgt_std=1.0001 tgt_abs=0.7978 cos=0.0003 neg_dist=13.8903
+[GC-DIAG step=76700] mse_pos=0.050418 mse_neg=1.686990 mse_gap=1.636572 pred_norm=19.4600 pred_std=0.9758 pred_abs=0.7766 tgt_std=1.0004 tgt_abs=0.7985 cos=-0.0029 neg_dist=17.1566
+[GC-DIAG step=76800] mse_pos=0.048965 mse_neg=1.087860 mse_gap=1.038895 pred_norm=19.4394 pred_std=0.9745 pred_abs=0.7760 tgt_std=1.0000 tgt_abs=0.7979 cos=-0.0003 neg_dist=14.2412
+[GC-DIAG step=76900] mse_pos=0.049032 mse_neg=1.097292 mse_gap=1.048261 pred_norm=19.4343 pred_std=0.9743 pred_abs=0.7762 tgt_std=0.9989 tgt_abs=0.7972 cos=-0.0005 neg_dist=14.0483
+[GC-DIAG step=77000] mse_pos=0.052514 mse_neg=1.091452 mse_gap=1.038939 pred_norm=19.3451 pred_std=0.9703 pred_abs=0.7724 tgt_std=0.9994 tgt_abs=0.7974 cos=0.0003 neg_dist=14.1698
+Running Evaluation...
+Validation Result @ Iteration 77000; Milestone = 77 (Train)
+---------  ----------
+mse_error  0.00980665
+---------  ----------
+Validation Result @ Iteration 77000; Milestone = 77 (ID: Validation)
+---  ----------
+mse  0.00971369
+---  ----------
+[GC-DIAG step=77100] mse_pos=0.050203 mse_neg=1.088180 mse_gap=1.037977 pred_norm=19.3984 pred_std=0.9727 pred_abs=0.7741 tgt_std=0.9995 tgt_abs=0.7974 cos=-0.0010 neg_dist=14.1850
+[GC-DIAG step=77200] mse_pos=0.051934 mse_neg=1.098674 mse_gap=1.046740 pred_norm=19.3623 pred_std=0.9712 pred_abs=0.7726 tgt_std=0.9995 tgt_abs=0.7976 cos=0.0014 neg_dist=14.0836
+[GC-DIAG step=77300] mse_pos=0.049368 mse_neg=1.087046 mse_gap=1.037678 pred_norm=19.4155 pred_std=0.9737 pred_abs=0.7746 tgt_std=1.0003 tgt_abs=0.7982 cos=0.0011 neg_dist=14.0749
+[GC-DIAG step=77400] mse_pos=0.049714 mse_neg=1.100626 mse_gap=1.050912 pred_norm=19.4392 pred_std=0.9748 pred_abs=0.7757 tgt_std=1.0000 tgt_abs=0.7983 cos=-0.0008 neg_dist=14.3104
+[GC-DIAG step=77500] mse_pos=0.047411 mse_neg=1.100332 mse_gap=1.052920 pred_norm=19.4512 pred_std=0.9752 pred_abs=0.7761 tgt_std=1.0008 tgt_abs=0.7984 cos=-0.0005 neg_dist=14.3857
+[GC-DIAG step=77600] mse_pos=0.050109 mse_neg=1.079587 mse_gap=1.029478 pred_norm=19.4445 pred_std=0.9750 pred_abs=0.7760 tgt_std=1.0004 tgt_abs=0.7982 cos=0.0008 neg_dist=13.9409
+[GC-DIAG step=77700] mse_pos=0.050000 mse_neg=1.101128 mse_gap=1.051128 pred_norm=19.4419 pred_std=0.9748 pred_abs=0.7759 tgt_std=0.9997 tgt_abs=0.7977 cos=-0.0012 neg_dist=14.1000
+[GC-DIAG step=77800] mse_pos=0.049060 mse_neg=1.092298 mse_gap=1.043238 pred_norm=19.4728 pred_std=0.9763 pred_abs=0.7772 tgt_std=0.9990 tgt_abs=0.7971 cos=0.0016 neg_dist=14.1930
+[GC-DIAG step=77900] mse_pos=0.048870 mse_neg=1.081758 mse_gap=1.032888 pred_norm=19.4525 pred_std=0.9753 pred_abs=0.7764 tgt_std=1.0000 tgt_abs=0.7980 cos=-0.0010 neg_dist=14.0074
+[GC-DIAG step=78000] mse_pos=0.050571 mse_neg=1.088442 mse_gap=1.037871 pred_norm=19.4223 pred_std=0.9738 pred_abs=0.7753 tgt_std=0.9987 tgt_abs=0.7968 cos=0.0002 neg_dist=13.9493
+Running Evaluation...
+Validation Result @ Iteration 78000; Milestone = 78 (Train)
+---------  ----------
+mse_error  0.00970888
+---------  ----------
+Validation Result @ Iteration 78000; Milestone = 78 (ID: Validation)
+---  ----------
+mse  0.00974473
+---  ----------
+[GC-DIAG step=78100] mse_pos=0.048773 mse_neg=1.082432 mse_gap=1.033659 pred_norm=19.4450 pred_std=0.9748 pred_abs=0.7759 tgt_std=0.9989 tgt_abs=0.7969 cos=-0.0001 neg_dist=14.1073
+[GC-DIAG step=78200] mse_pos=0.047727 mse_neg=1.101324 mse_gap=1.053598 pred_norm=19.4653 pred_std=0.9759 pred_abs=0.7771 tgt_std=0.9990 tgt_abs=0.7971 cos=-0.0013 neg_dist=14.1762
+[GC-DIAG step=78300] mse_pos=0.052444 mse_neg=1.089719 mse_gap=1.037275 pred_norm=19.3627 pred_std=0.9712 pred_abs=0.7730 tgt_std=1.0001 tgt_abs=0.7982 cos=0.0001 neg_dist=14.0503
+[GC-DIAG step=78400] mse_pos=0.049880 mse_neg=1.095623 mse_gap=1.045743 pred_norm=19.4258 pred_std=0.9741 pred_abs=0.7754 tgt_std=0.9999 tgt_abs=0.7980 cos=0.0003 neg_dist=14.0256
+[GC-DIAG step=78500] mse_pos=0.050296 mse_neg=1.099578 mse_gap=1.049281 pred_norm=19.4346 pred_std=0.9745 pred_abs=0.7764 tgt_std=1.0001 tgt_abs=0.7979 cos=0.0009 neg_dist=14.1752
+[GC-DIAG step=78600] mse_pos=0.048451 mse_neg=1.097988 mse_gap=1.049537 pred_norm=19.4708 pred_std=0.9762 pred_abs=0.7770 tgt_std=1.0002 tgt_abs=0.7980 cos=-0.0005 neg_dist=14.0664
+[GC-DIAG step=78700] mse_pos=0.050282 mse_neg=1.097401 mse_gap=1.047120 pred_norm=19.4316 pred_std=0.9743 pred_abs=0.7756 tgt_std=1.0017 tgt_abs=0.7996 cos=-0.0009 neg_dist=14.1273
+[GC-DIAG step=78800] mse_pos=0.049757 mse_neg=1.088284 mse_gap=1.038527 pred_norm=19.4535 pred_std=0.9754 pred_abs=0.7765 tgt_std=0.9992 tgt_abs=0.7970 cos=-0.0006 neg_dist=14.1696
+[GC-DIAG step=78900] mse_pos=0.049488 mse_neg=1.092960 mse_gap=1.043472 pred_norm=19.4165 pred_std=0.9736 pred_abs=0.7746 tgt_std=0.9997 tgt_abs=0.7976 cos=-0.0017 neg_dist=14.1605
+[GC-DIAG step=79000] mse_pos=0.048541 mse_neg=1.077704 mse_gap=1.029162 pred_norm=19.4719 pred_std=0.9761 pred_abs=0.7765 tgt_std=1.0008 tgt_abs=0.7985 cos=-0.0009 neg_dist=14.2377
+Running Evaluation...
+Validation Result @ Iteration 79000; Milestone = 79 (Train)
+---------  ----------
+mse_error  0.00975065
+---------  ----------
+Validation Result @ Iteration 79000; Milestone = 79 (ID: Validation)
+---  ----------
+mse  0.00975061
+---  ----------
+[GC-DIAG step=79100] mse_pos=0.050925 mse_neg=1.081510 mse_gap=1.030585 pred_norm=19.4015 pred_std=0.9729 pred_abs=0.7744 tgt_std=0.9995 tgt_abs=0.7976 cos=0.0013 neg_dist=13.9207
+[GC-DIAG step=79200] mse_pos=0.053154 mse_neg=1.076227 mse_gap=1.023073 pred_norm=19.3779 pred_std=0.9720 pred_abs=0.7735 tgt_std=1.0015 tgt_abs=0.7991 cos=-0.0005 neg_dist=13.8147
+[GC-DIAG step=79300] mse_pos=0.049814 mse_neg=1.092185 mse_gap=1.042370 pred_norm=19.4468 pred_std=0.9752 pred_abs=0.7760 tgt_std=1.0010 tgt_abs=0.7986 cos=-0.0022 neg_dist=14.0167
+[GC-DIAG step=79400] mse_pos=0.045716 mse_neg=1.099765 mse_gap=1.054049 pred_norm=19.4974 pred_std=0.9774 pred_abs=0.7781 tgt_std=1.0003 tgt_abs=0.7982 cos=0.0001 neg_dist=14.4550
+[GC-DIAG step=79500] mse_pos=0.052604 mse_neg=1.094541 mse_gap=1.041937 pred_norm=19.3591 pred_std=0.9710 pred_abs=0.7723 tgt_std=0.9999 tgt_abs=0.7976 cos=0.0021 neg_dist=14.0552
+[GC-DIAG step=79600] mse_pos=0.052054 mse_neg=1.093189 mse_gap=1.041136 pred_norm=19.3899 pred_std=0.9725 pred_abs=0.7737 tgt_std=1.0020 tgt_abs=0.7995 cos=-0.0002 neg_dist=14.1623
+[GC-DIAG step=79700] mse_pos=0.049189 mse_neg=1.089509 mse_gap=1.040320 pred_norm=19.4441 pred_std=0.9749 pred_abs=0.7763 tgt_std=1.0003 tgt_abs=0.7979 cos=-0.0016 neg_dist=14.2702
+[GC-DIAG step=79800] mse_pos=0.050720 mse_neg=1.098175 mse_gap=1.047454 pred_norm=19.4089 pred_std=0.9732 pred_abs=0.7747 tgt_std=0.9995 tgt_abs=0.7974 cos=0.0013 neg_dist=14.1754
+[GC-DIAG step=79900] mse_pos=0.052886 mse_neg=1.101092 mse_gap=1.048207 pred_norm=19.3826 pred_std=0.9720 pred_abs=0.7737 tgt_std=1.0009 tgt_abs=0.7990 cos=0.0017 neg_dist=13.9859
+[GC-DIAG step=80000] mse_pos=0.046078 mse_neg=1.097061 mse_gap=1.050982 pred_norm=19.4870 pred_std=0.9768 pred_abs=0.7776 tgt_std=0.9998 tgt_abs=0.7975 cos=-0.0006 neg_dist=14.3361
+Running Evaluation...
+Validation Result @ Iteration 80000; Milestone = 80 (Train)
+---------  ----------
+mse_error  0.00969365
+---------  ----------
+Validation Result @ Iteration 80000; Milestone = 80 (ID: Validation)
+---  ----------
+mse  0.00970275
+---  ----------
+[GC-DIAG step=80100] mse_pos=0.050789 mse_neg=1.083007 mse_gap=1.032219 pred_norm=19.4066 pred_std=0.9732 pred_abs=0.7745 tgt_std=0.9991 tgt_abs=0.7971 cos=-0.0006 neg_dist=14.1005
+[GC-DIAG step=80200] mse_pos=0.049721 mse_neg=1.084841 mse_gap=1.035120 pred_norm=19.4211 pred_std=0.9739 pred_abs=0.7753 tgt_std=1.0015 tgt_abs=0.7993 cos=0.0020 neg_dist=14.1497
+[GC-DIAG step=80300] mse_pos=0.052155 mse_neg=1.081966 mse_gap=1.029812 pred_norm=19.3760 pred_std=0.9719 pred_abs=0.7736 tgt_std=1.0002 tgt_abs=0.7982 cos=-0.0027 neg_dist=14.0560
+[GC-DIAG step=80400] mse_pos=0.049148 mse_neg=1.099591 mse_gap=1.050443 pred_norm=19.4105 pred_std=0.9733 pred_abs=0.7748 tgt_std=1.0010 tgt_abs=0.7988 cos=-0.0015 neg_dist=14.2046
+[GC-DIAG step=80500] mse_pos=0.050107 mse_neg=1.104265 mse_gap=1.054157 pred_norm=19.4315 pred_std=0.9743 pred_abs=0.7752 tgt_std=0.9999 tgt_abs=0.7982 cos=0.0007 neg_dist=14.1841
+[GC-DIAG step=80600] mse_pos=0.051095 mse_neg=1.096477 mse_gap=1.045381 pred_norm=19.3746 pred_std=0.9716 pred_abs=0.7735 tgt_std=1.0007 tgt_abs=0.7987 cos=0.0014 neg_dist=14.0436
+[GC-DIAG step=80700] mse_pos=0.052054 mse_neg=1.096763 mse_gap=1.044709 pred_norm=19.4263 pred_std=0.9742 pred_abs=0.7753 tgt_std=0.9992 tgt_abs=0.7969 cos=0.0003 neg_dist=13.9097
+[GC-DIAG step=80800] mse_pos=0.049113 mse_neg=1.095858 mse_gap=1.046745 pred_norm=19.4175 pred_std=0.9738 pred_abs=0.7748 tgt_std=1.0012 tgt_abs=0.7988 cos=-0.0015 neg_dist=14.2576
+[GC-DIAG step=80900] mse_pos=0.049424 mse_neg=1.084976 mse_gap=1.035552 pred_norm=19.4257 pred_std=0.9740 pred_abs=0.7755 tgt_std=1.0013 tgt_abs=0.7987 cos=-0.0004 neg_dist=14.2213
+[GC-DIAG step=81000] mse_pos=0.049362 mse_neg=1.098935 mse_gap=1.049573 pred_norm=19.4232 pred_std=0.9740 pred_abs=0.7753 tgt_std=0.9999 tgt_abs=0.7980 cos=-0.0006 neg_dist=14.3403
+Running Evaluation...
+Validation Result @ Iteration 81000; Milestone = 81 (Train)
+---------  ----------
+mse_error  0.00969662
+---------  ----------
+Validation Result @ Iteration 81000; Milestone = 81 (ID: Validation)
+---  ----------
+mse  0.00969956
+---  ----------
+[GC-DIAG step=81100] mse_pos=0.049967 mse_neg=1.089251 mse_gap=1.039284 pred_norm=19.4214 pred_std=0.9738 pred_abs=0.7752 tgt_std=0.9992 tgt_abs=0.7973 cos=0.0011 neg_dist=14.1027
+[GC-DIAG step=81200] mse_pos=0.050988 mse_neg=1.087959 mse_gap=1.036971 pred_norm=19.4373 pred_std=0.9747 pred_abs=0.7759 tgt_std=0.9998 tgt_abs=0.7983 cos=0.0002 neg_dist=14.0536
+[GC-DIAG step=81300] mse_pos=0.053576 mse_neg=1.085734 mse_gap=1.032159 pred_norm=19.3302 pred_std=0.9696 pred_abs=0.7715 tgt_std=1.0007 tgt_abs=0.7986 cos=-0.0004 neg_dist=14.0662
+[GC-DIAG step=81400] mse_pos=0.046518 mse_neg=1.092374 mse_gap=1.045857 pred_norm=19.4943 pred_std=0.9772 pred_abs=0.7783 tgt_std=0.9998 tgt_abs=0.7981 cos=-0.0010 neg_dist=14.3075
+[GC-DIAG step=81500] mse_pos=0.049893 mse_neg=1.101039 mse_gap=1.051146 pred_norm=19.4087 pred_std=0.9734 pred_abs=0.7745 tgt_std=1.0004 tgt_abs=0.7982 cos=0.0013 neg_dist=14.2065
+[GC-DIAG step=81600] mse_pos=0.051748 mse_neg=1.102119 mse_gap=1.050371 pred_norm=19.3860 pred_std=0.9722 pred_abs=0.7735 tgt_std=0.9989 tgt_abs=0.7970 cos=0.0006 neg_dist=14.0286
+[GC-DIAG step=81700] mse_pos=0.050063 mse_neg=1.086962 mse_gap=1.036899 pred_norm=19.4440 pred_std=0.9750 pred_abs=0.7763 tgt_std=0.9997 tgt_abs=0.7973 cos=0.0000 neg_dist=14.0343
+[GC-DIAG step=81800] mse_pos=0.049362 mse_neg=1.094806 mse_gap=1.045444 pred_norm=19.4296 pred_std=0.9742 pred_abs=0.7755 tgt_std=1.0019 tgt_abs=0.7995 cos=-0.0005 neg_dist=14.2097
+[GC-DIAG step=81900] mse_pos=0.049807 mse_neg=1.095634 mse_gap=1.045827 pred_norm=19.4294 pred_std=0.9743 pred_abs=0.7754 tgt_std=1.0003 tgt_abs=0.7984 cos=-0.0007 neg_dist=14.1883
+[GC-DIAG step=82000] mse_pos=0.051834 mse_neg=1.079328 mse_gap=1.027494 pred_norm=19.3976 pred_std=0.9728 pred_abs=0.7738 tgt_std=1.0002 tgt_abs=0.7982 cos=0.0003 neg_dist=13.9801
+Running Evaluation...
+Validation Result @ Iteration 82000; Milestone = 82 (Train)
+---------  ----------
+mse_error  0.00968176
+---------  ----------
+Validation Result @ Iteration 82000; Milestone = 82 (ID: Validation)
+---  ----------
+mse  0.00973288
+---  ----------
+[GC-DIAG step=82100] mse_pos=0.050671 mse_neg=1.101456 mse_gap=1.050785 pred_norm=19.4100 pred_std=0.9734 pred_abs=0.7750 tgt_std=0.9982 tgt_abs=0.7963 cos=0.0009 neg_dist=14.0992
+[GC-DIAG step=82200] mse_pos=0.050833 mse_neg=1.088404 mse_gap=1.037572 pred_norm=19.4087 pred_std=0.9733 pred_abs=0.7746 tgt_std=0.9993 tgt_abs=0.7972 cos=0.0006 neg_dist=14.0207
+[GC-DIAG step=82300] mse_pos=0.051617 mse_neg=1.089137 mse_gap=1.037519 pred_norm=19.3614 pred_std=0.9710 pred_abs=0.7728 tgt_std=1.0006 tgt_abs=0.7983 cos=-0.0003 neg_dist=14.0303
+[GC-DIAG step=82400] mse_pos=0.051080 mse_neg=1.083176 mse_gap=1.032096 pred_norm=19.3994 pred_std=0.9728 pred_abs=0.7741 tgt_std=1.0006 tgt_abs=0.7984 cos=-0.0014 neg_dist=13.9071
+[GC-DIAG step=82500] mse_pos=0.048662 mse_neg=1.100121 mse_gap=1.051459 pred_norm=19.4347 pred_std=0.9744 pred_abs=0.7757 tgt_std=1.0010 tgt_abs=0.7985 cos=0.0018 neg_dist=14.2443
+[GC-DIAG step=82600] mse_pos=0.051677 mse_neg=1.083958 mse_gap=1.032281 pred_norm=19.4006 pred_std=0.9728 pred_abs=0.7741 tgt_std=1.0003 tgt_abs=0.7984 cos=-0.0016 neg_dist=13.9038
+[GC-DIAG step=82700] mse_pos=0.049516 mse_neg=1.091322 mse_gap=1.041806 pred_norm=19.4330 pred_std=0.9744 pred_abs=0.7757 tgt_std=0.9994 tgt_abs=0.7974 cos=0.0008 neg_dist=14.1541
+[GC-DIAG step=82800] mse_pos=0.049089 mse_neg=1.100496 mse_gap=1.051406 pred_norm=19.4191 pred_std=0.9736 pred_abs=0.7750 tgt_std=0.9999 tgt_abs=0.7979 cos=-0.0004 neg_dist=14.1584
+[GC-DIAG step=82900] mse_pos=0.049913 mse_neg=1.082224 mse_gap=1.032312 pred_norm=19.4254 pred_std=0.9741 pred_abs=0.7752 tgt_std=1.0005 tgt_abs=0.7979 cos=0.0015 neg_dist=14.0826
+[GC-DIAG step=83000] mse_pos=0.048619 mse_neg=1.114564 mse_gap=1.065945 pred_norm=19.4205 pred_std=0.9737 pred_abs=0.7755 tgt_std=1.0002 tgt_abs=0.7982 cos=0.0024 neg_dist=14.2190
+Running Evaluation...
+Validation Result @ Iteration 83000; Milestone = 83 (Train)
+---------  ----------
+mse_error  0.00968819
+---------  ----------
+Validation Result @ Iteration 83000; Milestone = 83 (ID: Validation)
+---  ----------
+mse  0.00972205
+---  ----------
+[GC-DIAG step=83100] mse_pos=0.047361 mse_neg=1.082991 mse_gap=1.035629 pred_norm=19.4578 pred_std=0.9755 pred_abs=0.7767 tgt_std=1.0004 tgt_abs=0.7981 cos=0.0005 neg_dist=14.2593
+[GC-DIAG step=83200] mse_pos=0.049329 mse_neg=1.102879 mse_gap=1.053550 pred_norm=19.4146 pred_std=0.9734 pred_abs=0.7746 tgt_std=0.9998 tgt_abs=0.7978 cos=0.0002 neg_dist=14.1664
+[GC-DIAG step=83300] mse_pos=0.047644 mse_neg=1.093990 mse_gap=1.046346 pred_norm=19.4799 pred_std=0.9766 pred_abs=0.7776 tgt_std=0.9998 tgt_abs=0.7975 cos=0.0007 neg_dist=14.2132
+[GC-DIAG step=83400] mse_pos=0.052023 mse_neg=1.102604 mse_gap=1.050581 pred_norm=19.3833 pred_std=0.9721 pred_abs=0.7736 tgt_std=0.9998 tgt_abs=0.7974 cos=0.0009 neg_dist=14.1492
+[GC-DIAG step=83500] mse_pos=0.050232 mse_neg=1.086630 mse_gap=1.036398 pred_norm=19.4262 pred_std=0.9741 pred_abs=0.7755 tgt_std=0.9994 tgt_abs=0.7977 cos=-0.0023 neg_dist=13.9515
+[GC-DIAG step=83600] mse_pos=0.050018 mse_neg=1.095772 mse_gap=1.045754 pred_norm=19.4218 pred_std=0.9738 pred_abs=0.7754 tgt_std=0.9989 tgt_abs=0.7970 cos=-0.0008 neg_dist=14.0586
+[GC-DIAG step=83700] mse_pos=0.050113 mse_neg=1.100244 mse_gap=1.050131 pred_norm=19.3767 pred_std=0.9718 pred_abs=0.7728 tgt_std=1.0000 tgt_abs=0.7981 cos=0.0010 neg_dist=14.2195
+[GC-DIAG step=83800] mse_pos=0.050429 mse_neg=1.096184 mse_gap=1.045756 pred_norm=19.3839 pred_std=0.9720 pred_abs=0.7736 tgt_std=1.0010 tgt_abs=0.7987 cos=-0.0019 neg_dist=14.3088
+[GC-DIAG step=83900] mse_pos=0.052025 mse_neg=1.100046 mse_gap=1.048021 pred_norm=19.4245 pred_std=0.9741 pred_abs=0.7753 tgt_std=0.9988 tgt_abs=0.7968 cos=0.0017 neg_dist=14.0812
+[GC-DIAG step=84000] mse_pos=0.053144 mse_neg=1.090254 mse_gap=1.037109 pred_norm=19.3541 pred_std=0.9708 pred_abs=0.7725 tgt_std=1.0008 tgt_abs=0.7982 cos=0.0008 neg_dist=14.1174
+Running Evaluation...
+Validation Result @ Iteration 84000; Milestone = 84 (Train)
+---------  ----------
+mse_error  0.00971114
+---------  ----------

@@ -1,0 +1,635 @@
+Job started at Wed Feb 25 16:53:01 EST 2026
+Running on host: holygpu8a31201.rc.fas.harvard.edu
+Job ID: 62227863
+Array Task ID: 0
+Git URL: https://github.com/mdkrasnow/research-repo.git
+Git SHA: e0a5f2f410facc3dca9722dbfd2205d86578fb95
+Work directory: /tmp/ired-job-62227863
+GPU info:
+Wed Feb 25 16:53:01 2026       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 575.57.08              Driver Version: 575.57.08      CUDA Version: 12.9     |
+|-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA A100-SXM4-80GB          On  |   00000000:31:00.0 Off |                    0 |
+| N/A   26C    P0             59W /  500W |       0MiB /  81920MiB |      0%      Default |
+|                                         |                        |             Disabled |
++-----------------------------------------+------------------------+----------------------+
+                                                                                         
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+
+Cloning repository...
+Repository cloned and checked out to: e0a5f2f
+Repository info:
+e0a5f2f Fix eval: load EMA weights from milestone checkpoint (model-100.pt)
+Copying q225 TAM-CTL checkpoint to work directory...
+✓ q225 TAM-CTL checkpoint copied
+Starting q225 OOD evaluation with seed 0...
+Random seed set to: 0
+Configuration:
+{
+  "experiment_name": "q225_ood_evaluation",
+  "description": "OOD robustness evaluation: Test q225 (TAM-CTL recovery loss) checkpoint on out-of-distribution matrices using TAM-CTL mining strategy.",
+  "investigation": "ired-robustness",
+  "evaluation_mode": true,
+  "mining_strategy": "tam",
+  "tam_anchor_step": 2,
+  "pgd_delta": 1.5,
+  "pgd_step_size": 0.5,
+  "mining_opt_steps": 3,
+  "use_recovery_loss": true,
+  "recovery_steps": 1,
+  "recovery_loss_weight": 0.1,
+  "use_gradient_contrastive": false,
+  "energy_loss_weight": 0.0,
+  "use_scalar_energy": true,
+  "rank": 20,
+  "ood": true,
+  "dataset": "inverse",
+  "batch_size": 2048,
+  "num_test_samples": 1024,
+  "num_opt_steps": 10,
+  "target_mse_threshold": 0.001,
+  "diffusion_steps": 10,
+  "learning_rate": 0.0001,
+  "adam_betas": [
+    0.0,
+    0.999
+  ],
+  "model_checkpoints": [
+    "projects/ired/results/ds_inverse/q225_tam_ctl_full_100k/model-100.pt"
+  ],
+  "output_dir": "projects/ired/results/evaluation/q225_tam_ctl_ood/seed_0",
+  "notes": "OOD evaluation on q225 checkpoint (TAM + recovery loss). Uses TAM-CTL mining with same hyperparameters as training. Evaluates on ood=true (ill-conditioned matrices: rank-1 perturbations, \u03ba >> 1). For comparison with q230 baseline."
+}
+
+================================================================================
+Evaluating: q225_ood_evaluation
+================================================================================
+Difficulty: ood=True, rank=20
+Using device: cuda
+Loading test dataset...
+  Input dimension: 400, Output dimension: 400
+
+Evaluating model: q225_tam_ctl_full_100k
+  Loading checkpoint from: projects/ired/results/ds_inverse/q225_tam_ctl_full_100k/model-100.pt
+  ✓ Loaded 32 EMA parameters from milestone checkpoint
+  ✓ GaussianDiffusion1D built (timesteps=10, continuous=True)
+  Running evaluation with diffusion sampling...
+    Batch 5: current MSE = 0.212678
+    Batch 10: current MSE = 0.212638
+    Batch 15: current MSE = 0.212739
+    Batch 20: current MSE = 0.212849
+    Batch 25: current MSE = 0.213181
+    Batch 30: current MSE = 0.213085
+    Batch 35: current MSE = 0.212936
+    Batch 40: current MSE = 0.212887
+    Batch 45: current MSE = 0.212875
+    Batch 50: current MSE = 0.212763
+    Batch 55: current MSE = 0.212904
+    Batch 60: current MSE = 0.212915
+    Batch 65: current MSE = 0.213038
+    Batch 70: current MSE = 0.213128
+    Batch 75: current MSE = 0.213108
+    Batch 80: current MSE = 0.213224
+    Batch 85: current MSE = 0.213153
+    Batch 90: current MSE = 0.213122
+    Batch 95: current MSE = 0.213155
+    Batch 100: current MSE = 0.213211
+    Batch 105: current MSE = 0.213223
+    Batch 110: current MSE = 0.213200
+    Batch 115: current MSE = 0.213265
+    Batch 120: current MSE = 0.213265
+    Batch 125: current MSE = 0.213258
+    Batch 130: current MSE = 0.213224
+    Batch 135: current MSE = 0.213196
+    Batch 140: current MSE = 0.213215
+    Batch 145: current MSE = 0.213158
+    Batch 150: current MSE = 0.213148
+    Batch 155: current MSE = 0.213206
+    Batch 160: current MSE = 0.213221
+    Batch 165: current MSE = 0.213226
+    Batch 170: current MSE = 0.213232
+    Batch 175: current MSE = 0.213267
+    Batch 180: current MSE = 0.213280
+    Batch 185: current MSE = 0.213273
+    Batch 190: current MSE = 0.213289
+    Batch 195: current MSE = 0.213326
+    Batch 200: current MSE = 0.213345
+    Batch 205: current MSE = 0.213344
+    Batch 210: current MSE = 0.213339
+    Batch 215: current MSE = 0.213359
+    Batch 220: current MSE = 0.213375
+    Batch 225: current MSE = 0.213399
+    Batch 230: current MSE = 0.213419
+    Batch 235: current MSE = 0.213441
+    Batch 240: current MSE = 0.213430
+    Batch 245: current MSE = 0.213403
+    Batch 250: current MSE = 0.213417
+    Batch 255: current MSE = 0.213448
+    Batch 260: current MSE = 0.213440
+    Batch 265: current MSE = 0.213422
+    Batch 270: current MSE = 0.213408
+    Batch 275: current MSE = 0.213440
+    Batch 280: current MSE = 0.213417
+    Batch 285: current MSE = 0.213439
+    Batch 290: current MSE = 0.213420
+    Batch 295: current MSE = 0.213414
+    Batch 300: current MSE = 0.213419
+    Batch 305: current MSE = 0.213448
+    Batch 310: current MSE = 0.213440
+    Batch 315: current MSE = 0.213431
+    Batch 320: current MSE = 0.213450
+    Batch 325: current MSE = 0.213456
+    Batch 330: current MSE = 0.213434
+    Batch 335: current MSE = 0.213440
+    Batch 340: current MSE = 0.213442
+    Batch 345: current MSE = 0.213444
+    Batch 350: current MSE = 0.213440
+    Batch 355: current MSE = 0.213428
+    Batch 360: current MSE = 0.213411
+    Batch 365: current MSE = 0.213401
+    Batch 370: current MSE = 0.213386
+    Batch 375: current MSE = 0.213390
+    Batch 380: current MSE = 0.213407
+    Batch 385: current MSE = 0.213422
+    Batch 390: current MSE = 0.213414
+    Batch 395: current MSE = 0.213429
+    Batch 400: current MSE = 0.213429
+    Batch 405: current MSE = 0.213430
+    Batch 410: current MSE = 0.213434
+    Batch 415: current MSE = 0.213429
+    Batch 420: current MSE = 0.213427
+    Batch 425: current MSE = 0.213432
+    Batch 430: current MSE = 0.213426
+    Batch 435: current MSE = 0.213423
+    Batch 440: current MSE = 0.213431
+    Batch 445: current MSE = 0.213445
+    Batch 450: current MSE = 0.213445
+    Batch 455: current MSE = 0.213438
+    Batch 460: current MSE = 0.213438
+    Batch 465: current MSE = 0.213430
+    Batch 470: current MSE = 0.213438
+    Batch 475: current MSE = 0.213440
+    Batch 480: current MSE = 0.213460
+    Batch 485: current MSE = 0.213463
+    Batch 490: current MSE = 0.213471
+    Batch 495: current MSE = 0.213479
+    Batch 500: current MSE = 0.213480
+    Batch 505: current MSE = 0.213470
+    Batch 510: current MSE = 0.213488
+    Batch 515: current MSE = 0.213486
+    Batch 520: current MSE = 0.213485
+    Batch 525: current MSE = 0.213480
+    Batch 530: current MSE = 0.213483
+    Batch 535: current MSE = 0.213485
+    Batch 540: current MSE = 0.213492
+    Batch 545: current MSE = 0.213487
+    Batch 550: current MSE = 0.213491
+    Batch 555: current MSE = 0.213486
+    Batch 560: current MSE = 0.213483
+    Batch 565: current MSE = 0.213491
+    Batch 570: current MSE = 0.213492
+    Batch 575: current MSE = 0.213497
+    Batch 580: current MSE = 0.213490
+    Batch 585: current MSE = 0.213490
+    Batch 590: current MSE = 0.213495
+    Batch 595: current MSE = 0.213501
+    Batch 600: current MSE = 0.213490
+    Batch 605: current MSE = 0.213493
+    Batch 610: current MSE = 0.213499
+    Batch 615: current MSE = 0.213491
+    Batch 620: current MSE = 0.213501
+    Batch 625: current MSE = 0.213503
+    Batch 630: current MSE = 0.213506
+    Batch 635: current MSE = 0.213506
+    Batch 640: current MSE = 0.213503
+    Batch 645: current MSE = 0.213500
+    Batch 650: current MSE = 0.213501
+    Batch 655: current MSE = 0.213492
+    Batch 660: current MSE = 0.213490
+    Batch 665: current MSE = 0.213488
+    Batch 670: current MSE = 0.213477
+    Batch 675: current MSE = 0.213479
+    Batch 680: current MSE = 0.213473
+    Batch 685: current MSE = 0.213470
+    Batch 690: current MSE = 0.213467
+    Batch 695: current MSE = 0.213467
+    Batch 700: current MSE = 0.213459
+    Batch 705: current MSE = 0.213464
+    Batch 710: current MSE = 0.213454
+    Batch 715: current MSE = 0.213445
+    Batch 720: current MSE = 0.213440
+    Batch 725: current MSE = 0.213443
+    Batch 730: current MSE = 0.213452
+    Batch 735: current MSE = 0.213455
+    Batch 740: current MSE = 0.213448
+    Batch 745: current MSE = 0.213444
+    Batch 750: current MSE = 0.213445
+    Batch 755: current MSE = 0.213435
+    Batch 760: current MSE = 0.213439
+    Batch 765: current MSE = 0.213444
+    Batch 770: current MSE = 0.213441
+    Batch 775: current MSE = 0.213445
+    Batch 780: current MSE = 0.213449
+    Batch 785: current MSE = 0.213448
+    Batch 790: current MSE = 0.213446
+    Batch 795: current MSE = 0.213452
+    Batch 800: current MSE = 0.213452
+    Batch 805: current MSE = 0.213452
+    Batch 810: current MSE = 0.213447
+    Batch 815: current MSE = 0.213452
+    Batch 820: current MSE = 0.213458
+    Batch 825: current MSE = 0.213461
+    Batch 830: current MSE = 0.213463
+    Batch 835: current MSE = 0.213474
+    Batch 840: current MSE = 0.213477
+    Batch 845: current MSE = 0.213476
+    Batch 850: current MSE = 0.213486
+    Batch 855: current MSE = 0.213488
+    Batch 860: current MSE = 0.213492
+    Batch 865: current MSE = 0.213498
+    Batch 870: current MSE = 0.213498
+    Batch 875: current MSE = 0.213492
+    Batch 880: current MSE = 0.213485
+    Batch 885: current MSE = 0.213484
+    Batch 890: current MSE = 0.213487
+    Batch 895: current MSE = 0.213498
+    Batch 900: current MSE = 0.213495
+    Batch 905: current MSE = 0.213497
+    Batch 910: current MSE = 0.213498
+    Batch 915: current MSE = 0.213502
+    Batch 920: current MSE = 0.213500
+    Batch 925: current MSE = 0.213501
+    Batch 930: current MSE = 0.213494
+    Batch 935: current MSE = 0.213498
+    Batch 940: current MSE = 0.213497
+    Batch 945: current MSE = 0.213501
+    Batch 950: current MSE = 0.213507
+    Batch 955: current MSE = 0.213510
+    Batch 960: current MSE = 0.213518
+    Batch 965: current MSE = 0.213517
+    Batch 970: current MSE = 0.213515
+    Batch 975: current MSE = 0.213510
+    Batch 980: current MSE = 0.213512
+    Batch 985: current MSE = 0.213508
+    Batch 990: current MSE = 0.213505
+    Batch 995: current MSE = 0.213503
+    Batch 1000: current MSE = 0.213504
+    Batch 1005: current MSE = 0.213508
+    Batch 1010: current MSE = 0.213505
+    Batch 1015: current MSE = 0.213505
+    Batch 1020: current MSE = 0.213501
+    Batch 1025: current MSE = 0.213502
+    Batch 1030: current MSE = 0.213502
+    Batch 1035: current MSE = 0.213502
+    Batch 1040: current MSE = 0.213501
+    Batch 1045: current MSE = 0.213498
+    Batch 1050: current MSE = 0.213492
+    Batch 1055: current MSE = 0.213494
+    Batch 1060: current MSE = 0.213495
+    Batch 1065: current MSE = 0.213494
+    Batch 1070: current MSE = 0.213499
+    Batch 1075: current MSE = 0.213491
+    Batch 1080: current MSE = 0.213486
+    Batch 1085: current MSE = 0.213486
+    Batch 1090: current MSE = 0.213485
+    Batch 1095: current MSE = 0.213487
+    Batch 1100: current MSE = 0.213486
+    Batch 1105: current MSE = 0.213484
+    Batch 1110: current MSE = 0.213490
+    Batch 1115: current MSE = 0.213480
+    Batch 1120: current MSE = 0.213482
+    Batch 1125: current MSE = 0.213480
+    Batch 1130: current MSE = 0.213481
+    Batch 1135: current MSE = 0.213478
+    Batch 1140: current MSE = 0.213470
+    Batch 1145: current MSE = 0.213473
+    Batch 1150: current MSE = 0.213474
+    Batch 1155: current MSE = 0.213473
+    Batch 1160: current MSE = 0.213477
+    Batch 1165: current MSE = 0.213474
+    Batch 1170: current MSE = 0.213473
+    Batch 1175: current MSE = 0.213474
+    Batch 1180: current MSE = 0.213475
+    Batch 1185: current MSE = 0.213477
+    Batch 1190: current MSE = 0.213475
+    Batch 1195: current MSE = 0.213476
+    Batch 1200: current MSE = 0.213474
+    Batch 1205: current MSE = 0.213475
+    Batch 1210: current MSE = 0.213481
+    Batch 1215: current MSE = 0.213483
+    Batch 1220: current MSE = 0.213482
+    Batch 1225: current MSE = 0.213486
+    Batch 1230: current MSE = 0.213484
+    Batch 1235: current MSE = 0.213484
+    Batch 1240: current MSE = 0.213490
+    Batch 1245: current MSE = 0.213489
+    Batch 1250: current MSE = 0.213481
+    Batch 1255: current MSE = 0.213481
+    Batch 1260: current MSE = 0.213486
+    Batch 1265: current MSE = 0.213489
+    Batch 1270: current MSE = 0.213492
+    Batch 1275: current MSE = 0.213485
+    Batch 1280: current MSE = 0.213483
+    Batch 1285: current MSE = 0.213482
+    Batch 1290: current MSE = 0.213485
+    Batch 1295: current MSE = 0.213493
+    Batch 1300: current MSE = 0.213493
+    Batch 1305: current MSE = 0.213491
+    Batch 1310: current MSE = 0.213497
+    Batch 1315: current MSE = 0.213498
+    Batch 1320: current MSE = 0.213498
+    Batch 1325: current MSE = 0.213502
+    Batch 1330: current MSE = 0.213499
+    Batch 1335: current MSE = 0.213499
+    Batch 1340: current MSE = 0.213493
+    Batch 1345: current MSE = 0.213492
+    Batch 1350: current MSE = 0.213494
+    Batch 1355: current MSE = 0.213497
+    Batch 1360: current MSE = 0.213493
+    Batch 1365: current MSE = 0.213492
+    Batch 1370: current MSE = 0.213494
+    Batch 1375: current MSE = 0.213491
+    Batch 1380: current MSE = 0.213491
+    Batch 1385: current MSE = 0.213492
+    Batch 1390: current MSE = 0.213492
+    Batch 1395: current MSE = 0.213492
+    Batch 1400: current MSE = 0.213492
+    Batch 1405: current MSE = 0.213490
+    Batch 1410: current MSE = 0.213491
+    Batch 1415: current MSE = 0.213492
+    Batch 1420: current MSE = 0.213490
+    Batch 1425: current MSE = 0.213490
+    Batch 1430: current MSE = 0.213486
+    Batch 1435: current MSE = 0.213488
+    Batch 1440: current MSE = 0.213485
+    Batch 1445: current MSE = 0.213487
+    Batch 1450: current MSE = 0.213487
+    Batch 1455: current MSE = 0.213486
+    Batch 1460: current MSE = 0.213484
+    Batch 1465: current MSE = 0.213486
+    Batch 1470: current MSE = 0.213496
+    Batch 1475: current MSE = 0.213498
+    Batch 1480: current MSE = 0.213501
+    Batch 1485: current MSE = 0.213500
+    Batch 1490: current MSE = 0.213502
+    Batch 1495: current MSE = 0.213500
+    Batch 1500: current MSE = 0.213502
+    Batch 1505: current MSE = 0.213503
+    Batch 1510: current MSE = 0.213502
+    Batch 1515: current MSE = 0.213503
+    Batch 1520: current MSE = 0.213507
+    Batch 1525: current MSE = 0.213506
+    Batch 1530: current MSE = 0.213504
+    Batch 1535: current MSE = 0.213501
+    Batch 1540: current MSE = 0.213503
+    Batch 1545: current MSE = 0.213503
+    Batch 1550: current MSE = 0.213503
+    Batch 1555: current MSE = 0.213500
+    Batch 1560: current MSE = 0.213504
+    Batch 1565: current MSE = 0.213504
+    Batch 1570: current MSE = 0.213503
+    Batch 1575: current MSE = 0.213505
+    Batch 1580: current MSE = 0.213504
+    Batch 1585: current MSE = 0.213503
+    Batch 1590: current MSE = 0.213500
+    Batch 1595: current MSE = 0.213500
+    Batch 1600: current MSE = 0.213501
+    Batch 1605: current MSE = 0.213503
+    Batch 1610: current MSE = 0.213502
+    Batch 1615: current MSE = 0.213499
+    Batch 1620: current MSE = 0.213502
+    Batch 1625: current MSE = 0.213500
+    Batch 1630: current MSE = 0.213505
+    Batch 1635: current MSE = 0.213505
+    Batch 1640: current MSE = 0.213510
+    Batch 1645: current MSE = 0.213509
+    Batch 1650: current MSE = 0.213505
+    Batch 1655: current MSE = 0.213507
+    Batch 1660: current MSE = 0.213501
+    Batch 1665: current MSE = 0.213501
+    Batch 1670: current MSE = 0.213496
+    Batch 1675: current MSE = 0.213497
+    Batch 1680: current MSE = 0.213498
+    Batch 1685: current MSE = 0.213497
+    Batch 1690: current MSE = 0.213493
+    Batch 1695: current MSE = 0.213491
+    Batch 1700: current MSE = 0.213489
+    Batch 1705: current MSE = 0.213490
+    Batch 1710: current MSE = 0.213491
+    Batch 1715: current MSE = 0.213492
+    Batch 1720: current MSE = 0.213490
+    Batch 1725: current MSE = 0.213494
+    Batch 1730: current MSE = 0.213491
+    Batch 1735: current MSE = 0.213492
+    Batch 1740: current MSE = 0.213490
+    Batch 1745: current MSE = 0.213487
+    Batch 1750: current MSE = 0.213489
+    Batch 1755: current MSE = 0.213491
+    Batch 1760: current MSE = 0.213494
+    Batch 1765: current MSE = 0.213493
+    Batch 1770: current MSE = 0.213490
+    Batch 1775: current MSE = 0.213492
+    Batch 1780: current MSE = 0.213496
+    Batch 1785: current MSE = 0.213494
+    Batch 1790: current MSE = 0.213496
+    Batch 1795: current MSE = 0.213499
+    Batch 1800: current MSE = 0.213499
+    Batch 1805: current MSE = 0.213503
+    Batch 1810: current MSE = 0.213501
+    Batch 1815: current MSE = 0.213501
+    Batch 1820: current MSE = 0.213501
+    Batch 1825: current MSE = 0.213500
+    Batch 1830: current MSE = 0.213505
+    Batch 1835: current MSE = 0.213505
+    Batch 1840: current MSE = 0.213504
+    Batch 1845: current MSE = 0.213508
+    Batch 1850: current MSE = 0.213511
+    Batch 1855: current MSE = 0.213515
+    Batch 1860: current MSE = 0.213517
+    Batch 1865: current MSE = 0.213513
+    Batch 1870: current MSE = 0.213514
+    Batch 1875: current MSE = 0.213515
+    Batch 1880: current MSE = 0.213515
+    Batch 1885: current MSE = 0.213514
+    Batch 1890: current MSE = 0.213513
+    Batch 1895: current MSE = 0.213517
+    Batch 1900: current MSE = 0.213516
+    Batch 1905: current MSE = 0.213514
+    Batch 1910: current MSE = 0.213514
+    Batch 1915: current MSE = 0.213514
+    Batch 1920: current MSE = 0.213512
+    Batch 1925: current MSE = 0.213512
+    Batch 1930: current MSE = 0.213510
+    Batch 1935: current MSE = 0.213511
+    Batch 1940: current MSE = 0.213509
+    Batch 1945: current MSE = 0.213507
+    Batch 1950: current MSE = 0.213507
+    Batch 1955: current MSE = 0.213508
+    Batch 1960: current MSE = 0.213507
+    Batch 1965: current MSE = 0.213505
+    Batch 1970: current MSE = 0.213506
+    Batch 1975: current MSE = 0.213507
+    Batch 1980: current MSE = 0.213511
+    Batch 1985: current MSE = 0.213512
+    Batch 1990: current MSE = 0.213512
+    Batch 1995: current MSE = 0.213511
+    Batch 2000: current MSE = 0.213510
+    Batch 2005: current MSE = 0.213511
+    Batch 2010: current MSE = 0.213513
+    Batch 2015: current MSE = 0.213514
+    Batch 2020: current MSE = 0.213516
+    Batch 2025: current MSE = 0.213519
+    Batch 2030: current MSE = 0.213520
+    Batch 2035: current MSE = 0.213522
+    Batch 2040: current MSE = 0.213521
+    Batch 2045: current MSE = 0.213522
+    Batch 2050: current MSE = 0.213520
+    Batch 2055: current MSE = 0.213519
+    Batch 2060: current MSE = 0.213520
+    Batch 2065: current MSE = 0.213521
+    Batch 2070: current MSE = 0.213519
+    Batch 2075: current MSE = 0.213516
+    Batch 2080: current MSE = 0.213517
+    Batch 2085: current MSE = 0.213517
+    Batch 2090: current MSE = 0.213517
+    Batch 2095: current MSE = 0.213521
+    Batch 2100: current MSE = 0.213521
+    Batch 2105: current MSE = 0.213522
+    Batch 2110: current MSE = 0.213523
+    Batch 2115: current MSE = 0.213522
+    Batch 2120: current MSE = 0.213525
+    Batch 2125: current MSE = 0.213523
+    Batch 2130: current MSE = 0.213521
+    Batch 2135: current MSE = 0.213517
+    Batch 2140: current MSE = 0.213516
+    Batch 2145: current MSE = 0.213517
+    Batch 2150: current MSE = 0.213519
+    Batch 2155: current MSE = 0.213520
+    Batch 2160: current MSE = 0.213517
+    Batch 2165: current MSE = 0.213520
+    Batch 2170: current MSE = 0.213518
+    Batch 2175: current MSE = 0.213521
+    Batch 2180: current MSE = 0.213520
+    Batch 2185: current MSE = 0.213521
+    Batch 2190: current MSE = 0.213520
+    Batch 2195: current MSE = 0.213519
+    Batch 2200: current MSE = 0.213517
+    Batch 2205: current MSE = 0.213515
+    Batch 2210: current MSE = 0.213516
+    Batch 2215: current MSE = 0.213515
+    Batch 2220: current MSE = 0.213518
+    Batch 2225: current MSE = 0.213516
+    Batch 2230: current MSE = 0.213518
+    Batch 2235: current MSE = 0.213515
+    Batch 2240: current MSE = 0.213516
+    Batch 2245: current MSE = 0.213513
+    Batch 2250: current MSE = 0.213515
+    Batch 2255: current MSE = 0.213513
+    Batch 2260: current MSE = 0.213512
+    Batch 2265: current MSE = 0.213511
+    Batch 2270: current MSE = 0.213511
+    Batch 2275: current MSE = 0.213510
+    Batch 2280: current MSE = 0.213511
+    Batch 2285: current MSE = 0.213511
+    Batch 2290: current MSE = 0.213511
+    Batch 2295: current MSE = 0.213512
+    Batch 2300: current MSE = 0.213515
+    Batch 2305: current MSE = 0.213514
+    Batch 2310: current MSE = 0.213514
+    Batch 2315: current MSE = 0.213511
+    Batch 2320: current MSE = 0.213512
+    Batch 2325: current MSE = 0.213513
+    Batch 2330: current MSE = 0.213514
+    Batch 2335: current MSE = 0.213513
+    Batch 2340: current MSE = 0.213513
+    Batch 2345: current MSE = 0.213514
+    Batch 2350: current MSE = 0.213516
+    Batch 2355: current MSE = 0.213514
+    Batch 2360: current MSE = 0.213513
+    Batch 2365: current MSE = 0.213512
+    Batch 2370: current MSE = 0.213513
+    Batch 2375: current MSE = 0.213514
+    Batch 2380: current MSE = 0.213516
+    Batch 2385: current MSE = 0.213513
+    Batch 2390: current MSE = 0.213517
+    Batch 2395: current MSE = 0.213517
+    Batch 2400: current MSE = 0.213515
+    Batch 2405: current MSE = 0.213513
+    Batch 2410: current MSE = 0.213511
+    Batch 2415: current MSE = 0.213511
+    Batch 2420: current MSE = 0.213510
+    Batch 2425: current MSE = 0.213512
+    Batch 2430: current MSE = 0.213513
+    Batch 2435: current MSE = 0.213511
+    Batch 2440: current MSE = 0.213511
+    Batch 2445: current MSE = 0.213512
+    Batch 2450: current MSE = 0.213510
+    Batch 2455: current MSE = 0.213511
+    Batch 2460: current MSE = 0.213510
+    Batch 2465: current MSE = 0.213508
+    Batch 2470: current MSE = 0.213509
+    Batch 2475: current MSE = 0.213507
+    Batch 2480: current MSE = 0.213507
+    Batch 2485: current MSE = 0.213505
+    Batch 2490: current MSE = 0.213504
+    Batch 2495: current MSE = 0.213507
+    Batch 2500: current MSE = 0.213509
+    Batch 2505: current MSE = 0.213509
+    Batch 2510: current MSE = 0.213509
+    Batch 2515: current MSE = 0.213511
+    Batch 2520: current MSE = 0.213510
+    Batch 2525: current MSE = 0.213508
+    Batch 2530: current MSE = 0.213508
+    Batch 2535: current MSE = 0.213508
+    Batch 2540: current MSE = 0.213509
+    Batch 2545: current MSE = 0.213514
+    Batch 2550: current MSE = 0.213513
+    Batch 2555: current MSE = 0.213514
+    Batch 2560: current MSE = 0.213513
+    Batch 2565: current MSE = 0.213513
+    Batch 2570: current MSE = 0.213512
+    Batch 2575: current MSE = 0.213512
+    Batch 2580: current MSE = 0.213511
+    Batch 2585: current MSE = 0.213512
+    Batch 2590: current MSE = 0.213512
+    Batch 2595: current MSE = 0.213515
+    Batch 2600: current MSE = 0.213515
+    Batch 2605: current MSE = 0.213512
+    Batch 2610: current MSE = 0.213511
+    Batch 2615: current MSE = 0.213512
+    Batch 2620: current MSE = 0.213510
+    Batch 2625: current MSE = 0.213508
+    Batch 2630: current MSE = 0.213510
+    Batch 2635: current MSE = 0.213509
+    Batch 2640: current MSE = 0.213507
+    Batch 2645: current MSE = 0.213510
+    Batch 2650: current MSE = 0.213511
+    Batch 2655: current MSE = 0.213510
+    Batch 2660: current MSE = 0.213509
+    Batch 2665: current MSE = 0.213509
+    Batch 2670: current MSE = 0.213509
+    Batch 2675: current MSE = 0.213510
+    Batch 2680: current MSE = 0.213508
+    Batch 2685: current MSE = 0.213506
+    Batch 2690: current MSE = 0.213507
+    Batch 2695: current MSE = 0.213506
+    Batch 2700: current MSE = 0.213504
+    Batch 2705: current MSE = 0.213504
+    Batch 2710: current MSE = 0.213506
+    Batch 2715: current MSE = 0.213507
+    Batch 2720: current MSE = 0.213508
+    Batch 2725: current MSE = 0.213506
+    Batch 2730: current MSE = 0.213505
+    Batch 2735: current MSE = 0.213503
+    Batch 2740: current MSE = 0.213502
+    Batch 2745: current MSE = 0.213502

@@ -1,0 +1,167 @@
+Job started at Mon Feb 23 15:13:25 EST 2026
+Running on host: holygpu7c26105.rc.fas.harvard.edu
+Job ID: 61794214
+Git URL: https://github.com/mdkrasnow/research-repo.git
+Git SHA: 8bd100e4bf107d70b08af89ab5331beba07cc168
+Work directory: /tmp/ired-eval-61794214
+GPU info:
+Mon Feb 23 15:13:25 2026       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 575.57.08              Driver Version: 575.57.08      CUDA Version: 12.9     |
+|-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA A100-SXM4-40GB          On  |   00000000:CA:00.0 Off |                   On |
+| N/A   24C    P0             46W /  400W |     434MiB /  40960MiB |     N/A      Default |
+|                                         |                        |              Enabled |
++-----------------------------------------+------------------------+----------------------+
+
++-----------------------------------------------------------------------------------------+
+| MIG devices:                                                                            |
++------------------+----------------------------------+-----------+-----------------------+
+| GPU  GI  CI  MIG |                     Memory-Usage |        Vol|        Shared         |
+|      ID  ID  Dev |                       BAR1-Usage | SM     Unc| CE ENC  DEC  OFA  JPG |
+|                  |                                  |        ECC|                       |
+|==================+==================================+===========+=======================|
+|  0    2   0   0  |             107MiB / 20096MiB    | 42      0 |  3   0    2    0    0 |
+|                  |                 0MiB / 32767MiB  |           |                       |
++------------------+----------------------------------+-----------+-----------------------+
+                                                                                         
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+
+Cloning repository...
+Repository cloned and checked out to: 8bd100e
+Repository info:
+8bd100e Create q224 robustness evaluation: test TAM-CTL on ill-conditioned matrices
+
+==========================================
+Running TAM-CTL Robustness Evaluation
+==========================================
+
+Running Level 1 evaluation: Baseline difficulty (ood=false)...
+Configuration:
+{
+  "experiment_name": "q224_eval_difficulty_L1_baseline",
+  "description": "Robustness evaluation Level 1: Baseline difficulty (ood=false, rank=20). Tests models on standard validation distribution to establish baseline metrics.",
+  "investigation": "ired-robustness",
+  "evaluation_mode": true,
+  "rank": 20,
+  "ood": false,
+  "dataset": "inverse",
+  "batch_size": 256,
+  "num_test_samples": 2048,
+  "num_opt_steps": 10,
+  "target_mse_threshold": 0.001,
+  "model_checkpoints": [
+    "results/ds_inverse/q220_tam_base/model-100.pt",
+    "results/ds_inverse/q223_tam_ctl_recovery_only/model-100.pt"
+  ],
+  "output_dir": "results/evaluation/q224_difficulty_sweep",
+  "notes": "Level 1 baseline: ood=false uses 0.5*I (well-conditioned). Evaluates on 2048 test samples. Compares q220 (TAM baseline) vs q223A (recovery-only)."
+}
+
+================================================================================
+Evaluating: q224_eval_difficulty_L1_baseline
+================================================================================
+Difficulty: ood=False, rank=20
+Using device: cuda
+Loading test dataset...
+  Input dimension: 400, Output dimension: 400
+
+Evaluating model: q220_tam_base
+  Loading model from: results/ds_inverse/q220_tam_base/model-100.pt
+  ✗ ERROR: Checkpoint not found: results/ds_inverse/q220_tam_base/model-100.pt
+
+Evaluating model: q223_tam_ctl_recovery_only
+  Loading model from: results/ds_inverse/q223_tam_ctl_recovery_only/model-100.pt
+  ✗ ERROR: Checkpoint not found: results/ds_inverse/q223_tam_ctl_recovery_only/model-100.pt
+
+Saving results to: results/evaluation/q224_difficulty_sweep/q224_eval_difficulty_L1_baseline_results.json
+
+================================================================================
+Evaluation Summary: q224_eval_difficulty_L1_baseline
+================================================================================
+
+q220_tam_base: ERROR - Checkpoint not found: results/ds_inverse/q220_tam_base/model-100.pt
+
+q223_tam_ctl_recovery_only: ERROR - Checkpoint not found: results/ds_inverse/q223_tam_ctl_recovery_only/model-100.pt
+
+================================================================================
+
+Level 1 evaluation completed at Mon Feb 23 15:13:58 EST 2026
+
+Running Level 2 evaluation: Hard difficulty (ood=true)...
+Configuration:
+{
+  "experiment_name": "q224_eval_difficulty_L2_hard",
+  "description": "Robustness evaluation Level 2: Hard difficulty (ood=true, rank=20). Tests models on ill-conditioned matrices to measure robustness degradation.",
+  "investigation": "ired-robustness",
+  "evaluation_mode": true,
+  "rank": 20,
+  "ood": true,
+  "dataset": "inverse",
+  "batch_size": 256,
+  "num_test_samples": 2048,
+  "num_opt_steps": 10,
+  "target_mse_threshold": 0.001,
+  "model_checkpoints": [
+    "results/ds_inverse/q220_tam_base/model-100.pt",
+    "results/ds_inverse/q223_tam_ctl_recovery_only/model-100.pt"
+  ],
+  "output_dir": "results/evaluation/q224_difficulty_sweep",
+  "notes": "Level 2 hard: ood=true uses 0.1*I (ill-conditioned matrices with larger condition number). Evaluates on 2048 test samples. Compares q220 (TAM baseline) vs q223A (recovery-only) on harder problems."
+}
+
+================================================================================
+Evaluating: q224_eval_difficulty_L2_hard
+================================================================================
+Difficulty: ood=True, rank=20
+Using device: cuda
+Loading test dataset...
+  Input dimension: 400, Output dimension: 400
+
+Evaluating model: q220_tam_base
+  Loading model from: results/ds_inverse/q220_tam_base/model-100.pt
+  ✗ ERROR: Checkpoint not found: results/ds_inverse/q220_tam_base/model-100.pt
+
+Evaluating model: q223_tam_ctl_recovery_only
+  Loading model from: results/ds_inverse/q223_tam_ctl_recovery_only/model-100.pt
+  ✗ ERROR: Checkpoint not found: results/ds_inverse/q223_tam_ctl_recovery_only/model-100.pt
+
+Saving results to: results/evaluation/q224_difficulty_sweep/q224_eval_difficulty_L2_hard_results.json
+
+================================================================================
+Evaluation Summary: q224_eval_difficulty_L2_hard
+================================================================================
+
+q220_tam_base: ERROR - Checkpoint not found: results/ds_inverse/q220_tam_base/model-100.pt
+
+q223_tam_ctl_recovery_only: ERROR - Checkpoint not found: results/ds_inverse/q223_tam_ctl_recovery_only/model-100.pt
+
+================================================================================
+
+Level 2 evaluation completed at Mon Feb 23 15:14:08 EST 2026
+
+==========================================
+All evaluations completed
+==========================================
+Copying results to persistent storage...
+sending incremental file list
+./
+summary.md
+evaluation/
+test_run/
+test_run/experiment_config.json
+
+sent 2,525 bytes  received 73 bytes  5,196.00 bytes/sec
+total size is 2,227  speedup is 0.86
+Results copied to /n/home03/mkrasnow/research-repo/projects/ired/results/
+Cleaning up work directory...
+Job completed at Mon Feb 23 15:14:08 EST 2026

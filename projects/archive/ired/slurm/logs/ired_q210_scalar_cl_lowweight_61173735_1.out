@@ -1,0 +1,289 @@
+Job started at Thu Feb 19 10:02:36 EST 2026
+Running on host: holygpu8a22103.rc.fas.harvard.edu
+Job ID: 61175696
+Git URL: https://github.com/mdkrasnow/research-repo.git
+Git SHA: e86371c3133278ea28a341bda3dbe909dbee1fd9
+Work directory: /tmp/ired-job-61175696
+GPU info:
+Thu Feb 19 10:02:36 2026       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 575.57.08              Driver Version: 575.57.08      CUDA Version: 12.9     |
+|-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA A100-SXM4-80GB          On  |   00000000:31:00.0 Off |                    0 |
+| N/A   27C    P0             62W /  500W |       0MiB /  81920MiB |      0%      Default |
+|                                         |                        |             Disabled |
++-----------------------------------------+------------------------+----------------------+
+                                                                                         
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+
+Cloning repository...
+Repository cloned and checked out to: e86371c
+Repository info:
+e86371c Add warmup/weight/timestep ablations for scalar contrastive (q209-q211)
+Starting q210: scalar energy + contrastive low weight...
+Loading configuration from: projects/ired/configs/q210_scalar_cl_lowweight.json
+Configuration saved to: results/ds_inverse/q210_scalar_cl_lowweight/experiment_config.json
+Setting random seed: 1
+Starting experiment with mining strategy: cd_langevin_replay
+Configuration: {
+  "experiment_name": "q210_scalar_cl_lowweight",
+  "description": "Scalar energy + contrastive with reduced weight 0.01 (vs 0.05 in q208). Tests if lighter contrastive signal reduces interference with denoising.",
+  "investigation": "ired-cd",
+  "ablation_stage": "scalar_cl_lowweight",
+  "mining_strategy": "cd_langevin_replay",
+  "rank": 20,
+  "ood": false,
+  "diffusion_steps": 10,
+  "batch_size": 2048,
+  "train_steps": 20000,
+  "learning_rate": 0.0001,
+  "mining_opt_steps": 10,
+  "energy_reg_weight": 0.0,
+  "mining_noise_scale": 1.5,
+  "use_langevin": true,
+  "use_replay_buffer": true,
+  "replay_buffer_size": 10000,
+  "replay_buffer_buckets": 16,
+  "use_cd_loss": false,
+  "use_ired_contrastive_loss": true,
+  "contrastive_temperature": 1.0,
+  "use_scalar_energy": true,
+  "use_residual_filter": false,
+  "use_energy_schedule": false,
+  "use_timestep_range": false,
+  "energy_loss_weight": 0.01,
+  "adam_betas": [
+    0.0,
+    0.999
+  ],
+  "output_dir": "results/ds_inverse/q210_scalar_cl_lowweight",
+  "notes": "Weight ablation: 0.01 vs q208's 0.05. q208 showed contrastive dominated early, saturating margins to 55K while suppressing gradE to 3x below baseline. Lower weight should let denoising dominate while still providing landscape shaping signal.",
+  "seed": 1
+}
+Dataset: Inverse matrices (20x20)
+Input dimension: 400, Output dimension: 400
+Trainer initialized. Output directory: results/ds_inverse/q210_scalar_cl_lowweight
+Training for 20000 steps...
+[IRED-CL-DIAG step=100] E_pos=8.4290 E_neg=11.6389 margin=3.2099 E_wtd=0.000964 MSE=0.998945 gradE=0.8017 pred=0.0004 cl_mean=0.096366 frac_sat=0.000 neg_dist=31.5872 lang_grad0=0.0004 lang_gradK=0.0004 lang_disp=34.4811 step=0.4538 sigma=0.9204
+[IRED-CL-DIAG step=200] E_pos=6.9898 E_neg=16.1408 margin=9.1510 E_wtd=0.000077 MSE=1.000201 gradE=1.7958 pred=0.0009 cl_mean=0.007672 frac_sat=0.407 neg_dist=31.5879 lang_grad0=0.0010 lang_gradK=0.0010 lang_disp=34.4805 step=0.4562 sigma=0.9223
+[IRED-CL-DIAG step=300] E_pos=6.9197 E_neg=19.7056 margin=12.7858 E_wtd=0.000071 MSE=0.999261 gradE=2.4117 pred=0.0012 cl_mean=0.007097 frac_sat=0.755 neg_dist=31.5115 lang_grad0=0.0013 lang_gradK=0.0013 lang_disp=34.3416 step=0.4461 sigma=0.9119
+[IRED-CL-DIAG step=400] E_pos=6.3954 E_neg=22.1122 margin=15.7167 E_wtd=0.000030 MSE=0.999360 gradE=2.8880 pred=0.0014 cl_mean=0.003024 frac_sat=0.869 neg_dist=31.5371 lang_grad0=0.0016 lang_gradK=0.0016 lang_disp=34.4269 step=0.4521 sigma=0.9179
+[IRED-CL-DIAG step=500] E_pos=8.9066 E_neg=28.1009 margin=19.1944 E_wtd=0.000005 MSE=0.997825 gradE=3.4719 pred=0.0017 cl_mean=0.000539 frac_sat=0.923 neg_dist=31.4541 lang_grad0=0.0019 lang_gradK=0.0019 lang_disp=34.3251 step=0.4434 sigma=0.9098
+[IRED-CL-DIAG step=600] E_pos=9.8585 E_neg=33.8643 margin=24.0058 E_wtd=0.000049 MSE=1.000763 gradE=4.2673 pred=0.0021 cl_mean=0.004871 frac_sat=0.964 neg_dist=31.4162 lang_grad0=0.0024 lang_gradK=0.0024 lang_disp=34.3227 step=0.4422 sigma=0.9078
+[IRED-CL-DIAG step=700] E_pos=15.9848 E_neg=47.4347 margin=31.4499 E_wtd=0.000032 MSE=0.998808 gradE=5.5216 pred=0.0027 cl_mean=0.003241 frac_sat=0.981 neg_dist=31.4822 lang_grad0=0.0031 lang_gradK=0.0031 lang_disp=34.3575 step=0.4442 sigma=0.9108
+[IRED-CL-DIAG step=800] E_pos=27.8223 E_neg=75.5855 margin=47.7632 E_wtd=0.000033 MSE=0.997911 gradE=8.4738 pred=0.0041 cl_mean=0.003331 frac_sat=0.992 neg_dist=31.3382 lang_grad0=0.0046 lang_gradK=0.0046 lang_disp=34.2258 step=0.4364 sigma=0.9023
+[IRED-CL-DIAG step=900] E_pos=45.2455 E_neg=132.7405 margin=87.4950 E_wtd=0.000063 MSE=1.000044 gradE=15.4602 pred=0.0075 cl_mean=0.006309 frac_sat=0.998 neg_dist=31.5657 lang_grad0=0.0085 lang_gradK=0.0084 lang_disp=34.5508 step=0.4533 sigma=0.9200
+[IRED-CL-DIAG step=1000] E_pos=96.8203 E_neg=244.9241 margin=148.1038 E_wtd=0.000191 MSE=0.998061 gradE=26.7109 pred=0.0130 cl_mean=0.019138 frac_sat=0.998 neg_dist=31.3721 lang_grad0=0.0136 lang_gradK=0.0142 lang_disp=32.9482 step=0.4474 sigma=0.9140
+Running Evaluation...
+Validation Result @ Iteration 1000; Milestone = 1 (Train)
+---------  -------
+mse_error  3.66901
+---------  -------
+Validation Result @ Iteration 1000; Milestone = 1 (ID: Validation)
+---  -------
+mse  2.70806
+---  -------
+[IRED-CL-DIAG step=1100] E_pos=110.7974 E_neg=393.0613 margin=282.2639 E_wtd=0.000735 MSE=0.998633 gradE=48.7694 pred=0.0238 cl_mean=0.073491 frac_sat=0.999 neg_dist=31.4254 lang_grad0=0.0267 lang_gradK=0.0267 lang_disp=34.2650 step=0.4388 sigma=0.9052
+[IRED-CL-DIAG step=1200] E_pos=746.9656 E_neg=2359.5132 margin=1612.5475 E_wtd=0.000534 MSE=0.993382 gradE=278.2132 pred=0.1358 cl_mean=0.053413 frac_sat=0.999 neg_dist=31.5159 lang_grad0=0.1490 lang_gradK=0.1484 lang_disp=34.4925 step=0.4542 sigma=0.9196
+[IRED-CL-DIAG step=1300] E_pos=2165.1758 E_neg=5447.3555 margin=3282.1797 E_wtd=0.000000 MSE=0.988637 gradE=590.7557 pred=0.2885 cl_mean=0.000000 frac_sat=1.000 neg_dist=31.4623 lang_grad0=0.2943 lang_gradK=0.2970 lang_disp=34.3954 step=0.4512 sigma=0.9161
+[IRED-CL-DIAG step=1400] E_pos=4515.8018 E_neg=9568.9199 margin=5053.1182 E_wtd=0.000507 MSE=0.984403 gradE=947.1481 pred=0.4625 cl_mean=0.050748 frac_sat=1.000 neg_dist=31.3530 lang_grad0=0.4316 lang_gradK=0.4387 lang_disp=34.2517 step=0.4421 sigma=0.9083
+[IRED-CL-DIAG step=1500] E_pos=1123.6998 E_neg=7265.9639 margin=6142.2640 E_wtd=0.016974 MSE=0.982588 gradE=1092.4780 pred=0.5334 cl_mean=1.697412 frac_sat=0.998 neg_dist=31.5449 lang_grad0=0.6079 lang_gradK=0.6095 lang_disp=34.5526 step=0.4566 sigma=0.9234
+[IRED-CL-DIAG step=1600] E_pos=2361.0269 E_neg=10715.5420 margin=8354.5151 E_wtd=0.003052 MSE=0.976785 gradE=1490.1899 pred=0.7276 cl_mean=0.305175 frac_sat=1.000 neg_dist=31.3060 lang_grad0=0.8160 lang_gradK=0.8215 lang_disp=34.2414 step=0.4420 sigma=0.9076
+[IRED-CL-DIAG step=1700] E_pos=4537.5786 E_neg=13644.7930 margin=9107.2144 E_wtd=0.020674 MSE=0.973609 gradE=1671.3427 pred=0.8161 cl_mean=2.067445 frac_sat=0.998 neg_dist=31.2991 lang_grad0=0.8463 lang_gradK=0.8647 lang_disp=34.2985 step=0.4445 sigma=0.9102
+[IRED-CL-DIAG step=1800] E_pos=2589.1543 E_neg=13573.9238 margin=10984.7695 E_wtd=0.008423 MSE=0.964536 gradE=1980.6376 pred=0.9671 cl_mean=0.842305 frac_sat=0.999 neg_dist=31.3612 lang_grad0=1.0869 lang_gradK=1.1008 lang_disp=34.4509 step=0.4508 sigma=0.9175
+[IRED-CL-DIAG step=1900] E_pos=3228.4001 E_neg=15177.9922 margin=11949.5920 E_wtd=0.030763 MSE=0.962193 gradE=2176.9067 pred=1.0629 cl_mean=3.076277 frac_sat=0.997 neg_dist=31.2889 lang_grad0=1.1782 lang_gradK=1.1983 lang_disp=34.3455 step=0.4467 sigma=0.9131
+[IRED-CL-DIAG step=2000] E_pos=4256.9004 E_neg=17408.3516 margin=13151.4512 E_wtd=0.024608 MSE=0.957195 gradE=2383.5535 pred=1.1638 cl_mean=2.460820 frac_sat=0.999 neg_dist=31.2477 lang_grad0=1.2700 lang_gradK=1.2915 lang_disp=34.2665 step=0.4440 sigma=0.9100
+Running Evaluation...
+Validation Result @ Iteration 2000; Milestone = 2 (Train)
+---------  -------
+mse_error  2.80124
+---------  -------
+Validation Result @ Iteration 2000; Milestone = 2 (ID: Validation)
+---  -------
+mse  3.00403
+---  -------
+[IRED-CL-DIAG step=2100] E_pos=3330.8506 E_neg=18179.9648 margin=14849.1143 E_wtd=0.001945 MSE=0.950552 gradE=2591.6074 pred=1.2654 cl_mean=0.194453 frac_sat=1.000 neg_dist=31.2069 lang_grad0=1.4518 lang_gradK=1.4706 lang_disp=34.3334 step=0.4472 sigma=0.9129
+[IRED-CL-DIAG step=2200] E_pos=6634.5781 E_neg=22011.5625 margin=15376.9844 E_wtd=0.015456 MSE=0.951836 gradE=2672.8267 pred=1.3051 cl_mean=1.545563 frac_sat=0.999 neg_dist=31.2391 lang_grad0=1.3951 lang_gradK=1.4404 lang_disp=34.2697 step=0.4440 sigma=0.9101
+[IRED-CL-DIAG step=2300] E_pos=7007.7466 E_neg=23734.8809 margin=16727.1343 E_wtd=0.022345 MSE=0.942457 gradE=3041.9326 pred=1.4853 cl_mean=2.234466 frac_sat=0.997 neg_dist=31.3450 lang_grad0=1.6047 lang_gradK=1.6524 lang_disp=34.4655 step=0.4522 sigma=0.9197
+[IRED-CL-DIAG step=2400] E_pos=7865.0215 E_neg=25185.1836 margin=17320.1621 E_wtd=0.009028 MSE=0.943892 gradE=3092.8850 pred=1.5102 cl_mean=0.902817 frac_sat=0.999 neg_dist=31.2443 lang_grad0=1.6072 lang_gradK=1.6669 lang_disp=34.3271 step=0.4476 sigma=0.9145
+[IRED-CL-DIAG step=2500] E_pos=7478.7100 E_neg=25620.3105 margin=18141.6006 E_wtd=0.029772 MSE=0.939842 gradE=3247.8035 pred=1.5858 cl_mean=2.977211 frac_sat=0.999 neg_dist=31.1945 lang_grad0=1.7095 lang_gradK=1.7632 lang_disp=34.3263 step=0.4493 sigma=0.9157
+[IRED-CL-DIAG step=2600] E_pos=5372.4077 E_neg=23915.2070 margin=18542.7993 E_wtd=0.027744 MSE=0.937954 gradE=3300.6882 pred=1.6117 cl_mean=2.774400 frac_sat=0.998 neg_dist=31.1708 lang_grad0=1.8163 lang_gradK=1.8626 lang_disp=34.1828 step=0.4427 sigma=0.9092
+[IRED-CL-DIAG step=2700] E_pos=7734.6719 E_neg=26953.5586 margin=19218.8867 E_wtd=0.018942 MSE=0.932919 gradE=3468.5669 pred=1.6936 cl_mean=1.894245 frac_sat=0.999 neg_dist=31.2560 lang_grad0=1.8475 lang_gradK=1.9080 lang_disp=34.4175 step=0.4566 sigma=0.9218
+[IRED-CL-DIAG step=2800] E_pos=6146.3862 E_neg=26324.5527 margin=20178.1665 E_wtd=0.047931 MSE=0.932040 gradE=3542.9116 pred=1.7299 cl_mean=4.793127 frac_sat=0.997 neg_dist=31.0564 lang_grad0=1.9399 lang_gradK=1.9945 lang_disp=34.2693 step=0.4411 sigma=0.9078
+[IRED-CL-DIAG step=2900] E_pos=13111.1094 E_neg=33351.7305 margin=20240.6211 E_wtd=0.045569 MSE=0.929192 gradE=3550.6072 pred=1.7337 cl_mean=4.556874 frac_sat=0.999 neg_dist=31.1284 lang_grad0=1.7115 lang_gradK=1.7945 lang_disp=34.2231 step=0.4454 sigma=0.9112
+[IRED-CL-DIAG step=3000] E_pos=10581.9395 E_neg=31965.7871 margin=21383.8477 E_wtd=0.006511 MSE=0.926365 gradE=3758.6709 pred=1.8353 cl_mean=0.651124 frac_sat=0.999 neg_dist=31.1131 lang_grad0=1.9196 lang_gradK=2.0105 lang_disp=34.3012 step=0.4460 sigma=0.9123
+Running Evaluation...
+Validation Result @ Iteration 3000; Milestone = 3 (Train)
+---------  -------
+mse_error  3.01704
+---------  -------
+Validation Result @ Iteration 3000; Milestone = 3 (ID: Validation)
+---  -------
+mse  2.41956
+---  -------
+[IRED-CL-DIAG step=3100] E_pos=10967.3457 E_neg=33615.3828 margin=22648.0371 E_wtd=0.027177 MSE=0.922132 gradE=3973.4709 pred=1.9402 cl_mean=2.717690 frac_sat=0.999 neg_dist=31.0925 lang_grad0=2.0321 lang_gradK=2.1218 lang_disp=34.2613 step=0.4406 sigma=0.9084
+[IRED-CL-DIAG step=3200] E_pos=6524.6074 E_neg=29694.4082 margin=23169.8008 E_wtd=0.018334 MSE=0.919371 gradE=4019.6904 pred=1.9627 cl_mean=1.833398 frac_sat=0.999 neg_dist=31.0700 lang_grad0=2.2179 lang_gradK=2.2870 lang_disp=34.2586 step=0.4420 sigma=0.9086
+[IRED-CL-DIAG step=3300] E_pos=8724.6748 E_neg=32754.6133 margin=24029.9385 E_wtd=0.039200 MSE=0.915798 gradE=4145.9517 pred=2.0244 cl_mean=3.920002 frac_sat=0.998 neg_dist=30.9837 lang_grad0=2.2378 lang_gradK=2.3164 lang_disp=34.1451 step=0.4396 sigma=0.9060
+[IRED-CL-DIAG step=3400] E_pos=12742.0762 E_neg=38100.0117 margin=25357.9355 E_wtd=0.014728 MSE=0.911833 gradE=4339.9360 pred=2.1191 cl_mean=1.472761 frac_sat=1.000 neg_dist=31.0195 lang_grad0=2.2165 lang_gradK=2.3280 lang_disp=34.1549 step=0.4408 sigma=0.9068
+[IRED-CL-DIAG step=3500] E_pos=462.8820 E_neg=26241.7539 margin=25778.8719 E_wtd=0.087566 MSE=0.906734 gradE=4496.7710 pred=2.1957 cl_mean=8.756566 frac_sat=0.997 neg_dist=31.0502 lang_grad0=2.7164 lang_gradK=2.7186 lang_disp=34.2818 step=0.4485 sigma=0.9159
+[IRED-CL-DIAG step=3600] E_pos=8953.5674 E_neg=35201.0469 margin=26247.4795 E_wtd=0.060401 MSE=0.909847 gradE=4497.7090 pred=2.1961 cl_mean=6.040133 frac_sat=0.999 neg_dist=30.6984 lang_grad0=2.2635 lang_gradK=2.5627 lang_disp=32.5955 step=0.4345 sigma=0.9005
+[IRED-CL-DIAG step=3700] E_pos=6796.8096 E_neg=33889.6875 margin=27092.8779 E_wtd=0.065927 MSE=0.901104 gradE=4707.2100 pred=2.2984 cl_mean=6.592683 frac_sat=0.996 neg_dist=30.9956 lang_grad0=2.6580 lang_gradK=2.7410 lang_disp=34.2122 step=0.4455 sigma=0.9121
+[IRED-CL-DIAG step=3800] E_pos=7829.2974 E_neg=35521.8516 margin=27692.5542 E_wtd=0.028073 MSE=0.897047 gradE=4882.3198 pred=2.3839 cl_mean=2.807266 frac_sat=0.996 neg_dist=31.0821 lang_grad0=2.7256 lang_gradK=2.8225 lang_disp=34.3580 step=0.4544 sigma=0.9211
+[IRED-CL-DIAG step=3900] E_pos=3671.7358 E_neg=33163.6523 margin=29491.9165 E_wtd=0.033847 MSE=0.895684 gradE=4868.9512 pred=2.3774 cl_mean=3.384709 frac_sat=0.999 neg_dist=30.7708 lang_grad0=2.8747 lang_gradK=2.9272 lang_disp=33.9882 step=0.4354 sigma=0.9005
+[IRED-CL-DIAG step=4000] E_pos=11172.0244 E_neg=40949.4297 margin=29777.4053 E_wtd=0.130058 MSE=0.891390 gradE=5131.9551 pred=2.5058 cl_mean=13.005775 frac_sat=0.996 neg_dist=30.9241 lang_grad0=2.7821 lang_gradK=2.9057 lang_disp=34.1664 step=0.4472 sigma=0.9128
+Running Evaluation...
+Validation Result @ Iteration 4000; Milestone = 4 (Train)
+---------  -------
+mse_error  2.61654
+---------  -------
+Validation Result @ Iteration 4000; Milestone = 4 (ID: Validation)
+---  -------
+mse  2.21607
+---  -------
+[IRED-CL-DIAG step=4100] E_pos=12458.5020 E_neg=43457.0312 margin=30998.5293 E_wtd=0.043172 MSE=0.890034 gradE=5083.6201 pred=2.4822 cl_mean=4.317201 frac_sat=0.998 neg_dist=30.9002 lang_grad0=2.7421 lang_gradK=2.8751 lang_disp=34.1091 step=0.4353 sigma=0.9031
+[IRED-CL-DIAG step=4200] E_pos=11639.9424 E_neg=43610.4062 margin=31970.4639 E_wtd=0.056378 MSE=0.884238 gradE=5267.4463 pred=2.5720 cl_mean=5.637774 frac_sat=0.998 neg_dist=30.9060 lang_grad0=2.8949 lang_gradK=3.0141 lang_disp=34.1871 step=0.4455 sigma=0.9118
+[IRED-CL-DIAG step=4300] E_pos=13404.7637 E_neg=45691.8047 margin=32287.0410 E_wtd=0.092006 MSE=0.884395 gradE=5362.4023 pred=2.6184 cl_mean=9.200597 frac_sat=0.998 neg_dist=30.8837 lang_grad0=2.8918 lang_gradK=3.0188 lang_disp=34.1164 step=0.4443 sigma=0.9108
+[IRED-CL-DIAG step=4400] E_pos=13908.2598 E_neg=47183.8516 margin=33275.5918 E_wtd=0.185816 MSE=0.879370 gradE=5519.6387 pred=2.6951 cl_mean=18.581566 frac_sat=0.996 neg_dist=30.8544 lang_grad0=3.0032 lang_gradK=3.1312 lang_disp=34.1172 step=0.4441 sigma=0.9100
+[IRED-CL-DIAG step=4500] E_pos=9205.4326 E_neg=43382.7109 margin=34177.2783 E_wtd=0.059306 MSE=0.872429 gradE=5717.5308 pred=2.7918 cl_mean=5.930603 frac_sat=0.998 neg_dist=30.8320 lang_grad0=3.2819 lang_gradK=3.3830 lang_disp=34.1713 step=0.4456 sigma=0.9119
+[IRED-CL-DIAG step=4600] E_pos=15687.8828 E_neg=49808.2031 margin=34120.3203 E_wtd=0.053200 MSE=0.874821 gradE=5803.6055 pred=2.8338 cl_mean=5.320046 frac_sat=0.998 neg_dist=30.8972 lang_grad0=3.1094 lang_gradK=3.2563 lang_disp=34.1884 step=0.4486 sigma=0.9148
+[IRED-CL-DIAG step=4700] E_pos=16563.4688 E_neg=51516.1641 margin=34952.6953 E_wtd=0.069652 MSE=0.870506 gradE=5924.3955 pred=2.8928 cl_mean=6.965216 frac_sat=0.997 neg_dist=30.8820 lang_grad0=3.1610 lang_gradK=3.3135 lang_disp=34.1790 step=0.4451 sigma=0.9127
+[IRED-CL-DIAG step=4800] E_pos=7123.0801 E_neg=42516.5664 margin=35393.4863 E_wtd=0.081987 MSE=0.867366 gradE=5937.3340 pred=2.8991 cl_mean=8.198712 frac_sat=0.999 neg_dist=30.8352 lang_grad0=3.5115 lang_gradK=3.5938 lang_disp=34.1086 step=0.4435 sigma=0.9099
+[IRED-CL-DIAG step=4900] E_pos=16486.0078 E_neg=52862.6758 margin=36376.6680 E_wtd=0.045930 MSE=0.864658 gradE=6084.5977 pred=2.9710 cl_mean=4.593023 frac_sat=0.999 neg_dist=30.8779 lang_grad0=3.2915 lang_gradK=3.4358 lang_disp=34.0954 step=0.4485 sigma=0.9145
+[IRED-CL-DIAG step=5000] E_pos=9006.2559 E_neg=46245.5547 margin=37239.2988 E_wtd=0.047424 MSE=0.861065 gradE=6243.9590 pred=3.0488 cl_mean=4.742431 frac_sat=0.998 neg_dist=30.7069 lang_grad0=3.6411 lang_gradK=3.7525 lang_disp=34.0130 step=0.4412 sigma=0.9073
+Running Evaluation...
+Validation Result @ Iteration 5000; Milestone = 5 (Train)
+---------  -------
+mse_error  2.34354
+---------  -------
+Validation Result @ Iteration 5000; Milestone = 5 (ID: Validation)
+---  -------
+mse  2.12094
+---  -------
+[IRED-CL-DIAG step=5100] E_pos=10134.2227 E_neg=47502.7227 margin=37368.5000 E_wtd=0.046140 MSE=0.858604 gradE=6359.0044 pred=3.1050 cl_mean=4.614027 frac_sat=0.996 neg_dist=30.7920 lang_grad0=3.6994 lang_gradK=3.8064 lang_disp=34.0893 step=0.4461 sigma=0.9125
+[IRED-CL-DIAG step=5200] E_pos=14687.1543 E_neg=53216.1484 margin=38528.9941 E_wtd=0.070442 MSE=0.858726 gradE=6319.8154 pred=3.0858 cl_mean=7.044211 frac_sat=0.998 neg_dist=30.6530 lang_grad0=3.5257 lang_gradK=3.6609 lang_disp=33.9496 step=0.4392 sigma=0.9047
+[IRED-CL-DIAG step=5300] E_pos=9775.1582 E_neg=48057.9062 margin=38282.7480 E_wtd=0.011713 MSE=0.850756 gradE=6471.2031 pred=3.1598 cl_mean=1.171297 frac_sat=1.000 neg_dist=30.7955 lang_grad0=3.7889 lang_gradK=3.8933 lang_disp=34.1270 step=0.4501 sigma=0.9158
+[IRED-CL-DIAG step=5400] E_pos=13149.9160 E_neg=52359.7031 margin=39209.7871 E_wtd=0.051032 MSE=0.852332 gradE=6489.2783 pred=3.1686 cl_mean=5.103203 frac_sat=0.997 neg_dist=30.7474 lang_grad0=3.6770 lang_gradK=3.8236 lang_disp=34.1030 step=0.4456 sigma=0.9117
+[IRED-CL-DIAG step=5500] E_pos=13693.9629 E_neg=53693.1406 margin=39999.1777 E_wtd=0.174659 MSE=0.849323 gradE=6636.0913 pred=3.2403 cl_mean=17.465862 frac_sat=0.997 neg_dist=30.7815 lang_grad0=3.7754 lang_gradK=3.9006 lang_disp=34.1104 step=0.4502 sigma=0.9160
+[IRED-CL-DIAG step=5600] E_pos=16260.0566 E_neg=56686.7031 margin=40426.6465 E_wtd=0.064795 MSE=0.847856 gradE=6667.4878 pred=3.2556 cl_mean=6.479542 frac_sat=0.998 neg_dist=30.7761 lang_grad0=3.7020 lang_gradK=3.8658 lang_disp=34.0611 step=0.4468 sigma=0.9123
+[IRED-CL-DIAG step=5700] E_pos=12514.7148 E_neg=52837.3203 margin=40322.6055 E_wtd=0.080290 MSE=0.841632 gradE=6813.8071 pred=3.3271 cl_mean=8.028954 frac_sat=0.998 neg_dist=30.7556 lang_grad0=3.9261 lang_gradK=4.0592 lang_disp=34.1635 step=0.4504 sigma=0.9169
+[IRED-CL-DIAG step=5800] E_pos=15371.6826 E_neg=56700.9609 margin=41329.2783 E_wtd=0.014998 MSE=0.841395 gradE=6816.9355 pred=3.3286 cl_mean=1.499796 frac_sat=0.998 neg_dist=30.7012 lang_grad0=3.8387 lang_gradK=3.9871 lang_disp=34.0953 step=0.4485 sigma=0.9146
+[IRED-CL-DIAG step=5900] E_pos=17296.4141 E_neg=59873.4961 margin=42577.0820 E_wtd=0.000000 MSE=0.839718 gradE=6942.8887 pred=3.3901 cl_mean=0.000000 frac_sat=1.000 neg_dist=30.6536 lang_grad0=3.8663 lang_gradK=4.0208 lang_disp=33.9687 step=0.4393 sigma=0.9058
+[IRED-CL-DIAG step=6000] E_pos=20445.1992 E_neg=64146.8633 margin=43701.6641 E_wtd=0.037447 MSE=0.833388 gradE=7222.6987 pred=3.5267 cl_mean=3.744747 frac_sat=0.999 neg_dist=30.7543 lang_grad0=3.9462 lang_gradK=4.1399 lang_disp=34.1303 step=0.4483 sigma=0.9151
+Running Evaluation...
+Validation Result @ Iteration 6000; Milestone = 6 (Train)
+---------  -------
+mse_error  2.16603
+---------  -------
+Validation Result @ Iteration 6000; Milestone = 6 (ID: Validation)
+---  -------
+mse  2.04825
+---  -------
+[IRED-CL-DIAG step=6100] E_pos=14192.8818 E_neg=58596.8242 margin=44403.9424 E_wtd=0.089270 MSE=0.832585 gradE=7160.2354 pred=3.4962 cl_mean=8.926998 frac_sat=0.998 neg_dist=30.5752 lang_grad0=4.1503 lang_gradK=4.2857 lang_disp=33.9697 step=0.4407 sigma=0.9070
+[IRED-CL-DIAG step=6200] E_pos=18806.9824 E_neg=63296.3750 margin=44489.3926 E_wtd=0.126289 MSE=0.829673 gradE=7255.1201 pred=3.5425 cl_mean=12.628942 frac_sat=0.997 neg_dist=30.6390 lang_grad0=4.0412 lang_gradK=4.2075 lang_disp=33.9649 step=0.4386 sigma=0.9066
+[IRED-CL-DIAG step=6300] E_pos=20225.6172 E_neg=65818.5938 margin=45592.9766 E_wtd=0.120053 MSE=0.830419 gradE=7273.1719 pred=3.5514 cl_mean=12.005350 frac_sat=0.998 neg_dist=30.5929 lang_grad0=3.9960 lang_gradK=4.1811 lang_disp=33.9185 step=0.4384 sigma=0.9041
+[IRED-CL-DIAG step=6400] E_pos=13992.4160 E_neg=59549.2148 margin=45556.7988 E_wtd=0.063860 MSE=0.822216 gradE=7511.5781 pred=3.6678 cl_mean=6.385962 frac_sat=0.998 neg_dist=30.6820 lang_grad0=4.3934 lang_gradK=4.5326 lang_disp=34.1210 step=0.4515 sigma=0.9178
+[IRED-CL-DIAG step=6500] E_pos=19366.0547 E_neg=65785.3281 margin=46419.2734 E_wtd=0.082733 MSE=0.823379 gradE=7500.2075 pred=3.6622 cl_mean=8.273319 frac_sat=0.999 neg_dist=30.6178 lang_grad0=4.2087 lang_gradK=4.3742 lang_disp=33.9439 step=0.4463 sigma=0.9121
+[IRED-CL-DIAG step=6600] E_pos=18745.6934 E_neg=65822.2344 margin=47076.5410 E_wtd=0.034039 MSE=0.817178 gradE=7768.4229 pred=3.7932 cl_mean=3.403914 frac_sat=0.998 neg_dist=30.6095 lang_grad0=4.4238 lang_gradK=4.5697 lang_disp=33.9581 step=0.4461 sigma=0.9127
+[IRED-CL-DIAG step=6700] E_pos=21055.3320 E_neg=68475.7344 margin=47420.4023 E_wtd=0.079487 MSE=0.814278 gradE=7757.0962 pred=3.7876 cl_mean=7.948668 frac_sat=0.998 neg_dist=30.6452 lang_grad0=4.3191 lang_gradK=4.5003 lang_disp=34.0670 step=0.4491 sigma=0.9148
+[IRED-CL-DIAG step=6800] E_pos=17066.3711 E_neg=64933.8945 margin=47867.5234 E_wtd=0.089585 MSE=0.815539 gradE=7818.5996 pred=3.8177 cl_mean=8.958529 frac_sat=0.999 neg_dist=30.5721 lang_grad0=4.5058 lang_gradK=4.6684 lang_disp=33.9412 step=0.4429 sigma=0.9087
+[IRED-CL-DIAG step=6900] E_pos=15773.0000 E_neg=63840.9961 margin=48067.9961 E_wtd=0.056502 MSE=0.816098 gradE=7844.3701 pred=3.8303 cl_mean=5.650152 frac_sat=0.998 neg_dist=30.4644 lang_grad0=4.5893 lang_gradK=4.7218 lang_disp=33.8480 step=0.4396 sigma=0.9057
+[IRED-CL-DIAG step=7000] E_pos=17670.6738 E_neg=66664.2578 margin=48993.5840 E_wtd=0.040908 MSE=0.815234 gradE=7899.0977 pred=3.8570 cl_mean=4.090818 frac_sat=1.000 neg_dist=30.4625 lang_grad0=4.5531 lang_gradK=4.7313 lang_disp=33.9071 step=0.4445 sigma=0.9091
+Running Evaluation...
+Validation Result @ Iteration 7000; Milestone = 7 (Train)
+---------  -------
+mse_error  2.04981
+---------  -------
+Validation Result @ Iteration 7000; Milestone = 7 (ID: Validation)
+---  -------
+mse  1.99056
+---  -------
+[IRED-CL-DIAG step=7100] E_pos=15351.7930 E_neg=63262.5781 margin=47910.7852 E_wtd=0.134421 MSE=0.805570 gradE=8139.9878 pred=3.9746 cl_mean=13.442130 frac_sat=0.997 neg_dist=30.5853 lang_grad0=4.7883 lang_gradK=4.9090 lang_disp=33.9718 step=0.4443 sigma=0.9119
+[IRED-CL-DIAG step=7200] E_pos=19310.1875 E_neg=67931.6406 margin=48621.4531 E_wtd=0.192790 MSE=0.806520 gradE=8148.8530 pred=3.9789 cl_mean=19.279045 frac_sat=0.997 neg_dist=30.5804 lang_grad0=4.6842 lang_gradK=4.8359 lang_disp=33.9234 step=0.4441 sigma=0.9114
+[IRED-CL-DIAG step=7300] E_pos=25093.4277 E_neg=74616.9688 margin=49523.5410 E_wtd=0.055105 MSE=0.804492 gradE=8157.8770 pred=3.9833 cl_mean=5.510458 frac_sat=0.998 neg_dist=30.6307 lang_grad0=4.4535 lang_gradK=4.6545 lang_disp=34.0064 step=0.4469 sigma=0.9139
+[IRED-CL-DIAG step=7400] E_pos=21845.0039 E_neg=72339.4531 margin=50494.4492 E_wtd=0.139449 MSE=0.807267 gradE=8044.6943 pred=3.9281 cl_mean=13.944935 frac_sat=0.999 neg_dist=30.4741 lang_grad0=4.5412 lang_gradK=4.7099 lang_disp=33.8380 step=0.4412 sigma=0.9064
+[IRED-CL-DIAG step=7500] E_pos=18025.1328 E_neg=68215.9844 margin=50190.8516 E_wtd=0.036006 MSE=0.804611 gradE=8183.6670 pred=3.9959 cl_mean=3.600571 frac_sat=0.998 neg_dist=30.4134 lang_grad0=4.7645 lang_gradK=4.9354 lang_disp=33.8254 step=0.4366 sigma=0.9033
+[IRED-CL-DIAG step=7600] E_pos=24712.1875 E_neg=75647.1406 margin=50934.9531 E_wtd=0.064709 MSE=0.804776 gradE=8215.7139 pred=4.0116 cl_mean=6.470924 frac_sat=0.998 neg_dist=30.4956 lang_grad0=4.5440 lang_gradK=4.7352 lang_disp=33.8502 step=0.4424 sigma=0.9080
+[IRED-CL-DIAG step=7700] E_pos=13462.0625 E_neg=64236.6094 margin=50774.5469 E_wtd=0.074155 MSE=0.795333 gradE=8444.7676 pred=4.1234 cl_mean=7.415475 frac_sat=0.998 neg_dist=30.5068 lang_grad0=5.1077 lang_gradK=5.2008 lang_disp=33.8923 step=0.4450 sigma=0.9117
+[IRED-CL-DIAG step=7800] E_pos=16989.6133 E_neg=68204.5703 margin=51214.9570 E_wtd=0.104204 MSE=0.796574 gradE=8531.4395 pred=4.1657 cl_mean=10.420391 frac_sat=0.998 neg_dist=30.4698 lang_grad0=5.0565 lang_gradK=5.1758 lang_disp=33.8877 step=0.4454 sigma=0.9114
+[IRED-CL-DIAG step=7900] E_pos=19473.6016 E_neg=71062.9219 margin=51589.3203 E_wtd=0.309405 MSE=0.793643 gradE=8581.4873 pred=4.1902 cl_mean=30.940498 frac_sat=0.996 neg_dist=30.4498 lang_grad0=5.0082 lang_gradK=5.1611 lang_disp=33.8221 step=0.4373 sigma=0.9051
+[IRED-CL-DIAG step=8000] E_pos=22962.0879 E_neg=75813.6094 margin=52851.5215 E_wtd=0.008157 MSE=0.791303 gradE=8566.8730 pred=4.1830 cl_mean=0.815723 frac_sat=1.000 neg_dist=30.5071 lang_grad0=4.8789 lang_gradK=5.0411 lang_disp=33.8788 step=0.4428 sigma=0.9092
+Running Evaluation...
+Validation Result @ Iteration 8000; Milestone = 8 (Train)
+---------  -------
+mse_error  1.98382
+---------  -------
+Validation Result @ Iteration 8000; Milestone = 8 (ID: Validation)
+---  -------
+mse  1.92815
+---  -------
+[IRED-CL-DIAG step=8100] E_pos=18758.0508 E_neg=72067.0938 margin=53309.0430 E_wtd=0.067474 MSE=0.788328 gradE=8565.8281 pred=4.1825 cl_mean=6.747431 frac_sat=0.999 neg_dist=30.4201 lang_grad0=5.0131 lang_gradK=5.1512 lang_disp=33.8585 step=0.4443 sigma=0.9105
+[IRED-CL-DIAG step=8200] E_pos=18814.0312 E_neg=71912.6406 margin=53098.6094 E_wtd=0.025066 MSE=0.792957 gradE=8524.6309 pred=4.1624 cl_mean=2.506563 frac_sat=0.999 neg_dist=30.3699 lang_grad0=5.0320 lang_gradK=5.1755 lang_disp=33.7244 step=0.4378 sigma=0.9038
+[IRED-CL-DIAG step=8300] E_pos=20629.6680 E_neg=75175.1953 margin=54545.5273 E_wtd=0.091570 MSE=0.791016 gradE=8578.3223 pred=4.1886 cl_mean=9.156969 frac_sat=0.998 neg_dist=30.3426 lang_grad0=5.0205 lang_gradK=5.1558 lang_disp=33.6646 step=0.4362 sigma=0.9024
+[IRED-CL-DIAG step=8400] E_pos=20574.1289 E_neg=74705.0703 margin=54130.9414 E_wtd=0.078627 MSE=0.785708 gradE=8685.4053 pred=4.2409 cl_mean=7.862730 frac_sat=0.998 neg_dist=30.4381 lang_grad0=5.0409 lang_gradK=5.2016 lang_disp=33.9167 step=0.4465 sigma=0.9129
+[IRED-CL-DIAG step=8500] E_pos=21785.8516 E_neg=75524.6094 margin=53738.7578 E_wtd=0.223169 MSE=0.783365 gradE=8765.8564 pred=4.2802 cl_mean=22.316881 frac_sat=0.996 neg_dist=30.4971 lang_grad0=5.0626 lang_gradK=5.2047 lang_disp=33.8674 step=0.4465 sigma=0.9128
+[IRED-CL-DIAG step=8600] E_pos=19955.3203 E_neg=74825.8594 margin=54870.5391 E_wtd=0.084362 MSE=0.784086 gradE=8826.5898 pred=4.3099 cl_mean=8.436213 frac_sat=0.999 neg_dist=30.4316 lang_grad0=5.1841 lang_gradK=5.3405 lang_disp=33.8543 step=0.4452 sigma=0.9113
+[IRED-CL-DIAG step=8700] E_pos=21293.7598 E_neg=76600.5000 margin=55306.7402 E_wtd=0.120552 MSE=0.785841 gradE=8818.0039 pred=4.3057 cl_mean=12.055197 frac_sat=0.998 neg_dist=30.3310 lang_grad0=5.1571 lang_gradK=5.3099 lang_disp=33.6861 step=0.4367 sigma=0.9027
+[IRED-CL-DIAG step=8800] E_pos=22000.2754 E_neg=76969.4688 margin=54969.1934 E_wtd=0.155976 MSE=0.778589 gradE=8986.0410 pred=4.3877 cl_mean=15.597604 frac_sat=0.997 neg_dist=30.3632 lang_grad0=5.2134 lang_gradK=5.3870 lang_disp=33.8106 step=0.4416 sigma=0.9083
+[IRED-CL-DIAG step=8900] E_pos=23602.8145 E_neg=79529.5000 margin=55926.6855 E_wtd=0.219822 MSE=0.782324 gradE=8919.2969 pred=4.3551 cl_mean=21.982233 frac_sat=0.999 neg_dist=30.3090 lang_grad0=5.1332 lang_gradK=5.3190 lang_disp=33.6877 step=0.4363 sigma=0.9016
+[IRED-CL-DIAG step=9000] E_pos=22257.8047 E_neg=77041.9609 margin=54784.1562 E_wtd=0.055645 MSE=0.773507 gradE=9154.2217 pred=4.4698 cl_mean=5.564482 frac_sat=0.999 neg_dist=30.4870 lang_grad0=5.3256 lang_gradK=5.4763 lang_disp=33.9235 step=0.4548 sigma=0.9210
+Running Evaluation...
+Validation Result @ Iteration 9000; Milestone = 9 (Train)
+---------  -------
+mse_error  1.93214
+---------  -------
+Validation Result @ Iteration 9000; Milestone = 9 (ID: Validation)
+---  -------
+mse  1.82226
+---  -------
+[IRED-CL-DIAG step=9100] E_pos=22389.2031 E_neg=78578.3281 margin=56189.1250 E_wtd=0.122531 MSE=0.777585 gradE=9093.4590 pred=4.4402 cl_mean=12.253084 frac_sat=0.998 neg_dist=30.3037 lang_grad0=4.6029 lang_gradK=5.4715 lang_disp=32.6775 step=0.4491 sigma=0.9149
+[IRED-CL-DIAG step=9200] E_pos=20836.0195 E_neg=76755.5156 margin=55919.4961 E_wtd=0.024368 MSE=0.779428 gradE=9019.7041 pred=4.4042 cl_mean=2.436764 frac_sat=0.999 neg_dist=30.2833 lang_grad0=5.3383 lang_gradK=5.4708 lang_disp=33.7192 step=0.4438 sigma=0.9087
+[IRED-CL-DIAG step=9300] E_pos=22666.9355 E_neg=78512.4062 margin=55845.4707 E_wtd=0.111883 MSE=0.772925 gradE=9284.4033 pred=4.5334 cl_mean=11.188301 frac_sat=0.998 neg_dist=30.4637 lang_grad0=5.3966 lang_gradK=5.5558 lang_disp=33.9314 step=0.4523 sigma=0.9187
+[IRED-CL-DIAG step=9400] E_pos=22003.9727 E_neg=78643.3281 margin=56639.3555 E_wtd=0.065370 MSE=0.773025 gradE=9224.2744 pred=4.5040 cl_mean=6.537001 frac_sat=0.998 neg_dist=30.3655 lang_grad0=5.3944 lang_gradK=5.5583 lang_disp=33.7558 step=0.4431 sigma=0.9093
+[IRED-CL-DIAG step=9500] E_pos=27156.7188 E_neg=83838.6719 margin=56681.9531 E_wtd=0.087460 MSE=0.773901 gradE=9272.0977 pred=4.5274 cl_mean=8.745966 frac_sat=0.999 neg_dist=30.4656 lang_grad0=5.2757 lang_gradK=5.4509 lang_disp=33.8758 step=0.4477 sigma=0.9142
+[IRED-CL-DIAG step=9600] E_pos=23673.5352 E_neg=80937.1875 margin=57263.6523 E_wtd=0.274624 MSE=0.772211 gradE=9334.2100 pred=4.5577 cl_mean=27.462439 frac_sat=0.995 neg_dist=30.3835 lang_grad0=5.4276 lang_gradK=5.5755 lang_disp=33.8059 step=0.4425 sigma=0.9095
+[IRED-CL-DIAG step=9700] E_pos=26243.0000 E_neg=83243.5938 margin=57000.5938 E_wtd=0.091225 MSE=0.767634 gradE=9403.2246 pred=4.5914 cl_mean=9.122478 frac_sat=0.999 neg_dist=30.4417 lang_grad0=5.3749 lang_gradK=5.5351 lang_disp=33.9300 step=0.4526 sigma=0.9187
+[IRED-CL-DIAG step=9800] E_pos=21844.7402 E_neg=79324.4297 margin=57479.6895 E_wtd=0.122460 MSE=0.768139 gradE=9471.2334 pred=4.6246 cl_mean=12.246004 frac_sat=0.998 neg_dist=30.3407 lang_grad0=5.5743 lang_gradK=5.6882 lang_disp=33.8051 step=0.4446 sigma=0.9114
+[IRED-CL-DIAG step=9900] E_pos=26955.3828 E_neg=84471.6797 margin=57516.2969 E_wtd=0.270059 MSE=0.767106 gradE=9509.9199 pred=4.6435 cl_mean=27.005924 frac_sat=0.996 neg_dist=30.3804 lang_grad0=5.4207 lang_gradK=5.6095 lang_disp=33.8247 step=0.4475 sigma=0.9136
+[IRED-CL-DIAG step=10000] E_pos=30491.2461 E_neg=88740.3906 margin=58249.1445 E_wtd=0.064111 MSE=0.762797 gradE=9559.7412 pred=4.6678 cl_mean=6.411076 frac_sat=0.999 neg_dist=30.4866 lang_grad0=5.2984 lang_gradK=5.5338 lang_disp=33.9420 step=0.4530 sigma=0.9201
+Running Evaluation...
+Validation Result @ Iteration 10000; Milestone = 10 (Train)
+---------  -------
+mse_error  1.89623
+---------  -------
+Validation Result @ Iteration 10000; Milestone = 10 (ID: Validation)
+---  -------
+mse  1.72366
+---  -------
+[IRED-CL-DIAG step=10100] E_pos=26559.3477 E_neg=85531.6562 margin=58972.3086 E_wtd=0.074451 MSE=0.768717 gradE=9365.0762 pred=4.5728 cl_mean=7.445130 frac_sat=0.998 neg_dist=30.3195 lang_grad0=5.3874 lang_gradK=5.5679 lang_disp=33.7429 step=0.4447 sigma=0.9098
+[IRED-CL-DIAG step=10200] E_pos=25626.5449 E_neg=83698.8906 margin=58072.3457 E_wtd=0.088013 MSE=0.766215 gradE=9522.5117 pred=4.6497 cl_mean=8.801325 frac_sat=0.998 neg_dist=30.4367 lang_grad0=5.5008 lang_gradK=5.6685 lang_disp=33.8506 step=0.4512 sigma=0.9175
+[IRED-CL-DIAG step=10300] E_pos=26237.9414 E_neg=85293.5000 margin=59055.5586 E_wtd=0.000000 MSE=0.765461 gradE=9493.8545 pred=4.6357 cl_mean=0.000000 frac_sat=1.000 neg_dist=30.3355 lang_grad0=5.4738 lang_gradK=5.6358 lang_disp=33.7016 step=0.4412 sigma=0.9077
+[IRED-CL-DIAG step=10400] E_pos=21853.1914 E_neg=80254.8906 margin=58401.6992 E_wtd=0.207880 MSE=0.761672 gradE=9556.5654 pred=4.6663 cl_mean=20.788012 frac_sat=0.998 neg_dist=30.2960 lang_grad0=5.6771 lang_gradK=5.8079 lang_disp=33.7616 step=0.4434 sigma=0.9100
+[IRED-CL-DIAG step=10500] E_pos=24118.5703 E_neg=82127.4141 margin=58008.8438 E_wtd=0.108505 MSE=0.760112 gradE=9623.3340 pred=4.6989 cl_mean=10.850522 frac_sat=0.997 neg_dist=30.4041 lang_grad0=5.6427 lang_gradK=5.7774 lang_disp=33.7471 step=0.4455 sigma=0.9127
+[IRED-CL-DIAG step=10600] E_pos=25451.9961 E_neg=85650.7812 margin=60198.7852 E_wtd=0.000000 MSE=0.766657 gradE=9455.4434 pred=4.6169 cl_mean=0.000000 frac_sat=1.000 neg_dist=30.2645 lang_grad0=5.5054 lang_gradK=5.6618 lang_disp=33.7086 step=0.4412 sigma=0.9072
+[IRED-CL-DIAG step=10700] E_pos=26330.5664 E_neg=86243.3750 margin=59912.8086 E_wtd=0.057045 MSE=0.762808 gradE=9571.1367 pred=4.6734 cl_mean=5.704462 frac_sat=0.999 neg_dist=30.3365 lang_grad0=5.5485 lang_gradK=5.7115 lang_disp=33.6962 step=0.4422 sigma=0.9083
+[IRED-CL-DIAG step=10800] E_pos=27844.8398 E_neg=87802.0312 margin=59957.1914 E_wtd=0.111012 MSE=0.759852 gradE=9652.4395 pred=4.7131 cl_mean=11.101240 frac_sat=0.998 neg_dist=30.3941 lang_grad0=5.5406 lang_gradK=5.7108 lang_disp=33.8090 step=0.4479 sigma=0.9144
+[IRED-CL-DIAG step=10900] E_pos=19880.7344 E_neg=78268.1641 margin=58387.4297 E_wtd=0.172146 MSE=0.757720 gradE=9713.4287 pred=4.7429 cl_mean=17.214581 frac_sat=0.997 neg_dist=30.3535 lang_grad0=5.8565 lang_gradK=5.9562 lang_disp=33.7977 step=0.4515 sigma=0.9170
+[IRED-CL-DIAG step=11000] E_pos=21840.3203 E_neg=81431.1250 margin=59590.8047 E_wtd=0.117594 MSE=0.759906 gradE=9679.4902 pred=4.7263 cl_mean=11.759420 frac_sat=0.997 neg_dist=30.2458 lang_grad0=5.7711 lang_gradK=5.9167 lang_disp=33.7559 step=0.4413 sigma=0.9080
+Running Evaluation...
+Validation Result @ Iteration 11000; Milestone = 11 (Train)
+---------  -------
+mse_error  1.86889
+---------  -------
+Validation Result @ Iteration 11000; Milestone = 11 (ID: Validation)
+---  -------
+mse  1.66474
+---  -------
+[IRED-CL-DIAG step=11100] E_pos=23543.1602 E_neg=83445.4062 margin=59902.2461 E_wtd=0.272174 MSE=0.762420 gradE=9636.9043 pred=4.7055 cl_mean=27.217367 frac_sat=0.997 neg_dist=30.2206 lang_grad0=5.7127 lang_gradK=5.8542 lang_disp=33.6026 step=0.4360 sigma=0.9024
+[IRED-CL-DIAG step=11200] E_pos=18820.4336 E_neg=78445.4219 margin=59624.9883 E_wtd=0.149204 MSE=0.757568 gradE=9727.0156 pred=4.7495 cl_mean=14.920433 frac_sat=0.998 neg_dist=30.1873 lang_grad0=5.9043 lang_gradK=6.0146 lang_disp=33.6148 step=0.4400 sigma=0.9060
+[IRED-CL-DIAG step=11300] E_pos=23779.5098 E_neg=84042.1250 margin=60262.6152 E_wtd=0.238475 MSE=0.755221 gradE=9733.4912 pred=4.7527 cl_mean=23.847511 frac_sat=0.998 neg_dist=30.3051 lang_grad0=5.7662 lang_gradK=5.9027 lang_disp=33.7664 step=0.4504 sigma=0.9163
+[IRED-CL-DIAG step=11400] E_pos=26877.6777 E_neg=87728.5547 margin=60850.8770 E_wtd=0.031275 MSE=0.758624 gradE=9701.3027 pred=4.7370 cl_mean=3.127537 frac_sat=0.999 neg_dist=30.2368 lang_grad0=5.6418 lang_gradK=5.8102 lang_disp=33.6888 step=0.4401 sigma=0.9066
+[IRED-CL-DIAG step=11500] E_pos=28553.6953 E_neg=89727.2031 margin=61173.5078 E_wtd=0.145478 MSE=0.757028 gradE=9709.6807 pred=4.7411 cl_mean=14.547752 frac_sat=0.997 neg_dist=30.2871 lang_grad0=5.6109 lang_gradK=5.7746 lang_disp=33.6679 step=0.4431 sigma=0.9092

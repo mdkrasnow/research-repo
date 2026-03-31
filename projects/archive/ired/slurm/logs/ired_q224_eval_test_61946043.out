@@ -1,0 +1,164 @@
+Job started at Tue Feb 24 13:04:11 EST 2026
+Running on host: holygpu7c26202.rc.fas.harvard.edu
+Job ID: 61946043
+Git URL: https://github.com/mdkrasnow/research-repo.git
+Git SHA: 426eac65f26cabc0e8ba39f46018e97daa2d6f2a
+Work directory: /tmp/ired-eval-test-61946043
+GPU info:
+Tue Feb 24 13:04:11 2026       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 575.57.08              Driver Version: 575.57.08      CUDA Version: 12.9     |
+|-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA A100-SXM4-40GB          On  |   00000000:31:00.0 Off |                   On |
+| N/A   34C    P0            141W /  400W |   11158MiB /  40960MiB |     N/A      Default |
+|                                         |                        |              Enabled |
++-----------------------------------------+------------------------+----------------------+
+
++-----------------------------------------------------------------------------------------+
+| MIG devices:                                                                            |
++------------------+----------------------------------+-----------+-----------------------+
+| GPU  GI  CI  MIG |                     Memory-Usage |        Vol|        Shared         |
+|      ID  ID  Dev |                       BAR1-Usage | SM     Unc| CE ENC  DEC  OFA  JPG |
+|                  |                                  |        ECC|                       |
+|==================+==================================+===========+=======================|
+|  0    1   0   0  |             107MiB / 20096MiB    | 42      0 |  3   0    2    0    0 |
+|                  |                 0MiB / 32767MiB  |           |                       |
++------------------+----------------------------------+-----------+-----------------------+
+                                                                                         
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+
+Cloning repository...
+Repository cloned and checked out to: 426eac6
+Repository info:
+426eac6 Fix q224_eval_test: copy checkpoint from persistent storage before evaluation
+Copying checkpoint from persistent storage...
+✓ Checkpoint copied from: /n/home03/mkrasnow/research-repo/projects/ired/results/ds_inverse/q223_test_minimal/final_model.pt
+
+==========================================
+Running OOD Robustness Evaluation Tests
+==========================================
+
+Running Level 1 evaluation: Baseline difficulty (ood=false)...
+Configuration:
+{
+  "experiment_name": "q224_eval_test_L1_baseline",
+  "description": "Robustness evaluation Level 1: Baseline difficulty (ood=false, rank=20). Tests q223_test_minimal model on standard validation distribution.",
+  "investigation": "ired-robustness",
+  "evaluation_mode": true,
+  "rank": 20,
+  "ood": false,
+  "dataset": "inverse",
+  "batch_size": 256,
+  "num_test_samples": 1024,
+  "num_opt_steps": 10,
+  "target_mse_threshold": 0.001,
+  "model_checkpoints": [
+    "projects/ired/results/ds_inverse/q223_test_minimal/final_model.pt"
+  ],
+  "output_dir": "projects/ired/results/evaluation/q224_test_robustness",
+  "notes": "Level 1 baseline: ood=false uses 0.5*I (well-conditioned). Tests q223_test_minimal checkpoint on 1024 samples."
+}
+
+================================================================================
+Evaluating: q224_eval_test_L1_baseline
+================================================================================
+Difficulty: ood=False, rank=20
+Using device: cuda
+Loading test dataset...
+  Input dimension: 400, Output dimension: 400
+
+Evaluating model: q223_test_minimal
+  Loading model from: projects/ired/results/ds_inverse/q223_test_minimal/final_model.pt
+  ✗ ERROR: Error(s) in loading state_dict for DiffusionWrapper:
+	Missing key(s) in state_dict: "ebm.time_mlp.1.weight", "ebm.time_mlp.1.bias", "ebm.time_mlp.3.weight", "ebm.time_mlp.3.bias", "ebm.fc1.weight", "ebm.fc1.bias", "ebm.fc2.weight", "ebm.fc2.bias", "ebm.fc3.weight", "ebm.fc3.bias", "ebm.fc4.weight", "ebm.fc4.bias", "ebm.energy_head.weight", "ebm.energy_head.bias", "ebm.t_map_fc2.weight", "ebm.t_map_fc2.bias", "ebm.t_map_fc3.weight", "ebm.t_map_fc3.bias". 
+	Unexpected key(s) in state_dict: "betas", "alphas_cumprod", "alphas_cumprod_prev", "sqrt_alphas_cumprod", "sqrt_one_minus_alphas_cumprod", "log_one_minus_alphas_cumprod", "sqrt_recip_alphas_cumprod", "sqrt_recipm1_alphas_cumprod", "opt_step_size", "posterior_variance", "posterior_log_variance_clipped", "posterior_mean_coef1", "posterior_mean_coef2", "loss_weight", "model.ebm.time_mlp.1.weight", "model.ebm.time_mlp.1.bias", "model.ebm.time_mlp.3.weight", "model.ebm.time_mlp.3.bias", "model.ebm.fc1.weight", "model.ebm.fc1.bias", "model.ebm.fc2.weight", "model.ebm.fc2.bias", "model.ebm.fc3.weight", "model.ebm.fc3.bias", "model.ebm.fc4.weight", "model.ebm.fc4.bias", "model.ebm.energy_head.weight", "model.ebm.energy_head.bias", "model.ebm.t_map_fc2.weight", "model.ebm.t_map_fc2.bias", "model.ebm.t_map_fc3.weight", "model.ebm.t_map_fc3.bias". 
+
+Saving results to: projects/ired/results/evaluation/q224_test_robustness/q224_eval_test_L1_baseline_results.json
+
+================================================================================
+Evaluation Summary: q224_eval_test_L1_baseline
+================================================================================
+
+q223_test_minimal: ERROR - Error(s) in loading state_dict for DiffusionWrapper:
+	Missing key(s) in state_dict: "ebm.time_mlp.1.weight", "ebm.time_mlp.1.bias", "ebm.time_mlp.3.weight", "ebm.time_mlp.3.bias", "ebm.fc1.weight", "ebm.fc1.bias", "ebm.fc2.weight", "ebm.fc2.bias", "ebm.fc3.weight", "ebm.fc3.bias", "ebm.fc4.weight", "ebm.fc4.bias", "ebm.energy_head.weight", "ebm.energy_head.bias", "ebm.t_map_fc2.weight", "ebm.t_map_fc2.bias", "ebm.t_map_fc3.weight", "ebm.t_map_fc3.bias". 
+	Unexpected key(s) in state_dict: "betas", "alphas_cumprod", "alphas_cumprod_prev", "sqrt_alphas_cumprod", "sqrt_one_minus_alphas_cumprod", "log_one_minus_alphas_cumprod", "sqrt_recip_alphas_cumprod", "sqrt_recipm1_alphas_cumprod", "opt_step_size", "posterior_variance", "posterior_log_variance_clipped", "posterior_mean_coef1", "posterior_mean_coef2", "loss_weight", "model.ebm.time_mlp.1.weight", "model.ebm.time_mlp.1.bias", "model.ebm.time_mlp.3.weight", "model.ebm.time_mlp.3.bias", "model.ebm.fc1.weight", "model.ebm.fc1.bias", "model.ebm.fc2.weight", "model.ebm.fc2.bias", "model.ebm.fc3.weight", "model.ebm.fc3.bias", "model.ebm.fc4.weight", "model.ebm.fc4.bias", "model.ebm.energy_head.weight", "model.ebm.energy_head.bias", "model.ebm.t_map_fc2.weight", "model.ebm.t_map_fc2.bias", "model.ebm.t_map_fc3.weight", "model.ebm.t_map_fc3.bias". 
+
+================================================================================
+
+Level 1 evaluation completed at Tue Feb 24 13:04:31 EST 2026
+
+Running Level 2 evaluation: Hard difficulty (ood=true)...
+Configuration:
+{
+  "experiment_name": "q224_eval_test_L2_hard",
+  "description": "Robustness evaluation Level 2: Hard difficulty (ood=true, rank=20). Tests q223_test_minimal model on ill-conditioned matrices.",
+  "investigation": "ired-robustness",
+  "evaluation_mode": true,
+  "rank": 20,
+  "ood": true,
+  "dataset": "inverse",
+  "batch_size": 256,
+  "num_test_samples": 1024,
+  "num_opt_steps": 10,
+  "target_mse_threshold": 0.001,
+  "model_checkpoints": [
+    "projects/ired/results/ds_inverse/q223_test_minimal/final_model.pt"
+  ],
+  "output_dir": "projects/ired/results/evaluation/q224_test_robustness",
+  "notes": "Level 2 hard: ood=true uses 0.1*I (ill-conditioned). Tests q223_test_minimal checkpoint on 1024 samples to measure robustness degradation."
+}
+
+================================================================================
+Evaluating: q224_eval_test_L2_hard
+================================================================================
+Difficulty: ood=True, rank=20
+Using device: cuda
+Loading test dataset...
+  Input dimension: 400, Output dimension: 400
+
+Evaluating model: q223_test_minimal
+  Loading model from: projects/ired/results/ds_inverse/q223_test_minimal/final_model.pt
+  ✗ ERROR: Error(s) in loading state_dict for DiffusionWrapper:
+	Missing key(s) in state_dict: "ebm.time_mlp.1.weight", "ebm.time_mlp.1.bias", "ebm.time_mlp.3.weight", "ebm.time_mlp.3.bias", "ebm.fc1.weight", "ebm.fc1.bias", "ebm.fc2.weight", "ebm.fc2.bias", "ebm.fc3.weight", "ebm.fc3.bias", "ebm.fc4.weight", "ebm.fc4.bias", "ebm.energy_head.weight", "ebm.energy_head.bias", "ebm.t_map_fc2.weight", "ebm.t_map_fc2.bias", "ebm.t_map_fc3.weight", "ebm.t_map_fc3.bias". 
+	Unexpected key(s) in state_dict: "betas", "alphas_cumprod", "alphas_cumprod_prev", "sqrt_alphas_cumprod", "sqrt_one_minus_alphas_cumprod", "log_one_minus_alphas_cumprod", "sqrt_recip_alphas_cumprod", "sqrt_recipm1_alphas_cumprod", "opt_step_size", "posterior_variance", "posterior_log_variance_clipped", "posterior_mean_coef1", "posterior_mean_coef2", "loss_weight", "model.ebm.time_mlp.1.weight", "model.ebm.time_mlp.1.bias", "model.ebm.time_mlp.3.weight", "model.ebm.time_mlp.3.bias", "model.ebm.fc1.weight", "model.ebm.fc1.bias", "model.ebm.fc2.weight", "model.ebm.fc2.bias", "model.ebm.fc3.weight", "model.ebm.fc3.bias", "model.ebm.fc4.weight", "model.ebm.fc4.bias", "model.ebm.energy_head.weight", "model.ebm.energy_head.bias", "model.ebm.t_map_fc2.weight", "model.ebm.t_map_fc2.bias", "model.ebm.t_map_fc3.weight", "model.ebm.t_map_fc3.bias". 
+
+Saving results to: projects/ired/results/evaluation/q224_test_robustness/q224_eval_test_L2_hard_results.json
+
+================================================================================
+Evaluation Summary: q224_eval_test_L2_hard
+================================================================================
+
+q223_test_minimal: ERROR - Error(s) in loading state_dict for DiffusionWrapper:
+	Missing key(s) in state_dict: "ebm.time_mlp.1.weight", "ebm.time_mlp.1.bias", "ebm.time_mlp.3.weight", "ebm.time_mlp.3.bias", "ebm.fc1.weight", "ebm.fc1.bias", "ebm.fc2.weight", "ebm.fc2.bias", "ebm.fc3.weight", "ebm.fc3.bias", "ebm.fc4.weight", "ebm.fc4.bias", "ebm.energy_head.weight", "ebm.energy_head.bias", "ebm.t_map_fc2.weight", "ebm.t_map_fc2.bias", "ebm.t_map_fc3.weight", "ebm.t_map_fc3.bias". 
+	Unexpected key(s) in state_dict: "betas", "alphas_cumprod", "alphas_cumprod_prev", "sqrt_alphas_cumprod", "sqrt_one_minus_alphas_cumprod", "log_one_minus_alphas_cumprod", "sqrt_recip_alphas_cumprod", "sqrt_recipm1_alphas_cumprod", "opt_step_size", "posterior_variance", "posterior_log_variance_clipped", "posterior_mean_coef1", "posterior_mean_coef2", "loss_weight", "model.ebm.time_mlp.1.weight", "model.ebm.time_mlp.1.bias", "model.ebm.time_mlp.3.weight", "model.ebm.time_mlp.3.bias", "model.ebm.fc1.weight", "model.ebm.fc1.bias", "model.ebm.fc2.weight", "model.ebm.fc2.bias", "model.ebm.fc3.weight", "model.ebm.fc3.bias", "model.ebm.fc4.weight", "model.ebm.fc4.bias", "model.ebm.energy_head.weight", "model.ebm.energy_head.bias", "model.ebm.t_map_fc2.weight", "model.ebm.t_map_fc2.bias", "model.ebm.t_map_fc3.weight", "model.ebm.t_map_fc3.bias". 
+
+================================================================================
+
+Level 2 evaluation completed at Tue Feb 24 13:04:45 EST 2026
+
+==========================================
+All evaluations completed
+==========================================
+Copying evaluation results to persistent storage...
+sending incremental file list
+./
+q224_test_robustness/
+q224_test_robustness/q224_eval_test_L1_baseline_results.json
+q224_test_robustness/q224_eval_test_L2_hard_results.json
+
+sent 3,548 bytes  received 65 bytes  7,226.00 bytes/sec
+total size is 3,247  speedup is 0.90
+Evaluation results copied to /n/home03/mkrasnow/research-repo/projects/ired/results/evaluation/
+✓ Level 1 evaluation results synced
+✓ Level 2 evaluation results synced
+Cleaning up work directory...
+Job completed at Tue Feb 24 13:04:45 EST 2026

@@ -1,0 +1,348 @@
+Job started at Wed Feb 25 15:44:53 EST 2026
+Running on host: holygpu8a29201.rc.fas.harvard.edu
+Job ID: 62200205
+Array Task ID: 7
+Git URL: https://github.com/mdkrasnow/research-repo.git
+Git SHA: b14e77c2de9d1be1e19d4dfc717c609d849aea4d
+Work directory: /tmp/ired-job-62200205
+GPU info:
+Wed Feb 25 15:44:54 2026       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 575.57.08              Driver Version: 575.57.08      CUDA Version: 12.9     |
+|-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA A100-SXM4-80GB          On  |   00000000:31:00.0 Off |                    0 |
+| N/A   33C    P0             63W /  500W |       0MiB /  81920MiB |      0%      Default |
+|                                         |                        |             Disabled |
++-----------------------------------------+------------------------+----------------------+
+                                                                                         
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+
+Cloning repository...
+Repository cloned and checked out to: b14e77c
+Repository info:
+b14e77c Submit corrected baseline and TAM-CTL training + OOD evaluations
+Copying q225 TAM-CTL checkpoint to work directory...
+✓ q225 TAM-CTL checkpoint copied
+Starting q225 OOD evaluation with seed 7...
+Loading configuration from: projects/ired/configs/q225_ood_evaluation.json
+Configuration saved to: projects/ired/results/evaluation/q225_tam_ctl_ood/experiment_config.json
+Setting random seed: 7
+Starting experiment with mining strategy: tam
+Configuration: {
+  "experiment_name": "q225_ood_evaluation",
+  "description": "OOD robustness evaluation: Test q225 (TAM-CTL recovery loss) checkpoint on out-of-distribution matrices using TAM-CTL mining strategy.",
+  "investigation": "ired-robustness",
+  "evaluation_mode": true,
+  "mining_strategy": "tam",
+  "tam_anchor_step": 2,
+  "pgd_delta": 1.5,
+  "pgd_step_size": 0.5,
+  "mining_opt_steps": 3,
+  "use_recovery_loss": true,
+  "recovery_steps": 1,
+  "recovery_loss_weight": 0.1,
+  "use_gradient_contrastive": false,
+  "energy_loss_weight": 0.0,
+  "use_scalar_energy": true,
+  "rank": 20,
+  "ood": true,
+  "dataset": "inverse",
+  "batch_size": 2048,
+  "num_test_samples": 1024,
+  "num_opt_steps": 10,
+  "target_mse_threshold": 0.001,
+  "diffusion_steps": 10,
+  "learning_rate": 0.0001,
+  "adam_betas": [
+    0.0,
+    0.999
+  ],
+  "model_checkpoints": [
+    "projects/ired/results/ds_inverse/q225_tam_ctl_full_100k/final_model.pt"
+  ],
+  "output_dir": "projects/ired/results/evaluation/q225_tam_ctl_ood",
+  "notes": "OOD evaluation on q225 checkpoint (TAM + recovery loss). Uses TAM-CTL mining with same hyperparameters as training. Evaluates on ood=true (ill-conditioned matrices: rank-1 perturbations, \u03ba >> 1). For comparison with q230 baseline.",
+  "seed": 7
+}
+Dataset: Inverse matrices (20x20)
+Input dimension: 400, Output dimension: 400
+Trainer initialized. Output directory: projects/ired/results/evaluation/q225_tam_ctl_ood
+Training for 100000 steps...
+[TAM-CTL-DIAG step=100] mse_pos=0.999718 mse_neg=0.999717 mse_rec=0.999717 neg_vs_rec=0.000000 rec_dist=0.0000 anchor_dist=7.5737
+[TAM-CTL-DIAG step=200] mse_pos=0.995103 mse_neg=0.995100 mse_rec=0.995100 neg_vs_rec=0.000000 rec_dist=0.0001 anchor_dist=1.1719
+[TAM-CTL-DIAG step=300] mse_pos=0.997437 mse_neg=0.996979 mse_rec=0.996979 neg_vs_rec=-0.000000 rec_dist=0.0124 anchor_dist=2.1195
+[TAM-CTL-DIAG step=400] mse_pos=0.998823 mse_neg=0.985488 mse_rec=0.985606 neg_vs_rec=-0.000118 rec_dist=0.2392 anchor_dist=3.0213
+[TAM-CTL-DIAG step=500] mse_pos=1.039024 mse_neg=0.915566 mse_rec=0.922874 neg_vs_rec=-0.007308 rec_dist=1.2864 anchor_dist=3.7164
+[TAM-CTL-DIAG step=600] mse_pos=1.251630 mse_neg=0.877575 mse_rec=0.883576 neg_vs_rec=-0.006001 rec_dist=1.8919 anchor_dist=7.2355
+[TAM-CTL-DIAG step=700] mse_pos=1.377052 mse_neg=0.873321 mse_rec=0.878272 neg_vs_rec=-0.004951 rec_dist=1.8807 anchor_dist=8.1516
+[TAM-CTL-DIAG step=800] mse_pos=1.444875 mse_neg=1.176137 mse_rec=1.040550 neg_vs_rec=0.135587 rec_dist=1.4308 anchor_dist=15.9265
+[TAM-CTL-DIAG step=900] mse_pos=1.492084 mse_neg=0.858421 mse_rec=0.870870 neg_vs_rec=-0.012449 rec_dist=1.7570 anchor_dist=9.0961
+[TAM-CTL-DIAG step=1000] mse_pos=1.535013 mse_neg=0.894342 mse_rec=0.892594 neg_vs_rec=0.001748 rec_dist=1.6341 anchor_dist=10.3287
+Running Evaluation...
+Validation Result @ Iteration 1000; Milestone = 1 (Train)
+---------  -------
+mse_error  2.92883
+---------  -------
+Validation Result @ Iteration 1000; Milestone = 1 (ID: Validation)
+---  -------
+mse  2.93213
+---  -------
+[TAM-CTL-DIAG step=1100] mse_pos=1.570804 mse_neg=1.039924 mse_rec=0.980117 neg_vs_rec=0.059807 rec_dist=1.2901 anchor_dist=13.4479
+[TAM-CTL-DIAG step=1200] mse_pos=1.589639 mse_neg=0.936637 mse_rec=0.921086 neg_vs_rec=0.015551 rec_dist=1.4534 anchor_dist=11.5096
+[TAM-CTL-DIAG step=1300] mse_pos=1.622777 mse_neg=0.888723 mse_rec=0.892670 neg_vs_rec=-0.003947 rec_dist=1.6075 anchor_dist=10.9486
+[TAM-CTL-DIAG step=1400] mse_pos=1.630978 mse_neg=1.037060 mse_rec=0.976912 neg_vs_rec=0.060149 rec_dist=1.2286 anchor_dist=13.4761
+[TAM-CTL-DIAG step=1500] mse_pos=1.646537 mse_neg=0.861602 mse_rec=0.878811 neg_vs_rec=-0.017209 rec_dist=1.6840 anchor_dist=10.4692
+[TAM-CTL-DIAG step=1600] mse_pos=1.668620 mse_neg=0.885121 mse_rec=0.894733 neg_vs_rec=-0.009613 rec_dist=1.5908 anchor_dist=11.3163
+[TAM-CTL-DIAG step=1700] mse_pos=1.678005 mse_neg=1.037223 mse_rec=0.979021 neg_vs_rec=0.058202 rec_dist=1.1874 anchor_dist=13.5666
+[TAM-CTL-DIAG step=1800] mse_pos=1.696592 mse_neg=0.862254 mse_rec=0.882951 neg_vs_rec=-0.020696 rec_dist=1.7128 anchor_dist=11.1559
+[TAM-CTL-DIAG step=1900] mse_pos=1.703110 mse_neg=0.870174 mse_rec=0.887277 neg_vs_rec=-0.017103 rec_dist=1.7128 anchor_dist=11.3196
+[TAM-CTL-DIAG step=2000] mse_pos=1.721316 mse_neg=0.867756 mse_rec=0.888421 neg_vs_rec=-0.020665 rec_dist=1.6557 anchor_dist=11.5480
+Running Evaluation...
+Validation Result @ Iteration 2000; Milestone = 2 (Train)
+---------  -------
+mse_error  1.28193
+---------  -------
+Validation Result @ Iteration 2000; Milestone = 2 (ID: Validation)
+---  -------
+mse  1.28179
+---  -------
+[TAM-CTL-DIAG step=2100] mse_pos=1.726856 mse_neg=0.879110 mse_rec=0.897380 neg_vs_rec=-0.018271 rec_dist=1.6550 anchor_dist=11.5455
+[TAM-CTL-DIAG step=2200] mse_pos=1.728158 mse_neg=1.240351 mse_rec=1.031607 neg_vs_rec=0.208745 rec_dist=1.4307 anchor_dist=15.8742
+[TAM-CTL-DIAG step=2300] mse_pos=1.740833 mse_neg=0.870722 mse_rec=0.892589 neg_vs_rec=-0.021866 rec_dist=1.6777 anchor_dist=11.4266
+[TAM-CTL-DIAG step=2400] mse_pos=1.745687 mse_neg=0.928101 mse_rec=0.924813 neg_vs_rec=0.003288 rec_dist=1.4212 anchor_dist=12.4561
+[TAM-CTL-DIAG step=2500] mse_pos=1.748935 mse_neg=0.876371 mse_rec=0.896027 neg_vs_rec=-0.019656 rec_dist=1.6787 anchor_dist=11.6194
+[TAM-CTL-DIAG step=2600] mse_pos=1.739681 mse_neg=0.870778 mse_rec=0.893986 neg_vs_rec=-0.023208 rec_dist=1.6881 anchor_dist=11.7274
+[TAM-CTL-DIAG step=2700] mse_pos=1.758278 mse_neg=0.879094 mse_rec=0.900435 neg_vs_rec=-0.021341 rec_dist=1.6880 anchor_dist=11.7239
+[TAM-CTL-DIAG step=2800] mse_pos=1.758535 mse_neg=0.865621 mse_rec=0.889892 neg_vs_rec=-0.024272 rec_dist=1.7257 anchor_dist=11.8086
+[TAM-CTL-DIAG step=2900] mse_pos=1.771717 mse_neg=0.868466 mse_rec=0.896252 neg_vs_rec=-0.027786 rec_dist=1.7311 anchor_dist=11.8389
+[TAM-CTL-DIAG step=3000] mse_pos=1.770295 mse_neg=0.878982 mse_rec=0.900208 neg_vs_rec=-0.021227 rec_dist=1.7093 anchor_dist=11.9367
+Running Evaluation...
+Validation Result @ Iteration 3000; Milestone = 3 (Train)
+---------  --------
+mse_error  0.549383
+---------  --------
+Validation Result @ Iteration 3000; Milestone = 3 (ID: Validation)
+---  --------
+mse  0.550366
+---  --------
+[TAM-CTL-DIAG step=3100] mse_pos=1.750988 mse_neg=0.879056 mse_rec=0.900683 neg_vs_rec=-0.021627 rec_dist=1.6867 anchor_dist=11.8095
+[TAM-CTL-DIAG step=3200] mse_pos=1.761742 mse_neg=1.258746 mse_rec=1.033416 neg_vs_rec=0.225330 rec_dist=1.4364 anchor_dist=15.9053
+[TAM-CTL-DIAG step=3300] mse_pos=1.753944 mse_neg=0.869649 mse_rec=0.896684 neg_vs_rec=-0.027035 rec_dist=1.7537 anchor_dist=11.7118
+[TAM-CTL-DIAG step=3400] mse_pos=1.767813 mse_neg=0.876171 mse_rec=0.898999 neg_vs_rec=-0.022828 rec_dist=1.7184 anchor_dist=11.9198
+[TAM-CTL-DIAG step=3500] mse_pos=1.764743 mse_neg=0.874118 mse_rec=0.897203 neg_vs_rec=-0.023086 rec_dist=1.7542 anchor_dist=11.9211
+[TAM-CTL-DIAG step=3600] mse_pos=1.777061 mse_neg=0.899737 mse_rec=0.911934 neg_vs_rec=-0.012197 rec_dist=1.6146 anchor_dist=12.2913
+[TAM-CTL-DIAG step=3700] mse_pos=1.766090 mse_neg=0.946234 mse_rec=0.935346 neg_vs_rec=0.010888 rec_dist=1.4729 anchor_dist=12.8675
+[TAM-CTL-DIAG step=3800] mse_pos=1.771484 mse_neg=0.873110 mse_rec=0.897676 neg_vs_rec=-0.024566 rec_dist=1.7890 anchor_dist=11.8221
+[TAM-CTL-DIAG step=3900] mse_pos=1.770846 mse_neg=0.876890 mse_rec=0.900588 neg_vs_rec=-0.023699 rec_dist=1.7567 anchor_dist=11.8032
+[TAM-CTL-DIAG step=4000] mse_pos=1.765572 mse_neg=0.935968 mse_rec=0.929370 neg_vs_rec=0.006598 rec_dist=1.4874 anchor_dist=12.9198
+Running Evaluation...
+Validation Result @ Iteration 4000; Milestone = 4 (Train)
+---------  --------
+mse_error  0.250145
+---------  --------
+Validation Result @ Iteration 4000; Milestone = 4 (ID: Validation)
+---  -------
+mse  0.25232
+---  -------
+[TAM-CTL-DIAG step=4100] mse_pos=1.771356 mse_neg=0.902186 mse_rec=0.913988 neg_vs_rec=-0.011802 rec_dist=1.6211 anchor_dist=12.1548
+[TAM-CTL-DIAG step=4200] mse_pos=1.755688 mse_neg=1.049073 mse_rec=0.984725 neg_vs_rec=0.064348 rec_dist=1.1606 anchor_dist=13.8759
+[TAM-CTL-DIAG step=4300] mse_pos=1.763522 mse_neg=0.875917 mse_rec=0.899117 neg_vs_rec=-0.023199 rec_dist=1.7991 anchor_dist=11.7814
+[TAM-CTL-DIAG step=4400] mse_pos=1.774098 mse_neg=0.880168 mse_rec=0.901949 neg_vs_rec=-0.021781 rec_dist=1.7733 anchor_dist=11.7371
+[TAM-CTL-DIAG step=4500] mse_pos=1.755592 mse_neg=1.056104 mse_rec=0.986423 neg_vs_rec=0.069681 rec_dist=1.1848 anchor_dist=13.9779
+[TAM-CTL-DIAG step=4600] mse_pos=1.744586 mse_neg=0.864624 mse_rec=0.894167 neg_vs_rec=-0.029543 rec_dist=1.8118 anchor_dist=11.5473
+[TAM-CTL-DIAG step=4700] mse_pos=1.761125 mse_neg=1.053661 mse_rec=0.985713 neg_vs_rec=0.067947 rec_dist=1.1797 anchor_dist=14.0287
+[TAM-CTL-DIAG step=4800] mse_pos=1.779243 mse_neg=1.266540 mse_rec=1.031127 neg_vs_rec=0.235413 rec_dist=1.4417 anchor_dist=16.0507
+[TAM-CTL-DIAG step=4900] mse_pos=1.768115 mse_neg=1.060875 mse_rec=0.985699 neg_vs_rec=0.075176 rec_dist=1.2162 anchor_dist=14.1009
+[TAM-CTL-DIAG step=5000] mse_pos=1.764670 mse_neg=0.885189 mse_rec=0.904653 neg_vs_rec=-0.019464 rec_dist=1.7716 anchor_dist=12.0075
+Running Evaluation...
+Validation Result @ Iteration 5000; Milestone = 5 (Train)
+---------  --------
+mse_error  0.204014
+---------  --------
+Validation Result @ Iteration 5000; Milestone = 5 (ID: Validation)
+---  --------
+mse  0.206839
+---  --------
+[TAM-CTL-DIAG step=5100] mse_pos=1.762838 mse_neg=0.865948 mse_rec=0.895884 neg_vs_rec=-0.029936 rec_dist=1.8444 anchor_dist=11.7112
+[TAM-CTL-DIAG step=5200] mse_pos=1.765941 mse_neg=0.906831 mse_rec=0.913755 neg_vs_rec=-0.006924 rec_dist=1.6769 anchor_dist=12.2645
+[TAM-CTL-DIAG step=5300] mse_pos=1.778609 mse_neg=0.877843 mse_rec=0.900020 neg_vs_rec=-0.022177 rec_dist=1.8460 anchor_dist=11.9985
+[TAM-CTL-DIAG step=5400] mse_pos=1.776966 mse_neg=0.904432 mse_rec=0.911876 neg_vs_rec=-0.007444 rec_dist=1.7880 anchor_dist=12.0624
+[TAM-CTL-DIAG step=5500] mse_pos=1.757812 mse_neg=0.869576 mse_rec=0.896097 neg_vs_rec=-0.026521 rec_dist=1.8326 anchor_dist=11.5760
+[TAM-CTL-DIAG step=5600] mse_pos=1.769820 mse_neg=0.895999 mse_rec=0.911586 neg_vs_rec=-0.015587 rec_dist=1.7326 anchor_dist=12.1967
+[TAM-CTL-DIAG step=5700] mse_pos=1.760046 mse_neg=0.947488 mse_rec=0.933684 neg_vs_rec=0.013804 rec_dist=1.5475 anchor_dist=12.9556
+[TAM-CTL-DIAG step=5800] mse_pos=1.788041 mse_neg=0.901584 mse_rec=0.909364 neg_vs_rec=-0.007780 rec_dist=1.7426 anchor_dist=12.2068
+[TAM-CTL-DIAG step=5900] mse_pos=1.785420 mse_neg=0.909216 mse_rec=0.915334 neg_vs_rec=-0.006119 rec_dist=1.7782 anchor_dist=12.0265
+[TAM-CTL-DIAG step=6000] mse_pos=1.761893 mse_neg=0.887373 mse_rec=0.903725 neg_vs_rec=-0.016352 rec_dist=1.8122 anchor_dist=11.9808
+Running Evaluation...
+Validation Result @ Iteration 6000; Milestone = 6 (Train)
+---------  --------
+mse_error  0.193293
+---------  --------
+Validation Result @ Iteration 6000; Milestone = 6 (ID: Validation)
+---  --------
+mse  0.194771
+---  --------
+[TAM-CTL-DIAG step=6100] mse_pos=1.778159 mse_neg=0.896889 mse_rec=0.907775 neg_vs_rec=-0.010886 rec_dist=1.8355 anchor_dist=11.9823
+[TAM-CTL-DIAG step=6200] mse_pos=1.761258 mse_neg=0.875314 mse_rec=0.899287 neg_vs_rec=-0.023973 rec_dist=1.9067 anchor_dist=11.7656
+[TAM-CTL-DIAG step=6300] mse_pos=1.763462 mse_neg=0.893493 mse_rec=0.907253 neg_vs_rec=-0.013760 rec_dist=1.8203 anchor_dist=11.8882
+[TAM-CTL-DIAG step=6400] mse_pos=1.765781 mse_neg=0.887457 mse_rec=0.905046 neg_vs_rec=-0.017589 rec_dist=1.8574 anchor_dist=12.0310
+[TAM-CTL-DIAG step=6500] mse_pos=1.767823 mse_neg=0.901441 mse_rec=0.906236 neg_vs_rec=-0.004795 rec_dist=1.8627 anchor_dist=12.0935
+[TAM-CTL-DIAG step=6600] mse_pos=1.760067 mse_neg=0.947313 mse_rec=0.933226 neg_vs_rec=0.014087 rec_dist=1.5985 anchor_dist=12.9148
+[TAM-CTL-DIAG step=6700] mse_pos=1.777244 mse_neg=0.903660 mse_rec=0.908358 neg_vs_rec=-0.004698 rec_dist=1.8679 anchor_dist=12.1193
+[TAM-CTL-DIAG step=6800] mse_pos=1.767804 mse_neg=0.895557 mse_rec=0.907312 neg_vs_rec=-0.011755 rec_dist=1.8574 anchor_dist=11.8999
+[TAM-CTL-DIAG step=6900] mse_pos=1.768665 mse_neg=0.878593 mse_rec=0.899502 neg_vs_rec=-0.020909 rec_dist=1.9288 anchor_dist=11.8636
+[TAM-CTL-DIAG step=7000] mse_pos=1.756305 mse_neg=0.898480 mse_rec=0.908695 neg_vs_rec=-0.010215 rec_dist=1.8912 anchor_dist=11.7239
+Running Evaluation...
+Validation Result @ Iteration 7000; Milestone = 7 (Train)
+---------  --------
+mse_error  0.192805
+---------  --------
+Validation Result @ Iteration 7000; Milestone = 7 (ID: Validation)
+---  -------
+mse  0.19159
+---  -------
+[TAM-CTL-DIAG step=7100] mse_pos=1.762548 mse_neg=1.075915 mse_rec=0.987397 neg_vs_rec=0.088517 rec_dist=1.2636 anchor_dist=14.1050
+[TAM-CTL-DIAG step=7200] mse_pos=1.764188 mse_neg=0.884838 mse_rec=0.902863 neg_vs_rec=-0.018025 rec_dist=1.9031 anchor_dist=11.9240
+[TAM-CTL-DIAG step=7300] mse_pos=1.754765 mse_neg=0.886949 mse_rec=0.902865 neg_vs_rec=-0.015916 rec_dist=1.9248 anchor_dist=11.9217
+[TAM-CTL-DIAG step=7400] mse_pos=1.779410 mse_neg=0.917140 mse_rec=0.915193 neg_vs_rec=0.001947 rec_dist=1.8568 anchor_dist=12.2136
+[TAM-CTL-DIAG step=7500] mse_pos=1.762685 mse_neg=1.285832 mse_rec=1.035186 neg_vs_rec=0.250646 rec_dist=1.4461 anchor_dist=15.8360
+[TAM-CTL-DIAG step=7600] mse_pos=1.764348 mse_neg=0.888473 mse_rec=0.903362 neg_vs_rec=-0.014889 rec_dist=1.8824 anchor_dist=12.0553
+[TAM-CTL-DIAG step=7700] mse_pos=1.759712 mse_neg=0.901200 mse_rec=0.909526 neg_vs_rec=-0.008326 rec_dist=1.8198 anchor_dist=12.2802
+[TAM-CTL-DIAG step=7800] mse_pos=1.748247 mse_neg=0.873721 mse_rec=0.896541 neg_vs_rec=-0.022820 rec_dist=1.9831 anchor_dist=11.6943
+[TAM-CTL-DIAG step=7900] mse_pos=1.788913 mse_neg=0.933418 mse_rec=0.922559 neg_vs_rec=0.010858 rec_dist=1.7438 anchor_dist=12.4897
+[TAM-CTL-DIAG step=8000] mse_pos=1.776279 mse_neg=0.898805 mse_rec=0.907429 neg_vs_rec=-0.008624 rec_dist=1.9170 anchor_dist=12.0331
+Running Evaluation...
+Validation Result @ Iteration 8000; Milestone = 8 (Train)
+---------  --------
+mse_error  0.190904
+---------  --------
+Validation Result @ Iteration 8000; Milestone = 8 (ID: Validation)
+---  --------
+mse  0.189711
+---  --------
+[TAM-CTL-DIAG step=8100] mse_pos=1.763180 mse_neg=0.884757 mse_rec=0.901229 neg_vs_rec=-0.016472 rec_dist=1.9713 anchor_dist=11.9458
+[TAM-CTL-DIAG step=8200] mse_pos=1.769560 mse_neg=0.888341 mse_rec=0.902195 neg_vs_rec=-0.013855 rec_dist=1.9373 anchor_dist=12.2031
+[TAM-CTL-DIAG step=8300] mse_pos=1.778275 mse_neg=0.906709 mse_rec=0.908220 neg_vs_rec=-0.001511 rec_dist=1.9370 anchor_dist=12.0296
+[TAM-CTL-DIAG step=8400] mse_pos=1.771367 mse_neg=0.907439 mse_rec=0.911638 neg_vs_rec=-0.004199 rec_dist=1.9286 anchor_dist=12.0714
+[TAM-CTL-DIAG step=8500] mse_pos=1.749676 mse_neg=0.905669 mse_rec=0.910452 neg_vs_rec=-0.004783 rec_dist=1.8454 anchor_dist=12.0419
+[TAM-CTL-DIAG step=8600] mse_pos=1.765401 mse_neg=0.891402 mse_rec=0.903567 neg_vs_rec=-0.012165 rec_dist=1.9901 anchor_dist=11.9774
+[TAM-CTL-DIAG step=8700] mse_pos=1.764922 mse_neg=0.886502 mse_rec=0.900137 neg_vs_rec=-0.013636 rec_dist=1.9871 anchor_dist=11.9828
+[TAM-CTL-DIAG step=8800] mse_pos=1.780720 mse_neg=0.989957 mse_rec=0.944486 neg_vs_rec=0.045471 rec_dist=1.6211 anchor_dist=13.2418
+[TAM-CTL-DIAG step=8900] mse_pos=1.774527 mse_neg=0.912587 mse_rec=0.914024 neg_vs_rec=-0.001437 rec_dist=1.8724 anchor_dist=12.4924
+[TAM-CTL-DIAG step=9000] mse_pos=1.774958 mse_neg=0.911950 mse_rec=0.911793 neg_vs_rec=0.000157 rec_dist=1.8520 anchor_dist=12.5019
+Running Evaluation...
+Validation Result @ Iteration 9000; Milestone = 9 (Train)
+---------  --------
+mse_error  0.186648
+---------  --------
+Validation Result @ Iteration 9000; Milestone = 9 (ID: Validation)
+---  --------
+mse  0.188812
+---  --------
+[TAM-CTL-DIAG step=9100] mse_pos=1.773302 mse_neg=0.909408 mse_rec=0.908050 neg_vs_rec=0.001359 rec_dist=1.9761 anchor_dist=12.2184
+[TAM-CTL-DIAG step=9200] mse_pos=1.767174 mse_neg=0.893762 mse_rec=0.902074 neg_vs_rec=-0.008312 rec_dist=2.0055 anchor_dist=12.0698
+[TAM-CTL-DIAG step=9300] mse_pos=1.763266 mse_neg=0.878914 mse_rec=0.896747 neg_vs_rec=-0.017832 rec_dist=2.0421 anchor_dist=12.0964
+[TAM-CTL-DIAG step=9400] mse_pos=1.767044 mse_neg=0.915463 mse_rec=0.912028 neg_vs_rec=0.003436 rec_dist=1.9662 anchor_dist=12.2139
+[TAM-CTL-DIAG step=9500] mse_pos=1.773139 mse_neg=0.910959 mse_rec=0.909472 neg_vs_rec=0.001487 rec_dist=1.9690 anchor_dist=12.0410
+[TAM-CTL-DIAG step=9600] mse_pos=1.756309 mse_neg=0.866578 mse_rec=0.893548 neg_vs_rec=-0.026970 rec_dist=2.0599 anchor_dist=11.7706
+[TAM-CTL-DIAG step=9700] mse_pos=1.762342 mse_neg=0.885567 mse_rec=0.901180 neg_vs_rec=-0.015613 rec_dist=2.0197 anchor_dist=11.8719
+[TAM-CTL-DIAG step=9800] mse_pos=1.748538 mse_neg=0.886757 mse_rec=0.901449 neg_vs_rec=-0.014692 rec_dist=2.0325 anchor_dist=11.6654
+[TAM-CTL-DIAG step=9900] mse_pos=1.776977 mse_neg=0.991590 mse_rec=0.945060 neg_vs_rec=0.046531 rec_dist=1.6324 anchor_dist=13.1265
+[TAM-CTL-DIAG step=10000] mse_pos=1.750469 mse_neg=0.863056 mse_rec=0.892906 neg_vs_rec=-0.029851 rec_dist=2.0538 anchor_dist=11.6471
+Running Evaluation...
+Validation Result @ Iteration 10000; Milestone = 10 (Train)
+---------  --------
+mse_error  0.191391
+---------  --------
+Validation Result @ Iteration 10000; Milestone = 10 (ID: Validation)
+---  --------
+mse  0.190069
+---  --------
+[TAM-CTL-DIAG step=10100] mse_pos=1.776555 mse_neg=0.901452 mse_rec=0.908170 neg_vs_rec=-0.006718 rec_dist=2.0312 anchor_dist=12.1616
+[TAM-CTL-DIAG step=10200] mse_pos=1.774472 mse_neg=0.899385 mse_rec=0.903036 neg_vs_rec=-0.003651 rec_dist=2.0466 anchor_dist=12.4867
+[TAM-CTL-DIAG step=10300] mse_pos=1.753984 mse_neg=1.094578 mse_rec=0.986773 neg_vs_rec=0.107805 rec_dist=1.3356 anchor_dist=14.0898
+[TAM-CTL-DIAG step=10400] mse_pos=1.782223 mse_neg=0.934021 mse_rec=0.919686 neg_vs_rec=0.014335 rec_dist=1.8530 anchor_dist=12.6644
+[TAM-CTL-DIAG step=10500] mse_pos=1.772418 mse_neg=0.904717 mse_rec=0.904643 neg_vs_rec=0.000074 rec_dist=2.0418 anchor_dist=12.1616
+[TAM-CTL-DIAG step=10600] mse_pos=1.759445 mse_neg=1.301183 mse_rec=1.036437 neg_vs_rec=0.264746 rec_dist=1.4505 anchor_dist=15.8557
+[TAM-CTL-DIAG step=10700] mse_pos=1.754089 mse_neg=0.891337 mse_rec=0.900162 neg_vs_rec=-0.008825 rec_dist=2.0716 anchor_dist=11.9373
+[TAM-CTL-DIAG step=10800] mse_pos=1.770372 mse_neg=0.915939 mse_rec=0.912063 neg_vs_rec=0.003876 rec_dist=2.0021 anchor_dist=12.1455
+[TAM-CTL-DIAG step=10900] mse_pos=1.752785 mse_neg=0.907804 mse_rec=0.908647 neg_vs_rec=-0.000843 rec_dist=1.9850 anchor_dist=11.8273
+[TAM-CTL-DIAG step=11000] mse_pos=1.760892 mse_neg=0.874710 mse_rec=0.896203 neg_vs_rec=-0.021492 rec_dist=2.1297 anchor_dist=11.9269
+Running Evaluation...
+Validation Result @ Iteration 11000; Milestone = 11 (Train)
+---------  -------
+mse_error  0.19021
+---------  -------
+Validation Result @ Iteration 11000; Milestone = 11 (ID: Validation)
+---  --------
+mse  0.188409
+---  --------
+[TAM-CTL-DIAG step=11100] mse_pos=1.772275 mse_neg=0.925569 mse_rec=0.913681 neg_vs_rec=0.011887 rec_dist=1.9644 anchor_dist=12.1606
+[TAM-CTL-DIAG step=11200] mse_pos=1.770118 mse_neg=0.894590 mse_rec=0.903946 neg_vs_rec=-0.009356 rec_dist=2.0507 anchor_dist=12.0320
+[TAM-CTL-DIAG step=11300] mse_pos=1.766935 mse_neg=0.924187 mse_rec=0.917988 neg_vs_rec=0.006199 rec_dist=1.9514 anchor_dist=12.1537
+[TAM-CTL-DIAG step=11400] mse_pos=1.768069 mse_neg=0.912532 mse_rec=0.909709 neg_vs_rec=0.002823 rec_dist=2.0241 anchor_dist=12.0313
+[TAM-CTL-DIAG step=11500] mse_pos=1.769695 mse_neg=0.912480 mse_rec=0.909571 neg_vs_rec=0.002909 rec_dist=2.0356 anchor_dist=12.1429
+[TAM-CTL-DIAG step=11600] mse_pos=1.759486 mse_neg=0.902591 mse_rec=0.910244 neg_vs_rec=-0.007653 rec_dist=2.0157 anchor_dist=11.9946
+[TAM-CTL-DIAG step=11700] mse_pos=1.774238 mse_neg=1.304101 mse_rec=1.038139 neg_vs_rec=0.265962 rec_dist=1.4528 anchor_dist=16.0242
+[TAM-CTL-DIAG step=11800] mse_pos=1.764875 mse_neg=0.934600 mse_rec=0.919938 neg_vs_rec=0.014662 rec_dist=1.9098 anchor_dist=12.5498
+[TAM-CTL-DIAG step=11900] mse_pos=1.769246 mse_neg=0.900809 mse_rec=0.903236 neg_vs_rec=-0.002427 rec_dist=2.0516 anchor_dist=12.2473
+[TAM-CTL-DIAG step=12000] mse_pos=1.769376 mse_neg=0.916024 mse_rec=0.911241 neg_vs_rec=0.004783 rec_dist=2.0329 anchor_dist=12.3381
+Running Evaluation...
+Validation Result @ Iteration 12000; Milestone = 12 (Train)
+---------  --------
+mse_error  0.185859
+---------  --------
+Validation Result @ Iteration 12000; Milestone = 12 (ID: Validation)
+---  --------
+mse  0.188708
+---  --------
+[TAM-CTL-DIAG step=12100] mse_pos=1.758492 mse_neg=1.106075 mse_rec=0.986282 neg_vs_rec=0.119793 rec_dist=1.4063 anchor_dist=14.2947
+[TAM-CTL-DIAG step=12200] mse_pos=1.775149 mse_neg=0.913926 mse_rec=0.908977 neg_vs_rec=0.004949 rec_dist=2.0643 anchor_dist=12.1712
+[TAM-CTL-DIAG step=12300] mse_pos=1.764286 mse_neg=0.895463 mse_rec=0.901905 neg_vs_rec=-0.006442 rec_dist=2.1224 anchor_dist=12.0401
+[TAM-CTL-DIAG step=12400] mse_pos=1.758750 mse_neg=0.897097 mse_rec=0.905019 neg_vs_rec=-0.007922 rec_dist=2.0563 anchor_dist=12.0167
+[TAM-CTL-DIAG step=12500] mse_pos=1.766954 mse_neg=0.912780 mse_rec=0.909145 neg_vs_rec=0.003635 rec_dist=2.0697 anchor_dist=12.0079
+[TAM-CTL-DIAG step=12600] mse_pos=1.773810 mse_neg=0.903446 mse_rec=0.905731 neg_vs_rec=-0.002285 rec_dist=2.0689 anchor_dist=12.3733
+[TAM-CTL-DIAG step=12700] mse_pos=1.784487 mse_neg=1.306081 mse_rec=1.038132 neg_vs_rec=0.267948 rec_dist=1.4545 anchor_dist=16.0866
+[TAM-CTL-DIAG step=12800] mse_pos=1.775831 mse_neg=0.915352 mse_rec=0.910821 neg_vs_rec=0.004531 rec_dist=2.0208 anchor_dist=12.2341
+[TAM-CTL-DIAG step=12900] mse_pos=1.764748 mse_neg=0.902355 mse_rec=0.905859 neg_vs_rec=-0.003504 rec_dist=2.1033 anchor_dist=12.0006
+[TAM-CTL-DIAG step=13000] mse_pos=1.773145 mse_neg=0.934575 mse_rec=0.917182 neg_vs_rec=0.017394 rec_dist=2.0285 anchor_dist=12.5314
+Running Evaluation...
+Validation Result @ Iteration 13000; Milestone = 13 (Train)
+---------  --------
+mse_error  0.190493
+---------  --------
+Validation Result @ Iteration 13000; Milestone = 13 (ID: Validation)
+---  --------
+mse  0.188825
+---  --------
+[TAM-CTL-DIAG step=13100] mse_pos=1.775340 mse_neg=0.915930 mse_rec=0.906776 neg_vs_rec=0.009154 rec_dist=2.0954 anchor_dist=12.2579
+[TAM-CTL-DIAG step=13200] mse_pos=1.769377 mse_neg=1.107159 mse_rec=0.986577 neg_vs_rec=0.120582 rec_dist=1.4089 anchor_dist=14.3453
+[TAM-CTL-DIAG step=13300] mse_pos=1.769802 mse_neg=0.906822 mse_rec=0.907624 neg_vs_rec=-0.000802 rec_dist=2.0887 anchor_dist=12.0317
+[TAM-CTL-DIAG step=13400] mse_pos=1.778059 mse_neg=0.917235 mse_rec=0.911761 neg_vs_rec=0.005474 rec_dist=2.0721 anchor_dist=12.2290
+[TAM-CTL-DIAG step=13500] mse_pos=1.754918 mse_neg=0.896265 mse_rec=0.904448 neg_vs_rec=-0.008183 rec_dist=2.1192 anchor_dist=12.0309
+[TAM-CTL-DIAG step=13600] mse_pos=1.765307 mse_neg=0.919808 mse_rec=0.909557 neg_vs_rec=0.010251 rec_dist=2.0758 anchor_dist=12.0861
+[TAM-CTL-DIAG step=13700] mse_pos=1.769188 mse_neg=0.924952 mse_rec=0.909848 neg_vs_rec=0.015104 rec_dist=2.0501 anchor_dist=12.2711
+[TAM-CTL-DIAG step=13800] mse_pos=1.760603 mse_neg=1.106557 mse_rec=0.985591 neg_vs_rec=0.120966 rec_dist=1.4146 anchor_dist=14.2983
+[TAM-CTL-DIAG step=13900] mse_pos=1.767962 mse_neg=1.109994 mse_rec=0.987457 neg_vs_rec=0.122538 rec_dist=1.4039 anchor_dist=14.3242
+[TAM-CTL-DIAG step=14000] mse_pos=1.768700 mse_neg=0.912280 mse_rec=0.909453 neg_vs_rec=0.002827 rec_dist=2.1241 anchor_dist=12.1651
+Running Evaluation...
+Validation Result @ Iteration 14000; Milestone = 14 (Train)
+---------  -------
+mse_error  0.18972
+---------  -------
+Validation Result @ Iteration 14000; Milestone = 14 (ID: Validation)
+---  --------
+mse  0.187264
+---  --------
+[TAM-CTL-DIAG step=14100] mse_pos=1.772159 mse_neg=1.107489 mse_rec=0.988025 neg_vs_rec=0.119464 rec_dist=1.4069 anchor_dist=14.3259
+[TAM-CTL-DIAG step=14200] mse_pos=1.771159 mse_neg=0.902957 mse_rec=0.905866 neg_vs_rec=-0.002909 rec_dist=2.1358 anchor_dist=12.1282
+[TAM-CTL-DIAG step=14300] mse_pos=1.767755 mse_neg=0.906106 mse_rec=0.905393 neg_vs_rec=0.000713 rec_dist=2.1313 anchor_dist=12.2267

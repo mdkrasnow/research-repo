@@ -1,0 +1,99 @@
+Job started at Thu Feb 19 10:21:22 EST 2026
+Running on host: holygpu8a22203.rc.fas.harvard.edu
+Job ID: 61178647
+Git URL: https://github.com/mdkrasnow/research-repo.git
+Git SHA: e86371c3133278ea28a341bda3dbe909dbee1fd9
+Work directory: /tmp/ired-job-61178647
+GPU info:
+Thu Feb 19 10:21:22 2026       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 575.57.08              Driver Version: 575.57.08      CUDA Version: 12.9     |
+|-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA A100-SXM4-80GB          On  |   00000000:CA:00.0 Off |                    0 |
+| N/A   27C    P0             62W /  500W |       0MiB /  81920MiB |      0%      Default |
+|                                         |                        |             Disabled |
++-----------------------------------------+------------------------+----------------------+
+                                                                                         
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+
+Cloning repository...
+Repository cloned and checked out to: e86371c
+Repository info:
+e86371c Add warmup/weight/timestep ablations for scalar contrastive (q209-q211)
+Starting q209: scalar energy + contrastive with warmup...
+Loading configuration from: projects/ired/configs/q209_scalar_cl_warmup.json
+Configuration saved to: results/ds_inverse/q209_scalar_cl_warmup/experiment_config.json
+Setting random seed: 5
+Starting experiment with mining strategy: cd_langevin_replay
+Configuration: {
+  "experiment_name": "q209_scalar_cl_warmup",
+  "description": "Scalar energy + contrastive with warmup: contrastive off for first 4K steps, ramps 0\u21920.05 from 4K\u21928K. Lets denoising form gradient field first.",
+  "investigation": "ired-cd",
+  "ablation_stage": "scalar_cl_warmup",
+  "mining_strategy": "cd_langevin_replay",
+  "rank": 20,
+  "ood": false,
+  "diffusion_steps": 10,
+  "batch_size": 2048,
+  "train_steps": 20000,
+  "learning_rate": 0.0001,
+  "mining_opt_steps": 10,
+  "energy_reg_weight": 0.0,
+  "mining_noise_scale": 1.5,
+  "use_langevin": true,
+  "use_replay_buffer": true,
+  "replay_buffer_size": 10000,
+  "replay_buffer_buckets": 16,
+  "use_cd_loss": false,
+  "use_ired_contrastive_loss": true,
+  "contrastive_temperature": 1.0,
+  "use_scalar_energy": true,
+  "use_residual_filter": false,
+  "use_energy_schedule": true,
+  "energy_loss_warmup_steps": 8000,
+  "energy_loss_max_weight": 0.05,
+  "use_timestep_range": false,
+  "energy_loss_weight": 0.05,
+  "adam_betas": [
+    0.0,
+    0.999
+  ],
+  "output_dir": "results/ds_inverse/q209_scalar_cl_warmup",
+  "notes": "Warmup ablation: contrastive loss ramps 0\u21920.05 over 8K steps. Hypothesis: letting denoising form gradient field first prevents contrastive from distorting geometry early. q208 showed contrastive saturated quickly (margin 55K) while gradE was 3x smaller than baseline.",
+  "seed": 5
+}
+Dataset: Inverse matrices (20x20)
+Input dimension: 400, Output dimension: 400
+Trainer initialized. Output directory: results/ds_inverse/q209_scalar_cl_warmup
+Training for 20000 steps...
+[IRED-CL-DIAG step=100] E_pos=9.1766 E_neg=12.9248 margin=3.7482 E_wtd=0.000044 MSE=0.997798 gradE=0.8640 pred=0.0004 cl_mean=0.071760 frac_sat=0.000 neg_dist=31.6186 lang_grad0=0.0005 lang_gradK=0.0005 lang_disp=34.5356 step=0.4556 sigma=0.9222
+[IRED-CL-DIAG step=200] E_pos=12.0325 E_neg=25.0914 margin=13.0589 E_wtd=0.000009 MSE=0.998238 gradE=2.5403 pred=0.0012 cl_mean=0.007631 frac_sat=0.771 neg_dist=31.3233 lang_grad0=0.0014 lang_gradK=0.0014 lang_disp=34.1439 step=0.4345 sigma=0.9005
+[IRED-CL-DIAG step=300] E_pos=18.4904 E_neg=42.0065 margin=23.5160 E_wtd=0.000007 MSE=1.000911 gradE=4.6005 pred=0.0022 cl_mean=0.003984 frac_sat=0.953 neg_dist=31.5716 lang_grad0=0.0025 lang_gradK=0.0025 lang_disp=34.4823 step=0.4503 sigma=0.9173
+[IRED-CL-DIAG step=400] E_pos=29.0860 E_neg=67.2677 margin=38.1817 E_wtd=0.000026 MSE=0.999190 gradE=7.4713 pred=0.0036 cl_mean=0.010465 frac_sat=0.982 neg_dist=31.5308 lang_grad0=0.0040 lang_gradK=0.0040 lang_disp=34.3713 step=0.4456 sigma=0.9129
+[IRED-CL-DIAG step=500] E_pos=35.6223 E_neg=102.2980 margin=66.6757 E_wtd=0.000064 MSE=0.999259 gradE=12.5132 pred=0.0061 cl_mean=0.020438 frac_sat=0.992 neg_dist=31.3614 lang_grad0=0.0067 lang_gradK=0.0067 lang_disp=34.2568 step=0.4422 sigma=0.9076
+[IRED-CL-DIAG step=600] E_pos=63.6026 E_neg=158.7342 margin=95.1316 E_wtd=0.000054 MSE=0.999911 gradE=17.9794 pred=0.0088 cl_mean=0.014509 frac_sat=0.996 neg_dist=31.5883 lang_grad0=0.0093 lang_gradK=0.0093 lang_disp=34.4181 step=0.4513 sigma=0.9175
+[IRED-CL-DIAG step=700] E_pos=89.9667 E_neg=244.9296 margin=154.9629 E_wtd=0.000050 MSE=0.998345 gradE=28.6542 pred=0.0140 cl_mean=0.011392 frac_sat=0.999 neg_dist=31.4347 lang_grad0=0.0148 lang_gradK=0.0148 lang_disp=34.2968 step=0.4431 sigma=0.9094
+[IRED-CL-DIAG step=800] E_pos=125.2744 E_neg=455.7543 margin=330.4799 E_wtd=0.000070 MSE=1.000694 gradE=60.1661 pred=0.0294 cl_mean=0.013920 frac_sat=0.998 neg_dist=31.3596 lang_grad0=0.0319 lang_gradK=0.0319 lang_disp=34.1886 step=0.4402 sigma=0.9052
+[IRED-CL-DIAG step=900] E_pos=213.0985 E_neg=1048.6072 margin=835.5086 E_wtd=0.000412 MSE=0.997030 gradE=149.6571 pred=0.0731 cl_mean=0.073310 frac_sat=1.000 neg_dist=31.4741 lang_grad0=0.0801 lang_gradK=0.0802 lang_disp=34.3441 step=0.4444 sigma=0.9112
+[IRED-CL-DIAG step=1000] E_pos=41.3392 E_neg=1916.6104 margin=1875.2711 E_wtd=0.002395 MSE=0.996816 gradE=335.2565 pred=0.1637 cl_mean=0.383631 frac_sat=1.000 neg_dist=31.4707 lang_grad0=0.1838 lang_gradK=0.1843 lang_disp=34.3269 step=0.4446 sigma=0.9111
+Running Evaluation...
+Validation Result @ Iteration 1000; Milestone = 1 (Train)
+---------  ------
+mse_error  3.2255
+---------  ------
+Validation Result @ Iteration 1000; Milestone = 1 (ID: Validation)
+---  -------
+mse  2.85731
+---  -------
+[IRED-CL-DIAG step=1100] E_pos=651.9407 E_neg=3054.5439 margin=2402.6033 E_wtd=0.000923 MSE=0.993382 gradE=442.1598 pred=0.2159 cl_mean=0.134357 frac_sat=0.999 neg_dist=31.3296 lang_grad0=0.2290 lang_gradK=0.2297 lang_disp=34.2410 step=0.4413 sigma=0.9065
+[IRED-CL-DIAG step=1200] E_pos=1206.0259 E_neg=4379.4385 margin=3173.4126 E_wtd=0.001546 MSE=0.993344 gradE=587.3788 pred=0.2868 cl_mean=0.206308 frac_sat=0.999 neg_dist=31.4259 lang_grad0=0.2888 lang_gradK=0.2907 lang_disp=34.3037 step=0.4436 sigma=0.9099
+[IRED-CL-DIAG step=1300] E_pos=814.0818 E_neg=6142.7168 margin=5328.6350 E_wtd=0.010864 MSE=0.985936 gradE=964.9233 pred=0.4712 cl_mean=1.338116 frac_sat=0.998 neg_dist=31.3252 lang_grad0=0.5110 lang_gradK=0.5141 lang_disp=34.2493 step=0.4377 sigma=0.9045

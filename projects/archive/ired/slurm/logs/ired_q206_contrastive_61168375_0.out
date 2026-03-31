@@ -1,0 +1,94 @@
+Job started at Thu Feb 19 08:53:39 EST 2026
+Running on host: holygpu8a22102.rc.fas.harvard.edu
+Job ID: 61169132
+Git URL: https://github.com/mdkrasnow/research-repo.git
+Git SHA: ba81ab6d425c7ae6cfddbfef94c456ec29102ff8
+Work directory: /tmp/ired-job-61169132
+GPU info:
+Thu Feb 19 08:53:40 2026       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 575.57.08              Driver Version: 575.57.08      CUDA Version: 12.9     |
+|-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA A100-SXM4-80GB          On  |   00000000:CA:00.0 Off |                    0 |
+| N/A   26C    P0             61W /  500W |       0MiB /  81920MiB |      0%      Default |
+|                                         |                        |             Disabled |
++-----------------------------------------+------------------------+----------------------+
+                                                                                         
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+
+Cloning repository...
+Repository cloned and checked out to: ba81ab6
+Repository info:
+ba81ab6 Add gradE and pred_norm diagnostics to confirm gradient collapse hypothesis
+Starting IRED contrastive loss experiment (softplus(E_pos - E_neg))...
+Loading configuration from: projects/ired/configs/q206_ired_contrastive.json
+Configuration saved to: results/ds_inverse/q206_ired_contrastive/experiment_config.json
+Setting random seed: 0
+Starting experiment with mining strategy: cd_langevin_replay
+Configuration: {
+  "experiment_name": "q206_ired_contrastive",
+  "description": "IRED-style contrastive loss: softplus(E_pos - E_neg) replaces CD (E_neg - E_pos). Uses same Langevin negatives + replay buffer as q203 but with stable logistic contrastive objective.",
+  "investigation": "ired-cd",
+  "ablation_stage": "ired_contrastive",
+  "mining_strategy": "cd_langevin_replay",
+  "rank": 20,
+  "ood": false,
+  "diffusion_steps": 10,
+  "batch_size": 2048,
+  "train_steps": 20000,
+  "learning_rate": 0.0001,
+  "mining_opt_steps": 10,
+  "energy_reg_weight": 0.1,
+  "mining_noise_scale": 1.5,
+  "use_langevin": true,
+  "use_replay_buffer": true,
+  "replay_buffer_size": 10000,
+  "replay_buffer_buckets": 16,
+  "use_cd_loss": false,
+  "use_ired_contrastive_loss": true,
+  "contrastive_temperature": 1.0,
+  "use_residual_filter": false,
+  "use_energy_schedule": false,
+  "energy_loss_weight": 0.05,
+  "adam_betas": [
+    0.0,
+    0.999
+  ],
+  "output_dir": "results/ds_inverse/q206_ired_contrastive",
+  "notes": "Key experiment: IRED-style contrastive loss replaces CD objective. softplus(E_pos - E_neg) directly enforces E_pos < E_neg via stable logistic form. data_sample reuses denoising y_t (no separate noise draw) for lower variance. Same Langevin + replay infrastructure as q203. Tests whether the contrastive objective fixes the landscape shaping that CD failed at.",
+  "seed": 0
+}
+Dataset: Inverse matrices (20x20)
+Input dimension: 400, Output dimension: 400
+Trainer initialized. Output directory: results/ds_inverse/q206_ired_contrastive
+Training for 20000 steps...
+[IRED-CL-DIAG step=100] E_pos=0.2625 E_neg=0.5822 margin=0.3197 E_wtd=0.027677 MSE=0.999794 gradE=0.0652 pred=0.0000 neg_dist=31.4286 lang_grad0=0.0001 lang_gradK=0.0001 lang_disp=34.2436 step=0.4427 sigma=0.9089
+[IRED-CL-DIAG step=200] E_pos=0.2132 E_neg=0.6485 margin=0.4353 E_wtd=0.025627 MSE=1.000879 gradE=0.0686 pred=0.0000 neg_dist=31.4400 lang_grad0=0.0001 lang_gradK=0.0001 lang_disp=34.3121 step=0.4414 sigma=0.9076
+[IRED-CL-DIAG step=300] E_pos=0.1861 E_neg=0.6726 margin=0.4864 E_wtd=0.024703 MSE=0.999123 gradE=0.0652 pred=0.0000 neg_dist=31.4863 lang_grad0=0.0001 lang_gradK=0.0001 lang_disp=34.3833 step=0.4491 sigma=0.9148
+[IRED-CL-DIAG step=400] E_pos=0.1675 E_neg=0.7091 margin=0.5417 E_wtd=0.023683 MSE=0.999327 gradE=0.0619 pred=0.0000 neg_dist=31.4646 lang_grad0=0.0001 lang_gradK=0.0001 lang_disp=34.3457 step=0.4444 sigma=0.9100
+[IRED-CL-DIAG step=500] E_pos=0.1478 E_neg=0.7164 margin=0.5686 E_wtd=0.023157 MSE=0.999045 gradE=0.0565 pred=0.0000 neg_dist=31.4908 lang_grad0=0.0001 lang_gradK=0.0001 lang_disp=34.3042 step=0.4422 sigma=0.9091
+[IRED-CL-DIAG step=600] E_pos=0.1400 E_neg=0.7482 margin=0.6082 E_wtd=0.022482 MSE=1.000374 gradE=0.0552 pred=0.0000 neg_dist=31.5382 lang_grad0=0.0001 lang_gradK=0.0001 lang_disp=34.4602 step=0.4546 sigma=0.9201
+[IRED-CL-DIAG step=700] E_pos=0.1212 E_neg=0.7410 margin=0.6198 E_wtd=0.022249 MSE=1.000186 gradE=0.0489 pred=0.0000 neg_dist=31.3618 lang_grad0=0.0001 lang_gradK=0.0001 lang_disp=34.1684 step=0.4385 sigma=0.9042
+[IRED-CL-DIAG step=800] E_pos=0.1143 E_neg=0.7532 margin=0.6389 E_wtd=0.021874 MSE=1.003020 gradE=0.0470 pred=0.0000 neg_dist=31.4390 lang_grad0=0.0001 lang_gradK=0.0001 lang_disp=34.2966 step=0.4460 sigma=0.9113
+[IRED-CL-DIAG step=900] E_pos=0.1059 E_neg=0.7348 margin=0.6288 E_wtd=0.021965 MSE=1.000539 gradE=0.0442 pred=0.0000 neg_dist=31.2902 lang_grad0=0.0001 lang_gradK=0.0001 lang_disp=32.9295 step=0.4451 sigma=0.9114
+[IRED-CL-DIAG step=1000] E_pos=0.0978 E_neg=0.7840 margin=0.6862 E_wtd=0.021002 MSE=1.002887 gradE=0.0421 pred=0.0000 neg_dist=31.5782 lang_grad0=0.0001 lang_gradK=0.0001 lang_disp=34.4545 step=0.4517 sigma=0.9177
+Running Evaluation...
+Validation Result @ Iteration 1000; Milestone = 1 (Train)
+---------  ------
+mse_error  3.8856
+---------  ------
+Validation Result @ Iteration 1000; Milestone = 1 (ID: Validation)
+---  -------
+mse  3.87079
+---  -------
+[IRED-CL-DIAG step=1100] E_pos=0.0913 E_neg=0.7968 margin=0.7055 E_wtd=0.020695 MSE=1.001732 gradE=0.0404 pred=0.0000 neg_dist=31.5491 lang_grad0=0.0001 lang_gradK=0.0001 lang_disp=34.4854 step=0.4489 sigma=0.9162
+[IRED-CL-DIAG step=1200] E_pos=0.0816 E_neg=0.7991 margin=0.7175 E_wtd=0.020461 MSE=1.000190 gradE=0.0367 pred=0.0000 neg_dist=31.5030 lang_grad0=0.0001 lang_gradK=0.0001 lang_disp=34.4057 step=0.4464 sigma=0.9131
