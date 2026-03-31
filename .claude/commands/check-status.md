@@ -18,13 +18,14 @@ Display the current pipeline state across all projects or a specific project.
 ## Output
 
 For each project, displays:
-- **Project name** and current phase (INIT/DEBATE/IMPLEMENT/TEST/RUN/CHECK/DEBUG)
+- **Project name** and current phase (INIT/DEBATE/IMPLEMENT/TEST/RUN/CHECK/DEBUG/AUTORESEARCH)
 - **Next action** (what will happen when dispatched)
 - **User input status** (if needs_user_input.value=true, shows the prompt)
 - **Active runs** (currently executing SLURM jobs)
 - **Recent completed runs** (last 3 completed/failed runs with status and runtime)
 - **SLURM polling** (next poll time if waiting on jobs)
 - **Last 2 events** (recent actions taken)
+- **Autoresearch progress** (if phase=AUTORESEARCH): iteration count, best metric, keeps/reverts, consecutive failures
 
 ## Detailed Mode
 

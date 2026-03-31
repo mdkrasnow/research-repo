@@ -71,3 +71,29 @@ After each step, update (as applicable):
 ## Stopping
 - The repo includes a Stop hook that may block stopping while work is actionable.
 - If a project requires user input, set `needs_user_input.value=true` and include `prompt`.
+
+## Autoresearch Mode
+
+Projects can run in **autoresearch mode** — a continuous, autonomous experiment loop inspired by Karpathy's autoresearch paradigm. Instead of manual dispatch cycles, the agent forms hypotheses, implements changes, runs experiments, and keeps/reverts based on a single objective metric.
+
+### Key concepts
+- **`program.md`**: Governance file at `projects/<slug>/program.md`. Defines the objective metric, constraints, allowed files, ratchet rules, and termination conditions. The human writes this file; the agent writes code.
+- **Ratchet**: Every experiment either improves the metric (KEEP) or doesn't (REVERT). The codebase monotonically improves. No human judgment needed for keep/revert decisions.
+- **`results.tsv`**: Tab-separated experiment log at `projects/<slug>/results.tsv`. Tracks iteration, metric, status (KEEP/REVERT/CRASH), description, git SHA, timestamp. The agent reads this to decide what to try next.
+- **Pilot runs**: Autoresearch uses short pilot runs (`pilot_steps` in program.md) for rapid iteration. Full training runs are done manually after autoresearch identifies the best configuration.
+
+### Rules
+- **ONE change per iteration**: Isolate variables. Never modify multiple dimensions simultaneously.
+- **Metric decides**: No DEBATE phase. If the metric improved, keep it. If it regressed, revert it.
+- **Respect file constraints**: Only modify files listed in `program.md:files_allowed`. Never modify `program.md` or the evaluation script.
+- **Use `git revert`**: When reverting, use `git revert HEAD --no-edit` (preserves history) not `git reset`.
+- **Auto-terminate**: Stop on plateau, max iterations, target achieved, or max wall hours.
+- **Phase = AUTORESEARCH**: When active, pipeline.json has `phase: "AUTORESEARCH"` and an `autoresearch` object tracking progress.
+
+### Entering autoresearch mode
+- Run `/autoresearch --project <slug>` (requires `program.md` to exist)
+- Or create a project with `/make-project` and answer "yes" to autoresearch eligibility
+- The agent transitions pipeline.json to `phase: "AUTORESEARCH"` and begins the loop
+
+### Resuming
+- If a session ends mid-autoresearch, running `/autoresearch --project <slug>` again resumes from where it left off by reading `results.tsv` and `pipeline.json:autoresearch.iteration`.
