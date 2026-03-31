@@ -1,44 +1,47 @@
 {
   "project": "diff-EqM",
   "title": "Differential-Geometry-Guided Adversarial Negative Mining for EqM (DG-ANM)",
-  "phase": "WAIT_SLURM",
+  "phase": "AUTORESEARCH",
   "next_action": {
-    "command": "/check-results --project diff-EqM",
-    "reason": "Baseline EqM-S/2 training submitted. Poll for completion, then establish baseline metric.",
-    "hint": "Job 2854605 running baseline 1-epoch CIFAR-10. Expected ~5-10 min."
+    "command": "/autoresearch --project diff-EqM",
+    "reason": "Autoresearch active — autonomous iteration in progress",
+    "hint": "Do not manually dispatch. The autoresearch loop handles everything."
   },
   "needs_user_input": {
     "value": false,
     "prompt": ""
   },
-  "active_runs": [
+  "active_runs": [],
+  "completed_runs": [
     {
       "run_id": "baseline_eqm_s2_cifar10",
-      "experiment": "baseline.json",
       "job_id": "2854605",
-      "submitted_at": "2026-03-31T19:00:00Z",
-      "status": "submitted",
-      "partition": "gpu_test",
-      "git_sha": "0ada2dc"
+      "status": "completed",
+      "metric": 0.045237
+    },
+    {
+      "run_id": "dganm_weak_only",
+      "job_id": "2856436",
+      "status": "reverted",
+      "metric": 0.045239
     }
   ],
-  "completed_runs": [],
   "slurm_wait": {
-    "next_poll_after": "2026-03-31T19:01:00Z",
+    "next_poll_after": null,
     "poll_interval_seconds": 120
   },
   "autoresearch": {
-    "active": false,
-    "iteration": 0,
-    "best_metric": null,
-    "best_commit": null,
-    "baseline_metric": null,
-    "consecutive_failures": 0,
-    "total_keeps": 0,
-    "total_reverts": 0,
+    "active": true,
+    "iteration": 2,
+    "best_metric": 0.045237,
+    "best_commit": "0ada2dc",
+    "baseline_metric": 0.045237,
+    "consecutive_failures": 1,
+    "total_keeps": 1,
+    "total_reverts": 1,
     "total_crashes": 0,
-    "started_at": null,
-    "last_iteration_at": null,
+    "started_at": "2026-03-31T19:10:00Z",
+    "last_iteration_at": "2026-03-31T19:18:00Z",
     "terminated_reason": null
   },
   "events": [
@@ -46,13 +49,19 @@
       "id": "evt-0001",
       "ts": "2026-03-31T18:00:00Z",
       "action": "INIT",
-      "detail": "Project created via /make-project. DG-ANM for EqM with CIFAR-10 Stage 1, EqM-S/2 backbone."
+      "detail": "Project created via /make-project."
     },
     {
       "id": "evt-0002",
       "ts": "2026-03-31T19:00:00Z",
       "action": "SUBMIT",
-      "detail": "Submitted baseline EqM-S/2 training on CIFAR-10 (1 epoch, no mining). Job 2854605 on gpu_test. Git SHA 0ada2dc."
+      "detail": "Baseline EqM-S/2 (1 epoch, no mining). Job 2854605. recovery_dist=0.045237."
+    },
+    {
+      "id": "evt-0003",
+      "ts": "2026-03-31T19:15:00Z",
+      "action": "REVERT",
+      "detail": "Iteration 2: DG-ANM L_weak only. recovery_dist=0.045239 (regressed by 0.004%). Reverted."
     }
   ]
 }
