@@ -232,6 +232,8 @@ For each candidate i:
      f. Reset consecutive_failures = 0
      g. Git commit: "autoresearch(<slug>): round R WINNER — <description> (metric)"
      h. Clean up candidate configs
+     i. **FID evaluation trigger** (if configured): Submit async FID eval job
+        - See "FID Evaluation Integration" section below
 
    IF no candidate beats best_so_far:
      a. Revert the candidates commit: git revert HEAD --no-edit
@@ -409,6 +411,71 @@ If `parallel_candidates: 1` (or not set) in program.md, the loop behaves exactly
 | Git conflict on revert | Hard reset to best_commit, log incident |
 | Metric parse failure | Mark candidate as CRASH, exclude from tournament |
 | QOS limit hit | Use partition diversification, retry failed submissions |
+
+## FID Evaluation Integration
+
+When a project has a FID evaluation config (`configs/eval_fid.json`), autoresearch automatically submits an async FID evaluation job after each WINNER is declared. This runs concurrently with the next round — it does NOT block the proxy-metric loop.
+
+### Trigger Conditions
+
+FID eval is triggered when ALL of these are true:
+1. `configs/eval_fid.json` exists in the project
+2. A WINNER was declared this round (not on SKIP-all rounds)
+3. `slurm/jobs/fid_eval.sbatch` exists
+
+### Steps (after Step 6g, as Step 6i)
+
+```
+1. Create a round-specific FID eval config:
+   - Copy configs/eval_fid.json → /tmp config (or use env vars)
+   - Set checkpoint_path to winner's checkpoint path
+   - Set save_samples_path to "projects/<slug>/results/fid_samples_round_R.png"
+
+2. Submit FID eval job (fire-and-forget, async):
+   FID_CONFIG=projects/<slug>/configs/eval_fid.json \
+   GIT_SHA=<winner_commit> \
+     scripts/cluster/submit.sh projects/<slug>/slurm/jobs/fid_eval.sbatch
+
+3. Log the FID job submission:
+   - Print: "FID eval submitted for round R winner (job <id>)"
+   - Add to pipeline.json:autoresearch.fid_jobs array:
+     {"round": R, "job_id": "<id>", "status": "submitted", "submitted_at": "<ts>"}
+
+4. Do NOT wait for FID results — proceed immediately to next round.
+```
+
+### FID Results Collection
+
+FID results are collected opportunistically:
+- At the START of each round (Step 1), check if any pending FID jobs have completed
+- Parse `fid:` line from `slurm/logs/fid_eval_<job_id>.log`
+- Update pipeline.json:autoresearch.fid_jobs entry with `fid_score` and `status: "completed"`
+- Append to `projects/<slug>/fid_results.tsv`:
+  ```
+  round	fid	proxy_metric	checkpoint	job_id	timestamp
+  4	142.3	0.010786	results/baseline/final_model.pt	12345	2026-04-01T05:00:00Z
+  ```
+- Print: "FID update: round R = <fid> (proxy was <proxy_metric>)"
+
+### FID Results File
+
+`projects/<slug>/fid_results.tsv` tracks FID scores over time:
+```
+round	fid	proxy_metric	checkpoint	job_id	timestamp
+1	285.4	0.045237	results/baseline/final_model.pt	2861800	2026-03-31T20:00:00Z
+2	198.7	0.016082	results/baseline/final_model.pt	2893600	2026-04-01T00:00:00Z
+3	172.1	0.013018	results/baseline/final_model.pt	2901234	2026-04-01T02:00:00Z
+```
+
+This lets you track whether proxy metric improvements correlate with FID improvements.
+
+### Divergence Alert
+
+If FID WORSENS by >20% while proxy metric improved, print a warning:
+```
+⚠ FID DIVERGENCE: round R proxy improved (0.013→0.011, -15%) but FID worsened (172→215, +25%)
+Consider: proxy metric may not reflect generative quality. Review sample_grid.png.
+```
 
 ## Related Skills
 
