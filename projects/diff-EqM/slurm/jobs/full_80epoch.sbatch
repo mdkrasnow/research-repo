@@ -67,14 +67,18 @@ fi
 # === PHASE 2: Proxy metric evaluation ===
 EVAL_CONFIG="${EVAL_CONFIG:-projects/diff-EqM/configs/eval.json}"
 
-# Update eval config to point at the 80-epoch checkpoint
+# Dynamically read output_dir from training config to find the checkpoint
 python3 -c "
 import json
+with open('${CONFIG_PATH}') as f:
+    train_cfg = json.load(f)
+output_dir = train_cfg.get('output_dir', 'projects/diff-EqM/results/baseline')
 with open('$EVAL_CONFIG') as f:
     cfg = json.load(f)
-cfg['checkpoint_path'] = 'projects/diff-EqM/results/full_80epoch/final_model.pt'
+cfg['checkpoint_path'] = output_dir + '/final_model.pt'
 with open('/tmp/eval_80ep.json', 'w') as f:
     json.dump(cfg, f, indent=2)
+print(f'Proxy eval checkpoint: {cfg[\"checkpoint_path\"]}')
 "
 
 echo "=== Running proxy metric evaluation ===" >&2

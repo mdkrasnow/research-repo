@@ -64,13 +64,18 @@ if [ $TRAIN_EXIT -ne 0 ]; then
 fi
 
 # === PHASE 2: Proxy metric evaluation ===
+# Dynamically read output_dir from training config to find the checkpoint
 python3 -c "
 import json
+with open('${CONFIG_PATH}') as f:
+    train_cfg = json.load(f)
+output_dir = train_cfg.get('output_dir', 'projects/diff-EqM/results/baseline')
 with open('projects/diff-EqM/configs/eval.json') as f:
     cfg = json.load(f)
-cfg['checkpoint_path'] = 'projects/diff-EqM/results/full_80epoch_vanilla/final_model.pt'
+cfg['checkpoint_path'] = output_dir + '/final_model.pt'
 with open('/tmp/eval_vanilla_80ep.json', 'w') as f:
     json.dump(cfg, f, indent=2)
+print(f'Proxy eval checkpoint: {cfg[\"checkpoint_path\"]}')
 "
 
 echo "=== Running proxy metric evaluation ===" >&2
