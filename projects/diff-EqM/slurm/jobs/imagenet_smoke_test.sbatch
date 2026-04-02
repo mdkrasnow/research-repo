@@ -74,7 +74,7 @@ TRAIN_CMD="python -m torch.distributed.run --nnodes=1 --nproc_per_node=1 --maste
     --model EqM-B/2 \
     --data-path $IMAGENET_PATH \
     --num-classes ${NUM_CLASSES:-100} \
-    --global-batch-size 64 \
+    --global-batch-size ${BATCH_SIZE:-16} \
     --epochs 1 \
     --image-size 256 \
     --ckpt-every 999999 \
