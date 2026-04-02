@@ -48,7 +48,7 @@ git checkout "${GIT_SHA}" 2>&1 | tail -5 || {
 
 # Install dependencies
 echo "=== Installing dependencies ===" >&2
-pip install timm diffusers accelerate scipy torchvision wandb 2>&1 | tail -10
+pip install timm diffusers accelerate scipy torchvision wandb pytorch-fid 2>&1 | tail -10
 
 # Configuration
 CHECKPOINT_PATH="${CHECKPOINT_PATH:?ERROR: CHECKPOINT_PATH env var must be set}"
@@ -154,13 +154,19 @@ if [ ! -f "$SAMPLES_NPZ" ]; then
 fi
 echo "=== Samples file: $SAMPLES_NPZ ($(du -h "$SAMPLES_NPZ" | cut -f1)) ===" >&2
 
-# === STEP 5: Compute FID with ADM evaluator ===
-echo "=== Computing FID ===" >&2
+# === STEP 5: Compute FID with pytorch-fid ===
+# pytorch-fid computes FID between a folder of PNGs and a reference dataset/folder
+# For ImageNet, we compute against the training set images
+echo "=== Computing FID with pytorch-fid ===" >&2
 echo "=== FID start time: $(date) ===" >&2
 
-python evaluator.py \
-    "$WORK_DIR/VIRTUAL_imagenet256_labeled.npz" \
-    "$SAMPLES_NPZ" \
+# pytorch-fid can compare two folders of images directly
+# Use the ImageNet training data as reference
+IMAGENET_REF="${IMAGENET_REF:-/n/home03/mkrasnow/imagenet100/train}"
+
+python -m pytorch_fid "$SAMPLES_DIR" "$IMAGENET_REF" \
+    --batch-size 64 \
+    --device cuda \
     2>&1 | tee fid.log
 
 FID_EXIT=${PIPESTATUS[0]}
