@@ -122,6 +122,7 @@ python -m torch.distributed.run --nnodes=1 --nproc_per_node=$NUM_GPUS --master_p
     --stepsize 0.003 \
     --num-sampling-steps 250 \
     --cfg-scale 1.0 \
+    --global-batch-size ${SAMPLE_BATCH_SIZE:-64} \
     --num-fid-samples ${NUM_FID_SAMPLES:-50000} \
     --folder "$SAMPLES_DIR" \
     2>&1 | tee sample.log
