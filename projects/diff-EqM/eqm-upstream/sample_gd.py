@@ -208,7 +208,7 @@ def main(args):
         dist.barrier()
     if rank == 0:
         print("Creating .npz file")
-        create_npz_from_sample_folder(args.folder, 50000)
+        create_npz_from_sample_folder(args.folder, args.num_fid_samples)
         print("Done!")
     cleanup()
 
