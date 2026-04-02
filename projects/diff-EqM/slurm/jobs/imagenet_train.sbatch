@@ -62,8 +62,8 @@ if [ ! -d "$IMAGENET_PATH" ]; then
     echo "ERROR: ImageNet data not found at $IMAGENET_PATH" >&2
     exit 1
 fi
-NUM_CLASSES=$(ls -d "$IMAGENET_PATH"/n*/ 2>/dev/null | wc -l)
-echo "=== Found $NUM_CLASSES class directories in $IMAGENET_PATH ===" >&2
+FOUND_CLASSES=$(ls -d "$IMAGENET_PATH"/*/ 2>/dev/null | wc -l)
+echo "=== Found $FOUND_CLASSES class directories in $IMAGENET_PATH ===" >&2
 
 # Create results directory
 mkdir -p "$WORK_DIR/$RESULTS_DIR"

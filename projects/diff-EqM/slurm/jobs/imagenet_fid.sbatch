@@ -138,12 +138,16 @@ if [ $SAMPLE_EXIT -ne 0 ]; then
 fi
 
 # Check that samples.npz was generated
-SAMPLES_NPZ="$SAMPLES_DIR/samples.npz"
+# Upstream creates ${folder}.npz in the parent directory of --folder
+SAMPLES_NPZ="${SAMPLES_DIR}.npz"
 if [ ! -f "$SAMPLES_NPZ" ]; then
-    # Some versions output to the folder directly; look for .npz files
-    SAMPLES_NPZ=$(find "$SAMPLES_DIR" -name "*.npz" -type f | head -1)
+    SAMPLES_NPZ="$SAMPLES_DIR/samples.npz"
+fi
+if [ ! -f "$SAMPLES_NPZ" ]; then
+    SAMPLES_NPZ=$(find "$WORK_DIR" -name "*.npz" -not -name "VIRTUAL*" -type f | head -1)
     if [ -z "$SAMPLES_NPZ" ]; then
-        echo "ERROR: No .npz file found in $SAMPLES_DIR after sampling" >&2
+        echo "ERROR: No .npz file found after sampling" >&2
+        find "$WORK_DIR" -name "*.npz" -type f >&2
         ls -la "$SAMPLES_DIR/" >&2
         exit 1
     fi
