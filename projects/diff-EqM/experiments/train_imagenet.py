@@ -659,7 +659,21 @@ def main(args):
                     logger.info(f"Saved checkpoint to {checkpoint_path}")
                 dist.barrier()
 
+    # Save final checkpoint
     model.eval()
+    if rank == 0 and checkpoint_dir is not None:
+        final_ckpt = {
+            "model": model.module.state_dict(),
+            "ema": ema.state_dict(),
+            "opt": opt.state_dict(),
+            "args": args,
+            "train_steps": train_steps,
+            "epoch": args.epochs,
+        }
+        final_path = f"{checkpoint_dir}/final.pt"
+        torch.save(final_ckpt, final_path)
+        logger.info(f"Saved final checkpoint to {final_path}")
+    dist.barrier()
     logger.info("Done!")
     cleanup()
 
