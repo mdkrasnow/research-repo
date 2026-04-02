@@ -66,7 +66,7 @@ fi
 mkdir -p "$WORK_DIR/$RESULTS_DIR"
 
 # Build training command (single GPU, torchrun needed for DDP init)
-TRAIN_CMD="torchrun --nnodes=1 --nproc_per_node=1 \
+TRAIN_CMD="python -m torch.distributed.run --nnodes=1 --nproc_per_node=1 \
     projects/diff-EqM/experiments/train_imagenet.py \
     --model EqM-B/2 \
     --data-path $IMAGENET_PATH \

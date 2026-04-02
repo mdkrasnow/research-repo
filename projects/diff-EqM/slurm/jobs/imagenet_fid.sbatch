@@ -110,7 +110,7 @@ cp "$EVALUATOR_PY" "$WORK_DIR/evaluator.py"
 echo "=== Generating 50K samples (4x A100 DDP) ===" >&2
 echo "=== Sampling start time: $(date) ===" >&2
 
-torchrun --nnodes=1 --nproc_per_node=4 \
+python -m torch.distributed.run --nnodes=1 --nproc_per_node=4 \
     projects/diff-EqM/eqm-upstream/sample_gd.py \
     --model EqM-B/2 \
     --ckpt "$LOCAL_CKPT" \
