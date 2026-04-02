@@ -51,7 +51,7 @@ echo "=== Installing dependencies ===" >&2
 pip install timm diffusers accelerate scipy torchvision 2>&1 | tail -10
 
 # Configuration
-IMAGENET_PATH="/n/netscratch/ydu_lab/Lab/jslee/imagenet"
+IMAGENET_PATH="${IMAGENET_PATH:-/n/home03/mkrasnow/imagenet100/train}"
 USE_MINING="${USE_MINING:-false}"
 GAMMA="${GAMMA:-0.1}"
 RESULTS_DIR="projects/diff-EqM/results/imagenet_smoke_test"
@@ -73,6 +73,7 @@ TRAIN_CMD="python -m torch.distributed.run --nnodes=1 --nproc_per_node=1 --maste
     projects/diff-EqM/experiments/train_imagenet.py \
     --model EqM-B/2 \
     --data-path $IMAGENET_PATH \
+    --num-classes ${NUM_CLASSES:-100} \
     --global-batch-size 64 \
     --epochs 1 \
     --image-size 256 \
