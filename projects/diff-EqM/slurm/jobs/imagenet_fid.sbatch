@@ -115,13 +115,14 @@ NUM_GPUS="${NUM_GPUS:-$(python -c 'import torch; print(torch.cuda.device_count()
 echo "=== Using $NUM_GPUS GPU(s) for sampling ===" >&2
 python -m torch.distributed.run --nnodes=1 --nproc_per_node=$NUM_GPUS --master_port=$MASTER_PORT \
     projects/diff-EqM/eqm-upstream/sample_gd.py \
-    --model EqM-B/2 \
+    --model ${MODEL:-EqM-B/2} \
     --ckpt "$LOCAL_CKPT" \
+    --num-classes ${NUM_CLASSES:-1000} \
     --sampler gd \
     --stepsize 0.003 \
     --num-sampling-steps 250 \
     --cfg-scale 1.0 \
-    --num-fid-samples 50000 \
+    --num-fid-samples ${NUM_FID_SAMPLES:-50000} \
     --folder "$SAMPLES_DIR" \
     2>&1 | tee sample.log
 
