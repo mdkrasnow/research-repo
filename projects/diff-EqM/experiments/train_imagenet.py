@@ -55,7 +55,10 @@ from download import find_model
 from transport import create_transport, Sampler
 from train_utils import parse_transport_args
 from diffusers.models import AutoencoderKL
-import wandb_utils
+try:
+    import wandb_utils
+except ImportError:
+    wandb_utils = None
 
 
 #################################################################################
@@ -373,7 +376,7 @@ def main(args):
 
         entity = os.environ.get("ENTITY", "")
         project = os.environ.get("PROJECT", "")
-        if args.wandb and entity and project:
+        if args.wandb and entity and project and wandb_utils is not None:
             wandb_utils.initialize(args, entity, experiment_name, project)
     else:
         logger = create_logger(None)
@@ -627,7 +630,7 @@ def main(args):
                     })
 
                 logger.info(log_msg)
-                if args.wandb:
+                if args.wandb and wandb_utils is not None:
                     wandb_utils.log(wandb_dict, step=train_steps)
 
                 # Reset monitoring variables
