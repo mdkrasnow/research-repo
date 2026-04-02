@@ -7,8 +7,7 @@
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=32GB
 #SBATCH --time=4:00:00
-#SBATCH --partition=gpu_test
-#SBATCH --gres=gpu:0
+#SBATCH --partition=test
 
 # Download ImageNet-100 to home directory
 # Expected: ~1-2 hours for 17 GB download + conversion
