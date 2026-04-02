@@ -20,7 +20,7 @@ def find_model(model_name):
         return download_model(model_name)
     else:  
         assert os.path.isfile(model_name), f'Could not find EqM checkpoint at {model_name}'
-        checkpoint = torch.load(model_name, map_location=lambda storage, loc: storage)
+        checkpoint = torch.load(model_name, map_location=lambda storage, loc: storage, weights_only=False)
         # if "ema" in checkpoint:  # supports checkpoints from train.py
         #     checkpoint = checkpoint["ema"]
         return checkpoint
