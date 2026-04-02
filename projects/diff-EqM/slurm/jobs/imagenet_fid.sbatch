@@ -110,7 +110,8 @@ cp "$EVALUATOR_PY" "$WORK_DIR/evaluator.py"
 echo "=== Generating 50K samples (4x A100 DDP) ===" >&2
 echo "=== Sampling start time: $(date) ===" >&2
 
-python -m torch.distributed.run --nnodes=1 --nproc_per_node=4 \
+MASTER_PORT=$((29500 + RANDOM % 1000))
+python -m torch.distributed.run --nnodes=1 --nproc_per_node=4 --master_port=$MASTER_PORT \
     projects/diff-EqM/eqm-upstream/sample_gd.py \
     --model EqM-B/2 \
     --ckpt "$LOCAL_CKPT" \

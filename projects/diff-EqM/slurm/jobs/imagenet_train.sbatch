@@ -68,8 +68,11 @@ echo "=== Found $NUM_CLASSES class directories in $IMAGENET_PATH ===" >&2
 # Create results directory
 mkdir -p "$WORK_DIR/$RESULTS_DIR"
 
+# Random port to avoid collisions
+MASTER_PORT=$((29500 + RANDOM % 1000))
+
 # Build training command
-TRAIN_CMD="python -m torch.distributed.run --nnodes=1 --nproc_per_node=4 \
+TRAIN_CMD="python -m torch.distributed.run --nnodes=1 --nproc_per_node=4 --master_port=$MASTER_PORT \
     projects/diff-EqM/experiments/train_imagenet.py \
     --model EqM-B/2 \
     --data-path $IMAGENET_PATH \
