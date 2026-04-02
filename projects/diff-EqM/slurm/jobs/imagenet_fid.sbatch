@@ -48,7 +48,7 @@ git checkout "${GIT_SHA}" 2>&1 | tail -5 || {
 
 # Install dependencies
 echo "=== Installing dependencies ===" >&2
-pip install timm diffusers accelerate scipy torchvision 2>&1 | tail -10
+pip install timm diffusers accelerate scipy torchvision wandb 2>&1 | tail -10
 
 # Configuration
 CHECKPOINT_PATH="${CHECKPOINT_PATH:?ERROR: CHECKPOINT_PATH env var must be set}"
@@ -111,7 +111,9 @@ echo "=== Generating 50K samples (4x A100 DDP) ===" >&2
 echo "=== Sampling start time: $(date) ===" >&2
 
 MASTER_PORT=$((29500 + RANDOM % 1000))
-python -m torch.distributed.run --nnodes=1 --nproc_per_node=4 --master_port=$MASTER_PORT \
+NUM_GPUS=$(nvidia-smi -L | wc -l)
+echo "=== Using $NUM_GPUS GPU(s) for sampling ===" >&2
+python -m torch.distributed.run --nnodes=1 --nproc_per_node=$NUM_GPUS --master_port=$MASTER_PORT \
     projects/diff-EqM/eqm-upstream/sample_gd.py \
     --model EqM-B/2 \
     --ckpt "$LOCAL_CKPT" \
