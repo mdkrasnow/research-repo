@@ -111,7 +111,7 @@ echo "=== Generating 50K samples (4x A100 DDP) ===" >&2
 echo "=== Sampling start time: $(date) ===" >&2
 
 MASTER_PORT=$((29500 + RANDOM % 1000))
-NUM_GPUS=$(nvidia-smi -L | wc -l)
+NUM_GPUS="${NUM_GPUS:-$(python -c 'import torch; print(torch.cuda.device_count())')}"
 echo "=== Using $NUM_GPUS GPU(s) for sampling ===" >&2
 python -m torch.distributed.run --nnodes=1 --nproc_per_node=$NUM_GPUS --master_port=$MASTER_PORT \
     projects/diff-EqM/eqm-upstream/sample_gd.py \
