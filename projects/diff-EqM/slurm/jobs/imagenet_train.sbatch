@@ -69,7 +69,7 @@ echo "=== Found $NUM_CLASSES class directories in $IMAGENET_PATH ===" >&2
 mkdir -p "$WORK_DIR/$RESULTS_DIR"
 
 # Build training command
-TRAIN_CMD="torchrun --nnodes=1 --nproc_per_node=4 \
+TRAIN_CMD="python -m torch.distributed.run --nnodes=1 --nproc_per_node=4 \
     projects/diff-EqM/experiments/train_imagenet.py \
     --model EqM-B/2 \
     --data-path $IMAGENET_PATH \
