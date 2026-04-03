@@ -151,8 +151,9 @@ def estimate_local_geometry(features, k=10, r=None):
         local_mean = neighbors.mean(dim=0)
         centered = neighbors - local_mean  # (k, D)
 
-        # Local covariance
+        # Local covariance with regularization for numerical stability
         cov = (centered.T @ centered) / k  # (D, D)
+        cov = cov + 1e-6 * torch.eye(D, device=device)  # prevent ill-conditioning
 
         # Eigendecomposition (ascending order)
         eigvals, eigvecs = torch.linalg.eigh(cov)
