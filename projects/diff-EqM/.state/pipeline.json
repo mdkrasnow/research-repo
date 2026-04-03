@@ -1,11 +1,11 @@
 {
   "project": "diff-EqM",
   "title": "Differential-Geometry-Guided Adversarial Negative Mining for EqM (DG-ANM)",
-  "phase": "AUTORESEARCH",
+  "phase": "EVALUATION",
   "next_action": {
-    "command": "/autoresearch --project diff-EqM",
-    "reason": "Round 5 complete — winner merged (lr=5e-5, 0.007221). Ready for round 6.",
-    "hint": "Generate next 5 candidates from new baseline (gamma=2.0, lr=5e-5)."
+    "command": "Analyze results and plan next steps",
+    "reason": "ImageNet-100 80-epoch experiments complete. DG-ANM beats vanilla (FID 112.58 vs 121.24).",
+    "hint": "Consider: full ImageNet-1K, longer training, hyperparameter sweep on ImageNet, or paper writeup."
   },
   "needs_user_input": {
     "value": false,
@@ -17,37 +17,48 @@
     {"run_id": "r2_c3_WINNER", "job_id": "2893495", "status": "completed", "metric": 0.016082},
     {"run_id": "r3_c3_WINNER", "job_id": null, "status": "completed", "metric": 0.013018},
     {"run_id": "r4_c1_WINNER", "job_id": null, "status": "completed", "metric": 0.010786},
-    {"run_id": "r5_c5_WINNER", "job_id": null, "status": "completed", "metric": 0.007221}
+    {"run_id": "r5_c5_WINNER", "job_id": null, "status": "completed", "metric": 0.007221},
+    {"run_id": "r6_c3_WINNER", "job_id": null, "status": "completed", "metric": 0.003685},
+    {"run_id": "r8_c4_WINNER", "job_id": null, "status": "completed", "metric": 0.004172},
+    {"run_id": "r9_c2_WINNER", "job_id": null, "status": "completed", "metric": 0.003458},
+    {"run_id": "in100_vanilla_80ep", "job_id": "3261967", "status": "completed", "fid": 121.24},
+    {"run_id": "in100_dganm_80ep", "job_id": "3288599", "status": "completed", "fid": 112.58}
   ],
   "slurm_wait": {
     "next_poll_after": null,
     "poll_interval_seconds": 120
   },
   "autoresearch": {
-    "active": true,
-    "round": 5,
+    "active": false,
+    "round": 9,
     "parallel_candidates": 5,
-    "best_metric": 0.007221,
-    "best_commit": "09045a6",
+    "best_proxy_metric": 0.003458,
+    "best_commit": "2c8c161",
     "baseline_metric": 0.045237,
     "consecutive_failures": 0,
-    "total_rounds": 5,
-    "total_candidates": 22,
-    "total_winners": 4,
-    "total_crashes": 2,
+    "total_rounds": 9,
+    "total_candidates": 43,
+    "total_winners": 7,
+    "total_crashes": 7,
     "started_at": "2026-03-31T20:00:00Z",
-    "last_round_at": "2026-04-01T04:00:00Z",
-    "terminated_reason": null,
-    "fid_jobs": [
-      {
-        "round": 5,
-        "job_id": "2970679",
-        "status": "submitted",
-        "submitted_at": "2026-04-01T07:35:00Z",
-        "proxy_metric": 0.007221,
-        "checkpoint": "projects/diff-EqM/results/baseline/final_model.pt"
-      }
-    ]
+    "last_round_at": "2026-04-01T10:00:00Z",
+    "terminated_reason": "Moved to ImageNet-100 evaluation"
+  },
+  "imagenet_evaluation": {
+    "dataset": "ImageNet-100",
+    "num_classes": 100,
+    "train_images": 117000,
+    "model": "EqM-B/2",
+    "fid_method": "pytorch-fid (Inception V3, custom resize pipeline)",
+    "num_fid_samples": 10000,
+    "sampling": {"sampler": "gd", "stepsize": 0.003, "steps": 250, "cfg_scale": 1.0},
+    "results": {
+      "vanilla_1ep": {"job_id": "3300850", "fid": 297.61, "training_time": "37 min"},
+      "dganm_1ep": {"job_id": "3300849", "fid": 360.02, "training_time": "31 min"},
+      "vanilla_80ep": {"job_id": "3300851", "fid": 121.24, "training_time": "2h17m"},
+      "dganm_80ep": {"job_id": "3319818", "fid": 112.58, "training_time": "4h42m"}
+    },
+    "conclusion": "DG-ANM improves FID by 7.1% at 80 epochs (121.24 → 112.58). Mining adds ~2x training time but produces better generative quality."
   },
   "events": [
     {"id": "evt-0001", "ts": "2026-03-31T18:00:00Z", "action": "INIT", "detail": "Project created."},
@@ -56,6 +67,13 @@
     {"id": "evt-0007", "ts": "2026-04-01T00:00:00Z", "action": "WINNER", "detail": "Round 3: C3 wins (0.013018, -19%). gamma=1.0."},
     {"id": "evt-0008", "ts": "2026-04-01T02:00:00Z", "action": "WINNER", "detail": "Round 4: C1 wins (0.010786, -17%). gamma=2.0."},
     {"id": "evt-0009", "ts": "2026-04-01T04:00:00Z", "action": "WINNER", "detail": "Round 5: C5 wins (0.007221, -33%). lr=5e-5."},
-    {"id": "evt-0010", "ts": "2026-04-01T07:35:00Z", "action": "FID_SUBMITTED", "detail": "FID eval job 2970679 submitted for round 5 winner."}
+    {"id": "evt-0010", "ts": "2026-04-01T06:00:00Z", "action": "WINNER", "detail": "Round 6: C3 wins (0.003685). bs=256 (later invalidated — OOM on MIG)."},
+    {"id": "evt-0011", "ts": "2026-04-01T08:00:00Z", "action": "CRASH", "detail": "Round 7: all 5 OOM on 20GB MIG GPUs with bs=256."},
+    {"id": "evt-0012", "ts": "2026-04-01T09:00:00Z", "action": "WINNER", "detail": "Round 8: C4 wins (0.004172). gamma=4.0 + lr=2e-5."},
+    {"id": "evt-0013", "ts": "2026-04-01T10:00:00Z", "action": "WINNER", "detail": "Round 9: C2 wins (0.003458). lr=1e-5. Best proxy metric."},
+    {"id": "evt-0014", "ts": "2026-04-01T12:00:00Z", "action": "CIFAR_FID", "detail": "CIFAR-10 FID ~450-500 for all models. Pixel-space sampling broken."},
+    {"id": "evt-0015", "ts": "2026-04-02T11:00:00Z", "action": "IMAGENET_SETUP", "detail": "ImageNet-100 downloaded (117K images, 100 classes). EqM-B/2 pipeline built."},
+    {"id": "evt-0016", "ts": "2026-04-02T21:35:00Z", "action": "VANILLA_80EP", "detail": "Vanilla EqM-B/2 80-epoch training complete. FID 121.24."},
+    {"id": "evt-0017", "ts": "2026-04-03T03:17:00Z", "action": "DGANM_80EP", "detail": "DG-ANM EqM-B/2 80-epoch training complete. FID 112.58. 7.1% improvement."}
   ]
 }
