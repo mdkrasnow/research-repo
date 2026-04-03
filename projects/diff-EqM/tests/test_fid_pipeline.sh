@@ -70,13 +70,13 @@ assert len(files) > 0, 'No files found in flat dir!'
 " 2>/dev/null && pass "pytorch-fid finds files in flat dir" || fail "pytorch-fid can't find files in flat dir"
 rm -rf "$TEST_FLAT"
 
-echo "1.5 pytorch-fid end-to-end with tiny sample"
+echo "1.5 pytorch-fid end-to-end with num_workers=0 (PyTorch 2.9 fix)"
 python -c "
 import torch, tempfile, os
 from PIL import Image
 import numpy as np
 
-# Create 2 tiny dirs with random 256x256 images
+# Create 2 tiny dirs with random images
 dir1 = tempfile.mkdtemp()
 dir2 = tempfile.mkdtemp()
 for i in range(10):
@@ -85,17 +85,17 @@ for i in range(10):
     img = Image.fromarray(np.random.randint(0, 255, (64, 64, 3), dtype=np.uint8))
     img.save(os.path.join(dir2, f'{i:06d}.png'))
 
-# Run pytorch-fid
+# Run pytorch-fid with num_workers=0 (critical for PyTorch 2.9)
 from pytorch_fid.fid_score import calculate_fid_given_paths
-fid = calculate_fid_given_paths([dir1, dir2], batch_size=10, device='cpu', dims=2048)
-print(f'  FID between random images: {fid:.1f}')
+fid = calculate_fid_given_paths([dir1, dir2], batch_size=10, device='cpu', dims=2048, num_workers=0)
+print(f'  FID between random images: {fid:.1f} (num_workers=0)')
 assert not np.isnan(fid), 'FID is NaN'
 assert fid > 0, 'FID should be positive for random images'
 
 import shutil
 shutil.rmtree(dir1)
 shutil.rmtree(dir2)
-" 2>/dev/null && pass "pytorch-fid end-to-end works" || fail "pytorch-fid end-to-end fails"
+" 2>/dev/null && pass "pytorch-fid end-to-end works (num_workers=0)" || fail "pytorch-fid end-to-end fails"
 
 # ============================================================
 echo ""
