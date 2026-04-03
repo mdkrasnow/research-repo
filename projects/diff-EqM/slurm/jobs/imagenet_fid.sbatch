@@ -149,16 +149,73 @@ echo "=== Computing FID with pytorch-fid ===" >&2
 echo "=== Samples: $SAMPLE_COUNT PNGs, Reference: $REF_COUNT images ===" >&2
 echo "=== FID start time: $(date) ===" >&2
 
-# Use python script instead of CLI to control num_workers (PyTorch 2.9 DataLoader bug)
+# Custom FID computation that handles variable-sized images
+# pytorch-fid's default ImagePathDataset doesn't resize, causing collation errors
 python -c "
-from pytorch_fid.fid_score import calculate_fid_given_paths
-fid = calculate_fid_given_paths(
-    ['$SAMPLES_DIR', '$FLAT_REF'],
-    batch_size=64,
-    device='cuda',
-    dims=2048,
-    num_workers=0  # avoid shared memory DataLoader bug in PyTorch 2.9
-)
+import torch
+import numpy as np
+from pytorch_fid.inception import InceptionV3
+from pytorch_fid.fid_score import calculate_frechet_distance
+from torchvision import transforms
+from PIL import Image
+import pathlib
+import os
+
+device = torch.device('cuda')
+dims = 2048
+batch_size = 64
+
+# Load Inception
+block_idx = InceptionV3.BLOCK_INDEX_BY_DIM[dims]
+model = InceptionV3([block_idx]).to(device)
+model.eval()
+
+# Transform: resize to 299x299 (Inception input size)
+transform = transforms.Compose([
+    transforms.Resize((299, 299)),
+    transforms.ToTensor(),
+])
+
+def get_activations(image_dir, model, transform, batch_size, device):
+    \"\"\"Compute Inception activations for all images in a directory.\"\"\"
+    IMAGE_EXTS = {'.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.webp'}
+    path = pathlib.Path(image_dir)
+    files = sorted([f for f in path.iterdir() if f.suffix.lower() in IMAGE_EXTS])
+    print(f'  Found {len(files)} images in {image_dir}')
+
+    all_acts = []
+    for i in range(0, len(files), batch_size):
+        batch_files = files[i:i+batch_size]
+        imgs = []
+        for f in batch_files:
+            try:
+                img = Image.open(f).convert('RGB')
+                imgs.append(transform(img))
+            except Exception as e:
+                print(f'  Warning: skipping {f}: {e}')
+                continue
+        if not imgs:
+            continue
+        batch = torch.stack(imgs).to(device)
+        with torch.no_grad():
+            pred = model(batch)[0]
+        if pred.size(2) != 1 or pred.size(3) != 1:
+            pred = torch.nn.functional.adaptive_avg_pool2d(pred, output_size=(1, 1))
+        all_acts.append(pred.squeeze(-1).squeeze(-1).cpu().numpy())
+        if (i // batch_size) % 50 == 0:
+            print(f'  Processed {min(i+batch_size, len(files))}/{len(files)} images')
+
+    return np.concatenate(all_acts, axis=0)
+
+print('Computing activations for generated samples...')
+act1 = get_activations('$SAMPLES_DIR', model, transform, batch_size, device)
+mu1, sigma1 = np.mean(act1, axis=0), np.cov(act1, rowvar=False)
+
+print('Computing activations for reference images...')
+act2 = get_activations('$FLAT_REF', model, transform, batch_size, device)
+mu2, sigma2 = np.mean(act2, axis=0), np.cov(act2, rowvar=False)
+
+fid = calculate_frechet_distance(mu1, sigma1, mu2, sigma2)
 print(f'FID: {fid:.4f}')
 " 2>&1 | tee fid.log
 
