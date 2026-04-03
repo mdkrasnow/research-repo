@@ -149,10 +149,18 @@ echo "=== Computing FID with pytorch-fid ===" >&2
 echo "=== Samples: $SAMPLE_COUNT PNGs, Reference: $REF_COUNT images ===" >&2
 echo "=== FID start time: $(date) ===" >&2
 
-python -m pytorch_fid "$SAMPLES_DIR" "$FLAT_REF" \
-    --batch-size 64 \
-    --device cuda \
-    2>&1 | tee fid.log
+# Use python script instead of CLI to control num_workers (PyTorch 2.9 DataLoader bug)
+python -c "
+from pytorch_fid.fid_score import calculate_fid_given_paths
+fid = calculate_fid_given_paths(
+    ['$SAMPLES_DIR', '$FLAT_REF'],
+    batch_size=64,
+    device='cuda',
+    dims=2048,
+    num_workers=0  # avoid shared memory DataLoader bug in PyTorch 2.9
+)
+print(f'FID: {fid:.4f}')
+" 2>&1 | tee fid.log
 
 FID_EXIT=${PIPESTATUS[0]}
 echo "=== FID exit code: $FID_EXIT ===" >&2
