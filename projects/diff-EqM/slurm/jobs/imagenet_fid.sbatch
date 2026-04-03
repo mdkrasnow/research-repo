@@ -10,9 +10,11 @@
 #SBATCH --partition=gpu
 #SBATCH --gres=gpu:4
 
-# FID evaluation for EqM-B/2 on ImageNet 256x256
-# Generates 50K samples with DDP (4x A100), then computes FID with ADM evaluator
-# Expected: ~2-3h sampling + ~30min FID computation
+# FID evaluation for EqM-B/2 on ImageNet-100
+# Generates samples with DDP, then computes FID with pytorch-fid
+#
+# Required env vars: CHECKPOINT_PATH, GIT_SHA
+# Optional: NUM_GPUS, NUM_CLASSES, NUM_FID_SAMPLES, SAMPLE_BATCH_SIZE, IMAGENET_REF
 
 set -euo pipefail
 
@@ -53,16 +55,17 @@ pip install timm diffusers accelerate scipy torchvision wandb pytorch-fid 2>&1 |
 # Configuration
 CHECKPOINT_PATH="${CHECKPOINT_PATH:?ERROR: CHECKPOINT_PATH env var must be set}"
 REPO_ROOT="/n/home03/mkrasnow/research-repo"
-PERSISTENT_CACHE="$REPO_ROOT/projects/diff-EqM/results/.cache"
 SAMPLES_DIR="$WORK_DIR/samples"
+NUM_FID_SAMPLES="${NUM_FID_SAMPLES:-50000}"
+SAMPLE_BATCH_SIZE="${SAMPLE_BATCH_SIZE:-64}"
+NUM_CLASSES="${NUM_CLASSES:-1000}"
+IMAGENET_REF="${IMAGENET_REF:-/n/home03/mkrasnow/imagenet100/train}"
 
 mkdir -p "$SAMPLES_DIR"
-mkdir -p "$PERSISTENT_CACHE"
 
-# === STEP 1: Sync checkpoint from persistent storage ===
-echo "=== Syncing checkpoint: $CHECKPOINT_PATH ===" >&2
+# === STEP 1: Resolve checkpoint path ===
+echo "=== Resolving checkpoint: $CHECKPOINT_PATH ===" >&2
 if [ ! -f "$CHECKPOINT_PATH" ]; then
-    # Try relative to persistent storage
     FULL_CKPT="$REPO_ROOT/$CHECKPOINT_PATH"
     if [ -f "$FULL_CKPT" ]; then
         CHECKPOINT_PATH="$FULL_CKPT"
@@ -72,58 +75,52 @@ if [ ! -f "$CHECKPOINT_PATH" ]; then
     fi
 fi
 
-# Copy checkpoint to work directory for faster access
 LOCAL_CKPT="$WORK_DIR/checkpoint.pt"
 cp "$CHECKPOINT_PATH" "$LOCAL_CKPT"
 echo "=== Checkpoint copied to $LOCAL_CKPT ($(du -h "$LOCAL_CKPT" | cut -f1)) ===" >&2
 
-# === STEP 2: Download/cache ImageNet reference stats ===
-REF_STATS="$PERSISTENT_CACHE/VIRTUAL_imagenet256_labeled.npz"
-if [ ! -f "$REF_STATS" ]; then
-    echo "=== Downloading ImageNet 256x256 reference stats (one-time) ===" >&2
-    wget -q -O "$REF_STATS" \
-        "https://openaipublic.blob.core.windows.net/diffusion/jul-2021/ref_batches/imagenet/256/VIRTUAL_imagenet256_labeled.npz" \
-        || { echo "ERROR: Failed to download reference stats"; exit 1; }
-    echo "=== Reference stats downloaded ($(du -h "$REF_STATS" | cut -f1)) ===" >&2
-else
-    echo "=== Using cached reference stats ===" >&2
+# === STEP 2: Flatten reference images for pytorch-fid ===
+# pytorch-fid only searches one level deep (path.glob('*.ext'), not recursive)
+# ImageNet-100 has nested structure: train/class_000/*.jpg
+# Create a flat directory of symlinks for the reference set
+echo "=== Preparing flat reference directory for pytorch-fid ===" >&2
+FLAT_REF="$WORK_DIR/ref_flat"
+mkdir -p "$FLAT_REF"
+
+# Create symlinks (fast, no disk usage)
+find "$IMAGENET_REF" -type f \( -name "*.jpg" -o -name "*.jpeg" -o -name "*.png" \) | while read f; do
+    # Use unique name: classdir_filename
+    CLASSDIR=$(basename "$(dirname "$f")")
+    FNAME=$(basename "$f")
+    ln -s "$f" "$FLAT_REF/${CLASSDIR}_${FNAME}"
+done
+
+REF_COUNT=$(ls "$FLAT_REF" | wc -l)
+echo "=== Flat reference: $REF_COUNT images ===" >&2
+if [ "$REF_COUNT" -eq 0 ]; then
+    echo "ERROR: No reference images found in $IMAGENET_REF" >&2
+    exit 1
 fi
 
-# Copy reference stats to work dir
-cp "$REF_STATS" "$WORK_DIR/VIRTUAL_imagenet256_labeled.npz"
-
-# === STEP 3: Download/cache ADM evaluator ===
-EVALUATOR_PY="$PERSISTENT_CACHE/evaluator.py"
-if [ ! -f "$EVALUATOR_PY" ]; then
-    echo "=== Downloading ADM evaluator.py ===" >&2
-    wget -q -O "$EVALUATOR_PY" \
-        "https://raw.githubusercontent.com/openai/guided-diffusion/main/evaluations/evaluator.py" \
-        || { echo "ERROR: Failed to download evaluator.py"; exit 1; }
-    echo "=== ADM evaluator downloaded ===" >&2
-else
-    echo "=== Using cached ADM evaluator ===" >&2
-fi
-
-cp "$EVALUATOR_PY" "$WORK_DIR/evaluator.py"
-
-# === STEP 4: Generate 50K samples with DDP ===
-echo "=== Generating 50K samples (4x A100 DDP) ===" >&2
+# === STEP 3: Generate samples with DDP ===
+echo "=== Generating $NUM_FID_SAMPLES samples ===" >&2
 echo "=== Sampling start time: $(date) ===" >&2
 
 MASTER_PORT=$((29500 + RANDOM % 1000))
 NUM_GPUS="${NUM_GPUS:-$(python -c 'import torch; print(torch.cuda.device_count())')}"
-echo "=== Using $NUM_GPUS GPU(s) for sampling ===" >&2
+echo "=== Using $NUM_GPUS GPU(s), batch_size=$SAMPLE_BATCH_SIZE ===" >&2
+
 python -m torch.distributed.run --nnodes=1 --nproc_per_node=$NUM_GPUS --master_port=$MASTER_PORT \
     projects/diff-EqM/eqm-upstream/sample_gd.py \
     --model ${MODEL:-EqM-B/2} \
     --ckpt "$LOCAL_CKPT" \
-    --num-classes ${NUM_CLASSES:-1000} \
+    --num-classes $NUM_CLASSES \
     --sampler gd \
     --stepsize 0.003 \
     --num-sampling-steps 250 \
     --cfg-scale 1.0 \
-    --global-batch-size ${SAMPLE_BATCH_SIZE:-64} \
-    --num-fid-samples ${NUM_FID_SAMPLES:-50000} \
+    --global-batch-size $SAMPLE_BATCH_SIZE \
+    --num-fid-samples $NUM_FID_SAMPLES \
     --folder "$SAMPLES_DIR" \
     2>&1 | tee sample.log
 
@@ -137,34 +134,22 @@ if [ $SAMPLE_EXIT -ne 0 ]; then
     exit $SAMPLE_EXIT
 fi
 
-# Check that samples.npz was generated
-# Upstream creates ${folder}.npz in the parent directory of --folder
-SAMPLES_NPZ="${SAMPLES_DIR}.npz"
-if [ ! -f "$SAMPLES_NPZ" ]; then
-    SAMPLES_NPZ="$SAMPLES_DIR/samples.npz"
+# Verify samples were generated
+SAMPLE_COUNT=$(find "$SAMPLES_DIR" -name "*.png" -type f | wc -l)
+echo "=== Generated $SAMPLE_COUNT PNG samples ===" >&2
+if [ "$SAMPLE_COUNT" -eq 0 ]; then
+    echo "ERROR: No PNG samples generated in $SAMPLES_DIR" >&2
+    ls -la "$SAMPLES_DIR/" >&2
+    exit 1
 fi
-if [ ! -f "$SAMPLES_NPZ" ]; then
-    SAMPLES_NPZ=$(find "$WORK_DIR" -name "*.npz" -not -name "VIRTUAL*" -type f | head -1)
-    if [ -z "$SAMPLES_NPZ" ]; then
-        echo "ERROR: No .npz file found after sampling" >&2
-        find "$WORK_DIR" -name "*.npz" -type f >&2
-        ls -la "$SAMPLES_DIR/" >&2
-        exit 1
-    fi
-fi
-echo "=== Samples file: $SAMPLES_NPZ ($(du -h "$SAMPLES_NPZ" | cut -f1)) ===" >&2
 
-# === STEP 5: Compute FID with pytorch-fid ===
-# pytorch-fid computes FID between a folder of PNGs and a reference dataset/folder
-# For ImageNet, we compute against the training set images
+# === STEP 4: Compute FID with pytorch-fid ===
+# pytorch-fid compares two flat directories of images
 echo "=== Computing FID with pytorch-fid ===" >&2
+echo "=== Samples: $SAMPLE_COUNT PNGs, Reference: $REF_COUNT images ===" >&2
 echo "=== FID start time: $(date) ===" >&2
 
-# pytorch-fid can compare two folders of images directly
-# Use the ImageNet training data as reference
-IMAGENET_REF="${IMAGENET_REF:-/n/home03/mkrasnow/imagenet100/train}"
-
-python -m pytorch_fid "$SAMPLES_DIR" "$IMAGENET_REF" \
+python -m pytorch_fid "$SAMPLES_DIR" "$FLAT_REF" \
     --batch-size 64 \
     --device cuda \
     2>&1 | tee fid.log
@@ -178,13 +163,14 @@ echo "=== FID RESULTS ===" >&2
 grep -i "fid" fid.log || echo "(no FID line found in output)" >&2
 echo "==================" >&2
 
-# === STEP 6: Sync results back ===
+# === STEP 5: Sync results back ===
 echo "=== Syncing results ===" >&2
 RESULTS_OUT="$REPO_ROOT/projects/diff-EqM/results/imagenet_fid_${SLURM_JOB_ID}"
 mkdir -p "$RESULTS_OUT"
 cp fid.log "$RESULTS_OUT/" 2>/dev/null || true
 cp sample.log "$RESULTS_OUT/" 2>/dev/null || true
-cp "$SAMPLES_NPZ" "$RESULTS_OUT/" 2>/dev/null || true
+# Don't copy the npz (too large) — keep it in samples dir description
+echo "Samples: $SAMPLE_COUNT, Reference: $REF_COUNT" > "$RESULTS_OUT/summary.txt"
 cp sample.log "$REPO_ROOT/projects/diff-EqM/slurm/logs/imagenet_fid_${SLURM_JOB_ID}_sample.log" 2>/dev/null || true
 cp fid.log "$REPO_ROOT/projects/diff-EqM/slurm/logs/imagenet_fid_${SLURM_JOB_ID}_fid.log" 2>/dev/null || true
 
