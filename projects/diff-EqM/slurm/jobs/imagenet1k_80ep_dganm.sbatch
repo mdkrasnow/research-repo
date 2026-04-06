@@ -47,7 +47,7 @@ echo "=== Installing dependencies ===" >&2
 pip install timm diffusers accelerate scipy torchvision 2>&1 | tail -10
 
 # ImageNet-1K (pre-resized 256x256)
-IMAGENET_PATH="/n/netscratch/kempner_alvarez_lab/datasets/imagenet1k-256/train"
+IMAGENET_PATH="/n/holylabs/ydu_lab/Lab/raywang4/imagenet/train"
 RESULTS_DIR="projects/diff-EqM/results/imagenet1k_80ep_dganm"
 REPO_ROOT="/n/home03/mkrasnow/research-repo"
 
