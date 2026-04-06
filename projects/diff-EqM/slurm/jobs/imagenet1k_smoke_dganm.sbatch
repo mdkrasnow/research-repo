@@ -6,8 +6,8 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=64GB
-#SBATCH --time=4:00:00
-#SBATCH --partition=gpu_test
+#SBATCH --time=14:00:00
+#SBATCH --partition=gpu
 #SBATCH --gres=gpu:1
 
 # Smoke test: 1-epoch DG-ANM EqM-B/2 on full ImageNet-1K 256x256 (single GPU)
