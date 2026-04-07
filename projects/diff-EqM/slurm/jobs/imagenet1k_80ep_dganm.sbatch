@@ -78,6 +78,14 @@ TRAIN_CMD="python -m torch.distributed.run --nnodes=1 --nproc_per_node=4 --maste
     --neg-margin 5.0 \
     --mine-every 5"
 
+# Resume from checkpoint if provided
+if [ -n "${RESUME_CKPT:-}" ] && [ -f "$RESUME_CKPT" ]; then
+    echo "=== Resuming from checkpoint: $RESUME_CKPT ===" >&2
+    LOCAL_CKPT="$WORK_DIR/resume_ckpt.pt"
+    cp "$RESUME_CKPT" "$LOCAL_CKPT"
+    TRAIN_CMD="$TRAIN_CMD --ckpt $LOCAL_CKPT"
+fi
+
 echo "=== Mining ENABLED (gamma=4.0, epsilon=0.3, steps=3, margin=5.0, mine-every=5) ===" >&2
 echo "=== Starting 80-epoch training on ImageNet-1K ===" >&2
 echo "=== Command: $TRAIN_CMD ===" >&2

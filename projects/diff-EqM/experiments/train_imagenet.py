@@ -397,6 +397,8 @@ def main(args):
     opt = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=0)
 
     # Load checkpoint if provided
+    resume_epoch = 0
+    resume_step = 0
     if args.ckpt is not None:
         ckpt_path = args.ckpt
         state_dict = find_model(ckpt_path)
@@ -404,6 +406,9 @@ def main(args):
             model.load_state_dict(state_dict["model"])
             ema.load_state_dict(state_dict["ema"])
             opt.load_state_dict(state_dict["opt"])
+            resume_epoch = state_dict.get("epoch", 0)
+            resume_step = state_dict.get("train_steps", 0)
+            logger.info(f"Resuming from epoch {resume_epoch}, step {resume_step}")
         else:
             model.load_state_dict(state_dict)
             ema.load_state_dict(state_dict)
@@ -465,7 +470,7 @@ def main(args):
     ema.eval()
 
     # Monitoring variables
-    train_steps = 0
+    train_steps = resume_step
     log_steps = 0
     running_loss = 0
     running_loss_base = 0
@@ -493,8 +498,8 @@ def main(args):
     # Cache for mined negatives (for mine_every > 1)
     cached_x_neg = None
 
-    logger.info(f"Training for {args.epochs} epochs...")
-    for epoch in range(args.epochs):
+    logger.info(f"Training for {args.epochs} epochs (resuming from epoch {resume_epoch})...")
+    for epoch in range(resume_epoch, args.epochs):
         sampler.set_epoch(epoch)
         logger.info(f"Beginning epoch {epoch}...")
         for x, y in loader:
