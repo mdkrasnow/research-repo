@@ -12,7 +12,8 @@
 
 # Full 80-epoch DG-ANM EqM-B/2 on ImageNet-1K 256x256 (4x GPU DDP)
 # DG-ANM params from autoresearch best: gamma=4.0, epsilon=0.3, steps=3
-# Expected: ~40-48h for 80 epochs (mining adds ~20% overhead)
+# ~94h total at 1.18 steps/sec. 72h limit means we need checkpoint resumption.
+# Checkpoints sync to persistent storage every 30min + on SIGTERM.
 
 set -euo pipefail
 
@@ -58,7 +59,40 @@ fi
 FOUND_CLASSES=$(ls -d "$IMAGENET_PATH"/*/ 2>/dev/null | wc -l)
 echo "=== Found $FOUND_CLASSES class directories in $IMAGENET_PATH ===" >&2
 
+PERSISTENT_RESULTS="$REPO_ROOT/projects/diff-EqM/results/imagenet1k_80ep_dganm"
 mkdir -p "$WORK_DIR/$RESULTS_DIR"
+mkdir -p "$PERSISTENT_RESULTS"
+
+# --- Periodic checkpoint sync to persistent storage ---
+sync_checkpoints() {
+    if [ -d "$WORK_DIR/$RESULTS_DIR" ]; then
+        rsync -a --include='*/' --include='*.pt' --exclude='*' \
+            "$WORK_DIR/$RESULTS_DIR/" "$PERSISTENT_RESULTS/" 2>/dev/null || true
+        echo "=== Synced checkpoints to persistent storage at $(date) ===" >&2
+    fi
+}
+
+# Background sync loop: every 30 minutes
+(
+    while true; do
+        sleep 1800
+        sync_checkpoints
+    done
+) &
+SYNC_PID=$!
+
+# Trap SIGTERM (sent by SLURM before kill) to save checkpoints
+CLEANED_UP=0
+cleanup() {
+    [ $CLEANED_UP -eq 1 ] && return
+    CLEANED_UP=1
+    echo "=== Caught signal, syncing checkpoints before exit ===" >&2
+    sync_checkpoints
+    cp "$WORK_DIR/train.log" "$REPO_ROOT/projects/diff-EqM/slurm/logs/imagenet1k_80ep_dganm_${SLURM_JOB_ID}.log" 2>/dev/null || true
+    kill $SYNC_PID 2>/dev/null || true
+    echo "=== Cleanup done at $(date) ===" >&2
+}
+trap cleanup SIGTERM SIGINT EXIT
 
 MASTER_PORT=$((29500 + RANDOM % 1000))
 
@@ -71,6 +105,7 @@ TRAIN_CMD="python -m torch.distributed.run --nnodes=1 --nproc_per_node=4 --maste
     --epochs 80 \
     --image-size 256 \
     --results-dir $RESULTS_DIR \
+    --ckpt-every 25000 \
     --use-mining \
     --gamma 4.0 \
     --mining-epsilon 0.3 \
@@ -93,15 +128,16 @@ echo "=== Start time: $(date) ===" >&2
 echo "=== Job ID: $SLURM_JOB_ID ===" >&2
 echo "=== Node: $(hostname) ===" >&2
 
+set +e
 eval $TRAIN_CMD 2>&1 | tee train.log
-
 TRAIN_EXIT=${PIPESTATUS[0]}
+set -e
 echo "=== Training exit code: $TRAIN_EXIT ===" >&2
 echo "=== Training end time: $(date) ===" >&2
 
-echo "=== Syncing results to persistent storage ===" >&2
-mkdir -p "$REPO_ROOT/projects/diff-EqM/results/"
-rsync -av "$WORK_DIR/$RESULTS_DIR/" "$REPO_ROOT/projects/diff-EqM/results/imagenet1k_80ep_dganm/" 2>&1 | tail -20
+# Final sync (full results, not just checkpoints)
+echo "=== Final sync to persistent storage ===" >&2
+rsync -av "$WORK_DIR/$RESULTS_DIR/" "$PERSISTENT_RESULTS/" 2>&1 | tail -20
 cp train.log "$REPO_ROOT/projects/diff-EqM/slurm/logs/imagenet1k_80ep_dganm_${SLURM_JOB_ID}.log" 2>/dev/null || true
 
 echo "=== Cleaning up work directory ===" >&2
