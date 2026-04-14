@@ -7,7 +7,7 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=128GB
 #SBATCH --time=1:30:00
-#SBATCH --partition=gpu
+#SBATCH --partition=seas_gpu
 #SBATCH --gres=gpu:4
 
 # Autoresearch pilot for DG-ANM on ImageNet-100 (4x GPU DDP)
