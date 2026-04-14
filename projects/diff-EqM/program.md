@@ -1,83 +1,90 @@
-# program.md — Autoresearch Governance for DG-ANM-EqM
+# program.md — Autoresearch Governance for DG-ANM-EqM (ImageNet-100 FID Proxy)
 #
 # This file governs autonomous experiment iteration for the diff-EqM project.
 # The agent reads this at the start of each iteration to decide what to try next.
 # Human writes this file; agent writes code.
 #
-# Hypothesis: EqM can be improved by mining adversarial negatives in geometrically
-# meaningful off-manifold directions (normal space), using trajectory failure as
-# the hardness signal.
+# Hypothesis: DG-ANM (adversarial mining of off-manifold negatives) can be further
+# improved beyond the autoresearch-found gamma=4.0, eps=0.3 config. We evaluate on
+# a fast 2-epoch IN-100 FID proxy — directly what we care about, unlike the earlier
+# CIFAR recovery-distance proxy which may not transfer to ImageNet FID.
+#
+# Previous CIFAR autoresearch: 0.045237 → 0.003458 (9 rounds) → translated to FID
+# 112.58 on full 80ep IN-100. This new loop targets the IN-100 FID directly.
 
 ## Objective
 
-metric: short_horizon_recovery_distance
+metric: imagenet100_fid
 direction: minimize
-eval_command: "python projects/diff-EqM/experiments/evaluate.py --config projects/diff-EqM/configs/eval.json"
-eval_grep: "^short_horizon_recovery_distance:"
+eval_command: "bash projects/diff-EqM/slurm/jobs/autoresearch_in100_pilot.sbatch"  # Submitted via sbatch with CONFIG_PATH env var
+eval_grep: "^imagenet100_fid:"
 
 ## Baseline
 
-baseline: 0.045237
-best_so_far: 0.004172
-best_commit: ea50dc7
+# Baseline FID: to be measured by running the baseline config (gamma=4.0 current best)
+# through the pilot once. Updated after first baseline run completes.
+baseline: null
+best_so_far: null
+best_commit: null
 
 ## Constraints
 
-max_runtime_seconds: 600
-max_slurm_minutes: 30
+max_runtime_seconds: 5400   # 90 min per pilot (train 2ep IN-100 4-GPU + sample 5K + FID)
+max_slurm_minutes: 90
 files_allowed:
-  - projects/diff-EqM/experiments/train_dganm.py
-  - projects/diff-EqM/configs/*.json
+  - projects/diff-EqM/experiments/train_imagenet.py
+  - projects/diff-EqM/configs/autoresearch_in100_*.json
 files_readonly:
   - projects/diff-EqM/program.md
-  - projects/diff-EqM/experiments/evaluate.py
+  - projects/diff-EqM/slurm/jobs/autoresearch_in100_pilot.sbatch
+  - projects/diff-EqM/slurm/jobs/compute_in100_reference_stats.sbatch
   - projects/diff-EqM/eqm-upstream/
+  - projects/diff-EqM/results/in100_reference_stats.npz
 partition: gpu_test
-pilot_steps: 1
-full_steps: 80
+pilot_epochs: 2
+full_epochs: 80   # Full-scale confirmation runs (on winners only)
+num_fid_samples_pilot: 5000
+num_fid_samples_full: 50000
 
 ## Hypothesis Generation
 
 exploration_dimensions:
-  - mining_loss_weights        # lambda_N, lambda_T, lambda_W, lambda_A, lambda_R balance
-  - mining_budget              # epsilon (perturbation radius), T (ascent steps)
-  - trajectory_rollout         # L (rollout length), step size for short-horizon EqM descent
-  - geometry_estimation        # k (neighbors for PCA), r (tangent rank), feature layer choice
-  - negative_loss_design       # margin m, rho, tau weights in L_neg
-  - training_hyperparameters   # gamma (neg loss weight), learning rate, batch size
-  - architecture               # Which EqM-E variant (none/dot/l2), c(t) schedule
+  - mining_strength       # gamma (weight of negative loss): try 2.0, 3.0, 4.0, 5.0, 8.0
+  - mining_budget         # epsilon (perturbation radius): 0.1, 0.2, 0.3, 0.5
+  - mining_search         # mining_steps (PGA ascent steps): 1, 3, 5, 7
+  - mining_schedule       # mine_every (how often to mine negatives): 1, 3, 5, 10
+  - negative_margin       # neg_margin: 1.0, 3.0, 5.0, 10.0
+  - learning_rate         # lr: 5e-5, 1e-4, 2e-4
+  - batch_size            # global_batch_size: 128, 256, 512 (larger batches may stabilize mining)
 
 strategy: |
-  1. First iteration: run baseline EqM-S/2 on CIFAR-10 (1 epoch) with NO mining.
-     This establishes the baseline short_horizon_recovery_distance.
-  2. Add simplest mining: random normal-space perturbations with L_weak only.
-     If this improves recovery, geometry matters. If not, check geometry estimation.
-  3. Add adversarial search (PGA on mining objective) one component at a time:
-     L_normal → L_weak → L_align → L_traj. Each in isolation first.
-  4. Once individual components validated, combine the best subset.
-  5. Sweep mining budget (epsilon, T) to find sweet spot.
-  6. Sweep trajectory rollout length L.
-  7. Sweep negative loss weight gamma.
-  8. ONE change per experiment. Never modify multiple dimensions simultaneously.
-  9. If 3 consecutive failures on a dimension, move to next dimension.
-  10. Read results.tsv to avoid repeating failed approaches.
+  1. Measure baseline FID with current best config (gamma=4.0, eps=0.3, etc).
+  2. One-dimension-at-a-time sweeps on the 7 exploration dimensions above.
+     Start with mining_strength (gamma) since it had the biggest effect in CIFAR rounds.
+  3. Each round: 3 parallel candidates exploring one dimension.
+  4. KEEP rule: a candidate is kept if its FID is >= 1.0 FID points lower than baseline
+     (this accounts for FID noise on 5K samples, which is typically ±1-2).
+  5. After 1-dim sweeps converge, do 2-dim combinations of winning dimensions.
+  6. ONE change per experiment. Never modify multiple dimensions simultaneously.
+  7. If 3 consecutive failures on a dimension, move to the next.
+  8. Read results.tsv to avoid repeating failed approaches.
 
 ## Ratchet Rules
 
-keep_threshold: 0.0
+keep_threshold: 1.0           # Must improve by at least 1.0 FID (signal > noise)
 revert_on_regression: true
 revert_on_crash: true
 max_consecutive_failures: 10
 simplicity_preference: true
-parallel_candidates: 5
+parallel_candidates: 3        # 3 × 4 GPUs = 12 GPUs concurrent
 
 ## Termination
 
-max_iterations: 100
-target_metric: null
-max_wall_hours: 24
+max_iterations: 30            # ~30h wall-clock at 3 parallel × 1h per candidate
+target_metric: null           # No specific target; best-effort improvement
+max_wall_hours: 48
 stop_on_plateau: true
-plateau_window: 15
+plateau_window: 10
 
 ## Execution Mode
 
@@ -85,19 +92,30 @@ mode: slurm
 
 ## Notes
 
-# Stage 1: CIFAR-10 with EqM-S/2 (smallest model, ~6M params, single A100)
-# Pilot runs: 1 epoch of CIFAR-10 (~5 min on A100)
-# Primary metric: short_horizon_recovery_distance (avg feature-space distance
-#   after L EqM gradient descent steps from mined negatives back toward anchor)
-# Lower = better (EqM field more effectively restores off-manifold points)
+# Proxy metric: IN-100 FID at 2 epochs, 5K samples.
+# Absolute values will be HIGH (1-epoch runs on IN-100 previously got ~360 FID;
+# 2 epochs should be lower but still far from the 80ep FID of 112). What matters
+# is relative ordering and improvement delta.
 #
-# The evaluation script (evaluate.py) is IMMUTABLE during autoresearch.
-# It loads the trained model, generates mined negatives in normal space,
-# runs L steps of EqM GD from each negative, and measures avg return distance.
+# Data source: ~/in100_subset/ (symlinks to first 100 IN-1K classes alphabetically,
+# 129,395 training images). This is a deterministic subset — not the canonical
+# Tian et al. IN-100 — but it's self-consistent for the autoresearch loop.
 #
-# Feature space for geometry estimation: EqM's own intermediate activations
-# (self-supervised, no external feature extractor needed for CIFAR-10).
+# Reference FID stats: 10K real images (100 per class) precomputed in
+# results/in100_reference_stats.npz. IMMUTABLE once computed.
 #
-# Key design: train_dganm.py contains ALL modifiable training logic.
-# configs/*.json contain all hyperparameters.
-# evaluate.py is the immutable evaluation oracle.
+# Training is 4-GPU DDP (EqM-B/2, bs=256, 2 epochs ≈ ~900 steps ≈ ~7 min).
+# Sampling 5K images: ~3 min.
+# FID compute: ~1 min.
+# Total per pilot: ~15 min wall-clock (plus queue wait).
+#
+# IMPORTANT: the autoresearch_in100_pilot.sbatch is IMMUTABLE. It:
+#   1. Clones repo at candidate's SHA
+#   2. Parses candidate's config JSON for training args
+#   3. Trains for 2 epochs on IN-100 subset
+#   4. Samples 5K images with GD sampler (stepsize=0.003, 250 steps, cfg=1.0)
+#   5. Computes FID against precomputed reference stats
+#   6. Prints "imagenet100_fid: <value>" to stdout (grepped by autoresearch)
+#
+# Candidates modify train_imagenet.py (new training/mining logic) and/or their
+# autoresearch_in100_*.json config (hyperparameters).
