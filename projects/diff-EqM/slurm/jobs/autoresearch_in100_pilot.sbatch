@@ -3,12 +3,12 @@
 #SBATCH --output=slurm/logs/eqm-in100-pilot_%A.out
 #SBATCH --error=slurm/logs/eqm-in100-pilot_%A.err
 #SBATCH --nodes=1
-#SBATCH --ntasks-per-node=4
+#SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=8
-#SBATCH --mem=128GB
-#SBATCH --time=1:30:00
-#SBATCH --partition=seas_gpu
-#SBATCH --gres=gpu:4
+#SBATCH --mem=64GB
+#SBATCH --time=2:00:00
+#SBATCH --partition=gpu_test
+#SBATCH --gres=gpu:1
 
 # Autoresearch pilot for DG-ANM on ImageNet-100 (4x GPU DDP)
 # Trains for 2 epochs, samples 5K images, computes FID against precomputed ref stats.
@@ -99,7 +99,7 @@ echo "=== STEP 1: Training 2 epochs on IN-100 ===" >&2
 echo "=== Config: $CONFIG_PATH, extra args: $EXTRA_ARGS ===" >&2
 
 TRAIN_START=$(date +%s)
-python -m torch.distributed.run --nnodes=1 --nproc_per_node=4 --master_port=$MASTER_PORT \
+python -m torch.distributed.run --nnodes=1 --nproc_per_node=1 --master_port=$MASTER_PORT \
     projects/diff-EqM/experiments/train_imagenet.py \
     --model EqM-B/2 \
     --data-path "$IN100_DATA" \
@@ -133,7 +133,7 @@ mkdir -p "$SAMPLES_DIR"
 echo "=== STEP 2: Sampling 5K images ===" >&2
 SAMPLE_START=$(date +%s)
 MASTER_PORT=$((29500 + RANDOM % 1000))
-python -m torch.distributed.run --nnodes=1 --nproc_per_node=4 --master_port=$MASTER_PORT \
+python -m torch.distributed.run --nnodes=1 --nproc_per_node=1 --master_port=$MASTER_PORT \
     projects/diff-EqM/eqm-upstream/sample_gd.py \
     --model EqM-B/2 \
     --ckpt "$FINAL_CKPT" \
