@@ -25,6 +25,9 @@ set -euo pipefail
 module load python/3.10.13-fasrc01
 module load cuda/11.8.0-fasrc01
 
+# Help with memory fragmentation on small (MIG) GPUs
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+
 echo "=== GPU verification ===" >&2
 nvidia-smi || { echo "ERROR: No GPU available"; exit 1; }
 
