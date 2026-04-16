@@ -21,11 +21,11 @@ eval_grep: "^imagenet100_fid:"
 
 ## Baseline
 
-# Baseline FID: to be measured by running the baseline config (gamma=4.0 current best)
-# through the pilot once. Updated after first baseline run completes.
-baseline: null
-best_so_far: null
-best_commit: null
+# Baseline FID measured from pilot 6123455 (2ep IN-100, bs=16, 2K samples)
+# Current best DG-ANM params: gamma=4.0, epsilon=0.3, mining_steps=3, mine_every=5
+baseline: 278.6632
+best_so_far: 278.6632
+best_commit: 9c291cd
 
 ## Constraints
 
