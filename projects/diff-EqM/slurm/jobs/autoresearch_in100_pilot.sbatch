@@ -6,7 +6,7 @@
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=64GB
-#SBATCH --time=3:00:00
+#SBATCH --time=4:00:00
 #SBATCH --partition=gpu_test
 #SBATCH --gres=gpu:1
 
@@ -146,7 +146,7 @@ python -m torch.distributed.run --nnodes=1 --nproc_per_node=1 --master_port=$MAS
     --num-sampling-steps 250 \
     --cfg-scale 1.0 \
     --global-batch-size 64 \
-    --num-fid-samples 5000 \
+    --num-fid-samples 2000 \
     --folder "$SAMPLES_DIR" \
     2>&1 | tee sample.log
 SAMPLE_EXIT=${PIPESTATUS[0]}

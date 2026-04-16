@@ -43,7 +43,7 @@ files_readonly:
 partition: gpu_test
 pilot_epochs: 2
 full_epochs: 80   # Full-scale confirmation runs (on winners only)
-num_fid_samples_pilot: 5000
+num_fid_samples_pilot: 2000
 num_fid_samples_full: 50000
 
 ## Hypothesis Generation
