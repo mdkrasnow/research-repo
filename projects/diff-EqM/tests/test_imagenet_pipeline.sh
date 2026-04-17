@@ -9,15 +9,15 @@
 # Usage (via SSH from local):
 #   scripts/cluster/ssh.sh "cd /n/home03/mkrasnow/research-repo && module load python/3.10.13-fasrc01 cuda/11.8.0-fasrc01 && bash projects/diff-EqM/tests/test_imagenet_pipeline.sh"
 
-set -euo pipefail
+set +e  # Don't exit on first failure — we want to run ALL tests
 
 PASS=0
 FAIL=0
 SKIP=0
 
-pass() { echo "  ✓ PASS: $1"; ((PASS++)); }
-fail() { echo "  ✗ FAIL: $1"; ((FAIL++)); }
-skip() { echo "  - SKIP: $1"; ((SKIP++)); }
+pass() { echo "  ✓ PASS: $1"; PASS=$((PASS+1)); }
+fail() { echo "  ✗ FAIL: $1"; FAIL=$((FAIL+1)); }
+skip() { echo "  - SKIP: $1"; SKIP=$((SKIP+1)); }
 
 echo "============================================================"
 echo "ImageNet EqM Pipeline Tests"
