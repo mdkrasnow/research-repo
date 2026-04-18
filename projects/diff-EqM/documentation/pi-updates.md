@@ -62,7 +62,36 @@ Subject: DG-ANM update — <one-line headline>
 Content or link to sent email.
 -->
 
-### 2026-04-18 — Publishability plan documented; Stage A in progress
+### 2026-04-18 (PM) — Stage A.5 gate passed: CIFAR FID 497 bug was architecture
+**Trigger**: stage_exit_gate_pass (Stage A.5 Step B exit criterion FID<15 met)
+**Sent to PI**: DRAFT (needs review before sending)
+
+---
+Subject: DG-ANM update — Stage A.5 gate passed, CIFAR FID 497 bug isolated to architecture
+
+**Stage**: A (autoresearch in progress) / A.5 (reproducibility gate — just passed)
+**Headline**: Our CIFAR vanilla-EqM result at FID 497 was caused by training a transformer where the EqM paper uses a U-Net. A diagnostic smoke test (standard UNet + plain flow-matching loss on CIFAR-10) hit FID 9.72 on 10K samples using our same data and evaluation pipelines — a 51× reduction. Step A (port Flow Matching's CIFAR U-Net and graft our EqM loss onto it) is unblocked; targets paper FID 3.36.
+
+**What's new since last update**:
+- Audited our CIFAR stack against the EqM paper's Appendix B.1: paper uses a non-transformer U-Net from the Flow Matching (Lipman et al., 2024) codebase; our prior vanilla run used EqM-S/2 transformer at patch=4. Every EqM-paper-like CIFAR number in our repo from the previous attempt is invalid.
+- Step B smoke test (diffusers UNet2DModel + plain FM loss, 150 epochs, same data + FID pipeline as the broken runs) trained cleanly: FID progressed 284.6 → 164.3 → 55.9 → 27.4 → 21.9 → 20.0 at the periodic 2K-sample checkpoints, with a final 10K-sample FID of 9.7193. Our data pipeline and FID evaluator are sound.
+- Autoresearch continues on the proxy (2-epoch IN-100): current best DG-ANM config 249.33 (gamma=6.0, eps=0.8, lr=2e-4), down 10.5% from the proxy baseline. This is not yet a real result — the Stage A exit gate is a 3-seed repeatability check, still ahead.
+- Stage B baseline (vanilla EqM-B/2 80ep IN-100, 3-seed array) submitted in parallel on seas_gpu; currently queued.
+
+**Numbers**:
+- CIFAR smoke (UNet + FM loss, our pipelines): FID 9.72 on 10K samples (exit criterion was <15). Paper reports 3.36 for EqM with their tuned U-Net + EqM loss; our smoke uses a smaller architecture and plain FM loss.
+- CIFAR broken baseline (transformer + EqM loss): FID 497.55 (vanilla), 497.04 (DG-ANM). Stack-level bug.
+- Proxy autoresearch best so far: FID 249.33 (provisional, single seed, 2-epoch IN-100). Baseline 278.66.
+
+**What's next** (in priority order):
+1. Port the Flow Matching CIFAR U-Net into our repo and graft the EqM c(γ) loss onto it; train vanilla EqM to match paper FID 3.36 (±0.3 tolerance).
+2. Stage B vanilla baseline on IN-100 (3 seeds, EqM-B/2, 80 epochs) begins training when queue frees up; ~24–36 h per seed.
+3. Finish round 4 of the proxy autoresearch (2 candidates still running) and run a 3-seed repeatability check on the winner — this is the Stage A exit gate.
+
+**Blockers / decisions needed**: none.
+
+**Confidence**: Medium-high that the method will produce at least a small improvement at paper-comparable scale; low-to-medium that it will be large enough for a top-venue headline without additional mechanism-level evidence. Stage B's 3-seed IN-100 result (≤2 weeks out) will be the first honest data point on this.
+---
 **Trigger**: state-file setup (not yet sent to PI)
 **Sent to PI**: no — first real update will be when Stage A exit gate produces data
 **Summary**: Goal set to NeurIPS/ICML/ICLR. Autoresearch at proxy scale (2ep IN-100, FID 278→253, -9.2%) — not publishable as-is. Stage A exit gate = 3-seed repeatability check on best proxy config. Round 4 (9 candidates across 4 dimensions) running now.

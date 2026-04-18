@@ -50,18 +50,31 @@
     "reason": "User chose path B->A (compute not tight). Step B: diffusers UNet2DModel on CIFAR-10 with plain FM/DDPM loss, same data + eval pipeline as ours, target FID <15 in a few hours to confirm architecture is the dominant bug. In parallel: start the long-running Stage B vanilla EqM-B/2 IN-100 (same subset as prior 80ep runs: vanilla FID 121.24, DG-ANM 112.58 at 1 seed each) 80ep baseline on the known-working transformer stack.",
     "hint": "Plan doc: documentation/stage-a5-plan.md. Step B exit criterion: FID<15 -> proceed to Step A (port FM UNet + graft EqM loss, ~1 week). Step A exit criterion: vanilla EqM CIFAR FID <=3.66 (paper 3.36 + 0.3 tolerance). Stage B vanilla IN-256 baseline training is the biggest calendar win available."
   },
+  "update_2026_04_18_1610": {
+    "stage_a5_step_b_result": "PASSED: cifar10_smoke_fid=9.7193 on 10K samples (exit criterion was FID<15)",
+    "interpretation": "Architecture confirmed as dominant cause of CIFAR FID 497 bug. UNet + plain FM loss reached FID 9.72 with our same data + FID eval pipelines, vs our broken transformer's FID 497 (51x reduction). Step A (port FM UNet + EqM loss) is unblocked and is the next concrete work item.",
+    "pi_update_trigger_fired": "stage_exit_gate_pass — draft PI update per documentation/pi-updates.md",
+    "next_concrete_actions": [
+      "1. Draft PI update entry in documentation/pi-updates.md (Stage A.5 gate passed)",
+      "2. Queue Step A implementation: vendor facebookresearch/flow_matching, port CIFAR UNet, graft EqM c(gamma)-weighted loss, train vanilla to FID<=3.66",
+      "3. Wait for Stage B array to start (still PENDING on seas_gpu)",
+      "4. Round 4 c1 still running but likely to timeout (at step 12400/16174 with ~35m walltime left); c8 lr=2e-4 at FID 249.33 is the provisional round 4 winner"
+    ]
+  },
   "needs_user_input": {
-    "value": false,
-    "prompt": ""
+    "value": true,
+    "prompt": "Stage A.5 gate PASSED (CIFAR smoke FID 9.72 < 15). Draft PI update is ready in documentation/pi-updates.md — please review and send. After that, do you want me to start Step A (port FM UNet + graft EqM loss) now, or wait until Round 4 finishes?"
   },
   "stage_a5": {
     "chosen_path": "B->A",
-    "step_b_status": "running",
+    "step_b_status": "PASSED",
     "step_b_job_id": "6467771",
     "step_b_partition": "seas_gpu",
     "step_b_submitted_at": "2026-04-18",
+    "step_b_final_fid": 9.7193,
+    "step_b_result": "UNet + plain FM loss on CIFAR-10 reached FID 9.72 on 10K samples, vs our broken transformer's FID 497. 18x improvement from architecture change alone confirms architecture was the dominant cause. Step A (port FM UNet + graft EqM loss) unblocked.",
     "step_b_exit_criterion": "CIFAR-10 FID < 15 with off-the-shelf UNet + plain FM/DDPM loss + our data & eval pipelines",
-    "step_a_status": "blocked_by_step_b",
+    "step_a_status": "unblocked_pending_start",
     "step_a_exit_criterion": "vanilla EqM on CIFAR-10 via ported FM UNet reaches FID <= 3.66 (paper 3.36 + 0.3 tolerance), 50K samples, paper-matching sampler",
     "parallel_track": "Stage B IN-100 (same subset as prior 80ep runs: vanilla FID 121.24, DG-ANM 112.58 at 1 seed each) vanilla EqM-B/2 80ep baseline can start now on the known-working transformer stack (independent of Stage A.5)",
     "stage_b_vanilla_in100_80ep_array_job_id": "6467702",
@@ -71,12 +84,10 @@
     "stage_b_vanilla_in100_80ep_status": "pending"
   },
   "active_runs": [
-    {"run_id": "stage_a5_smoke", "job_id": "6467771", "partition": "seas_gpu", "status": "running", "description": "Stage A.5 Step B: CIFAR UNet smoke test (diffusers UNet2DModel + FM loss). Exit: FID<15", "submitted_at": "2026-04-18T14:29:00-04:00", "git_sha": "e422a00", "sbatch_path": "projects/diff-EqM/slurm/jobs/cifar_unet_smoke.sbatch", "expected_runtime": "4-6h", "stage": "A.5-B"},
     {"run_id": "stage_b_vanilla_seed0", "job_id": "6467702_0", "partition": "seas_gpu", "status": "pending", "description": "Stage B vanilla EqM-B/2 IN-100 80ep seed 0 (array 6467702, baseline for DG-ANM vs vanilla 3-seed comparison)", "submitted_at": "2026-04-18T14:29:00-04:00", "git_sha": "4883fb9", "sbatch_path": "projects/diff-EqM/slurm/jobs/stage_b_vanilla_in100_80ep.sbatch", "expected_runtime": "24-36h", "stage": "B"},
     {"run_id": "stage_b_vanilla_seed1", "job_id": "6467702_1", "partition": "seas_gpu", "status": "pending", "description": "Stage B vanilla EqM-B/2 IN-100 80ep seed 1 (array 6467702)", "submitted_at": "2026-04-18T14:29:00-04:00", "git_sha": "4883fb9", "sbatch_path": "projects/diff-EqM/slurm/jobs/stage_b_vanilla_in100_80ep.sbatch", "expected_runtime": "24-36h", "stage": "B"},
     {"run_id": "stage_b_vanilla_seed2", "job_id": "6467702_2", "partition": "seas_gpu", "status": "pending", "description": "Stage B vanilla EqM-B/2 IN-100 80ep seed 2 (array 6467702)", "submitted_at": "2026-04-18T14:29:00-04:00", "git_sha": "4883fb9", "sbatch_path": "projects/diff-EqM/slurm/jobs/stage_b_vanilla_in100_80ep.sbatch", "expected_runtime": "24-36h", "stage": "B"},
-    {"run_id": "r4_c1", "job_id": "6450419", "partition": "gpu_test", "status": "running", "description": "Round 4 candidate 1: mine_every=1 (most aggressive). Exit: improvement vs 253.03", "submitted_at": "2026-04-18T12:56:00-04:00", "git_sha": "f7e2092", "sbatch_path": "projects/diff-EqM/slurm/jobs/autoresearch_in100_pilot.sbatch", "expected_runtime": "2-3h", "stage": "A", "dim": "mine_every", "value": 1},
-    {"run_id": "r4_c2", "job_id": "6450432", "partition": "gpu_test", "status": "running", "description": "Round 4 candidate 2: mine_every=3", "submitted_at": "2026-04-18T12:56:00-04:00", "git_sha": "f7e2092", "sbatch_path": "projects/diff-EqM/slurm/jobs/autoresearch_in100_pilot.sbatch", "expected_runtime": "2-3h", "stage": "A", "dim": "mine_every", "value": 3},
+    {"run_id": "r4_c1", "job_id": "6450419", "partition": "gpu_test", "status": "running", "description": "Round 4 candidate 1: mine_every=1 (most aggressive). At risk of timeout (step 12400/16174 with ~35m walltime left at 1.02 steps/sec; needs ~60m more).", "submitted_at": "2026-04-18T12:56:00-04:00", "git_sha": "f7e2092", "sbatch_path": "projects/diff-EqM/slurm/jobs/autoresearch_in100_pilot.sbatch", "expected_runtime": "2-3h", "stage": "A", "dim": "mine_every", "value": 1}
   ],
   "autoresearch_in100": {
     "active": true,
@@ -107,6 +118,8 @@
     "max_iterations": 30
   },
   "completed_runs": [
+    {"run_id": "stage_a5_smoke_PASS", "job_id": "6467771", "stage": "A.5-B", "partition": "seas_gpu", "status": "completed", "metric": 9.7193, "metric_name": "cifar10_smoke_fid", "exit_criterion": "FID<15", "outcome": "PASS", "progression": {"e25": 284.62, "e50": 164.28, "e75": 55.90, "e100": 27.37, "e125": 21.88, "e150_2k": 19.98, "final_10k": 9.7193}, "interpretation": "Architecture (UNet vs transformer) confirmed as dominant cause of CIFAR FID 497 bug. 18x reduction from transformer's 497 to UNet's 9.72. Stage A.5 Step A (port FM UNet + graft EqM loss) is now unblocked.", "elapsed": "01:41:46", "completed_at": "2026-04-18T16:09:57-04:00", "git_sha": "e422a00"},
+    {"run_id": "r4_in100_c2", "job_id": "6450432", "stage": "A", "dim": "mine_every", "value": 3, "partition": "gpu_test", "status": "completed", "metric": 359.3529, "metric_name": "imagenet100_fid", "baseline_at_submit": 253.03, "outcome": "REGRESSION", "delta_fid": 106.3229, "elapsed": "02:57:43", "completed_at": "2026-04-18T15:52:49-04:00", "git_sha": "f7e2092"},
     {"run_id": "r4_in100_c5", "job_id": "6457824", "stage": "A", "dim": "mining_steps", "value": 5, "partition": "gpu", "status": "completed", "metric": 262.1011, "metric_name": "imagenet100_fid", "baseline_at_submit": 253.03, "outcome": "REGRESSION", "delta_fid": 9.0711, "elapsed": "01:21:32", "completed_at": "2026-04-18T15:02:08-04:00", "git_sha": "3844ed3"},
     {"run_id": "r4_in100_c6", "job_id": "6457825", "stage": "A", "dim": "mining_steps", "value": 7, "partition": "gpu", "status": "completed", "metric": 273.4347, "metric_name": "imagenet100_fid", "baseline_at_submit": 253.03, "outcome": "REGRESSION", "delta_fid": 20.4047, "elapsed": "01:28:30", "completed_at": "2026-04-18T15:10:41-04:00", "git_sha": "3844ed3"},
     {"run_id": "r4_in100_c8_WINNER", "job_id": "6457827", "stage": "A", "dim": "lr", "value": 2e-4, "partition": "gpu", "status": "completed", "metric": 249.3343, "metric_name": "imagenet100_fid", "baseline_at_submit": 253.03, "outcome": "WINNER", "delta_fid": -3.6957, "elapsed": "01:14:33", "completed_at": "2026-04-18T14:56:57-04:00", "git_sha": "3844ed3"},
