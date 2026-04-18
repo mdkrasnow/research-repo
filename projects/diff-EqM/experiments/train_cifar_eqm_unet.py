@@ -31,6 +31,7 @@ import sys
 import time
 from copy import deepcopy
 from pathlib import Path
+from typing import Optional
 
 import numpy as np
 import torch
@@ -44,6 +45,35 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 FM_UPSTREAM = REPO_ROOT / "projects" / "diff-EqM" / "fm-upstream"
 sys.path.insert(0, str(FM_UPSTREAM))
 from models.unet import UNetModel  # noqa: E402
+
+
+class UNetWrapper(torch.nn.Module):
+    """Thin wrapper around FM's UNetModel.
+
+    FM's UNet signature is forward(x, timesteps, extra) where `extra` is a
+    required positional dict (carries optional "label" and "concat_conditioning"
+    keys). For our unconditional CIFAR use, extra={} works. We also install a
+    forward hook on the middle block so we can optionally expose its feature
+    tensor for DG-ANM geometry estimation.
+    """
+
+    def __init__(self, unet: UNetModel):
+        super().__init__()
+        self.unet = unet
+        self._features = None
+        def _hook(_mod, _inp, out):
+            self._features = out
+        self.unet.middle_block.register_forward_hook(_hook)
+
+    def forward(self, x, timesteps, return_features: bool = False,
+                extra: Optional[dict] = None):
+        if extra is None:
+            extra = {}
+        self._features = None
+        out = self.unet(x, timesteps, extra)
+        if return_features:
+            return out, self._features
+        return out
 
 # Reuse the existing FID pipeline by path-import (dir has a dash).
 _EVAL_FID_PATH = Path(__file__).resolve().parent / "evaluate_fid.py"
@@ -82,7 +112,7 @@ CIFAR10_UNET_CONFIG = dict(
 
 
 def build_unet():
-    return UNetModel(**CIFAR10_UNET_CONFIG)
+    return UNetWrapper(UNetModel(**CIFAR10_UNET_CONFIG))
 
 
 # ------------------------- EqM loss ------------------------------------------
