@@ -1,5 +1,17 @@
 # Claude Code Rules for this repo
 
+## Alignment-first protocol (READ BEFORE ACTING)
+Before doing anything non-trivial on a project (submitting jobs, writing configs, kicking off autoresearch, changing code, deciding what to try next), you **MUST** first read these files in order:
+1. `projects/<slug>/.state/pipeline.json` — authoritative next action, current phase, and (if present) `publication_goal` block with target venues, current stage, and exit gate
+2. `projects/<slug>/documentation/publishability-plan.md` (if present) — the north-star strategic plan toward publication
+3. `projects/<slug>/program.md` (if autoresearch) — governance, constraints, baseline
+4. `projects/<slug>/documentation/queue.md` — top-of-queue actions
+5. `projects/<slug>/results.tsv` (if autoresearch) — what's already been tried
+
+Every proposed action must answer: **"does this move us closer to a credible NeurIPS/ICML/ICLR submission per the publishability-plan?"** If no, de-prioritize or escalate. Proxy-scale gains are not publishable — they are filters for paper-scale confirmation runs. Never scale up a result that has not passed its stage exit gate (e.g., a 3-seed repeatability check).
+
+If the state files disagree with what the user is asking for, surface the conflict rather than silently overriding. If a stage exit gate has not passed, say so before launching the next stage's compute.
+
 ## Scope & Isolation
 - Only modify files inside the target project directory: `projects/<slug>/...`
 - Do NOT mix outputs between projects. Never write to another project's `runs/`, `results/`, `slurm/`, or `.state/`.
