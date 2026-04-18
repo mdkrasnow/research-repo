@@ -9,6 +9,14 @@
 # a fast 2-epoch IN-100 FID proxy — directly what we care about, unlike the earlier
 # CIFAR recovery-distance proxy which may not transfer to ImageNet FID.
 #
+# NORTH STAR: publish at NeurIPS / ICML / ICLR. See
+# documentation/publishability-plan.md for the stage plan (A: proxy sweep →
+# B: CIFAR B/2 80ep confirmation → C: ImageNet B/2 → D: scaling + mechanism).
+#
+# IMPORTANT: gains at this proxy scale (FID ~250+) are NOT publishable. They are
+# a cheap filter to pick a config worth testing at paper-comparable scale. The
+# Stage A exit gate is a 3-seed repeatability check — only then do we scale up.
+#
 # Previous CIFAR autoresearch: 0.045237 → 0.003458 (9 rounds) → translated to FID
 # 112.58 on full 80ep IN-100. This new loop targets the IN-100 FID directly.
 

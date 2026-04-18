@@ -1,5 +1,16 @@
 # Experiment Queue — DG-ANM for EqM
 
+## PUBLICATION GOAL
+Target: **NeurIPS / ICML / ICLR**. See `documentation/publishability-plan.md`.
+
+Current stage: **A (proxy sweep + 3-seed repeatability gate)**. Proxy gains (FID ~250+) are NOT publishable on their own — they are a filter for Stage B, where we confirm at EqM-B/2 + CIFAR-10 + 80ep against vanilla EqM. Do not scale up until the Stage A exit gate passes.
+
+## Top-of-queue (derived from publishability plan)
+1. Complete round 4 tournament (9 candidates running).
+2. Round 5: combination of top dimension winners (tests additivity).
+3. **Stage A exit gate**: best config × 3 seeds on the proxy. Gain must exceed seed-std by ≥1 FID.
+4. Design + submit Stage B: DG-ANM vs vanilla EqM, EqM-B/2, CIFAR-10, 80 epochs, 3 seeds each, 50K-sample FID.
+
 ## Research Question
 Does differential-geometry-guided adversarial negative mining improve EqM's equilibrium landscape, reduce spurious equilibria, and improve optimization-based sampling?
 
