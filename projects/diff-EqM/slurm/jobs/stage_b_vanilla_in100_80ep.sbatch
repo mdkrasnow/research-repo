@@ -6,7 +6,7 @@
 #SBATCH --ntasks-per-node=4
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=256GB
-#SBATCH --time=72:00:00
+#SBATCH --time=48:00:00
 #SBATCH --partition=seas_gpu
 #SBATCH --gres=gpu:4
 #SBATCH --array=0-2%2
