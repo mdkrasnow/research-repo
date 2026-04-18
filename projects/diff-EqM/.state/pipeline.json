@@ -46,13 +46,13 @@
     }
   },
   "next_action": {
-    "command": "Start Stage A.5 in parallel with round 4: diagnose CIFAR-10 stack bug (vanilla at FID 497, paper reports 3.36).",
-    "reason": "CIFAR reproducibility gate blocks Stage C secondary result AND certifies our stack; must pass before any Stage B compute. Independent of round 4, can start now.",
-    "hint": "Audit our CIFAR config (projects/diff-EqM/configs/cifar_*.json, experiments/train_*.py) against the EqM upstream Appendix B.1 recipe. Likely causes: wrong model (they use non-transformer on CIFAR per paper text), sampler config, data normalization, or eval pipeline. Stage B target is now ImageNet-256, not CIFAR."
+    "command": "User decision needed: pick CIFAR fix path (A = port FM UNet, B = DDPM UNet smoke test, C = defer CIFAR). See documentation/stage-a5-audit.md.",
+    "reason": "Stage A.5 root cause identified: wrong architecture. Paper used U-Net (Flow Matching codebase); we used EqM-S/2 transformer. Good news: Stage B (ImageNet-256) uses the correct stack and is NOT blocked, so it can proceed in parallel with whichever CIFAR fix path is chosen.",
+    "hint": "Audit complete. Next decision: do we (A) port FM's CIFAR UNet + EqM loss [~1 week], (B) run a DDPM UNet smoke test to confirm architecture is the issue [~1-2 days, low-regret], or (C) defer CIFAR entirely and focus Stage B on ImageNet-256? Option C is viable because CIFAR is only an appendix result in the EqM paper."
   },
   "needs_user_input": {
-    "value": false,
-    "prompt": ""
+    "value": true,
+    "prompt": "Stage A.5 audit complete (documentation/stage-a5-audit.md). Root cause: our CIFAR 80ep used EqM-S/2 transformer, but the paper uses a U-Net on CIFAR from the Flow Matching codebase. Pick a path: (A) port FM UNet + EqM loss [~1 week, enables CIFAR secondary result]; (B) DDPM UNet smoke test first [~1-2 days, confirms architecture is the issue]; (C) defer CIFAR entirely and focus Stage B on ImageNet-256 [CIFAR is only appendix in paper]. Stage B can proceed in parallel regardless."
   },
   "active_runs": [
     {"run_id": "r4_c1", "job_id": "6450419", "candidate": 1, "dim": "mine_every", "value": 1, "partition": "gpu_test"},
