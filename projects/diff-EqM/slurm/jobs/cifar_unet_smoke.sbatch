@@ -7,7 +7,7 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=64GB
 #SBATCH --time=6:00:00
-#SBATCH --partition=gpu_test
+#SBATCH --partition=seas_gpu
 #SBATCH --gres=gpu:1
 
 # Stage A.5 Step B — CIFAR-10 UNet smoke test.
