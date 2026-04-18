@@ -7,7 +7,7 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=64GB
 #SBATCH --time=48:00:00
-#SBATCH --partition=seas_gpu
+#SBATCH --partition=gpu
 #SBATCH --gres=gpu:1
 
 # Stage A.5 Step A — Vanilla EqM on CIFAR-10 using Flow Matching's UNet.
