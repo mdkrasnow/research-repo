@@ -2,7 +2,7 @@
 
 ## Alignment-first protocol (READ BEFORE ACTING)
 Before doing anything non-trivial on a project (submitting jobs, writing configs, kicking off autoresearch, changing code, deciding what to try next), you **MUST** first read these files in order:
-1. `projects/<slug>/.state/pipeline.json` — authoritative next action, current phase, and (if present) `publication_goal` block with target venues, current stage, and exit gate
+1. `projects/<slug>/.state/pipeline.json` — authoritative next action, current phase, `active_runs` (all submitted jobs), and (if present) `publication_goal` block with target venues, current stage, and exit gate
 2. `projects/<slug>/documentation/publishability-plan.md` (if present) — the north-star strategic plan toward publication
 3. `projects/<slug>/program.md` (if autoresearch) — governance, constraints, baseline
 4. `projects/<slug>/documentation/queue.md` — top-of-queue actions
@@ -11,6 +11,44 @@ Before doing anything non-trivial on a project (submitting jobs, writing configs
 Every proposed action must answer: **"does this move us closer to a credible NeurIPS/ICML/ICLR submission per the publishability-plan?"** If no, de-prioritize or escalate. Proxy-scale gains are not publishable — they are filters for paper-scale confirmation runs. Never scale up a result that has not passed its stage exit gate (e.g., a 3-seed repeatability check).
 
 If the state files disagree with what the user is asking for, surface the conflict rather than silently overriding. If a stage exit gate has not passed, say so before launching the next stage's compute.
+
+## Job tracking protocol (mandatory)
+
+`pipeline.json:active_runs` is the **single source of truth for every submitted SLURM job** across all stages and streams (autoresearch pilots, stage baselines, smoke tests, ad-hoc runs). Nothing runs on the cluster without a corresponding entry.
+
+**Before any action (submission, analysis, status reporting, planning):**
+1. Read `active_runs` in `pipeline.json` first. Cross-check against `squeue -u $USER` via `scripts/cluster/ssh.sh`.
+2. If `active_runs` and the real queue disagree, reconcile before doing anything else: stale entries → move to `completed_runs` with status (completed / failed / cancelled / timeout) + final metric if available; untracked running jobs → add an entry with all required fields.
+3. Only then may you plan or submit new work. Submitting on top of a stale `active_runs` view risks duplicate jobs, wrong next actions, and busted compute budgets.
+
+**Required fields per entry** (minimum):
+```json
+{
+  "run_id": "<human-readable tag, e.g. stage_b_vanilla_seed0>",
+  "job_id": "<SLURM id, including _N for array tasks>",
+  "partition": "<partition name>",
+  "status": "pending | running | completed | failed | cancelled | timeout",
+  "description": "<one line: what + why + stage>",
+  "submitted_at": "<ISO date>",
+  "git_sha": "<commit at submission>",
+  "sbatch_path": "<projects/<slug>/slurm/jobs/...>",
+  "expected_runtime": "<rough hours>",
+  "stage": "<A | A.5-B | A.5-A | B | C | D | E | ad-hoc>"
+}
+```
+Add `final_metric` / `exit_code` on completion; add `error` + debugging.md link on failure.
+
+**On every submission** — in the same commit:
+1. Add the `active_runs` entry with all required fields.
+2. Commit `pipeline.json` with a message naming the job_id and purpose.
+3. Push (so the cluster sees the updated state if it pulls).
+
+**On every completion / failure** — within the same session the outcome is observed:
+1. Move the entry from `active_runs` to `completed_runs` (or an equivalent archive list), preserve fields, add outcome + final metric + duration.
+2. Update `fid_results.tsv` / `results.tsv` if a metric was produced.
+3. If the event is a PI-update trigger (stage exit, paper-scale result, etc.), draft the PI update per `pi-updates.md`.
+
+**When reporting status to the user**: always lead with the reconciled `active_runs` table. Do not answer "what's running?" from memory or recap — answer from `active_runs` cross-checked against `squeue`.
 
 ## PI update protocol
 If the project has `documentation/pi-updates.md`, check its trigger list after any experimental outcome, stage transition, or blocker. When a trigger fires:
@@ -76,6 +114,7 @@ After each step, update (as applicable):
   - **Example**: For 6 evaluation jobs, submit 3 to gpu_test and 3 to gpu to avoid "QOSMaxSubmitJobPerUserLimit" errors
   - Jobs on different partitions run in parallel without interference
 - **Early polling rule**: After submitting a job, set `next_poll_after` to ~60 seconds after submission (not the default 15-minute interval). This catches initialization errors (missing modules, wrong Python version, etc.) quickly. After the early poll succeeds, resume normal polling intervals.
+- **Every submission MUST create a corresponding `active_runs` entry in the same commit** (see "Job tracking protocol" above for required fields). If you are about to run `sbatch` / `remote_submit.sh` and have not prepared the `active_runs` entry, stop and prepare it first.
 - **Job verification rule** (`/dispatch` MUST DO FIRST): Before processing any projects, verify all outstanding jobs in `active_runs`:
   1. Check if jobs marked "running" are actually running via `scripts/cluster/status.sh <job_id>` (remote SLURM)
   2. If a job is NOT running but status says "running":
