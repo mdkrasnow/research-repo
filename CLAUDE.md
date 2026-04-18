@@ -12,6 +12,13 @@ Every proposed action must answer: **"does this move us closer to a credible Neu
 
 If the state files disagree with what the user is asking for, surface the conflict rather than silently overriding. If a stage exit gate has not passed, say so before launching the next stage's compute.
 
+## PI update protocol
+If the project has `documentation/pi-updates.md`, check its trigger list after any experimental outcome, stage transition, or blocker. When a trigger fires:
+1. Append a draft update entry to `pi-updates.md` using the template there.
+2. Set `pipeline.json:needs_user_input.value=true` with a prompt pointing to the draft.
+3. Do not send anything yourself — the user reviews and sends.
+Also prepare a weekly digest draft on the day specified in `pipeline.json:publication_goal.pi_update_cadence.weekly_digest_day`, even if no trigger fired.
+
 ## Scope & Isolation
 - Only modify files inside the target project directory: `projects/<slug>/...`
 - Do NOT mix outputs between projects. Never write to another project's `runs/`, `results/`, `slurm/`, or `.state/`.
