@@ -7,12 +7,14 @@
     "current_stage": "A",
     "stages": {
       "A": "Proxy sweep on 2ep IN-100 + 3-seed repeatability gate (CURRENT)",
-      "B": "CIFAR-10 EqM-B/2 80ep confirmation vs vanilla EqM (3 seeds each)",
-      "C": "ImageNet-256 EqM-B/2 class-conditional vs vanilla EqM (3 seeds)",
-      "D": "Scaling curves (S/2, B/2, L/2) + mechanism analysis + ablation table",
+      "A.5": "Reproduce vanilla EqM on CIFAR-10 at paper FID 3.36 (stack reproducibility gate; our current CIFAR 80ep gets FID 497, which is a bug)",
+      "B": "ImageNet-256 class-conditional, EqM-B/2, 80ep, DG-ANM vs vanilla EqM (3 seeds each, 50K FID). This is the paper's primary benchmark.",
+      "C": "Scaling curves (S/2, B/2, L/2 on ImageNet-256) + CIFAR-10 secondary result (3 seeds, appendix-style)",
+      "D": "Mechanism analyses + ablation tables + negative-mining baseline comparisons",
       "E": "Write and submit"
     },
     "stage_a_exit_gate": "best proxy config must beat vanilla-EqM baseline by >=1 FID across 3 seeds; if not, do NOT scale up — reformulate",
+    "stage_a5_exit_gate": "vanilla EqM on CIFAR-10 (paper recipe, Appendix B.1) must reach FID ~3.36 (within 0.3); if not, fix the stack before any Stage B compute",
     "plan_doc": "projects/diff-EqM/documentation/publishability-plan.md",
     "pi_updates_doc": "projects/diff-EqM/documentation/pi-updates.md",
     "pi_update_cadence": {
@@ -32,17 +34,21 @@
     },
     "reference_numbers": {
       "eqm_paper_imagenet256_xl2": 1.90,
-      "eqm_paper_cifar10": 3.36,
+      "eqm_paper_cifar10_appendix_B1": 3.36,
+      "eqm_paper_cifar10_note": "EqM is WORSE than Flow Matching (2.09) on CIFAR; CIFAR is an appendix ablation, NOT the headline benchmark",
       "eqm_paper_b2_80ep_ablation_range": "33-50",
-      "our_prior_in100_80ep": 112.58,
+      "our_prior_in100_80ep_dganm_1seed": 112.58,
+      "our_prior_in100_80ep_vanilla_1seed": 121.24,
+      "our_cifar10_80ep_vanilla_BROKEN": 497.55,
+      "our_cifar10_80ep_dganm_BROKEN": 497.04,
       "our_proxy_baseline": 278.66,
       "our_proxy_best": 253.03
     }
   },
   "next_action": {
-    "command": "/autoresearch --project diff-EqM",
-    "reason": "Round 4 (9 candidates, 4 dimensions) running. After tournament: combination round, then Stage A exit gate (3-seed check on best config).",
-    "hint": "Stage A goal is NOT to minimize proxy FID — it is to find a config whose gain SURVIVES a 3-seed check. After that, move to Stage B: EqM-B/2 + CIFAR-10 + 80ep confirmation."
+    "command": "Start Stage A.5 in parallel with round 4: diagnose CIFAR-10 stack bug (vanilla at FID 497, paper reports 3.36).",
+    "reason": "CIFAR reproducibility gate blocks Stage C secondary result AND certifies our stack; must pass before any Stage B compute. Independent of round 4, can start now.",
+    "hint": "Audit our CIFAR config (projects/diff-EqM/configs/cifar_*.json, experiments/train_*.py) against the EqM upstream Appendix B.1 recipe. Likely causes: wrong model (they use non-transformer on CIFAR per paper text), sampler config, data normalization, or eval pipeline. Stage B target is now ImageNet-256, not CIFAR."
   },
   "needs_user_input": {
     "value": false,

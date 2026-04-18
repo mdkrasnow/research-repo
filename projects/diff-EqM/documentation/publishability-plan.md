@@ -31,24 +31,31 @@ A top-venue paper requires **at least one** of the following credible claims, ba
 - **Exit criterion**: we have a single best config whose advantage over vanilla-EqM baseline is ≥1 FID across 3 seeds on the proxy.
 - **If gain does not survive 3-seed check**: pause autoresearch, re-evaluate method, do not scale up.
 
-### Stage B — Confirm at EqM-B/2, 80 epochs, CIFAR-10 (first real result)
-**Objective**: reproduce the gain at a scale matching the EqM paper's Table 3 ablations.
-- Train DG-ANM vs. vanilla EqM at **EqM-B/2, 80 epochs, CIFAR-10** — this matches the paper's ablation table (vanilla EqM ~33 FID on this setup).
+### Stage A.5 — Reproduce vanilla EqM on CIFAR-10 (reproducibility gate)
+**Objective**: confirm our training/eval stack is sound by matching the EqM paper's own number.
+- Our current CIFAR-10 80ep run gets FID ~497, vs. the paper's 3.36 (Appendix B.1, Table 8). This is a bug, not a scale issue.
+- Train **vanilla EqM** on CIFAR-10 with the paper's recipe (use their Appendix B.1 config; likely a non-transformer backbone per the paper's text).
+- **Exit criterion**: vanilla EqM on CIFAR-10, 50K-sample FID within ~0.3 of 3.36 (paper's own number).
+- **If we cannot reproduce the paper's baseline**, nothing downstream is credible. Fix this before Stage B.
+- This stage is a gate, not a result. CIFAR is NOT the paper's main benchmark (EqM is *worse* than standard Flow Matching there, 3.36 vs. 2.09). We reproduce it only to certify our stack.
+
+### Stage B — Confirm at EqM-B/2, 80 epochs, ImageNet-256 class-conditional (first real result)
+**Objective**: produce the paper's headline result — DG-ANM vs. vanilla EqM on the benchmark where EqM itself is strong.
+- ImageNet-256 class-conditional is **the paper's primary benchmark** (EqM-XL/2 = 1.90 FID, B/2 ablations ~33–50 FID).
+- Train DG-ANM vs. vanilla EqM at **EqM-B/2, 80 epochs, ImageNet-256**, matching the paper's training recipe.
 - **3 seeds each**, 50K-sample FID.
 - Compare: DG-ANM mean FID ± std vs. vanilla EqM mean FID ± std.
-- **Exit criterion**: DG-ANM beats vanilla EqM by a margin larger than 2× the seed std.
+- **Exit criterion**: DG-ANM beats vanilla EqM by a margin > 2× the seed std.
+- Compute: this is the single biggest ask. Plan for ≥1–2 weeks wall-clock. Start vanilla baseline in parallel with Stage A as soon as A.5 passes.
+- **If compute is infeasible** for 3 seeds at B/2: consider smaller model (S/2) OR reframe paper as a "sample efficiency" contribution at lower epoch counts.
 
-### Stage C — Scale to ImageNet-256 class-conditional at B/2 (credibility)
-**Objective**: demonstrate the gain holds on the paper's main benchmark at an affordable scale.
-- EqM-B/2 on ImageNet-256, matching as much of the paper's training recipe as feasible.
-- Budget: the single biggest compute ask. Plan for 1–2 weeks wall-clock.
-- Compare DG-ANM vs. vanilla EqM with identical recipe, 3 seeds, 50K-sample FID.
-- **Exit criterion**: DG-ANM wins at B/2 by a reviewer-defensible margin.
+### Stage C — Scaling + second-dataset CIFAR (supporting evidence)
+**Objective**: show the gain is not an artifact of one scale or one dataset.
+- **Scaling plot**: DG-ANM vs. EqM at S/2, B/2 (and L/2 if compute allows) on ImageNet-256. Shows the gain is not scale-dependent noise.
+- **CIFAR-10 secondary result**: DG-ANM vs. vanilla EqM on CIFAR-10 at paper-matching config, 3 seeds. Mirrors the paper's own Appendix B.1 placement (supporting, not headline). Our target: beat vanilla EqM's 3.36 at matched compute; aspirational stretch: approach or beat Flow Matching's 2.09.
 
-### Stage D — Scaling + mechanism + ablations (paper polish)
-**Objective**: produce the paper's tables and figures.
-- **Scaling plot**: DG-ANM vs. EqM at S/2, B/2, L/2 (if compute allows). Shows the gain is not just noise at one scale.
-- **Second dataset**: ideally CIFAR-10 (Stage B already) + ImageNet (Stage C). A third would be a bonus.
+### Stage D — Mechanism + ablations (paper polish)
+**Objective**: produce the paper's analysis tables and figures.
 - **Mechanism**: why does DG-ANM work? Candidate analyses: energy landscape visualizations around data, per-timestep loss curves, negative-sample diversity vs. training step, gradient-alignment between mined negatives and natural failure modes. One compelling figure beats three weak ones.
 - **Ablations**: gamma, epsilon, mine_every, mining_steps — already most of what autoresearch has been doing; formalize as a table.
 - **Baselines to compare**: vanilla EqM, DiT-XL/2, SiT-XL/2, and at least one EBM-style negative-mining baseline (e.g., CD, PCD, or a contemporary hard-negative method) at matched compute.
@@ -62,21 +69,24 @@ A top-venue paper requires **at least one** of the following credible claims, ba
 
 - **Do not scale up until proxy gains survive a 3-seed check.** Scaling a non-reproducible gain is wasted compute.
 - **Every claim in the paper must be backed by ≥3 seeds at the claimed scale.** Single-seed results are for autoresearch, not for the paper.
-- **If Stage B fails (gain does not transfer to B/2 + 80ep + CIFAR)**, the method as currently formulated is not publishable. Options: rethink the mechanism, reformulate as a theoretical/analysis paper, or pivot.
+- **If Stage A.5 fails (we cannot reproduce vanilla EqM on CIFAR)**, nothing downstream is credible. Fix the stack before any further experiments.
+- **If Stage B fails (gain does not transfer to B/2 + 80ep + ImageNet-256)**, the method as currently formulated is not publishable. Options: rethink the mechanism, reformulate as a theoretical/analysis paper, or pivot.
 - **Do not chase small FID gains at proxy scale.** Beyond Stage A convergence, additional proxy sweeps are diminishing returns — the compute should go to Stage B/C.
 
 ## Risk register
 
 | Risk | Severity | Mitigation |
 |------|----------|------------|
+| Cannot reproduce vanilla EqM's 3.36 on CIFAR-10 (stack bug) | HIGH | Stage A.5 gate; fix before anything else |
 | Proxy-to-full-scale gap: gain at 2ep IN-100 does not transfer to 80ep B/2 | HIGH | Stage B gate before any larger investment |
 | Seed variance swamps gain | HIGH | 3-seed check at end of Stage A |
-| Cluster compute budget insufficient for Stage C | MED | Start Stage B now; negotiate compute early |
+| Cluster compute for Stage B ImageNet-256 B/2 80ep 3-seed is infeasible | HIGH | Start vanilla baseline early; plan fallbacks (S/2, fewer epochs, reframed contribution) |
 | No mechanistic story emerges | MED | Stage D analyses; one strong figure is enough |
 | Scooped by concurrent work | LOW-MED | EqM is recent (Oct 2025); negative-mining for generative models is crowded but specific DG-ANM framing is defensible |
 
 ## Immediate next actions (queue after round 4)
 
+0. **Stage A.5 (NEW, start in parallel with round 4)**: reproduce vanilla EqM on CIFAR-10 at paper-matching FID 3.36. Audit our CIFAR config against the EqM repo's Appendix B.1 setup; identify why our vanilla got FID 497.
 1. Tournament for round 4's 9 candidates; identify winners per dimension.
 2. Round 5: combination of top dimensions (tests additivity).
 3. **Seed-variance check**: best config × 3 seeds on the proxy. This is the Stage A exit gate.
