@@ -6,7 +6,9 @@ Target: **NeurIPS / ICML / ICLR**. See `documentation/publishability-plan.md`.
 Current stage: **A (proxy sweep + 3-seed repeatability gate)**. Proxy gains (FID ~250+) are NOT publishable on their own — they are a filter for Stage B, where we confirm at EqM-B/2 + CIFAR-10 + 80ep against vanilla EqM. Do not scale up until the Stage A exit gate passes.
 
 ## Top-of-queue (derived from publishability plan)
-1. **Stage A.5 (NEW, start NOW, parallel with round 4)**: reproduce vanilla EqM on CIFAR-10 at paper FID 3.36. Our current vanilla 80ep CIFAR got FID 497 — this is a stack bug (model/sampler/data/eval), not a scale issue. Audit configs against EqM upstream Appendix B.1. This is a reproducibility gate; nothing else is credible until it passes.
+1. **Stage A.5 Step B — DDPM UNet smoke test (chosen path: B->A)**: build a diffusers `UNet2DModel` training loop on CIFAR-10 with plain FM/DDPM loss, reusing our existing data + FID eval pipelines. Exit: FID<15 in a few hours → proceed to Step A. See `documentation/stage-a5-plan.md`. Root cause audit in `documentation/stage-a5-audit.md` (confirmed: wrong architecture, our upstream has no UNet).
+1b. **Stage B vanilla IN-256 baseline (start in parallel)**: submit vanilla EqM-B/2 80ep on ImageNet-256 on the known-working transformer stack. Multi-day run; starts the critical-path baseline for Stage B's DG-ANM vs vanilla comparison.
+1c. **Stage A.5 Step A — port FM UNet + graft EqM loss (~1 week)**: blocked by Step B passing. Vendor `facebookresearch/flow_matching`'s CIFAR UNet, swap FM loss for EqM `c(γ)`-weighted target, train vanilla to FID ≤3.66. Then DG-ANM variant for Stage C secondary result.
 2. Complete round 4 tournament (9 candidates running).
 3. Round 5: combination of top dimension winners (tests additivity).
 4. **Stage A exit gate**: best config × 3 seeds on the proxy. Gain must exceed seed-std by ≥1 FID.
