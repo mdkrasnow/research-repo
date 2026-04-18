@@ -46,13 +46,21 @@
     }
   },
   "next_action": {
-    "command": "User decision needed: pick CIFAR fix path (A = port FM UNet, B = DDPM UNet smoke test, C = defer CIFAR). See documentation/stage-a5-audit.md.",
-    "reason": "Stage A.5 root cause identified: wrong architecture. Paper used U-Net (Flow Matching codebase); we used EqM-S/2 transformer. Good news: Stage B (ImageNet-256) uses the correct stack and is NOT blocked, so it can proceed in parallel with whichever CIFAR fix path is chosen.",
-    "hint": "Audit complete. Next decision: do we (A) port FM's CIFAR UNet + EqM loss [~1 week], (B) run a DDPM UNet smoke test to confirm architecture is the issue [~1-2 days, low-regret], or (C) defer CIFAR entirely and focus Stage B on ImageNet-256? Option C is viable because CIFAR is only an appendix result in the EqM paper."
+    "command": "Execute Stage A.5 Step B (DDPM UNet smoke test) and, in parallel, start Stage B ImageNet-256 vanilla baseline training.",
+    "reason": "User chose path B->A (compute not tight). Step B: diffusers UNet2DModel on CIFAR-10 with plain FM/DDPM loss, same data + eval pipeline as ours, target FID <15 in a few hours to confirm architecture is the dominant bug. In parallel: start the long-running Stage B vanilla EqM-B/2 ImageNet-256 80ep baseline on the known-working transformer stack.",
+    "hint": "Plan doc: documentation/stage-a5-plan.md. Step B exit criterion: FID<15 -> proceed to Step A (port FM UNet + graft EqM loss, ~1 week). Step A exit criterion: vanilla EqM CIFAR FID <=3.66 (paper 3.36 + 0.3 tolerance). Stage B vanilla IN-256 baseline training is the biggest calendar win available."
   },
   "needs_user_input": {
-    "value": true,
-    "prompt": "Stage A.5 audit complete (documentation/stage-a5-audit.md). Root cause: our CIFAR 80ep used EqM-S/2 transformer, but the paper uses a U-Net on CIFAR from the Flow Matching codebase. Pick a path: (A) port FM UNet + EqM loss [~1 week, enables CIFAR secondary result]; (B) DDPM UNet smoke test first [~1-2 days, confirms architecture is the issue]; (C) defer CIFAR entirely and focus Stage B on ImageNet-256 [CIFAR is only appendix in paper]. Stage B can proceed in parallel regardless."
+    "value": false,
+    "prompt": ""
+  },
+  "stage_a5": {
+    "chosen_path": "B->A",
+    "step_b_status": "pending",
+    "step_b_exit_criterion": "CIFAR-10 FID < 15 with off-the-shelf UNet + plain FM/DDPM loss + our data & eval pipelines",
+    "step_a_status": "blocked_by_step_b",
+    "step_a_exit_criterion": "vanilla EqM on CIFAR-10 via ported FM UNet reaches FID <= 3.66 (paper 3.36 + 0.3 tolerance), 50K samples, paper-matching sampler",
+    "parallel_track": "Stage B ImageNet-256 vanilla EqM-B/2 80ep baseline can start now on the known-working transformer stack (independent of Stage A.5)"
   },
   "active_runs": [
     {"run_id": "r4_c1", "job_id": "6450419", "candidate": 1, "dim": "mine_every", "value": 1, "partition": "gpu_test"},
