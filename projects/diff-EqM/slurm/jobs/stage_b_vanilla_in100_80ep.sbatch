@@ -100,8 +100,20 @@ eval $TRAIN_CMD 2>&1 | tee train.log
 TRAIN_EXIT=${PIPESTATUS[0]}
 echo "=== Training exit: $TRAIN_EXIT (end $(date)) ===" >&2
 
+# ---------------- Persist checkpoints FIRST (before sampling) ----------------
+# Lesson from the 6540081 failure: sampler crashes (e.g. --num-classes mismatch)
+# were killing checkpoint persistence via set -euo pipefail. Persist first so
+# training is never wasted if sampling has a bug.
+PERSIST_DIR="$REPO_ROOT/projects/diff-EqM/results/stage_b_vanilla_in100_80ep_seed${SEED}"
+mkdir -p "$PERSIST_DIR"
+echo "=== Early persist: syncing checkpoints to $PERSIST_DIR ===" >&2
+rsync -av --include='*/' --include='*.pt' --include='*.json' --include='*.log' --exclude='*' \
+    "$WORK_DIR/$RESULTS_SUBDIR/" "$PERSIST_DIR/" 2>&1 | tail -10 || echo "WARN: early rsync failed" >&2
+cp train.log "$PERSIST_DIR/" 2>/dev/null || true
+
 # ---------------- FID Evaluation ----------------
 # Sample 50K images, compute FID against IN-100 reference stats.
+# Wrap in a subshell so sampler failures don't abort the final rsync.
 echo "=== Sampling + FID eval (50K samples) ===" >&2
 SAMPLES_DIR="$WORK_DIR/$RESULTS_SUBDIR/samples"
 mkdir -p "$SAMPLES_DIR"
@@ -109,23 +121,29 @@ mkdir -p "$SAMPLES_DIR"
 CKPT_DIR=$(find "$WORK_DIR/$RESULTS_SUBDIR" -name "*.pt" -path "*/checkpoints/*" | sort | tail -1)
 if [ -z "$CKPT_DIR" ]; then
     echo "ERROR: no final checkpoint found for FID eval" >&2
-    exit 2
-fi
-echo "Using checkpoint: $CKPT_DIR" >&2
+else
+    echo "Using checkpoint: $CKPT_DIR" >&2
+    # BUGFIX: must pass --num-classes 100 to match the IN-100 training setup;
+    # sample_gd.py defaults to 1000 (IN-1K) which causes a y_embedder size
+    # mismatch on state_dict load.
+    set +e
+    python -m torch.distributed.run --nnodes=1 --nproc_per_node=4 --master_port=$((MASTER_PORT+1)) \
+        projects/diff-EqM/eqm-upstream/sample_gd.py \
+        --model EqM-B/2 \
+        --num-classes 100 \
+        --image-size 256 \
+        --ckpt "$CKPT_DIR" \
+        --num-sampling-steps 250 \
+        --cfg-scale 1.0 \
+        --global-batch-size 256 \
+        --num-fid-samples 50000 \
+        --folder "$SAMPLES_DIR" \
+        2>&1 | tee sample.log
+    SAMPLE_EXIT=${PIPESTATUS[0]}
+    echo "=== Sample exit: $SAMPLE_EXIT ===" >&2
 
-python -m torch.distributed.run --nnodes=1 --nproc_per_node=4 --master_port=$((MASTER_PORT+1)) \
-    projects/diff-EqM/eqm-upstream/sample_gd.py \
-    --model EqM-B/2 \
-    --ckpt "$CKPT_DIR" \
-    --num-sampling-steps 250 \
-    --cfg-scale 1.0 \
-    --global-batch-size 256 \
-    --num-fid-samples 50000 \
-    --folder "$SAMPLES_DIR" \
-    2>&1 | tee sample.log
-
-# FID compute against precomputed IN-100 stats.
-python -c "
+    # FID compute against precomputed IN-100 stats.
+    python -c "
 import numpy as np, sys
 from pytorch_fid.fid_score import calculate_fid_given_paths
 ref_stats = '$REF_STATS'
@@ -133,11 +151,14 @@ samples_npz = '${SAMPLES_DIR}.npz'
 fid = calculate_fid_given_paths([ref_stats, samples_npz], batch_size=64, device='cuda', dims=2048)
 print(f'imagenet100_fid: {fid:.4f}')
 " 2>&1 | tee fid.log
+    FID_EXIT=${PIPESTATUS[0]}
+    echo "=== FID exit: $FID_EXIT ===" >&2
+    set -e
+fi
 
-# ---------------- Persist ----------------
-PERSIST_DIR="$REPO_ROOT/projects/diff-EqM/results/stage_b_vanilla_in100_80ep_seed${SEED}"
-mkdir -p "$PERSIST_DIR"
-rsync -av "$WORK_DIR/$RESULTS_SUBDIR/" "$PERSIST_DIR/" 2>&1 | tail -10
+# ---------------- Final persist (samples + logs) ----------------
+echo "=== Final persist ===" >&2
+rsync -av "$WORK_DIR/$RESULTS_SUBDIR/" "$PERSIST_DIR/" 2>&1 | tail -10 || echo "WARN: final rsync failed" >&2
 cp train.log sample.log fid.log "$PERSIST_DIR/" 2>/dev/null || true
 
 echo "=== Done seed=$SEED ===" >&2
