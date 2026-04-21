@@ -77,6 +77,7 @@ A top-venue paper requires **at least one** of the following credible claims, ba
 
 | Risk | Severity | Mitigation |
 |------|----------|------------|
+| **CONFIRMED 2026-04-21**: DG-ANM as implemented is WORSE than vanilla EqM on CIFAR (mean +13.65 FID, 3.1σ, n=3 each). Prior IN-100 "improvements" are likely RNG-perturbation + tournament-p-hacking artifacts. | **CRITICAL** | Method needs fundamental rethink. See cifar_seed_study_COMPLETE in pipeline.json |
 | Cannot reproduce vanilla EqM's 3.36 on CIFAR-10 (stack bug) | HIGH | Stage A.5 gate; fix before anything else |
 | Proxy-to-full-scale gap: gain at 2ep IN-100 does not transfer to 80ep B/2 | HIGH | Stage B gate before any larger investment |
 | Seed variance swamps gain | HIGH | 3-seed check at end of Stage A |
