@@ -1,98 +1,145 @@
-# program.md — Autoresearch Governance for DG-ANM-EqM (ImageNet-100 FID Proxy)
+# program.md — Autoresearch Governance for DG-ANM-EqM (Variant Search)
 #
 # This file governs autonomous experiment iteration for the diff-EqM project.
 # The agent reads this at the start of each iteration to decide what to try next.
 # Human writes this file; agent writes code.
 #
-# Hypothesis: DG-ANM (adversarial mining of off-manifold negatives) can be further
-# improved beyond the autoresearch-found gamma=4.0, eps=0.3 config. We evaluate on
-# a fast 2-epoch IN-100 FID proxy — directly what we care about, unlike the earlier
-# CIFAR recovery-distance proxy which may not transfer to ImageNet FID.
+# THESIS: DG-ANM as currently implemented (PGA mining at hardcoded t=1 +
+# feature-normal/tangent projector + margin-hinge on ||field||) loses to vanilla
+# EqM by ~2x on CIFAR-10 (DG-ANM 150ep 10K-FID ~21.7 vs vanilla ~9.5). A
+# diagnostic (experiments/diag_dganm_signal.py) and a recent literature review
+# (see documentation/research-plan.md) both identify the *formulation* — not the
+# hyperparameters — as broken. This program abandons hyperparameter sweeps and
+# instead deploys *code variants of DG-ANM*, each a concrete reformulation
+# motivated by a specific paper, and compares them head-to-head on the same
+# CIFAR proxy.
 #
 # NORTH STAR: publish at NeurIPS / ICML / ICLR. See
-# documentation/publishability-plan.md for the stage plan (A: proxy sweep →
-# B: CIFAR B/2 80ep confirmation → C: ImageNet B/2 → D: scaling + mechanism).
-#
-# IMPORTANT: gains at this proxy scale (FID ~250+) are NOT publishable. They are
-# a cheap filter to pick a config worth testing at paper-comparable scale. The
-# Stage A exit gate is a 3-seed repeatability check — only then do we scale up.
-#
-# Previous CIFAR autoresearch: 0.045237 → 0.003458 (9 rounds) → translated to FID
-# 112.58 on full 80ep IN-100. This new loop targets the IN-100 FID directly.
+# documentation/publishability-plan.md. Stage A's original exit gate
+# ("proxy config beats vanilla by >=1 FID across 3 seeds") still holds. We
+# cannot pass that gate today, so we are redesigning the primitive.
 
 ## Objective
 
-metric: imagenet100_fid
+metric: cifar10_variant_fid
 direction: minimize
-eval_command: "bash projects/diff-EqM/slurm/jobs/autoresearch_in100_pilot.sbatch"  # Submitted via sbatch with CONFIG_PATH env var
-eval_grep: "^imagenet100_fid:"
+eval_command: "sbatch projects/diff-EqM/slurm/jobs/variant_pilot.sbatch"
+eval_grep: "^cifar10_variant_fid\\["
 
-## Baseline
+## Baseline (locked)
 
-# Baseline FID measured from pilot 6123455 (2ep IN-100, bs=16, 2K samples)
-# Current best DG-ANM params: gamma=4.0, epsilon=0.3, mining_steps=3, mine_every=5
-baseline: 278.6632
-best_so_far: 253.0251
-best_commit: 86a8c70
+# Measured on prior runs, CIFAR-10 10K-FID at 150ep, 3 seeds, same backbone
+# (FM UNet @ 128ch) and sampler (Euler, 100 steps, c(t)-rescaled velocity):
+#   vanilla EqM   (cifar_seed_study):       ~9.5  (5K), ~9-10 (10K mean)
+#   DG-ANM v01    (cifar_dganm_ext e150):   21.72 ± 9.9 (10K, n=3)
+#
+# The pilot proxy used here is the CHEAPER *25-epoch* CIFAR-10 10K-FID. This
+# will NOT match the 150-ep numbers in absolute terms — both vanilla and v01
+# will be higher. What we need is relative ordering: a variant is promoted
+# only if it beats v00_vanilla at 25ep by >=1 FID. Absolute vanilla-comparable
+# FID is measured only on promoted variants at the confirmation stage (full
+# 150ep, 3 seeds).
+
+baseline_variant: v00_vanilla
+reference_variant: v01_current   # the known-broken DG-ANM to beat
 
 ## Constraints
 
-max_runtime_seconds: 5400   # 90 min per pilot (train 2ep IN-100 4-GPU + sample 5K + FID)
-max_slurm_minutes: 90
+max_runtime_seconds: 10800      # 3h walltime per pilot (25ep CIFAR @ ~90s/ep + FID)
+max_slurm_minutes: 180
+
+# The dispatcher + shared infra are IMMUTABLE to the autoresearch agent.
+# Only variant files and their configs are fair game.
 files_allowed:
-  - projects/diff-EqM/experiments/train_imagenet.py
-  - projects/diff-EqM/configs/autoresearch_in100_*.json
+  - projects/diff-EqM/experiments/dganm_variants/v*.py
+  - projects/diff-EqM/configs/variants/v*.json
 files_readonly:
   - projects/diff-EqM/program.md
-  - projects/diff-EqM/slurm/jobs/autoresearch_in100_pilot.sbatch
+  - projects/diff-EqM/experiments/dganm_variants/_common.py
+  - projects/diff-EqM/experiments/dganm_variants/__init__.py
+  - projects/diff-EqM/experiments/run_variant.py
+  - projects/diff-EqM/slurm/jobs/variant_pilot.sbatch
   - projects/diff-EqM/slurm/jobs/compute_in100_reference_stats.sbatch
   - projects/diff-EqM/eqm-upstream/
-  - projects/diff-EqM/results/in100_reference_stats.npz
-partition: gpu_test
-pilot_epochs: 2
-full_epochs: 80   # Full-scale confirmation runs (on winners only)
-num_fid_samples_pilot: 2000
-num_fid_samples_full: 50000
+  - projects/diff-EqM/fm-upstream/
+  - projects/diff-EqM/results/cifar10_inception_stats.npz
 
-## Hypothesis Generation
+partition: gpu
+pilot_epochs: 25
+confirmation_epochs: 150
+num_fid_samples_pilot: 5000
+num_fid_samples_confirmation: 10000
 
-exploration_dimensions:
-  - mining_strength       # gamma (weight of negative loss): try 2.0, 3.0, 4.0, 5.0, 8.0
-  - mining_budget         # epsilon (perturbation radius): 0.1, 0.2, 0.3, 0.5
-  - mining_search         # mining_steps (PGA ascent steps): 1, 3, 5, 7
-  - mining_schedule       # mine_every (how often to mine negatives): 1, 3, 5, 10
-  - negative_margin       # neg_margin: 1.0, 3.0, 5.0, 10.0
-  - learning_rate         # lr: 5e-5, 1e-4, 2e-4
-  - batch_size            # global_batch_size: 128, 256, 512 (larger batches may stabilize mining)
+## Variant slate (initial)
+
+# Each variant is a concrete reformulation of DG-ANM with a literature citation.
+# Filenames: projects/diff-EqM/experiments/dganm_variants/<variant>.py
+# The variant is a single self-contained file that exposes train(args).
+
+initial_variants:
+  v00_vanilla:
+    purpose: "Sanity / baseline. Plain EqM loss, no mining. Must match
+              train_cifar_eqm_unet.py within seed noise."
+    citation: "—"
+  v01_current:
+    purpose: "Frozen reference of the broken DG-ANM. Every new variant must beat this."
+    citation: "—"
+  v02_score_repulsion:
+    purpose: "Two-sided cosine contrastive on velocity; drops hinge entirely."
+    citation: "Jiang et al. 2025 (VeCoR, arXiv 2511.18942); arXiv 2505.21742"
+  v03_noised_negatives:
+    purpose: "Mine at t ~ U(0,1) instead of hardcoded t=1. Minimal fix to
+              isolate the t-schedule effect while keeping the hinge."
+    citation: "Luo et al. 2023 (DCD, arXiv 2307.01668); Du 2021"
+  v04_ebm_contrastive:
+    purpose: "InfoNCE-with-one-negative on a velocity-norm energy; replaces
+              absolute hinge with a relative objective that cannot saturate."
+    citation: "Du, Li, Tenenbaum, Mordatch (ICML 2021, CD); DCD 2023"
+  v05_drop_geometry:
+    purpose: "Pure ablation: v01 minus the feature-normal/tangent projector."
+    citation: "Pidstrigach (NeurIPS 2022)"
+  v06_diffusion_recovery:
+    purpose: "Penalize short reverse-ODE reconstruction error at perturbed
+              x_t. Self-calibrating, no margin, no saturation."
+    citation: "Kim et al. 2024 (CTM, arXiv 2310.02279); Kong et al. 2024 (ACT-Diffusion)"
+
+## Strategy
 
 strategy: |
-  1. Measure baseline FID with current best config (gamma=4.0, eps=0.3, etc).
-  2. One-dimension-at-a-time sweeps on the 7 exploration dimensions above.
-     Start with mining_strength (gamma) since it had the biggest effect in CIFAR rounds.
-  3. Each round: 3 parallel candidates exploring one dimension.
-  4. KEEP rule: a candidate is kept if its FID is >= 1.0 FID points lower than baseline
-     (this accounts for FID noise on 5K samples, which is typically ±1-2).
-  5. After 1-dim sweeps converge, do 2-dim combinations of winning dimensions.
-  6. ONE change per experiment. Never modify multiple dimensions simultaneously.
-  7. If 3 consecutive failures on a dimension, move to the next.
-  8. Read results.tsv to avoid repeating failed approaches.
+  1. Round 1 (baseline pinning): submit v00_vanilla and v01_current at
+     pilot scale with 3 seeds each. Both must produce valid FID and their
+     relative ordering must match the 150ep paper-scale result (vanilla
+     beats v01). This validates the 25-ep proxy. If the ordering flips,
+     stop and raise the pilot epoch count.
+  2. Rounds 2+: pick next variant from initial_variants (order: v03, v05,
+     v02, v06, v04 — cheapest/highest-probability first). Submit 1 seed at
+     pilot scale.
+  3. Promotion rule: if pilot 1-seed FID is within 2.0 of v00_vanilla, run
+     2 additional seeds at pilot scale. If 3-seed mean beats v00_vanilla by
+     >=1.0 FID, promote to confirmation (150ep, 3 seeds, 10K FID).
+  4. Elimination rule: if pilot 1-seed FID is >5.0 FID worse than
+     v00_vanilla, eliminate the variant — do not burn more seeds on it.
+  5. Confirmation rule: a variant is "working" only when its 150ep 3-seed
+     mean 10K FID beats v01_current by >=1 FID AND is within 3 FID of
+     vanilla. Only then is it eligible for Stage B (ImageNet-100).
+  6. After initial slate exhausted: propose new variants informed by
+     results.tsv + the lit review. Each proposal must cite a paper.
+  7. ONE change per variant. If a variant needs to change, make a new
+     file (e.g. v02b_score_repulsion_nopgd.py), don't mutate history.
 
 ## Ratchet Rules
 
-keep_threshold: 1.0           # Must improve by at least 1.0 FID (signal > noise)
-revert_on_regression: true
+keep_threshold: 1.0             # pilot FID must beat v00_vanilla by >=1.0
+eliminate_threshold: 5.0        # pilot FID >5.0 worse => eliminate variant
 revert_on_crash: true
-max_consecutive_failures: 10
-simplicity_preference: true
-parallel_candidates: 3        # 3 × 4 GPUs = 12 GPUs concurrent
+parallel_candidates: 3          # 3 variants * 3 GPUs concurrent
 
 ## Termination
 
-max_iterations: 30            # ~30h wall-clock at 3 parallel × 1h per candidate
-target_metric: null           # No specific target; best-effort improvement
-max_wall_hours: 48
+max_iterations: 20              # 20 variants max before stopping
+max_wall_hours: 60
 stop_on_plateau: true
-plateau_window: 10
+plateau_window: 5               # 5 consecutive variants with no improvement
 
 ## Execution Mode
 
@@ -100,30 +147,21 @@ mode: slurm
 
 ## Notes
 
-# Proxy metric: IN-100 FID at 2 epochs, 5K samples.
-# Absolute values will be HIGH (1-epoch runs on IN-100 previously got ~360 FID;
-# 2 epochs should be lower but still far from the 80ep FID of 112). What matters
-# is relative ordering and improvement delta.
+# Proxy = CIFAR-10 25ep 10K-FID. ~90s/epoch on 1 A100 => ~40 min train +
+# ~15 min FID => ~1h total per pilot seed. 3 variants x 3 seeds = 9 pilot
+# jobs ~= 3h wall-clock on 3 GPUs (or 9h on 1 GPU).
 #
-# Data source: ~/in100_subset/ (symlinks to first 100 IN-1K classes alphabetically,
-# 129,395 training images). This is a deterministic subset — not the canonical
-# Tian et al. IN-100 — but it's self-consistent for the autoresearch loop.
+# IN-100 is explicitly NOT part of the pilot proxy. The prior 2ep IN-100
+# proxy (superseded by this file) gave noisy signals that didn't transfer
+# to 80ep IN-100 FID. Until we have a CIFAR variant that beats vanilla,
+# IN-100 is off the table.
 #
-# Reference FID stats: 10K real images (100 per class) precomputed in
-# results/in100_reference_stats.npz. IMMUTABLE once computed.
+# When adding a new variant: (1) write v{NN}_<name>.py implementing
+# step_fn + train(args), (2) add configs/variants/v{NN}_<name>.json,
+# (3) add an entry to initial_variants above with citation + purpose,
+# (4) submit via variant_pilot.sbatch with CONFIG_PATH set to the new
+# config. The shared harness (_common.py, run_variant.py) should need
+# zero changes to accept a new variant.
 #
-# Training is 4-GPU DDP (EqM-B/2, bs=256, 2 epochs ≈ ~900 steps ≈ ~7 min).
-# Sampling 5K images: ~3 min.
-# FID compute: ~1 min.
-# Total per pilot: ~15 min wall-clock (plus queue wait).
-#
-# IMPORTANT: the autoresearch_in100_pilot.sbatch is IMMUTABLE. It:
-#   1. Clones repo at candidate's SHA
-#   2. Parses candidate's config JSON for training args
-#   3. Trains for 2 epochs on IN-100 subset
-#   4. Samples 5K images with GD sampler (stepsize=0.003, 250 steps, cfg=1.0)
-#   5. Computes FID against precomputed reference stats
-#   6. Prints "imagenet100_fid: <value>" to stdout (grepped by autoresearch)
-#
-# Candidates modify train_imagenet.py (new training/mining logic) and/or their
-# autoresearch_in100_*.json config (hyperparameters).
+# The old autoresearch hyperparameter history is preserved in
+# projects/diff-EqM/results_hp_archive.tsv for reference.

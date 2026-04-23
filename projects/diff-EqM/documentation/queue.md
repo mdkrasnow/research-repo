@@ -3,17 +3,20 @@
 ## PUBLICATION GOAL
 Target: **NeurIPS / ICML / ICLR**. See `documentation/publishability-plan.md`.
 
-Current stage: **A (proxy sweep + 3-seed repeatability gate)**. Proxy gains (FID ~250+) are NOT publishable on their own — they are a filter for Stage B, where we confirm at EqM-B/2 + CIFAR-10 + 80ep against vanilla EqM. Do not scale up until the Stage A exit gate passes.
+Current stage: **A — variant-search autoresearch** on CIFAR-10 25ep pilot. Hyperparameter sweeps abandoned 2026-04-23 after 150ep 3-seed confirmation showed v01 DG-ANM (10K FID 21.66 ± 9.95) loses to vanilla (12.54 ± 1.15) and `diag_dganm_signal.py` proved the margin-hinge is structurally inert.
 
-## Top-of-queue (derived from publishability plan)
-1. **Stage A.5 Step B — DDPM UNet smoke test (chosen path: B->A)**: build a diffusers `UNet2DModel` training loop on CIFAR-10 with plain FM/DDPM loss, reusing our existing data + FID eval pipelines. Exit: FID<15 in a few hours → proceed to Step A. See `documentation/stage-a5-plan.md`. Root cause audit in `documentation/stage-a5-audit.md` (confirmed: wrong architecture, our upstream has no UNet).
-1b. **Stage B vanilla IN-256 baseline (start in parallel)**: submit vanilla EqM-B/2 80ep on ImageNet-256 on the known-working transformer stack. Multi-day run; starts the critical-path baseline for Stage B's DG-ANM vs vanilla comparison.
-1c. **Stage A.5 Step A — port FM UNet + graft EqM loss (~1 week)**: blocked by Step B passing. Vendor `facebookresearch/flow_matching`'s CIFAR UNet, swap FM loss for EqM `c(γ)`-weighted target, train vanilla to FID ≤3.66. Then DG-ANM variant for Stage C secondary result.
-2. Complete round 4 tournament (9 candidates running).
-3. Round 5: combination of top dimension winners (tests additivity).
-4. **Stage A exit gate**: best config × 3 seeds on the proxy. Gain must exceed seed-std by ≥1 FID.
-5. **Stage B (REVISED target)**: DG-ANM vs vanilla EqM on **ImageNet-256 class-conditional, EqM-B/2, 80 epochs, 3 seeds each, 50K-sample FID**. NOT CIFAR — CIFAR is an appendix ablation in the EqM paper and EqM is actually worse than Flow Matching there (3.36 vs 2.09). ImageNet-256 is where EqM is strong and where a reviewer expects the headline result.
-6. **Stage C**: scaling curves on ImageNet-256 (S/2, B/2, ±L/2) + CIFAR-10 3-seed secondary (appendix-style, mirroring the EqM paper's own structure).
+See `program.md` and `documentation/research-plan.md` for the new plan. Variant slate: v00_vanilla, v01_current, v02_score_repulsion (VeCoR 2025), v03_noised_negatives (Luo 2023 DCD), v04_ebm_contrastive (Du 2021 CD), v05_drop_geometry (Pidstrigach 2022), v06_diffusion_recovery (Kim 2024 CTM).
+
+## Top-of-queue (variant-search autoresearch)
+1. **Round 1 baseline pinning**: submit v00_vanilla and v01_current at 25ep pilot, 1 seed each. Must reproduce the known 150ep ordering (vanilla << v01) or raise pilot_epochs. Config: `configs/variants/v{00,01}*.json`. Sbatch: `slurm/jobs/variant_pilot.sbatch` with `CONFIG_PATH` env var.
+2. **Round 2 cheap variants**: v03_noised_negatives + v05_drop_geometry (1 seed each). v03 is the highest-probability single-change win per lit (fix t-schedule mining bug).
+3. **Round 3 reformulations**: v02_score_repulsion + v06_diffusion_recovery (1 seed each). Both replace the saturating hinge with non-saturating objectives.
+4. **Round 4 exotic**: v04_ebm_contrastive (1 seed). Budget for instability per Du 2021.
+5. **Promotion gate per variant**: 1-seed pilot beats v00 by >=1 FID → run 2 more seeds at pilot scale. 3-seed pilot mean beats v00 by >=1 FID → promote to 150ep 3-seed confirmation.
+6. **Confirmation gate (Stage A.5)**: 150ep 3-seed 10K FID mean beats v01 by >=1 FID AND within 3 FID of vanilla.
+7. **Stage B (gated on A.5 passing)**: winning variant vs vanilla on IN-100 EqM-B/2 80ep × 3 seeds, 50K FID. Blocked on IN-100 ref-stats `KeyError: mu` offline fix (3 completed vanilla seed runs preserved, FID recomputable without retrain).
+
+Historical top-of-queue items preserved below for reference but no longer active.
 
 ## Research Question
 Does differential-geometry-guided adversarial negative mining improve EqM's equilibrium landscape, reduce spurious equilibria, and improve optimization-based sampling?
