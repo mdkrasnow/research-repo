@@ -53,7 +53,9 @@
     "active": true,
     "metric": "cifar10_variant_fid",
     "direction": "minimize",
-    "round": 0,
+    "round": 1,
+    "round_1_submitted_at": "2026-04-25T00:00:00Z",
+    "round_1_jobs": ["8370711", "8370723"],
     "initial_variants": [
       "v00_vanilla",
       "v01_current",
@@ -83,7 +85,10 @@
     "value": false,
     "prompt": "Restructure complete. Pending: submit Round 1 pilots (v00_vanilla + v01_current). Also pending: offline fix of IN-100 reference-stats schema mismatch (KeyError: mu) to recover FID for the 3 completed vanilla IN-100 80ep seed runs — no retrain needed, just a ref-stats regenerate + FID compute."
   },
-  "active_runs": [],
+  "active_runs": [
+    {"run_id": "variant_pilot_v00_vanilla_s0", "job_id": "8370711", "partition": "gpu", "status": "pending", "description": "Round 1 baseline pinning: v00_vanilla CIFAR 25ep 5K-FID pilot, seed 0. Sanity check that 25ep proxy reproduces vanilla<<v01 ordering.", "submitted_at": "2026-04-25T00:00:00Z", "git_sha": "a9442b1", "sbatch_path": "projects/diff-EqM/slurm/jobs/variant_pilot.sbatch", "config_path": "projects/diff-EqM/configs/variants/v00_vanilla.json", "expected_runtime": "~3h", "stage": "AUTORESEARCH-VARIANTS-R1"},
+    {"run_id": "variant_pilot_v01_current_s0", "job_id": "8370723", "partition": "gpu", "status": "pending", "description": "Round 1 baseline pinning: v01_current (frozen broken DG-ANM reference) CIFAR 25ep 5K-FID pilot, seed 0.", "submitted_at": "2026-04-25T00:00:00Z", "git_sha": "a9442b1", "sbatch_path": "projects/diff-EqM/slurm/jobs/variant_pilot.sbatch", "config_path": "projects/diff-EqM/configs/variants/v01_current.json", "expected_runtime": "~3h", "stage": "AUTORESEARCH-VARIANTS-R1"}
+  ],
   "completed_runs": [
     {"run_id": "cifar_dganm_resume_s0", "job_id": "7455358_0", "stage": "A.5-B-seedstudy", "partition": "gpu", "status": "completed", "description": "DG-ANM v01 resume e125->e150 seed 0. Final 10K FID 16.72.", "submitted_at": "2026-04-22T19:50:00-04:00", "completed_at": "2026-04-22T21:13:45-04:00", "elapsed": "01:35:27", "final_fid_10K": 16.7248, "fid_2K_e150": 27.8488, "git_sha": "5af6f48"},
     {"run_id": "cifar_dganm_resume_s1", "job_id": "7455358_1", "stage": "A.5-B-seedstudy", "partition": "gpu", "status": "completed", "description": "DG-ANM v01 resume e125->e150 seed 1. Final 10K FID 32.91.", "submitted_at": "2026-04-22T19:50:00-04:00", "completed_at": "2026-04-22T21:11:35-04:00", "elapsed": "01:33:17", "final_fid_10K": 32.9136, "fid_2K_e150": 41.5314, "git_sha": "5af6f48"},
@@ -108,8 +113,9 @@
     "terminated_reason": "HP tuning on an inert primitive cannot recover signal. Structural fix required — see program.md and documentation/research-plan.md."
   },
   "slurm_wait": {
-    "next_poll_after": null,
-    "poll_interval_seconds": 120
+    "next_poll_after": "2026-04-25T00:02:00Z",
+    "poll_interval_seconds": 120,
+    "early_poll_note": "Poll ~60s after submit to catch init errors (module load, pip install, clone). After first successful poll resume normal interval."
   },
   "events": [
     {"id": "evt-0001", "ts": "2026-03-31T18:00:00Z", "action": "INIT", "detail": "Project created."},
