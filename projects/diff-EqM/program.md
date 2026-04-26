@@ -45,8 +45,8 @@ reference_variant: v01_current   # the known-broken DG-ANM to beat
 
 ## Constraints
 
-max_runtime_seconds: 10800      # 3h walltime per pilot (25ep CIFAR @ ~90s/ep + FID)
-max_slurm_minutes: 180
+max_runtime_seconds: 21600      # 6h walltime per pilot (100ep CIFAR @ ~110s/ep + FID; mining variants ~2x)
+max_slurm_minutes: 360
 
 # The dispatcher + shared infra are IMMUTABLE to the autoresearch agent.
 # Only variant files and their configs are fair game.
@@ -65,10 +65,19 @@ files_readonly:
   - projects/diff-EqM/results/cifar10_inception_stats.npz
 
 partition: gpu
-pilot_epochs: 25
+pilot_epochs: 100
 confirmation_epochs: 150
 num_fid_samples_pilot: 5000
 num_fid_samples_confirmation: 10000
+
+# History: pilot_epochs was 25 in the first attempt at Round 1 (jobs 8370711,
+# 8370723). At e25 both vanilla and v01 are still in the steep descent phase
+# (FID ~340), and v01's hinge is provably inert at random init for the first
+# few epochs (neg_loss=0 on every logged epoch). The 25ep proxy could not
+# resolve the known 150ep vanilla<<v01 gap (vanilla 12.54 vs v01 21.66 at
+# 150ep, 10K FID). Bumped to 100ep based on the prior 3v3 seed study, which
+# showed clean separation at e100 (vanilla 30.18 +- 0.28 vs DG-ANM
+# 43.83 +- 7.62, Welch t~3.1σ).
 
 ## Variant slate (initial)
 
@@ -106,22 +115,24 @@ initial_variants:
 ## Strategy
 
 strategy: |
-  1. Round 1 (baseline pinning): submit v00_vanilla and v01_current at
-     pilot scale with 3 seeds each. Both must produce valid FID and their
-     relative ordering must match the 150ep paper-scale result (vanilla
-     beats v01). This validates the 25-ep proxy. If the ordering flips,
-     stop and raise the pilot epoch count.
-  2. Rounds 2+: pick next variant from initial_variants (order: v03, v05,
-     v02, v06, v04 — cheapest/highest-probability first). Submit 1 seed at
-     pilot scale.
-  3. Promotion rule: if pilot 1-seed FID is within 2.0 of v00_vanilla, run
-     2 additional seeds at pilot scale. If 3-seed mean beats v00_vanilla by
-     >=1.0 FID, promote to confirmation (150ep, 3 seeds, 10K FID).
+  1. Round 1 (vanilla noise-floor pinning): submit v00_vanilla x 3 seeds
+     at 100ep pilot. This produces (mu_vanilla, sigma_vanilla) — the
+     reference distribution every new variant is compared against. v01 is
+     NOT piloted: its 150ep deficit is already established at 3 seeds, and
+     re-running it at the proxy length adds zero information.
+  2. Rounds 2+: pick next variant from initial_variants (order: v03, v02,
+     v06, v04, v05 — most-likely-to-have-signal first; v05 is an ablation
+     and likely a null result, scheduled last). Submit 1 seed at pilot.
+  3. Promotion rule (z-test against vanilla noise floor): if pilot 1-seed
+     FID < mu_vanilla - 1.96 * sigma_vanilla - 1.0, run 2 more seeds at
+     pilot. If 3-seed mean beats mu_vanilla by >= 1.0 FID with
+     (mean + sigma) below mu_vanilla, promote to confirmation
+     (150ep, 3 seeds, 10K FID).
   4. Elimination rule: if pilot 1-seed FID is >5.0 FID worse than
-     v00_vanilla, eliminate the variant — do not burn more seeds on it.
+     mu_vanilla, eliminate the variant — do not burn more seeds on it.
   5. Confirmation rule: a variant is "working" only when its 150ep 3-seed
-     mean 10K FID beats v01_current by >=1 FID AND is within 3 FID of
-     vanilla. Only then is it eligible for Stage B (ImageNet-100).
+     mean 10K FID beats vanilla's 150ep 3-seed mean (12.54 +- 1.15) by
+     >= 1 FID. Only then is it eligible for Stage B (ImageNet-100).
   6. After initial slate exhausted: propose new variants informed by
      results.tsv + the lit review. Each proposal must cite a paper.
   7. ONE change per variant. If a variant needs to change, make a new
