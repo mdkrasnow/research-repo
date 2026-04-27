@@ -45,9 +45,9 @@
     }
   },
   "next_action": {
-    "command": "Wait for Round 1 retry array 8611605_[0-2] (v00_vanilla x 3 seeds @ 100ep) to complete (~3.5h each). Compute mu_vanilla, sigma_vanilla from the 3 final 5K FIDs. Then proceed to Round 2: submit v03_noised_negatives, v05_drop_geometry (skip — likely null), v02_score_repulsion, v06_diffusion_recovery, v04_ebm_contrastive, each x 1 seed at 100ep.",
-    "reason": "First Round 1 attempt at 25ep was inconclusive — both variants still in steep descent. 100ep is the prior-confirmed separation point. Vanilla noise floor unlocks proper z-test promotion rule.",
-    "hint": "Early poll at 60s post-submit to catch init errors. Expect FID ~30 for vanilla per prior seed study. After 3 seeds complete, update autoresearch_variants.vanilla_noise_floor = {mu, sigma}."
+    "command": "Wait for Round 2 variant pilots (v03=8898137, v06=8898147, v02=8898150, v04=8898152) to complete (~5h each). Apply z-test promotion: keep variants with 5K FID < 20.83. For kept variants, run 2 more seeds at 100ep. For 3-seed mean beating vanilla mu=22.31 by >=1 FID, promote to 150ep confirmation.",
+    "reason": "Round 1 noise floor validated proxy. Round 2 tests 4 variants in parallel across both partitions (gpu_test for fast queue, gpu for distribution).",
+    "hint": "Early poll at 60s post-submit. Expected outcomes (confidence-weighted): v03 most likely win (fixes the t=1 mining bug), v02/v06 mid-confidence (both replace saturating hinge with non-saturating objectives), v04 lowest-confidence (Du 2021 warns of CD instability without replay buffer)."
   },
   "autoresearch_variants": {
     "active": true,
@@ -58,6 +58,24 @@
     "round_1_retry_submitted_at": "2026-04-26T00:00:00Z",
     "round_1_retry_jobs": ["8611605_0", "8611605_1", "8611605_2"],
     "round_1_retry_purpose": "v00_vanilla x 3 seeds at 100ep to pin (mu_vanilla, sigma_vanilla) noise floor",
+    "round_1_retry_completed_at": "2026-04-26T14:24:02Z",
+    "vanilla_noise_floor": {
+      "metric": "cifar10_variant_fid (5K samples, 100ep)",
+      "per_seed_5K": [22.0852, 22.5712, 22.2810],
+      "per_seed_2K_e100_eval": [29.8711, 29.7610, 29.4908],
+      "mu": 22.3125,
+      "sigma": 0.2440,
+      "n": 3,
+      "promotion_threshold_5K_fid": 20.83,
+      "promotion_threshold_formula": "mu - 1.96*sigma - 1.0",
+      "elimination_threshold_5K_fid": 27.31,
+      "elimination_threshold_formula": "mu + 5.0",
+      "validity_check": "2K e100 mean 29.71 +- 0.19 matches prior cifar_seed_study vanilla e100 30.18 +- 0.28 (within 1 sigma) — proxy is valid"
+    },
+    "round_2_submitted_at": "2026-04-27T00:00:00Z",
+    "round_2_jobs": {"v03": "8898137", "v06": "8898147", "v02": "8898150", "v04": "8898152"},
+    "round_2_skipped": ["v05_drop_geometry"],
+    "round_2_skip_reason": "v05 inherits v01's inert hinge; near-zero probability of beating vanilla. Run later for paper appendix if needed.",
     "initial_variants": [
       "v00_vanilla",
       "v01_current",
@@ -88,11 +106,15 @@
     "prompt": "Restructure complete. Pending: submit Round 1 pilots (v00_vanilla + v01_current). Also pending: offline fix of IN-100 reference-stats schema mismatch (KeyError: mu) to recover FID for the 3 completed vanilla IN-100 80ep seed runs — no retrain needed, just a ref-stats regenerate + FID compute."
   },
   "active_runs": [
-    {"run_id": "variant_pilot_v00_vanilla_s0_r1retry", "job_id": "8611605_0", "partition": "gpu", "status": "pending", "description": "Round 1 retry: v00_vanilla CIFAR 100ep 5K-FID pilot, seed 0. Pinning vanilla noise floor (seed 0 of 3).", "submitted_at": "2026-04-26T00:00:00Z", "git_sha": "3184d9f", "sbatch_path": "projects/diff-EqM/slurm/jobs/variant_pilot.sbatch", "config_path": "projects/diff-EqM/configs/variants/v00_vanilla.json", "expected_runtime": "~3.5h", "stage": "AUTORESEARCH-VARIANTS-R1"},
-    {"run_id": "variant_pilot_v00_vanilla_s1_r1retry", "job_id": "8611605_1", "partition": "gpu", "status": "pending", "description": "Round 1 retry: v00_vanilla seed 1 of 3.", "submitted_at": "2026-04-26T00:00:00Z", "git_sha": "3184d9f", "sbatch_path": "projects/diff-EqM/slurm/jobs/variant_pilot.sbatch", "config_path": "projects/diff-EqM/configs/variants/v00_vanilla.json", "expected_runtime": "~3.5h", "stage": "AUTORESEARCH-VARIANTS-R1"},
-    {"run_id": "variant_pilot_v00_vanilla_s2_r1retry", "job_id": "8611605_2", "partition": "gpu", "status": "pending", "description": "Round 1 retry: v00_vanilla seed 2 of 3.", "submitted_at": "2026-04-26T00:00:00Z", "git_sha": "3184d9f", "sbatch_path": "projects/diff-EqM/slurm/jobs/variant_pilot.sbatch", "config_path": "projects/diff-EqM/configs/variants/v00_vanilla.json", "expected_runtime": "~3.5h", "stage": "AUTORESEARCH-VARIANTS-R1"}
+    {"run_id": "variant_pilot_v03_noised_negatives_s0", "job_id": "8898137", "partition": "gpu_test", "status": "running", "description": "Round 2: v03_noised_negatives @ 100ep, seed 0. Mining at t~U(0,1) instead of hardcoded t=1 (Luo 2023 DCD).", "submitted_at": "2026-04-27T00:00:00Z", "git_sha": "3184d9f", "sbatch_path": "projects/diff-EqM/slurm/jobs/variant_pilot.sbatch", "config_path": "projects/diff-EqM/configs/variants/v03_noised_negatives.json", "expected_runtime": "~5h", "stage": "AUTORESEARCH-VARIANTS-R2"},
+    {"run_id": "variant_pilot_v06_diffusion_recovery_s0", "job_id": "8898147", "partition": "gpu_test", "status": "pending", "description": "Round 2: v06_diffusion_recovery @ 100ep, seed 0. Short reverse-ODE reconstruction error (Kim 2024 CTM, Kong 2024 ACT).", "submitted_at": "2026-04-27T00:00:00Z", "git_sha": "3184d9f", "sbatch_path": "projects/diff-EqM/slurm/jobs/variant_pilot.sbatch", "config_path": "projects/diff-EqM/configs/variants/v06_diffusion_recovery.json", "expected_runtime": "~5h", "stage": "AUTORESEARCH-VARIANTS-R2"},
+    {"run_id": "variant_pilot_v02_score_repulsion_s0", "job_id": "8898150", "partition": "gpu", "status": "pending", "description": "Round 2: v02_score_repulsion @ 100ep, seed 0. VeCoR-style two-sided cosine contrastive (Jiang 2025).", "submitted_at": "2026-04-27T00:00:00Z", "git_sha": "3184d9f", "sbatch_path": "projects/diff-EqM/slurm/jobs/variant_pilot.sbatch", "config_path": "projects/diff-EqM/configs/variants/v02_score_repulsion.json", "expected_runtime": "~5h", "stage": "AUTORESEARCH-VARIANTS-R2"},
+    {"run_id": "variant_pilot_v04_ebm_contrastive_s0", "job_id": "8898152", "partition": "gpu", "status": "pending", "description": "Round 2: v04_ebm_contrastive @ 100ep, seed 0. InfoNCE softplus on velocity-norm energy (Du 2021 CD).", "submitted_at": "2026-04-27T00:00:00Z", "git_sha": "3184d9f", "sbatch_path": "projects/diff-EqM/slurm/jobs/variant_pilot.sbatch", "config_path": "projects/diff-EqM/configs/variants/v04_ebm_contrastive.json", "expected_runtime": "~5h", "stage": "AUTORESEARCH-VARIANTS-R2"}
   ],
   "completed_runs": [
+    {"run_id": "variant_pilot_v00_vanilla_s0_r1retry", "job_id": "8611605_0", "result_dir": "variant_v00_vanilla_8612283_seed0", "partition": "gpu", "status": "completed", "description": "R1 retry: v00_vanilla 100ep, seed 0. Validates proxy at 100ep.", "completed_at": "2026-04-26T14:14:43Z", "elapsed": "03:06:47", "final_fid_5K": 22.0852, "fid_2K_e100": 29.8711, "git_sha": "3184d9f"},
+    {"run_id": "variant_pilot_v00_vanilla_s1_r1retry", "job_id": "8611605_1", "result_dir": "variant_v00_vanilla_8612575_seed1", "partition": "gpu", "status": "completed", "description": "R1 retry: v00_vanilla 100ep, seed 1.", "completed_at": "2026-04-26T14:19:38Z", "elapsed": "03:09:14", "final_fid_5K": 22.5712, "fid_2K_e100": 29.7610, "git_sha": "3184d9f"},
+    {"run_id": "variant_pilot_v00_vanilla_s2_r1retry", "job_id": "8611605_2", "result_dir": "variant_v00_vanilla_8611605_seed2", "partition": "gpu", "status": "completed", "description": "R1 retry: v00_vanilla 100ep, seed 2. R1 complete: noise floor mu=22.31, sigma=0.244 — proxy VALID.", "completed_at": "2026-04-26T14:24:02Z", "elapsed": "03:07:01", "final_fid_5K": 22.2810, "fid_2K_e100": 29.4908, "git_sha": "3184d9f"},
     {"run_id": "variant_pilot_v00_25ep_s0_INVALID_PROXY", "job_id": "8370711", "partition": "gpu", "status": "completed", "description": "Round 1 first attempt at 25ep — proxy invalid (cannot resolve known 150ep gap; both v00 and v01 still in steep descent, v01 mining inert). Result preserved for reference.", "completed_at": "2026-04-25T14:36:25Z", "elapsed": "00:55:34", "final_fid_5K_e25": 341.9385, "git_sha": "a9442b1"},
     {"run_id": "variant_pilot_v01_25ep_s0_INVALID_PROXY", "job_id": "8370723", "partition": "gpu", "status": "completed", "description": "Round 1 first attempt at 25ep, v01_current. neg_loss=0 every epoch (margin=50 hinge inert at random init). Proxy invalid; v01 dropped from future proxy rounds.", "completed_at": "2026-04-25T15:11:03Z", "elapsed": "01:28:41", "final_fid_5K_e25": 334.2711, "git_sha": "a9442b1"},
     {"run_id": "cifar_dganm_resume_s0", "job_id": "7455358_0", "stage": "A.5-B-seedstudy", "partition": "gpu", "status": "completed", "description": "DG-ANM v01 resume e125->e150 seed 0. Final 10K FID 16.72.", "submitted_at": "2026-04-22T19:50:00-04:00", "completed_at": "2026-04-22T21:13:45-04:00", "elapsed": "01:35:27", "final_fid_10K": 16.7248, "fid_2K_e150": 27.8488, "git_sha": "5af6f48"},
