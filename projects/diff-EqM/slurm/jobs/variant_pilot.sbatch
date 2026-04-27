@@ -11,6 +11,11 @@
 #SBATCH --gres=gpu:1
 
 # Generic pilot runner for DG-ANM variants. One config per array task.
+#
+# IMPORTANT: mining variants (v01-v04, v06) require >=40G GPU. The
+# `gpu_test` partition has 20G cards and will OOM at bs=128 — use
+# --partition=gpu for those. Non-mining variants (v00, v05) fit in 20G.
+# History: jobs 8898137 (v03) and 8898147 (v06) OOM'd on gpu_test.
 # The caller is responsible for:
 #   - passing CONFIG_PATH (path under repo, relative) or CONFIGS_DIR + VARIANT_LIST
 #   - setting GIT_SHA + GIT_URL for the clone
