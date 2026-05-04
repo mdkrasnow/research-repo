@@ -327,6 +327,69 @@ def dganm_negative_loss(
 
 
 #################################################################################
+#              v02 Score-Repulsion: cosine-contrastive on velocity              #
+#################################################################################
+
+def _v02_cosine_contrastive_step(
+    model_ddp, model_module, x, y,
+    train_eps, mining_epsilon, mining_steps, mining_lr,
+    pos_sigma, lambda_pos, lambda_neg, neg_cos_margin,
+    device,
+):
+    """v02 mining + loss in latent space. Returns (loss, diag).
+
+    Differs from v01: (1) uniform t in (eps, 1-eps) instead of t=1,
+    (2) PGA descends cosine similarity vs anchor velocity (no feature PCA),
+    (3) cosine-contrastive loss with pos+neg legs instead of margin hinge.
+    """
+    B = x.shape[0]
+    # FM forward path at random t (latent space)
+    t = torch.rand(B, device=device) * (1.0 - 2.0 * train_eps) + train_eps
+    t_ = t.view(B, 1, 1, 1)
+    x0 = torch.randn_like(x)
+    x_t = (1.0 - t_) * x0 + t_ * x
+
+    # --- PGA mine negatives by minimizing cos(v_neg, v_anchor) ---
+    model_ddp.eval()
+    with torch.no_grad():
+        v_anchor_eval = model_module(x_t, t, y, train=False)
+    delta = torch.randn_like(x_t) * 0.01
+    delta.requires_grad_(True)
+    for _ in range(mining_steps):
+        v_neg = model_module(x_t.detach() + delta, t, y, train=False)
+        obj = F.cosine_similarity(
+            v_neg.flatten(1), v_anchor_eval.flatten(1).detach(), dim=1
+        ).mean()
+        grad_d = torch.autograd.grad(obj, delta, retain_graph=False)[0]
+        with torch.no_grad():
+            delta = delta - mining_lr * grad_d.sign()  # descend cos
+            flat = delta.flatten(1).norm(dim=1, keepdim=True).view(B, 1, 1, 1)
+            delta = delta * torch.clamp(mining_epsilon / (flat + 1e-8), max=1.0)
+            delta = delta.detach().requires_grad_(True)
+    x_neg = (x_t + delta).detach()
+    x_pos = (x_t + pos_sigma * torch.randn_like(x_t)).detach()
+    x_t_anchor = x_t.detach()
+    model_ddp.train()
+
+    # --- Cosine-contrastive loss; grads flow through DDP for sync ---
+    v_a = model_ddp(x_t_anchor, t, y, train=True)
+    v_p = model_ddp(x_pos, t, y, train=True)
+    v_n = model_ddp(x_neg, t, y, train=True)
+    sim_pos = F.cosine_similarity(v_p.flatten(1), v_a.flatten(1), dim=1)
+    sim_neg = F.cosine_similarity(v_n.flatten(1), v_a.flatten(1), dim=1)
+    l_pos = (1.0 - sim_pos).mean()
+    l_neg = F.relu(sim_neg - neg_cos_margin).mean()
+    loss_v02 = lambda_pos * l_pos + lambda_neg * l_neg
+
+    diag = {
+        "avg_normal_component": l_pos.item(),     # repurpose log slot: pos
+        "avg_tangent_component": l_neg.item(),    # repurpose log slot: neg
+        "avg_field_norm_at_neg": v_n.flatten(1).norm(dim=1).mean().item(),
+    }
+    return loss_v02, x_neg, diag
+
+
+#################################################################################
 #                                  Training Loop                                #
 #################################################################################
 
@@ -526,47 +589,69 @@ def main(args):
             if args.use_mining and args.gamma > 0:
                 B = x.shape[0]
 
-                if train_steps % args.mine_every == 0:
-                    # --- Feature extraction (eval mode, no grad for model) ---
-                    model.eval()
-                    with torch.no_grad():
-                        t_ones = torch.ones(B, device=device)
-                        _, acts = model.module(x, t_ones, y, return_act=True)
-                        features = acts[-1].mean(dim=1)  # (B, hidden_size)
-
-                    # --- Geometry estimation ---
-                    P_T, P_N = estimate_local_geometry(features, k=args.mining_k)
-
-                    # --- Mine negatives (model.module in eval, delta has grad) ---
-                    x_neg, mining_info = mine_negatives(
-                        model.module, x, y, features, P_N, P_T,
-                        epsilon=args.mining_epsilon,
-                        mining_steps=args.mining_steps,
-                        mining_lr=args.mining_lr,
-                        lambda_N=args.lambda_N,
-                        lambda_T=args.lambda_T,
-                        lambda_W=args.lambda_W,
-                        device=device,
-                    )
-                    cached_x_neg = x_neg.detach()
-
-                    # Restore train mode
-                    model.train()
+                if args.mining_flavor == "v02":
+                    # v02: cosine-contrastive on velocity at uniform t.
+                    if train_steps % args.mine_every == 0:
+                        loss_v02, x_neg_new, mining_info = _v02_cosine_contrastive_step(
+                            model_ddp=model, model_module=model.module,
+                            x=x, y=y,
+                            train_eps=args.train_eps,
+                            mining_epsilon=args.mining_epsilon,
+                            mining_steps=args.mining_steps,
+                            mining_lr=args.mining_lr,
+                            pos_sigma=args.pos_sigma,
+                            lambda_pos=args.lambda_pos,
+                            lambda_neg=args.lambda_neg,
+                            neg_cos_margin=args.neg_cos_margin,
+                            device=device,
+                        )
+                        cached_x_neg = x_neg_new
+                        loss = loss + args.gamma * loss_v02
+                        loss_neg_val = loss_v02.item()
+                    # else: skip aux this step (mine_every cadence; loss_neg=0)
                 else:
-                    # Reuse cached negatives from last mining step
-                    x_neg = cached_x_neg
+                    # v01 (default): feature-PCA geometry + margin hinge at t=1.
+                    if train_steps % args.mine_every == 0:
+                        # --- Feature extraction (eval mode, no grad for model) ---
+                        model.eval()
+                        with torch.no_grad():
+                            t_ones = torch.ones(B, device=device)
+                            _, acts = model.module(x, t_ones, y, return_act=True)
+                            features = acts[-1].mean(dim=1)  # (B, hidden_size)
 
-                # --- Negative loss (DDP model in train mode, grads sync) ---
-                if x_neg is not None:
-                    model.train()
-                    loss_neg = dganm_negative_loss(
-                        model, x, x_neg, y,
-                        margin=args.neg_margin,
-                        rho=args.neg_rho,
-                        device=device,
-                    )
-                    loss = loss + args.gamma * loss_neg
-                    loss_neg_val = loss_neg.item()
+                        # --- Geometry estimation ---
+                        P_T, P_N = estimate_local_geometry(features, k=args.mining_k)
+
+                        # --- Mine negatives (model.module in eval, delta has grad) ---
+                        x_neg, mining_info = mine_negatives(
+                            model.module, x, y, features, P_N, P_T,
+                            epsilon=args.mining_epsilon,
+                            mining_steps=args.mining_steps,
+                            mining_lr=args.mining_lr,
+                            lambda_N=args.lambda_N,
+                            lambda_T=args.lambda_T,
+                            lambda_W=args.lambda_W,
+                            device=device,
+                        )
+                        cached_x_neg = x_neg.detach()
+
+                        # Restore train mode
+                        model.train()
+                    else:
+                        # Reuse cached negatives from last mining step
+                        x_neg = cached_x_neg
+
+                    # --- Negative loss (DDP model in train mode, grads sync) ---
+                    if x_neg is not None:
+                        model.train()
+                        loss_neg = dganm_negative_loss(
+                            model, x, x_neg, y,
+                            margin=args.neg_margin,
+                            rho=args.neg_rho,
+                            device=device,
+                        )
+                        loss = loss + args.gamma * loss_neg
+                        loss_neg_val = loss_neg.item()
 
             # =================================================================
             # 3. Optimize
@@ -737,6 +822,19 @@ if __name__ == "__main__":
                         help="Trajectory failure loss weight")
     parser.add_argument("--mine-every", type=int, default=1,
                         help="Mine negatives every K steps, reuse cached for others")
+
+    # --- Mining flavor (v01 = original DG-ANM, v02 = cosine-contrastive) ---
+    parser.add_argument("--mining-flavor", type=str, choices=["v01", "v02"], default="v01",
+                        help="v01: feature-PCA geometry + margin hinge at t=1 (original DG-ANM). "
+                             "v02: cosine-contrastive on velocity at uniform t (CIFAR-validated winner).")
+    parser.add_argument("--lambda-pos", type=float, default=1.0,
+                        help="v02: weight on (1 - cos(v_pos, v_anchor)) leg")
+    parser.add_argument("--lambda-neg", type=float, default=1.0,
+                        help="v02: weight on relu(cos(v_neg, v_anchor) - margin) leg")
+    parser.add_argument("--pos-sigma", type=float, default=0.05,
+                        help="v02: stddev of Gaussian noise for x_pos around x_t (latent space)")
+    parser.add_argument("--neg-cos-margin", type=float, default=0.0,
+                        help="v02: subtract this from cos(v_neg, v_anchor) before relu")
 
     parse_transport_args(parser)
     args = parser.parse_args()
