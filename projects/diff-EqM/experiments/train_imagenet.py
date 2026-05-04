@@ -343,8 +343,10 @@ def _v02_cosine_contrastive_step(
     (3) cosine-contrastive loss with pos+neg legs instead of margin hinge.
     """
     B = x.shape[0]
-    # FM forward path at random t (latent space)
-    t = torch.rand(B, device=device) * (1.0 - 2.0 * train_eps) + train_eps
+    # FM forward path at random t (latent space). train_eps may be None when
+    # the upstream transport handles its own eps; fall back to 1e-3.
+    eps = train_eps if train_eps is not None else 1e-3
+    t = torch.rand(B, device=device) * (1.0 - 2.0 * eps) + eps
     t_ = t.view(B, 1, 1, 1)
     x0 = torch.randn_like(x)
     x_t = (1.0 - t_) * x0 + t_ * x
