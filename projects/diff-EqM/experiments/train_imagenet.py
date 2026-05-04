@@ -382,9 +382,9 @@ def _v02_cosine_contrastive_step(
     loss_v02 = lambda_pos * l_pos + lambda_neg * l_neg
 
     diag = {
-        "avg_normal_component": l_pos.item(),     # repurpose log slot: pos
-        "avg_tangent_component": l_neg.item(),    # repurpose log slot: neg
-        "avg_field_norm_at_neg": v_n.flatten(1).norm(dim=1).mean().item(),
+        "v02_pos_loss": l_pos.item(),
+        "v02_neg_loss": l_neg.item(),
+        "v02_neg_field_norm": v_n.flatten(1).norm(dim=1).mean().item(),
     }
     return loss_v02, x_neg, diag
 
@@ -668,9 +668,17 @@ def main(args):
             running_loss_base += loss_base.item()
             running_loss_neg += loss_neg_val
             if mining_info is not None:
-                running_mining_normal += mining_info["avg_normal_component"]
-                running_mining_tangent += mining_info["avg_tangent_component"]
-                running_mining_field += mining_info["avg_field_norm_at_neg"]
+                # v01 keys: avg_normal_component / avg_tangent_component / avg_field_norm_at_neg.
+                # v02 keys: v02_pos_loss / v02_neg_loss / v02_neg_field_norm.
+                # Reuse the same accumulators; the log labels reflect the active flavor.
+                if args.mining_flavor == "v02":
+                    running_mining_normal += mining_info["v02_pos_loss"]
+                    running_mining_tangent += mining_info["v02_neg_loss"]
+                    running_mining_field += mining_info["v02_neg_field_norm"]
+                else:
+                    running_mining_normal += mining_info["avg_normal_component"]
+                    running_mining_tangent += mining_info["avg_tangent_component"]
+                    running_mining_field += mining_info["avg_field_norm_at_neg"]
             log_steps += 1
             train_steps += 1
 
@@ -707,12 +715,22 @@ def main(args):
                     avg_mining_tangent = running_mining_tangent / max(1, log_steps // args.mine_every)
                     avg_mining_field = running_mining_field / max(1, log_steps // args.mine_every)
 
-                    log_msg += (
-                        f", Neg: {avg_loss_neg:.4f}"
-                        f", Mining(N={avg_mining_normal:.3f}"
-                        f", T={avg_mining_tangent:.3f}"
-                        f", F={avg_mining_field:.3f})"
-                    )
+                    # v01 prints geometry components; v02 prints cosine pos/neg losses.
+                    if args.mining_flavor == "v02":
+                        diag_label = (
+                            f", Aux: {avg_loss_neg:.4f}"
+                            f", v02(pos={avg_mining_normal:.3f}"
+                            f", neg={avg_mining_tangent:.3f}"
+                            f", |v_neg|={avg_mining_field:.3f})"
+                        )
+                    else:
+                        diag_label = (
+                            f", Neg: {avg_loss_neg:.4f}"
+                            f", Mining(N={avg_mining_normal:.3f}"
+                            f", T={avg_mining_tangent:.3f}"
+                            f", F={avg_mining_field:.3f})"
+                        )
+                    log_msg += diag_label
                     wandb_dict.update({
                         "train_loss_neg": avg_loss_neg,
                         "mining_normal_component": avg_mining_normal,
