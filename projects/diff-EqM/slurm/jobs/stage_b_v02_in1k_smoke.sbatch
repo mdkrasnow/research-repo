@@ -71,9 +71,9 @@ TRAIN_CMD="python -m torch.distributed.run --nnodes=1 --nproc_per_node=4 --maste
     --use-mining \
     --mining-flavor v02 \
     --gamma 1.0 \
-    --mining-epsilon 0.1 \
+    --mining-epsilon 0.3 \
     --mining-steps 3 \
-    --mining-lr 0.01 \
+    --mining-lr 0.05 \
     --mine-every 5 \
     --lambda-pos 1.0 \
     --lambda-neg 1.0 \
