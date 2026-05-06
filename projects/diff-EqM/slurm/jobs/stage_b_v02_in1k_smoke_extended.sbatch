@@ -69,6 +69,7 @@ TRAIN_CMD="python -m torch.distributed.run --nnodes=1 --nproc_per_node=4 --maste
     --lambda-neg 1.0 \
     --pos-sigma 0.05 \
     --neg-cos-margin 0.0 \
+    --mining-warmup-steps 5000 \
     --results-dir $RESULTS_SUBDIR"
 
 echo "=== Extended v02 smoke (5 epochs, ~25K steps) ===" >&2

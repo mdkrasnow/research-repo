@@ -593,7 +593,11 @@ def main(args):
 
                 if args.mining_flavor == "v02":
                     # v02: cosine-contrastive on velocity at uniform t.
-                    if train_steps % args.mine_every == 0:
+                    # Warmup: skip mining until base loss has trained the model
+                    # enough that v(x_t) is input-sensitive. EqM-B/2 init has
+                    # bias-dominated output; PGA gradient vanishes (cos≈1).
+                    in_warmup = train_steps < args.mining_warmup_steps
+                    if (not in_warmup) and train_steps % args.mine_every == 0:
                         loss_v02, x_neg_new, mining_info = _v02_cosine_contrastive_step(
                             model_ddp=model, model_module=model.module,
                             x=x, y=y,
@@ -855,6 +859,10 @@ if __name__ == "__main__":
                         help="v02: stddev of Gaussian noise for x_pos around x_t (latent space)")
     parser.add_argument("--neg-cos-margin", type=float, default=0.0,
                         help="v02: subtract this from cos(v_neg, v_anchor) before relu")
+    parser.add_argument("--mining-warmup-steps", type=int, default=0,
+                        help="v02: skip mining until train_steps >= this. EqM-B/2 init has "
+                             "bias-dominated output (|v|~200, cos≈1); needs ~5000 steps for "
+                             "v(x_t) to become input-sensitive before mining is meaningful.")
 
     parse_transport_args(parser)
     args = parser.parse_args()
