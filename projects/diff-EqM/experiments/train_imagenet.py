@@ -392,6 +392,39 @@ def _v02_cosine_contrastive_step(
 
 
 #################################################################################
+#       v09 Jacobian: random-noise finite-diff Jacobian regularizer             #
+#################################################################################
+
+def _v09_jacobian_step(model_ddp, x, y, train_eps, jac_sigma, jac_lambda, device):
+    """Architecture-agnostic local-smoothness regularizer.
+
+    L_jac = ||v(x_t + δ) - v(x_t)||² / σ²,  δ ~ N(0, σ²I).
+    Encourages local Lipschitz continuity of velocity field.
+    No mining, no cosine. 1 extra forward per call.
+    """
+    B = x.shape[0]
+    eps = train_eps if train_eps is not None else 1e-3
+    t = torch.rand(B, device=device) * (1.0 - 2.0 * eps) + eps
+    t_ = t.view(B, 1, 1, 1)
+    x0 = torch.randn_like(x)
+    x_t = (1.0 - t_) * x0 + t_ * x
+
+    delta = jac_sigma * torch.randn_like(x_t)
+    v_anchor = model_ddp(x_t, t, y, train=True)
+    v_pert = model_ddp(x_t + delta, t, y, train=True)
+    diff = (v_pert - v_anchor).flatten(1)
+    l_jac = (diff.pow(2).sum(dim=1) / (jac_sigma * jac_sigma + 1e-8)).mean()
+    loss = jac_lambda * l_jac
+
+    diag = {
+        "v09_jac_loss": l_jac.item(),
+        "v09_anchor_norm": v_anchor.flatten(1).norm(dim=1).mean().item(),
+        "v09_aux_over_base": 0.0,  # filled by caller
+    }
+    return loss, diag
+
+
+#################################################################################
 #                                  Training Loop                                #
 #################################################################################
 
@@ -591,7 +624,21 @@ def main(args):
             if args.use_mining and args.gamma > 0:
                 B = x.shape[0]
 
-                if args.mining_flavor == "v02":
+                if args.mining_flavor == "v09":
+                    # v09: random-noise Jacobian regularizer. Architecture-agnostic.
+                    if train_steps % args.mine_every == 0:
+                        loss_v09, mining_info = _v09_jacobian_step(
+                            model_ddp=model, x=x, y=y,
+                            train_eps=args.train_eps,
+                            jac_sigma=args.jac_sigma,
+                            jac_lambda=args.jac_lambda,
+                            device=device,
+                        )
+                        cached_x_neg = None
+                        loss = loss + args.gamma * loss_v09
+                        loss_neg_val = loss_v09.item()
+                        mining_info["v09_aux_over_base"] = (loss_neg_val / max(loss_base.item(), 1e-8))
+                elif args.mining_flavor == "v02":
                     # v02: cosine-contrastive on velocity at uniform t.
                     # Warmup: skip mining until base loss has trained the model
                     # enough that v(x_t) is input-sensitive. EqM-B/2 init has
@@ -677,7 +724,11 @@ def main(args):
                 # v01 keys: avg_normal_component / avg_tangent_component / avg_field_norm_at_neg.
                 # v02 keys: v02_pos_loss / v02_neg_loss / v02_neg_field_norm.
                 # Reuse the same accumulators; the log labels reflect the active flavor.
-                if args.mining_flavor == "v02":
+                if args.mining_flavor == "v09":
+                    running_mining_normal += mining_info["v09_jac_loss"]
+                    running_mining_tangent += mining_info["v09_aux_over_base"]
+                    running_mining_field += mining_info["v09_anchor_norm"]
+                elif args.mining_flavor == "v02":
                     running_mining_normal += mining_info["v02_pos_loss"]
                     running_mining_tangent += mining_info["v02_neg_loss"]
                     running_mining_field += mining_info["v02_neg_field_norm"]
@@ -721,8 +772,15 @@ def main(args):
                     avg_mining_tangent = running_mining_tangent / max(1, log_steps // args.mine_every)
                     avg_mining_field = running_mining_field / max(1, log_steps // args.mine_every)
 
-                    # v01 prints geometry components; v02 prints cosine pos/neg losses.
-                    if args.mining_flavor == "v02":
+                    # Per-flavor diagnostic labels.
+                    if args.mining_flavor == "v09":
+                        diag_label = (
+                            f", Aux: {avg_loss_neg:.4f}"
+                            f", v09(jac={avg_mining_normal:.3f}"
+                            f", aux/base={avg_mining_tangent:.3f}"
+                            f", |v|={avg_mining_field:.3f})"
+                        )
+                    elif args.mining_flavor == "v02":
                         diag_label = (
                             f", Aux: {avg_loss_neg:.4f}"
                             f", v02(pos={avg_mining_normal:.3f}"
@@ -848,7 +906,7 @@ if __name__ == "__main__":
                         help="Mine negatives every K steps, reuse cached for others")
 
     # --- Mining flavor (v01 = original DG-ANM, v02 = cosine-contrastive) ---
-    parser.add_argument("--mining-flavor", type=str, choices=["v01", "v02"], default="v01",
+    parser.add_argument("--mining-flavor", type=str, choices=["v01", "v02", "v09"], default="v01",
                         help="v01: feature-PCA geometry + margin hinge at t=1 (original DG-ANM). "
                              "v02: cosine-contrastive on velocity at uniform t (CIFAR-validated winner).")
     parser.add_argument("--lambda-pos", type=float, default=1.0,
@@ -863,6 +921,11 @@ if __name__ == "__main__":
                         help="v02: skip mining until train_steps >= this. EqM-B/2 init has "
                              "bias-dominated output (|v|~200, cos≈1); needs ~5000 steps for "
                              "v(x_t) to become input-sensitive before mining is meaningful.")
+    # --- v09 Jacobian regularizer args ---
+    parser.add_argument("--jac-sigma", type=float, default=0.05,
+                        help="v09: stddev of Gaussian perturbation in latent space")
+    parser.add_argument("--jac-lambda", type=float, default=0.1,
+                        help="v09: weight on (||v(x+δ)-v(x)||²/σ²) regularizer")
 
     parse_transport_args(parser)
     args = parser.parse_args()
