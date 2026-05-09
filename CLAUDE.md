@@ -155,3 +155,168 @@ Projects can run in **autoresearch mode** — a continuous, autonomous experimen
 
 ### Resuming
 - If a session ends mid-autoresearch, running `/autoresearch --project <slug>` again resumes from where it left off by reading `results.tsv` and `pipeline.json:autoresearch.iteration`.
+
+# Research Process Rules for EqM / ANM Experiments
+
+## Core principle
+
+Do not implement a new variant just because the previous one failed.
+
+Every new experiment must pass a mechanism check before code is written:
+
+1. What exact failure mode are we trying to fix?
+2. What property of EqM does the proposed loss preserve?
+3. What property of EqM does the proposed loss risk violating?
+4. What metric or diagnostic would prove the mechanism is working?
+5. What result would make us stop this direction?
+
+If these are not answered clearly, do not code.
+
+---
+
+## Baseline-first rule
+
+Before any auxiliary-loss experiment, verify the vanilla baseline.
+
+For ImageNet EqM experiments, this means:
+
+- Confirm the config matches the paper-best or intended comparison config.
+- Confirm c(γ), truncation, lambda/multiplier, sampler, checkpoint, reference stats, and FID pipeline.
+- Run and record vanilla FID before interpreting auxiliary-loss results.
+- Treat all auxiliary-loss experiments as invalid until the baseline is trusted.
+
+Do not compare a new variant against an unverified vanilla run.
+
+---
+
+## EqM objective-alignment rule
+
+Any ANM or auxiliary objective must respect the EqM training target.
+
+EqM trains:
+
+```text
+f(x_γ) ≈ target(x, ε, γ)
+```
+
+Therefore, preferred auxiliary losses should be written in terms of the EqM base loss or a directly justified property of the EqM field.
+
+Avoid importing losses from other settings unless we explain why they are compatible with EqM.
+
+High-risk losses include:
+
+* cosine separation objectives,
+* hinge losses that blindly push velocity norm high,
+* Jacobian penalties that flatten the velocity field,
+* EBM-style energy losses not tied to the EqM target.
+
+These may be useful only after a written compatibility argument.
+
+---
+
+## Variant proposal template
+
+Before implementing a variant, write this block in the experiment notes:
+
+```text
+Variant name:
+
+Hypothesis:
+
+Failure mode addressed:
+
+EqM compatibility argument:
+
+Loss definition:
+
+Expected diagnostics if working:
+
+Expected diagnostics if failing:
+
+Minimal test:
+
+Promotion rule:
+
+Kill rule:
+```
+
+---
+
+## CIFAR sanity-check rule
+
+CIFAR is only a stability check.
+
+CIFAR can answer:
+
+* Does the code run?
+* Does the model collapse?
+* Are diagnostics finite and sensible?
+* Is the loss obviously broken?
+
+CIFAR cannot answer:
+
+* Will this transfer to EqM-B/2?
+* Will this fix ImageNet EqM geometry?
+* Is this better than vanilla EqM?
+
+Do not require a CIFAR variant to beat vanilla before trying one tightly motivated ImageNet experiment. Do not allow CIFAR success to justify a full ImageNet run unless the mechanism is EqM-aligned.
+
+---
+
+## Diagnostics required for every auxiliary-loss experiment
+
+Every run must log:
+
+* clean base loss
+* auxiliary loss
+* aux/base ratio
+* field norm at clean point
+* field norm at perturbed/mined point
+* perturbation norm
+* mined loss before and after PGA, if mining is used
+* per-step overhead vs vanilla
+* FID or proxy eval when available
+
+If the aux/base ratio is large enough to dominate training, stop and retune before continuing. If the auxiliary loss is near zero or saturated, stop and diagnose before continuing.
+
+---
+
+## No literature laundering
+
+A citation is not a mechanism. When referencing a paper, state exactly what the paper supports and what it does not support.
+
+Bad: "Jacobian regularization is literature-supported, so we should try it."
+
+Good: "Jacobian regularization is supported for reducing local sensitivity in classifiers. But EqM learns a velocity/energy field where local sensitivity may be necessary. Therefore this loss is risky unless we can show the sensitivity being penalized is specifically harmful."
+
+---
+
+## Stop conditions
+
+Stop a research direction when one of these happens:
+
+* the loss contradicts the EqM target geometry,
+* the baseline has not been verified,
+* the diagnostic signal is saturated or zero,
+* improvement depends on post-hoc reinterpretation,
+* the experiment only adds complexity without testing a clear mechanism,
+* the same failure repeats across two reasonable hyperparameter settings.
+
+When stopped, write a short postmortem before proposing the next variant.
+
+---
+
+## Research Loop
+
+For each experiment:
+
+1. **Baseline check** — Is the comparison baseline trusted? Is the eval pipeline trusted?
+2. **Mechanism note** — What failure are we fixing? Why should this fix work specifically for EqM?
+3. **Compatibility check** — Does the loss preserve EqM's target geometry? Does it fight c(γ), target magnitude, or field structure?
+4. **Minimal implementation** — Smallest version. Add diagnostics before long runs.
+5. **Smoke test** — Check for collapse, saturation, overhead, aux/base ratio.
+6. **Decision** — Promote, retune once, or kill. Do not retune indefinitely.
+7. **Postmortem** — Write why it worked or failed before proposing the next idea.
+
+**Prove the experiment deserves to exist before writing code.**
+
