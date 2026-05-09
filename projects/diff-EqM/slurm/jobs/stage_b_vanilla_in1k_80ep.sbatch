@@ -54,7 +54,7 @@ MASTER_PORT=$((29500 + RANDOM % 1000))
 # Background rsync — preserve checkpoints across walltime/preemption.
 rsync_loop() {
     while true; do
-        sleep 900
+        sleep 300
         rsync -a --quiet --include='*/' --include='*.pt' --include='*.log' \
             --include='*.txt' --include='*.json' --exclude='*' \
             "$WORK_DIR/$RESULTS_SUBDIR/" "$PERSIST_DIR/" 2>/dev/null
@@ -63,7 +63,19 @@ rsync_loop() {
 }
 rsync_loop &
 RSYNC_PID=$!
-trap "kill $RSYNC_PID 2>/dev/null; rsync -a --include='*/' --include='*.pt' --include='*.log' --include='*.txt' --include='*.json' --exclude='*' '$WORK_DIR/$RESULTS_SUBDIR/' '$PERSIST_DIR/' 2>&1 | tail -5" EXIT
+final_rsync() {
+    kill $RSYNC_PID 2>/dev/null
+    sleep 2
+    echo "[FINAL rsync] start $(date)" >&2
+    rsync -av --include='*/' --include='*.pt' --include='*.log' \
+        --include='*.txt' --include='*.json' --exclude='*' \
+        "$WORK_DIR/$RESULTS_SUBDIR/" "$PERSIST_DIR/" 2>&1 | tail -20 >&2
+    echo "[FINAL rsync] end $(date)" >&2
+    echo "[FINAL listing]" >&2
+    ls -la "$PERSIST_DIR/" >&2 2>/dev/null || true
+    find "$PERSIST_DIR" -name "*.pt" 2>/dev/null >&2 || true
+}
+trap final_rsync EXIT
 
 TRAIN_CMD="python -m torch.distributed.run --nnodes=1 --nproc_per_node=4 --master_port=$MASTER_PORT \
     projects/diff-EqM/experiments/train_imagenet.py \
@@ -75,7 +87,7 @@ TRAIN_CMD="python -m torch.distributed.run --nnodes=1 --nproc_per_node=4 --maste
     --image-size 256 \
     --global-seed $SEED \
     --log-every 200 \
-    --ckpt-every 25000 \
+    --ckpt-every 10000 \
     --results-dir $RESULTS_SUBDIR"
 
 if [ -n "${RESUME_CKPT:-}" ] && [ -f "$RESUME_CKPT" ]; then
