@@ -6,8 +6,8 @@
 #SBATCH --ntasks-per-node=4
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=256GB
-#SBATCH --time=48:00:00
-#SBATCH --partition=seas_gpu
+#SBATCH --time=6:00:00
+#SBATCH --partition=gpu_test
 #SBATCH --gres=gpu:4
 
 # Stage B vanilla EqM-B/2, 80 epochs, full ImageNet-1K-256, 4-GPU DDP.
