@@ -7,7 +7,7 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=256GB
 #SBATCH --time=6:00:00
-#SBATCH --partition=gpu
+#SBATCH --partition=seas_gpu
 #SBATCH --gres=gpu:4
 
 # FID evaluation for EqM-B/2 on ImageNet-1K
