@@ -33,9 +33,13 @@ from torch.utils.data import DataLoader, DistributedSampler
 from torchvision import transforms
 from torchvision.datasets import ImageFolder
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
-EQM_UPSTREAM = REPO_ROOT / "projects" / "diff-EqM" / "eqm-upstream"
-DIFF_EQM_EXPERIMENTS = REPO_ROOT / "projects" / "diff-EqM" / "experiments"
+_THIS = Path(__file__).resolve()
+# .../projects/diff-EqM/experiments/cafm_eqm/train_cafm_eqm.py
+# parents[1] = .../projects/diff-EqM/experiments/
+# parents[4] = repo root
+REPO_ROOT = _THIS.parents[4]
+EQM_UPSTREAM = _THIS.parents[2] / "eqm-upstream"
+DIFF_EQM_EXPERIMENTS = _THIS.parents[1]
 
 # Path setup for EqM upstream + diff-EqM experiments
 for p in (str(EQM_UPSTREAM), str(DIFF_EQM_EXPERIMENTS)):

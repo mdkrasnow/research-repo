@@ -30,8 +30,9 @@ import sys
 from pathlib import Path
 
 
-REPO_ROOT = Path(__file__).resolve().parents[3]  # projects/diff-EqM/
-EXTERNAL_AFM_ROOT = REPO_ROOT / "external" / "Adversarial-Flow-Models"
+# cafm_eqm/discriminator_adapter.py → parents: [cafm_eqm, experiments, diff-EqM, projects, repo]
+PROJECT_ROOT = Path(__file__).resolve().parents[2]  # projects/diff-EqM/
+EXTERNAL_AFM_ROOT = PROJECT_ROOT / "external" / "Adversarial-Flow-Models"
 
 
 def _ensure_external_path():
@@ -70,4 +71,4 @@ def load_cafm_discriminator_classes():
     return Discriminator, DiscriminatorJVP
 
 
-__all__ = ["EXTERNAL_AFM_ROOT", "load_cafm_discriminator_classes"]
+__all__ = ["EXTERNAL_AFM_ROOT", "PROJECT_ROOT", "load_cafm_discriminator_classes"]

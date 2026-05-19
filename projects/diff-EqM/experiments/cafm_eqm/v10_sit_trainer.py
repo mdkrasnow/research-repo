@@ -23,8 +23,9 @@ from pathlib import Path
 
 from torch import Tensor
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
-EXTERNAL_AFM = REPO_ROOT / "external" / "Adversarial-Flow-Models"
+# cafm_eqm/v10_sit_trainer.py → parents[2] is projects/diff-EqM/
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+EXTERNAL_AFM = PROJECT_ROOT / "external" / "Adversarial-Flow-Models"
 if str(EXTERNAL_AFM) not in sys.path:
     sys.path.insert(0, str(EXTERNAL_AFM))
 
