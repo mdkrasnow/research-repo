@@ -1,7 +1,7 @@
 {
   "project": "diff-EqM",
   "title": "Differential-Geometry-Guided Adversarial Negative Mining for EqM (DG-ANM)",
-  "phase": "PHASE-0-WRAP-UP",
+  "phase": "PHASE-1A-CODE-COMPLETE",
   "stage_b_in1k_baseline": {
     "verified_at": "2026-05-13",
     "result": {
@@ -115,7 +115,7 @@
     ]
   },
   "next_action": {
-    "command": "Phase 0 substantially complete. Wrap-up: (a) Restore cluster SSH and run v02 postmortem; (b) submit CAFM-on-SiT smoke (Task 0.C.2); (c) begin Phase 1a CAFM-to-EqM code port per documentation/cafm-eqm-port-design.md.",
+    "command": "Phase 1a code complete. Cluster SSH refresh needed to: (a) run v02 postmortem; (b) submit 1-epoch CAFM-EqM smoke; (c) submit CIFAR v10 sanity. Local progress paused until SSH unlocks. Recommend: user verifies cluster connectivity via 'bash scripts/cluster/ssh.sh \"echo ok\"'.",
     "reason": "Plan locked 2026-05-19 in documentation/summer-2026-plan.md. Broad framing approved (EqM-first, flow-matching transfer Phase 4). Venues: NeurIPS 2026 workshop (Aug 29) + ICLR 2027 (~Oct 1). Differentiation memo locked vs DAT (Wu 2025, 2510.13872) and AEBM-Diff (Geng 2024, 2403.01666). v10 mechanism-aligned per CLAUDE.md.",
     "phase_0_tasks": [
       "v02 IN-1K cancellation postmortem",
@@ -224,7 +224,7 @@
   },
   "needs_user_input": {
     "value": true,
-    "prompt": "Cluster SSH returning 'Permission denied (keyboard-interactive)'. Need to refresh credentials / MFA before v02 postmortem (Task 0.1) and CAFM smoke (Task 0.C.2) can run. Run: bash scripts/cluster/ssh.sh 'echo ok' to verify connectivity."
+    "prompt": "Cluster SSH refresh required to unblock: v02 postmortem + CAFM-EqM cluster smoke + CIFAR v10 sanity submission. All Phase 1a code is implemented locally with passing unit tests. Phase 0 lit review + design docs complete. Phase 1a Day-1+2 code complete."
   },
   "completed_runs": [
     {
@@ -641,6 +641,12 @@
       "ts": "2026-05-19T00:00:00Z",
       "action": "PHASE_0_LIT_REVIEW_COMPLETE",
       "detail": "17 papers read, SYNTHESIS.md written. Positioning sharpened: 'first adaptive hard-negative mining for regression-target generative models' per VeCoR future-work cite. Mechanism threat from Briglia (invariance fails diffusion AT) flagged; v10-equivariant fallback ready. CAFM-EqM port design + v10+CAFM combination design + v11 fallback all locked. EqM confirmed latent-space (SD VAE 4x32x32) - CAFM port directly compatible. Lin repo cloned (MIT). SSH locked - v02 postmortem deferred."
+    },
+    {
+      "id": "evt-0030",
+      "ts": "2026-05-19T00:00:00Z",
+      "action": "PHASE_1A_CODE_COMPLETE",
+      "detail": "Phase 1a Day-1+2 code complete: foundational helpers (5 modules), train scaffold, configs, sbatch, CIFAR variant. All local smoke tests + 14-unit-test suite PASS. Cluster work pending SSH refresh."
     }
   ],
   "active_runs": [],
@@ -664,5 +670,25 @@
       "Bucket 3-5 skim reads (DiT, OHEM, Focal)"
     ],
     "ready_for_phase_1a": "YES (pending SSH refresh for v02 postmortem; not blocking design work; can proceed with local Phase 1a implementation)"
+  },
+  "phase_1a_progress": {
+    "code_complete": [
+      "experiments/cafm_eqm/eqm_target.py (smoke + tests pass)",
+      "experiments/cafm_eqm/generator_wrapper.py",
+      "experiments/cafm_eqm/v10_mining.py (smoke + tests pass)",
+      "experiments/cafm_eqm/discriminator_adapter.py",
+      "experiments/cafm_eqm/training_step.py (smoke + tests pass)",
+      "experiments/cafm_eqm/train_cafm_eqm.py (DDP scaffold, smoke mode)",
+      "experiments/cafm_eqm/test_cafm_eqm.py (14/14 pass)",
+      "experiments/dganm_variants/v10_hard_example.py (CIFAR variant; smoke pass)",
+      "configs/cafm/eqm_b2_in256_cafm.yaml",
+      "configs/cafm/smoke_cpu.yaml",
+      "configs/variants/v10_hard_example_150ep.json",
+      "slurm/jobs/cafm_eqm_b2_in256.sbatch"
+    ],
+    "remaining_for_phase_1a_full": [
+      "cluster smoke: 1-epoch CAFM-EqM run validates port end-to-end (BLOCKED on SSH)",
+      "v02 IN-1K cancellation postmortem (BLOCKED on SSH)"
+    ]
   }
 }
