@@ -43,3 +43,31 @@ bash scripts/cluster/remote_fetch.sh diff-EqM
 ls projects/diff-EqM/slurm/logs/stageb-v02-in1k-80ep_*.{out,err}
 ```
 **Implication for Phase 1a**: blocking only if cancellation cause was OOM (would constrain CAFM-EqM port memory budget). Given CAFM uses 80G A100s and our vanilla baseline trained fine on `seas_gpu`, working assumption is OOM was NOT the cause and Phase 1a can proceed on `seas_gpu`. Update postmortem when SSH restored.
+
+---
+
+## POSTMORTEM UPDATE (2026-05-19): v02 IN-1K cancellations RESOLVED
+
+Replaces the "POSTMORTEM PENDING" entry below.
+
+**Root cause**: **mechanism saturation, USER-CANCELLED** (not OOM, not timeout, not crash).
+
+**Evidence from logs** (`slurm/logs/stageb-v02-in1k-80ep_{10198798,10387316}.out`):
+- Diagnostics across epochs 9-11: `v02(pos=0.005, neg=0.999, |v_neg|=220)` — completely flat.
+- **`neg=0.999`** = PGA-found cosine similarity ≈ 1.0 (max anti-alignment achieved); objective saturated.
+- **`pos=0.005`** = clean cosine ≈ 0; model perfectly aligns with target.
+- **`|v_neg|=220`** constant — EqM-B/2 output magnitude huge; confirms v10-proposal-line-14: "v02 cosine saturated on EqM-B/2 because |v|≈220 >> |J·δ|, cos≈1 for any small δ, PGA gradient vanishes."
+- `Aux: 0.20` constant. v02 auxiliary loss doing NOTHING by epoch 9.
+
+**SACCT confirms**:
+- ExitCode 0:0 (clean), CANCELLED by user UID.
+- MaxRSS 19-20 GB / 256 GB ReqMem → no OOM.
+- Throughput: 3.25 sps fast / 1.62 sps slow. 80ep ETA: 27h fast, 54h slow. Attempt 2 would have exceeded 48h walltime.
+
+**Implications**:
+1. CAFM-EqM throughput: with N=16 disc/gen, expect ~24-36h for 10ep post-training. Set sbatch time=48h.
+2. OOM not a concern for CAFM port (same memory profile).
+3. v10's **L2-regression objective avoids v02's saturation**: regression has unbounded gradient even at perfect alignment.
+4. Confirms Branch B framing: v02 saturation is mechanism-level; v10 + CAFM mechanistically immune.
+
+**No remediation needed**. v02 path dead. v10 + CAFM is correct continuation.
