@@ -1,0 +1,62 @@
+# Cluster smoke config — verifies CAFM-EqM port end-to-end.
+# 500 steps (~6 min on 4xA100); validates losses finite + discriminator
+# integration without burning real compute. Replaces 1-epoch validation
+# since N=16 disc/gen ratio means 1 ep = ~3K gen updates (still long).
+
+gen:
+  model: EqM-B/2
+  image_size: 256
+  num_classes: 1000
+  uncond: false
+  ebm: false
+  checkpoint: projects/diff-EqM/results/stage_b_vanilla_in1k_80ep_seed0/000-EqM-B-2-Linear-velocity-None-vanilla/checkpoints/0380000.pt
+
+dis:
+  model_kwargs:
+    input_size: 32
+    patch_size: 2
+    in_channels: 4
+    hidden_size: 768
+    depth: 12
+    num_heads: 12
+    num_classes: 1000
+    learn_sigma: false
+    norm_type: rms
+  checkpoint: null
+
+vae:
+  variant: ema
+
+data:
+  path: /n/holylabs/ydu_lab/Lab/raywang4/imagenet/train
+  image_size: 256
+  num_workers: 4
+
+training:
+  seed: 0
+  local_batch_size: 64
+  gen_lr: 1.0e-5
+  dis_lr: 1.0e-5
+  total_steps: 500          # smoke: 500 steps ~ 6 min on 4xA100
+
+adversarial:
+  N: 16
+  warmup: 50                # short warmup for smoke
+  cp_scale: 0.001
+  ot_scale: 0.0
+
+ema:
+  decay: 0.99
+
+v10:
+  lambda_v10: 0.1
+  K: 1
+  eps_radius: 0.3
+  lr: 0.05
+
+persistence:
+  dir: projects/diff-EqM/results/cafm_eqm_smoke
+  interval: 200             # ckpt at step 200 + 400
+
+logging:
+  interval: 25              # log every 25 steps
