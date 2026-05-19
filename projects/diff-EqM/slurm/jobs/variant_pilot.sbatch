@@ -97,7 +97,7 @@ RSYNC_PID=$!
 trap "echo 'Trap: final rsync'; kill $RSYNC_PID 2>/dev/null; rsync -a \"$OUTPUT_DIR/\" \"$PERSIST_DIR/\" 2>&1 | tail -5" EXIT
 
 echo "=== Training variant=$VARIANT_NAME seed=$SEED ===" >&2
-python projects/diff-EqM/experiments/run_variant.py \
+python -u projects/diff-EqM/experiments/run_variant.py \
     --config "$CFG" \
     --output-dir "$OUTPUT_DIR" \
     --seed "$SEED" \
