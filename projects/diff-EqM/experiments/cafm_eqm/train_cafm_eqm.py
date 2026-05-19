@@ -311,6 +311,9 @@ def main():
             rank == 0 and step > 0 and step % cfg.persistence.interval == 0
             and not args.smoke
         ):
+            out_dir = Path(cfg.persistence.dir)
+            out_dir.mkdir(parents=True, exist_ok=True)
+            # (1) Full CAFM-EqM checkpoint for resume.
             ckpt = {
                 "step": step,
                 "gen": gen_wrapper.eqm.state_dict(),
@@ -319,10 +322,18 @@ def main():
                 "gen_opt": gen_opt.state_dict(),
                 "dis_opt": dis_opt.state_dict() if dis_opt is not None else None,
             }
-            out_path = Path(cfg.persistence.dir) / f"ckpt_{step:08d}.pt"
-            out_path.parent.mkdir(parents=True, exist_ok=True)
-            torch.save(ckpt, out_path)
-            print(f"[ckpt] saved {out_path}")
+            torch.save(ckpt, out_dir / f"ckpt_{step:08d}.pt")
+            # (2) EqM-compatible ckpt (for downstream FID eval via sample_gd.py).
+            #    Mirrors vanilla EqM ckpt structure: {model, ema, opt, ...}.
+            eqm_compat = {
+                "model": ema.state_dict(),     # use EMA for downstream sampling
+                "ema": ema.state_dict(),
+                "opt": gen_opt.state_dict(),
+                "train_steps": step,
+                "epoch": step,                 # no epoch tracking in CAFM-EqM; use step
+            }
+            torch.save(eqm_compat, out_dir / f"eqm_compat_{step:08d}.pt")
+            print(f"[ckpt] saved ckpt_{step:08d}.pt + eqm_compat_{step:08d}.pt")
 
         step += 1
 

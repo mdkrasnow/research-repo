@@ -24,10 +24,30 @@ our trusted vanilla EqM-B/2 80ep checkpoint (FID 31.41).
 
 ## Smoke-test plan
 
-Once `train_cafm_eqm.py` exists:
-1. Local 100-step CPU smoke — shape check, loss flow.
-2. Cluster 1-epoch CAFM-EqM smoke on B/2 ckpt.
-3. Cluster 10-epoch full CAFM-EqM post-training, seed 0.
+1. Local CPU helpers smoke (DONE): `python test_cafm_eqm.py` — 14/14 pass.
+2. Cluster 500-step CAFM-EqM smoke (in flight, 13848066) — validates port end-to-end.
+3. Cluster 10-epoch full CAFM-EqM post-training, seed 0 (gated on smoke PASS).
+
+## Post-training FID workflow
+
+After CAFM-EqM finishes, FID eval uses the existing EqM evaluation pipeline:
+
+```bash
+# train_cafm_eqm.py saves two ckpts per persistence interval:
+#   - ckpt_<step>.pt          (full CAFM-EqM state: gen + dis + ema + opts)
+#   - eqm_compat_<step>.pt    (EqM-compatible: {model, ema, opt, train_steps, epoch})
+#
+# Submit FID eval on the EqM-compatible ckpt:
+bash scripts/cluster/ssh.sh "cd /n/home03/mkrasnow/research-repo && \
+    sbatch --export=GIT_URL=https://github.com/mdkrasnow/research-repo.git,\
+GIT_SHA=$(git rev-parse HEAD),\
+CHECKPOINT_PATH=projects/diff-EqM/results/cafm_eqm_b2_in256_seed0/eqm_compat_00050000.pt \
+    projects/diff-EqM/slurm/jobs/imagenet1k_fid_eval.sbatch"
+```
+
+The eval script (`imagenet1k_fid_eval.sbatch`) loads via EqM's `find_model`,
+generates 50K samples with `sample_gd.py` (NAG-GD sampler, 250 NFE), then
+computes FID against the IN-1K reference set.
 
 ## Key port adaptations vs CAFM-on-SiT
 
