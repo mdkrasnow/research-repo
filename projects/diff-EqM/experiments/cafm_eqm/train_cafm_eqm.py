@@ -91,7 +91,9 @@ def setup_distributed(smoke: bool):
 
 def build_generator(cfg, device, smoke: bool):
     """Load vanilla EqM-B/2 80ep checkpoint as generator."""
-    from models_EqM import EqM_models
+    # eqm-upstream exposes the model registry as `models.EqM_models`. Already on
+    # sys.path via EQM_UPSTREAM injection at module top.
+    from models import EqM_models
 
     image_size = cfg.gen.image_size
     latent_size = image_size // 8
