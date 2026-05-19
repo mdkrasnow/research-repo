@@ -102,10 +102,16 @@ Kill direction (do NOT retune indefinitely; max 1 hyperparameter retune per CLAU
 - IN-1K FID > 35 (worse than baseline + 4) after full 80ep
 
 ## Risks / open questions
-1. **PGA cost on EqM-B/2**: 3 PGA steps × per-train-step = ~4× forward passes per train iter. At 4.57 sps vanilla, mine_every=1 takes throughput to ~1.1 sps → 80ep would be ~100h. Mitigation: mine_every=4 (4× cost amortized → ~1.3× wall), accept slightly less aggressive mining. CIFAR run will measure actual throughput hit.
+1. **PGA cost on EqM-B/2**: 3 PGA steps × per-train-step = ~4× forward passes per train iter. At 4.57 sps vanilla, mine_every=1 takes throughput to ~1.1 sps → 80ep would be ~100h. Mitigation: mine_every=4 (4× cost amortized → ~1.3× wall), accept slightly less aggressive mining. CIFAR run will measure actual throughput hit. **POST-LIT-REVIEW UPDATE**: in v10+CAFM combined regime, v10 mining cost is dwarfed by CAFM's N=16 discriminator updates per gen step. Throughput overhead drops to ~5-10%.
 2. **PGA might still find ε boundary trivially** if EqM regression target is locally near-constant in δ direction near data manifold (where c(γ) is small). If so, L_hard ≈ L_clean → kill. This is the central risk; the experiment falsifies the hypothesis cleanly.
 3. **EMA model**: EqM trains an EMA copy. Mine with online model (cheaper, standard adversarial training).
 4. **Sign of PGA**: maximize, not minimize. Confirm direction in code review before launch.
+5. **Briglia 2025 mechanism threat (arxiv 2505.21742)**. Briglia argues invariance-flavored AT fails catastrophically for diffusion (FID 200+ at strong λ). v10 is invariance-flavored: predicts the same target at perturbed input. BUT v10 anchors to ground-truth target (not clean-output) → strictly robust regression, not pure invariance. Mitigation:
+   - Default λ=0.1 (small per Briglia's stable regime).
+   - K=1 (FGSM-style) as first try, K=3 only if K=1 inert. Briglia uses single-step; we follow.
+   - v10-equivariant fallback ready in `v11_fallback_sketch.md` if collapse observed.
+   - CIFAR sanity must include explicit collapse diagnostic (FID >> baseline OR base-loss runaway).
+6. **VeCoR future-work explicit citation (arxiv 2511.18942 §7)**: VeCoR authors explicitly list "adaptive hard-negative mining" as open future work for velocity contrastive regularization. v10 IS that. Use this as direct motivational citation in paper introduction.
 
 ## Diagnostics to log every N=200 steps
 - L_clean, L_hard, ratio L_hard/L_clean

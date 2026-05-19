@@ -29,3 +29,17 @@
 - [ ] EqM field returns NaN at large perturbations
 - [ ] Checkpoint path mismatch between train and eval configs
 - [ ] CIFAR-10 download fails on cluster (use pre-cached data_dir)
+
+---
+
+## v02 IN-1K 80ep cancellations (2026-05-05 + 2026-05-06) — POSTMORTEM PENDING
+
+**Jobs**: 10198798 (elapsed 04:54, cancelled 2026-05-05), 10387316 (elapsed 09:57, cancelled 2026-05-06).
+**Status as of 2026-05-19**: SSH to cluster returning "Permission denied (keyboard-interactive)" — cannot fetch sacct details or logs.
+**Required**: re-authenticate `scripts/cluster/ssh.sh` (likely needs MFA or session refresh). Then:
+```bash
+bash scripts/cluster/ssh.sh "sacct -j 10198798,10387316 --format=JobID,JobName,State,ExitCode,ReqMem,MaxRSS,Elapsed,DerivedExitCode,Reason -P"
+bash scripts/cluster/remote_fetch.sh diff-EqM
+ls projects/diff-EqM/slurm/logs/stageb-v02-in1k-80ep_*.{out,err}
+```
+**Implication for Phase 1a**: blocking only if cancellation cause was OOM (would constrain CAFM-EqM port memory budget). Given CAFM uses 80G A100s and our vanilla baseline trained fine on `seas_gpu`, working assumption is OOM was NOT the cause and Phase 1a can proceed on `seas_gpu`. Update postmortem when SSH restored.

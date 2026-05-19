@@ -1,322 +1,275 @@
-# Claude Code Rules for this repo
+# Claude Code Rules — diff-EqM Project (single-project focus)
+
+This repo is now scoped to **one active project**: `projects/diff-EqM/`. All other projects are dormant. Do not work on, modify, or even read other projects unless the user explicitly redirects.
+
+**North star**: get to a publishable result at NeurIPS 2026 workshop (deadline 2026-08-29) and ICLR 2027 main (~2026-10-01). Plan locked in `projects/diff-EqM/documentation/summer-2026-plan.md`. Read it before any non-trivial action.
+
+This is an **agentic research project** — claude executes Phase 0 → Phase 5 with minimal supervision. Decisions follow the pre-registered gates in the summer plan. When in doubt: pre-registered gate wins, not in-the-moment judgment.
+
+---
 
 ## Alignment-first protocol (READ BEFORE ACTING)
-Before doing anything non-trivial on a project (submitting jobs, writing configs, kicking off autoresearch, changing code, deciding what to try next), you **MUST** first read these files in order:
-1. `projects/<slug>/.state/pipeline.json` — authoritative next action, current phase, `active_runs` (all submitted jobs), and (if present) `publication_goal` block with target venues, current stage, and exit gate
-2. `projects/<slug>/documentation/publishability-plan.md` (if present) — the north-star strategic plan toward publication
-3. `projects/<slug>/program.md` (if autoresearch) — governance, constraints, baseline
-4. `projects/<slug>/documentation/queue.md` — top-of-queue actions
-5. `projects/<slug>/results.tsv` (if autoresearch) — what's already been tried
 
-Every proposed action must answer: **"does this move us closer to a credible NeurIPS/ICML/ICLR submission per the publishability-plan?"** If no, de-prioritize or escalate. Proxy-scale gains are not publishable — they are filters for paper-scale confirmation runs. Never scale up a result that has not passed its stage exit gate (e.g., a 3-seed repeatability check).
+Before any non-trivial action (submission, config change, code change, decision about what to try next), read in order:
 
-If the state files disagree with what the user is asking for, surface the conflict rather than silently overriding. If a stage exit gate has not passed, say so before launching the next stage's compute.
+1. `projects/diff-EqM/.state/pipeline.json` — phase, `active_runs`, `next_action`, exit gates.
+2. `projects/diff-EqM/documentation/summer-2026-plan.md` — north-star phased plan, gates, deadlines.
+3. `projects/diff-EqM/documentation/phase-0-spec.md` (or the current active phase spec) — exact task breakdown.
+4. `projects/diff-EqM/documentation/literature/SYNTHESIS.md` (if present) — current positioning + design implications from lit review. SUPERSEDES `related-work-differentiation.md` once written.
+5. `projects/diff-EqM/documentation/related-work-differentiation.md` — initial positioning vs DAT (Wu 2025) and AEBM-Diff (Geng 2024).
+6. `projects/diff-EqM/documentation/publishability-plan.md` — older strategic doc (summer plan wins on conflict).
+7. `projects/diff-EqM/documentation/queue.md` — top-of-queue actions.
+8. `projects/diff-EqM/results_variants.tsv` — what has already been tried.
+
+Every proposed action must answer: **"does this move us closer to the workshop (Aug 29) or ICLR (Oct 1) submission per the summer plan?"** If no → de-prioritize or escalate.
+
+Proxy-scale (CIFAR) gains are **not publishable** — they are filters for paper-scale (IN-1K) confirmation runs. Never scale up a result that has not passed its stage exit gate.
+
+If state files disagree with what the user asks for, surface the conflict before acting. If a stage exit gate has not passed, say so before launching the next stage's compute.
+
+---
+
+## Project scope (HARD)
+
+- Only modify files inside `projects/diff-EqM/...`, `scripts/cluster/...`, `scripts/ralph/...`, and this CLAUDE.md.
+- Do NOT read, modify, or reference other projects (`projects/ired/`, `projects/algebra-ebm/`, `projects/archive/`). They are dormant.
+- Do NOT spawn parallel work on other projects. Single-project focus.
+
+---
 
 ## Job tracking protocol (mandatory)
 
-`pipeline.json:active_runs` is the **single source of truth for every submitted SLURM job** across all stages and streams (autoresearch pilots, stage baselines, smoke tests, ad-hoc runs). Nothing runs on the cluster without a corresponding entry.
+`pipeline.json:active_runs` is the **single source of truth for every submitted SLURM job**. Nothing runs on the cluster without an entry.
 
-**Before any action (submission, analysis, status reporting, planning):**
-1. Read `active_runs` in `pipeline.json` first. Cross-check against `squeue -u $USER` via `scripts/cluster/ssh.sh`.
-2. If `active_runs` and the real queue disagree, reconcile before doing anything else: stale entries → move to `completed_runs` with status (completed / failed / cancelled / timeout) + final metric if available; untracked running jobs → add an entry with all required fields.
-3. Only then may you plan or submit new work. Submitting on top of a stale `active_runs` view risks duplicate jobs, wrong next actions, and busted compute budgets.
+**Before any action (submission, analysis, status report, planning):**
+1. Read `active_runs` in `pipeline.json`. Cross-check against `squeue -u $USER` via `scripts/cluster/ssh.sh`.
+2. If they disagree → reconcile first: stale entries → move to `completed_runs` with status + final metric (fetch via `sacct`); untracked running jobs → add entry with all required fields.
+3. Only then plan or submit new work.
 
-**Required fields per entry** (minimum):
+**Required fields per entry:**
 ```json
 {
-  "run_id": "<human-readable tag, e.g. stage_b_vanilla_seed0>",
+  "run_id": "<human tag, e.g. v10_in1k_seed0>",
   "job_id": "<SLURM id, including _N for array tasks>",
-  "partition": "<partition name>",
+  "partition": "<gpu_test | gpu | seas_gpu>",
   "status": "pending | running | completed | failed | cancelled | timeout",
-  "description": "<one line: what + why + stage>",
+  "description": "<one line: what + why + phase>",
   "submitted_at": "<ISO date>",
   "git_sha": "<commit at submission>",
-  "sbatch_path": "<projects/<slug>/slurm/jobs/...>",
+  "sbatch_path": "projects/diff-EqM/slurm/jobs/...",
   "expected_runtime": "<rough hours>",
-  "stage": "<A | A.5-B | A.5-A | B | C | D | E | ad-hoc>"
+  "phase": "0 | 1 | 2 | 3 | 4 | 5",
+  "gate": "<which gate this run informs>"
 }
 ```
-Add `final_metric` / `exit_code` on completion; add `error` + debugging.md link on failure.
+Add `final_metric` / `exit_code` on completion; add `error` + `debugging.md` link on failure.
 
-**On every submission** — in the same commit:
-1. Add the `active_runs` entry with all required fields.
-2. Commit `pipeline.json` with a message naming the job_id and purpose.
-3. Push (so the cluster sees the updated state if it pulls).
+**On every submission** — same commit:
+1. Add `active_runs` entry with all fields.
+2. Commit `pipeline.json` with message naming job_id + purpose.
+3. Push.
 
-**On every completion / failure** — within the same session the outcome is observed:
-1. Move the entry from `active_runs` to `completed_runs` (or an equivalent archive list), preserve fields, add outcome + final metric + duration.
-2. Update `fid_results.tsv` / `results.tsv` if a metric was produced.
-3. If the event is a PI-update trigger (stage exit, paper-scale result, etc.), draft the PI update per `pi-updates.md`.
+**On every completion / failure** — same session:
+1. Move entry to `completed_runs`. Add outcome + final metric + duration.
+2. Update `results_variants.tsv` if a metric was produced.
+3. Trigger PI update per `pi-updates.md` if applicable.
 
-**When reporting status to the user**: always lead with the reconciled `active_runs` table. Do not answer "what's running?" from memory or recap — answer from `active_runs` cross-checked against `squeue`.
-
-## PI update protocol
-If the project has `documentation/pi-updates.md`, check its trigger list after any experimental outcome, stage transition, or blocker. When a trigger fires:
-1. Append a draft update entry to `pi-updates.md` using the template there.
-2. Set `pipeline.json:needs_user_input.value=true` with a prompt pointing to the draft.
-3. Do not send anything yourself — the user reviews and sends.
-Also prepare a weekly digest draft on the day specified in `pipeline.json:publication_goal.pi_update_cadence.weekly_digest_day`, even if no trigger fired.
-
-## Scope & Isolation
-- Only modify files inside the target project directory: `projects/<slug>/...`
-- Do NOT mix outputs between projects. Never write to another project's `runs/`, `results/`, `slurm/`, or `.state/`.
-
-## Commit message discipline
-- **Always include key metric results in commit messages** when committing after observing experimental outcomes. Example: "Resubmit q202-q204 with fixed sign (CD MSE 3.42 @ 100K steps, baseline 0.55)". This makes `git log` a searchable record of what worked and what didn't, without needing to re-fetch cluster logs.
-- When cancelling and resubmitting jobs, note in the commit message what the last observed MSE was and why.
-
-## Authoritative state
-- `projects/<slug>/.state/pipeline.json` is the source of truth for what happens next.
-- Every command must:
-  1) acquire the project lock (see `scripts/ralph/lock.sh`)
-  2) read pipeline.json
-  3) do exactly one step (or one batch if explicitly specified)
-  4) update pipeline.json + relevant docs
-  5) release the lock
-
-## Required structured outputs
-After each step, update (as applicable):
-- `projects/<slug>/.state/pipeline.json`
-- `projects/<slug>/documentation/implementation-todo.md`
-- `projects/<slug>/documentation/debugging.md`
-- `projects/<slug>/documentation/queue.md`
-- `projects/<slug>/runs/<run_id>/...` for experiments
-
-## SLURM discipline
-- **CRITICAL**: SLURM is NEVER available locally. ALL SLURM operations (sbatch, squeue, sacct) MUST use remote execution via `scripts/cluster/*`. Never check for or attempt to use local SLURM commands.
-- Never submit a job without creating a run folder and `submit.json`.
-- Always record job IDs and how to reproduce (command, git SHA if available, config snapshot).
-- **CPU vs GPU usage rule**:
-  - **Local execution**: ALWAYS use CPU only. Never use GPU resources for local development or testing.
-  - **Cluster execution**: ALWAYS use GPU resources (typically A100s). Configure SLURM scripts with:
-    - `--gres=gpu:1` (or more if needed)
-    - `module load cuda/11.8.0-fasrc01` (or appropriate CUDA version)
-    - GPU verification check using `nvidia-smi`
-  - All SLURM batch scripts MUST be GPU-configured; never submit CPU-only jobs to the cluster
-- **Automated git workflow**:
-  - Each SLURM job automatically clones the repository fresh to `/tmp/project-job-$SLURM_JOB_ID`
-  - The current git commit SHA is captured at submission time and passed via `GIT_SHA` environment variable
-  - Jobs checkout the exact commit, run the experiment, and cleanup automatically
-  - NO manual repository maintenance needed on cluster (no git pull, no rsync of code)
-  - Only `slurm/` directory is synced to remote (for sbatch scripts and log structure)
-- **Partition selection rule**:
-  - For experiments expected to take < 24 hours: Use `--partition=gpu_test` for better priority queue positioning
-  - For experiments expected to take ≥ 24 hours: Use `--partition=gpu`
-  - gpu_test has higher priority but 24-hour time limit; gpu has lower priority but longer time limits
-- **QOS management & partition diversification rule**:
-  - When submitting multiple jobs simultaneously (e.g., 6 evaluation experiments), the cluster applies per-partition QOS limits that prevent submitting too many jobs to the same partition at once
-  - **Solution**: Distribute jobs across both `gpu_test` AND `gpu` partitions to avoid hitting per-partition submission limits
-  - **Strategy**: For a batch of N jobs, split them roughly evenly:
-    - Submit ~N/2 jobs to `gpu_test` (higher priority, faster queue)
-    - Submit remaining ~N/2 jobs to `gpu` (standard queue)
-    - This allows all jobs to submit successfully without waiting for QOS limit resets
-  - **When to apply**: Whenever submitting 4+ jobs in the same dispatch operation
-  - **Example**: For 6 evaluation jobs, submit 3 to gpu_test and 3 to gpu to avoid "QOSMaxSubmitJobPerUserLimit" errors
-  - Jobs on different partitions run in parallel without interference
-- **Early polling rule**: After submitting a job, set `next_poll_after` to ~60 seconds after submission (not the default 15-minute interval). This catches initialization errors (missing modules, wrong Python version, etc.) quickly. After the early poll succeeds, resume normal polling intervals.
-- **Every submission MUST create a corresponding `active_runs` entry in the same commit** (see "Job tracking protocol" above for required fields). If you are about to run `sbatch` / `remote_submit.sh` and have not prepared the `active_runs` entry, stop and prepare it first.
-- **Job verification rule** (`/dispatch` MUST DO FIRST): Before processing any projects, verify all outstanding jobs in `active_runs`:
-  1. Check if jobs marked "running" are actually running via `scripts/cluster/status.sh <job_id>` (remote SLURM)
-  2. If a job is NOT running but status says "running":
-     - Fetch logs via `scripts/cluster/remote_fetch.sh <project_slug>`
-     - Check SLURM logs (`slurm/logs/<job_name>_<job_id>.{out,err}`)
-     - Determine failure reason
-     - Add entry to `documentation/debugging.md` (error, root cause, run_id, job_id, logs, timestamp)
-     - Update `pipeline.json`: move to `completed_runs` with `status: "failed"`, add `failed_at` and `error`
-     - Set `phase=DEBUG` if blocking
-  3. Only after verification complete, proceed with normal dispatch
-
-## Stopping
-- The repo includes a Stop hook that may block stopping while work is actionable.
-- If a project requires user input, set `needs_user_input.value=true` and include `prompt`.
-
-## Autoresearch Mode
-
-Projects can run in **autoresearch mode** — a continuous, autonomous experiment loop inspired by Karpathy's autoresearch paradigm. Instead of manual dispatch cycles, the agent forms hypotheses, implements changes, runs experiments, and keeps/reverts based on a single objective metric.
-
-### Key concepts
-- **`program.md`**: Governance file at `projects/<slug>/program.md`. Defines the objective metric, constraints, allowed files, ratchet rules, and termination conditions. The human writes this file; the agent writes code.
-- **Ratchet**: Every experiment either improves the metric (KEEP) or doesn't (REVERT). The codebase monotonically improves. No human judgment needed for keep/revert decisions.
-- **`results.tsv`**: Tab-separated experiment log at `projects/<slug>/results.tsv`. Tracks iteration, metric, status (KEEP/REVERT/CRASH), description, git SHA, timestamp. The agent reads this to decide what to try next.
-- **Pilot runs**: Autoresearch uses short pilot runs (`pilot_steps` in program.md) for rapid iteration. Full training runs are done manually after autoresearch identifies the best configuration.
-
-### Rules
-- **ONE change per iteration**: Isolate variables. Never modify multiple dimensions simultaneously.
-- **Metric decides**: No DEBATE phase. If the metric improved, keep it. If it regressed, revert it.
-- **Respect file constraints**: Only modify files listed in `program.md:files_allowed`. Never modify `program.md` or the evaluation script.
-- **Use `git revert`**: When reverting, use `git revert HEAD --no-edit` (preserves history) not `git reset`.
-- **Auto-terminate**: Stop on plateau, max iterations, target achieved, or max wall hours.
-- **Phase = AUTORESEARCH**: When active, pipeline.json has `phase: "AUTORESEARCH"` and an `autoresearch` object tracking progress.
-
-### Entering autoresearch mode
-- Run `/autoresearch --project <slug>` (requires `program.md` to exist)
-- Or create a project with `/make-project` and answer "yes" to autoresearch eligibility
-- The agent transitions pipeline.json to `phase: "AUTORESEARCH"` and begins the loop
-
-### Resuming
-- If a session ends mid-autoresearch, running `/autoresearch --project <slug>` again resumes from where it left off by reading `results.tsv` and `pipeline.json:autoresearch.iteration`.
-
-# Research Process Rules for EqM / ANM Experiments
-
-## Core principle
-
-Do not implement a new variant just because the previous one failed.
-
-Every new experiment must pass a mechanism check before code is written:
-
-1. What exact failure mode are we trying to fix?
-2. What property of EqM does the proposed loss preserve?
-3. What property of EqM does the proposed loss risk violating?
-4. What metric or diagnostic would prove the mechanism is working?
-5. What result would make us stop this direction?
-
-If these are not answered clearly, do not code.
+**When reporting status**: always lead with reconciled `active_runs` table from file + `squeue`. Never answer "what's running?" from memory.
 
 ---
 
-## Baseline-first rule
+## Research process rules for EqM / ANM (project-specific, load-bearing)
 
-Before any auxiliary-loss experiment, verify the vanilla baseline.
+### Core principle
+Do not implement a new variant just because the previous one failed. Every new experiment passes a mechanism check **before code is written** — see Variant Proposal Template below.
 
-For ImageNet EqM experiments, this means:
+### Baseline-first
+- Stage B IN-1K-256 EqM-B/2 80ep vanilla baseline = **FID 31.41 (TRUSTED)**, ckpt `stage_b_vanilla_in1k_80ep_seed0/000-EqM-B-2-Linear-velocity-None-vanilla/checkpoints/0380000.pt`.
+- For new scales (S/2, L/2) **re-baseline before comparing variants**. Treat all auxiliary-loss experiments as invalid until baseline at that scale is trusted.
 
-- Confirm the config matches the paper-best or intended comparison config.
-- Confirm c(γ), truncation, lambda/multiplier, sampler, checkpoint, reference stats, and FID pipeline.
-- Run and record vanilla FID before interpreting auxiliary-loss results.
-- Treat all auxiliary-loss experiments as invalid until the baseline is trusted.
+### EqM objective alignment
+EqM trains `f(x_γ) ≈ target(x, ε, γ)` with `target = (ε - x) · c(γ)`, c(γ) hardcoded in `transport.py:122-126`. c(γ) → 0 as γ → 1 (data manifold).
 
-Do not compare a new variant against an unverified vanilla run.
+**High-risk losses (require written compatibility argument):**
+- Cosine separation objectives (v02 saturated on EqM-B/2)
+- Hinge on velocity norm (v01 fights c(γ) decay)
+- Jacobian penalties (v09 flattens field)
+- EBM-style energy losses not tied to EqM target
 
----
+**Low-risk losses (preferred):**
+- Auxiliary loss = EqM base loss on a perturbed/mined input (v10 hard-example)
+- Losses provably bounded by base loss
 
-## EqM objective-alignment rule
+### Variant proposal template (mandatory before code)
 
-Any ANM or auxiliary objective must respect the EqM training target.
-
-EqM trains:
-
-```text
-f(x_γ) ≈ target(x, ε, γ)
 ```
-
-Therefore, preferred auxiliary losses should be written in terms of the EqM base loss or a directly justified property of the EqM field.
-
-Avoid importing losses from other settings unless we explain why they are compatible with EqM.
-
-High-risk losses include:
-
-* cosine separation objectives,
-* hinge losses that blindly push velocity norm high,
-* Jacobian penalties that flatten the velocity field,
-* EBM-style energy losses not tied to the EqM target.
-
-These may be useful only after a written compatibility argument.
-
----
-
-## Variant proposal template
-
-Before implementing a variant, write this block in the experiment notes:
-
-```text
 Variant name:
-
 Hypothesis:
-
 Failure mode addressed:
-
 EqM compatibility argument:
-
 Loss definition:
-
 Expected diagnostics if working:
-
 Expected diagnostics if failing:
-
 Minimal test:
-
 Promotion rule:
-
 Kill rule:
 ```
 
----
+Live example: `projects/diff-EqM/documentation/v10_hard_example_eqm_proposal.md`.
 
-## CIFAR sanity-check rule
+### CIFAR sanity rule
+CIFAR can answer: does code run? does model collapse? are diagnostics finite? Is loss obviously broken?
+CIFAR cannot answer: will this transfer to EqM-B/2? IN-1K? Is this better than vanilla EqM at scale?
+Note: variant harness ≠ legacy harness — never compare FIDs across harnesses (4.7 FID gap documented).
 
-CIFAR is only a stability check.
+### Diagnostics required every auxiliary-loss run
+Log at min every N=200 steps:
+- clean base loss `L_clean`
+- auxiliary loss `L_aux` (or `L_hard` for v10)
+- aux/base ratio
+- field norm `||f(x_γ)||` at clean point
+- field norm `||f(x_γ + δ)||` at perturbed/mined point
+- perturbation norm `||δ||` (mean + std)
+- mined loss before and after PGA (if mining)
+- per-step wall time vs vanilla baseline
+- FID or proxy eval when available
 
-CIFAR can answer:
+If aux/base ratio dominates → stop, retune. If aux saturates near zero → stop, diagnose.
 
-* Does the code run?
-* Does the model collapse?
-* Are diagnostics finite and sensible?
-* Is the loss obviously broken?
+### No literature laundering
+Citation ≠ mechanism. State exactly what the paper supports and what it doesn't.
 
-CIFAR cannot answer:
+### Literature review protocol (active through paper submission)
+- Per-paper notes live in `projects/diff-EqM/documentation/literature/<paper>.md` using the template in `literature/README.md`.
+- Synthesis lives in `literature/SYNTHESIS.md`. Update it whenever a new HIGH-threat paper appears or 5+ new notes accumulate.
+- Weekly arxiv sweep in `literature/arxiv-weekly-sweep.md`. Run Mondays. HIGH-threat hits → upgrade to per-paper note.
+- Any framing change driven by lit review → propagate edits explicitly to: this CLAUDE.md, `summer-2026-plan.md`, `related-work-differentiation.md`, the current phase spec. One commit per artifact.
+- Before writing new code for a variant, re-read SYNTHESIS.md §3 (mechanism design adjustments). The variant proposal template MUST cite specific notes that informed its design.
 
-* Will this transfer to EqM-B/2?
-* Will this fix ImageNet EqM geometry?
-* Is this better than vanilla EqM?
+### Stop conditions (kill a direction)
+- Loss contradicts EqM target geometry
+- Baseline not verified
+- Diagnostic signal saturated or zero
+- Improvement requires post-hoc reinterpretation
+- Experiment only adds complexity without testing a clear mechanism
+- Same failure repeats across two reasonable HP settings
+When stopped → write short postmortem before proposing next variant.
 
-Do not require a CIFAR variant to beat vanilla before trying one tightly motivated ImageNet experiment. Do not allow CIFAR success to justify a full ImageNet run unless the mechanism is EqM-aligned.
-
----
-
-## Diagnostics required for every auxiliary-loss experiment
-
-Every run must log:
-
-* clean base loss
-* auxiliary loss
-* aux/base ratio
-* field norm at clean point
-* field norm at perturbed/mined point
-* perturbation norm
-* mined loss before and after PGA, if mining is used
-* per-step overhead vs vanilla
-* FID or proxy eval when available
-
-If the aux/base ratio is large enough to dominate training, stop and retune before continuing. If the auxiliary loss is near zero or saturated, stop and diagnose before continuing.
-
----
-
-## No literature laundering
-
-A citation is not a mechanism. When referencing a paper, state exactly what the paper supports and what it does not support.
-
-Bad: "Jacobian regularization is literature-supported, so we should try it."
-
-Good: "Jacobian regularization is supported for reducing local sensitivity in classifiers. But EqM learns a velocity/energy field where local sensitivity may be necessary. Therefore this loss is risky unless we can show the sensitivity being penalized is specifically harmful."
-
----
-
-## Stop conditions
-
-Stop a research direction when one of these happens:
-
-* the loss contradicts the EqM target geometry,
-* the baseline has not been verified,
-* the diagnostic signal is saturated or zero,
-* improvement depends on post-hoc reinterpretation,
-* the experiment only adds complexity without testing a clear mechanism,
-* the same failure repeats across two reasonable hyperparameter settings.
-
-When stopped, write a short postmortem before proposing the next variant.
-
----
-
-## Research Loop
-
-For each experiment:
-
-1. **Baseline check** — Is the comparison baseline trusted? Is the eval pipeline trusted?
-2. **Mechanism note** — What failure are we fixing? Why should this fix work specifically for EqM?
-3. **Compatibility check** — Does the loss preserve EqM's target geometry? Does it fight c(γ), target magnitude, or field structure?
-4. **Minimal implementation** — Smallest version. Add diagnostics before long runs.
-5. **Smoke test** — Check for collapse, saturation, overhead, aux/base ratio.
-6. **Decision** — Promote, retune once, or kill. Do not retune indefinitely.
-7. **Postmortem** — Write why it worked or failed before proposing the next idea.
+### Research loop (per experiment)
+1. Baseline check
+2. Mechanism note
+3. Compatibility check
+4. Minimal implementation + diagnostics first
+5. Smoke test (collapse, saturation, overhead)
+6. Decision: promote, retune once, kill
+7. Postmortem
 
 **Prove the experiment deserves to exist before writing code.**
 
+---
+
+## Gating discipline (the agentic guardrail)
+
+This project runs phase-gated. Each phase has a **pre-registered exit gate**. Crossing a gate without explicit pass = invalid result.
+
+| Phase | Exit gate | Action on fail |
+|---|---|---|
+| 0 | v10 CIFAR sanity no-collapse + L_hard>L_clean | redesign mining or kill v10, propose v11 |
+| 1 | v10 IN-1K seed 0 FID ≤ 30.41 | 1 λ retune ∈ {0.03, 0.3, 1.0} then kill |
+| 2 | 3-seed Welch t p<0.05, mean ≥1 FID gain | kill v10, paper claim collapses |
+| 3 | Scaling curve monotone improvement | restrict scaling claim |
+| 4 | Flow-matching transfer ≥0.5 FID | restrict claim to EqM only |
+| 5 | Workshop draft ready by Aug 22 | extend timeline / fall back to ICLR only |
+
+Maximum **1 retune per failing direction** (CLAUDE.md hard rule). No retune indefinitely loops.
+
+---
+
+## Commit + push discipline
+- Every metric-producing result is in a commit message: "v10 IN-1K seed 0 FID 29.83 (vs vanilla 31.41) — PASS Phase 1 gate".
+- Every job submission has its `active_runs` entry in the same commit.
+- Every job cancellation: commit notes last observed metric + reason.
+- NEVER add Co-Authored-By or Claude footer (per ~/.claude/CLAUDE.md).
+- After every commit affecting cluster state → push (cluster pulls fresh per job).
+
+---
+
+## SLURM discipline (cluster = remote-only, GPU-only)
+
+- SLURM commands are NEVER local. Use `scripts/cluster/ssh.sh`, `scripts/cluster/status.sh`, `scripts/cluster/remote_submit.sh`, `scripts/cluster/remote_fetch.sh`.
+- Local execution = CPU only. Cluster execution = GPU (A100s).
+- Cluster jobs auto-clone repo to `/tmp/project-job-$SLURM_JOB_ID`, checkout `GIT_SHA`, run, cleanup. NO manual code maintenance on cluster.
+- Only `slurm/` synced to cluster (sbatch + log structure).
+
+### Partition selection
+- < 24h runtime → `gpu_test` (higher priority, 24h cap)
+- ≥ 24h runtime → `gpu` (lower priority, longer time)
+- For IN-1K 80ep EqM-B/2 (vanilla ~24h, v10 ≥30h) → `gpu` or `seas_gpu` per cluster guidance
+- gpu_test 20G cards = OOM for mining variants (PGA = 3-4x activation memory). Mining variants → `gpu` only.
+
+### QOS / partition diversification
+4+ simultaneous submissions → split across `gpu_test` + `gpu` to avoid `QOSMaxSubmitJobPerUserLimit`.
+
+### Early polling
+After every submit → first poll ~60s post-submit (catch init errors: module load, pip, clone). Then resume normal interval (120s for short jobs, 1800s for long).
+
+### Job verification (do FIRST every session)
+1. For every `active_runs` entry: cross-check `scripts/cluster/status.sh <job_id>` or `sacct`.
+2. If status mismatch → fetch logs (`scripts/cluster/remote_fetch.sh diff-EqM`), determine failure, write to `debugging.md`, move to `completed_runs`, set `phase=DEBUG` if blocking.
+3. Only after verification → plan new work.
+
+---
+
+## Required structured outputs (after each step)
+
+Update as applicable:
+- `projects/diff-EqM/.state/pipeline.json` (always, on state change)
+- `projects/diff-EqM/documentation/phase-X-spec.md` (mark tasks done)
+- `projects/diff-EqM/documentation/debugging.md` (failures, root causes)
+- `projects/diff-EqM/documentation/queue.md` (next actions)
+- `projects/diff-EqM/results_variants.tsv` (any metric-producing run)
+- `projects/diff-EqM/runs/<run_id>/...` (artifacts)
+- `projects/diff-EqM/documentation/arxiv-weekly-sweep.md` (weekly scoop check)
+
+---
+
+## PI update protocol
+
+Triggers (per `projects/diff-EqM/documentation/pi-updates.md`):
+- stage exit gate pass/fail
+- result at paper-comparable scale (any IN-1K run)
+- gain confirmed across 3 seeds
+- blocker needing PI input
+- significant pivot (e.g., kill v10 → v11)
+- scoop or external signal
+- bug invalidating prior reported result
+
+On trigger:
+1. Append draft to `pi-updates.md`.
+2. Set `pipeline.json:needs_user_input.value=true` with prompt pointing to draft.
+3. Do NOT send. User reviews + sends.
+
+Weekly digest day = Monday. Draft even with no trigger.
+
+---
+
+## Stopping
+
+The repo's Stop hook may block stopping while work is actionable. If user input is required, set `needs_user_input.value=true` with prompt. Otherwise: complete the current sub-task, update state files, then stop.
+
+---
+
+## Cadence (agentic loop)
+
+Default agentic cadence for this project:
+1. Read pipeline.json, summer plan, current phase spec.
+2. Identify next sub-task per current phase spec.
+3. If sub-task is "submit job" → check job tracking + active_runs reconciliation first.
+4. Execute one sub-task to completion.
+5. Update state files (pipeline.json, phase spec, results_variants.tsv as applicable).
+6. Commit + push.
+7. If gate-evaluation step reached → evaluate gate explicitly against pre-registered threshold. Pass → next phase. Fail → kill or 1 retune.
+8. PI update trigger check.
+9. Stop (or continue to next sub-task if cheap).
+
+No autoresearch ratchet loop on this project — the summer plan + phase specs are the loop.

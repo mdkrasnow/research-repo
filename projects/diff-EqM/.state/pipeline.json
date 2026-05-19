@@ -1,7 +1,7 @@
 {
   "project": "diff-EqM",
   "title": "Differential-Geometry-Guided Adversarial Negative Mining for EqM (DG-ANM)",
-  "phase": "STAGE-B-BASELINE-TRUSTED",
+  "phase": "PHASE-0-WRAP-UP",
   "stage_b_in1k_baseline": {
     "verified_at": "2026-05-13",
     "result": {
@@ -19,15 +19,18 @@
       "vanilla_train_resume": "12590805 (COMPLETED, step 380000 -> 405000)",
       "fid_eval": "12590806 (COMPLETED, 50K samples, gd sampler eta=0.003 steps=250 cfg=1.0)"
     },
-    "config_validated": "Linear path, velocity prediction, c(γ) hardcoded interp=0.8 λ=4 (transport.py:122-126). loss_weight=None. global_batch=256 4-GPU DDP seas_gpu.",
+    "config_validated": "Linear path, velocity prediction, c(\u03b3) hardcoded interp=0.8 \u03bb=4 (transport.py:122-126). loss_weight=None. global_batch=256 4-GPU DDP seas_gpu.",
     "implications": "Vanilla pipeline reproduces paper. Baseline-first rule per CLAUDE.md research process satisfied. v10 hard-example EqM work unblocked."
   },
-  "phase_previous": "AUTORESEARCH-VARIANTS",
+  "phase_previous": "STAGE-B-BASELINE-TRUSTED",
   "publication_goal": {
-    "target_venues": ["NeurIPS", "ICML", "ICLR"],
-    "current_stage": "A",
+    "target_venues": [
+      "NeurIPS 2026 workshop (deadline 2026-08-29)",
+      "ICLR 2027 main (deadline ~2026-10-01)"
+    ],
+    "current_stage": "B",
     "stages": {
-      "A": "Variant-search autoresearch: find a DG-ANM code variant that beats vanilla EqM on CIFAR-10 25ep proxy (CURRENT). Hyperparameter sweeps abandoned — see documentation/research-plan.md.",
+      "A": "Variant-search autoresearch: find a DG-ANM code variant that beats vanilla EqM on CIFAR-10 25ep proxy (CURRENT). Hyperparameter sweeps abandoned \u2014 see documentation/research-plan.md.",
       "A.5": "Paper-scale CIFAR confirmation: promote winning variant to 150ep 3-seed 10K FID; must beat vanilla by >=1 FID.",
       "B": "IN-100 class-conditional, EqM-B/2, 80ep, winning-variant vs vanilla EqM (3 seeds each, 50K FID). GATED on A.5 passing.",
       "C": "Scaling curves (S/2, B/2, L/2 on IN-100) + CIFAR-10 secondary result",
@@ -54,48 +57,137 @@
       "next_weekly_digest_due": "2026-04-27"
     },
     "reference_numbers": {
-      "eqm_paper_imagenet256_xl2": 1.90,
+      "eqm_paper_imagenet256_xl2": 1.9,
       "eqm_paper_cifar10_appendix_B1": 3.36,
       "cifar10_vanilla_eqm_50ep_5K": 9.5,
       "cifar10_vanilla_eqm_150ep_10K_seedstudy_mean": 12.54,
       "cifar10_dganm_v01_150ep_10K_seedstudy_mean": 21.66,
-      "cifar10_dganm_v01_150ep_10K_per_seed": [16.7248, 32.9136, 15.3475],
+      "cifar10_dganm_v01_150ep_10K_per_seed": [
+        16.7248,
+        32.9136,
+        15.3475
+      ],
       "in100_vanilla_80ep_1seed_prior": 121.24,
       "in100_dganm_80ep_1seed_prior": 112.58,
       "in100_vanilla_80ep_3seed_FID_BLOCKED": "train+sample complete; FID step failed on ref-stats schema mismatch (KeyError: mu); fixable offline"
-    }
+    },
+    "summer_plan_doc": "projects/diff-EqM/documentation/summer-2026-plan.md",
+    "related_work_memo": "projects/diff-EqM/documentation/related-work-differentiation.md",
+    "framing": "Branch B-Both: PGD-on-target (v10) + CAFM-style discriminator AT (Lin et al. 2026). Primary on EqM-B/2 IN-1K (Phases 1-4); SiT head-to-head Phase 5.",
+    "missed_venues": [
+      "NeurIPS 2026 main (May 6, 2026)",
+      "ICML 2026 (Jan 28, 2026)"
+    ],
+    "primary_prior": "Lin et al. 2026 AFM (arxiv 2511.22475, ICML 2026) + CAFM (arxiv 2604.11521). Code: github.com/ByteDance-Seed/Adversarial-Flow-Models (MIT).",
+    "sharpened_claim": "First adaptive hard-negative mining for regression-target generative models. PGD-mined hard examples compose with CAFM-style discriminator post-training to compound FID gains on EqM. (per VeCoR future-work cite; differentiated from DAT, CAFM, ACT, AEBM-Diff, Rob-GAN.)",
+    "contributions": [
+      "First port of CAFM-style adversarial AT to EqM family",
+      "First combination of PGD-input-mining with GAN-discriminator AT on regression-target flow models",
+      "SiT head-to-head confirmation that combination generalizes"
+    ],
+    "literature_synthesis": "projects/diff-EqM/documentation/literature/SYNTHESIS.md",
+    "lit_review_done": [
+      "wang2025_eqm",
+      "lin2026_afm",
+      "lin2026_cafm",
+      "yin2025_dat",
+      "geng2024_aebm_diff",
+      "kong2024_act",
+      "jiang2025_vecor",
+      "briglia2025_at_for_diffusion",
+      "luo2023_dcd",
+      "madry2017_pgd",
+      "du2019_implicit_ebm",
+      "grathwohl2020_jem",
+      "lipman2023_flow_matching",
+      "ma2024_sit",
+      "song2023_consistency",
+      "lin2025_aapt",
+      "liu2019_robgan"
+    ],
+    "lit_review_deferred": [
+      "peebles2022_dit (skim)",
+      "ohem (skim)",
+      "focal_loss (skim)",
+      "fail (verify)",
+      "fmvp (verify)",
+      "arxiv:2506.01158 (ICLR-2026-under-review, unknown title)"
+    ]
   },
   "next_action": {
-    "command": "Wait for Round 2 variant pilots (v03=8898137, v06=8898147, v02=8898150, v04=8898152) to complete (~5h each). Apply z-test promotion: keep variants with 5K FID < 20.83. For kept variants, run 2 more seeds at 100ep. For 3-seed mean beating vanilla mu=22.31 by >=1 FID, promote to 150ep confirmation.",
-    "reason": "Round 1 noise floor validated proxy. Round 2 tests 4 variants in parallel across both partitions (gpu_test for fast queue, gpu for distribution).",
-    "hint": "Early poll at 60s post-submit. Expected outcomes (confidence-weighted): v03 most likely win (fixes the t=1 mining bug), v02/v06 mid-confidence (both replace saturating hinge with non-saturating objectives), v04 lowest-confidence (Du 2021 warns of CD instability without replay buffer)."
+    "command": "Phase 0 substantially complete. Wrap-up: (a) Restore cluster SSH and run v02 postmortem; (b) submit CAFM-on-SiT smoke (Task 0.C.2); (c) begin Phase 1a CAFM-to-EqM code port per documentation/cafm-eqm-port-design.md.",
+    "reason": "Plan locked 2026-05-19 in documentation/summer-2026-plan.md. Broad framing approved (EqM-first, flow-matching transfer Phase 4). Venues: NeurIPS 2026 workshop (Aug 29) + ICLR 2027 (~Oct 1). Differentiation memo locked vs DAT (Wu 2025, 2510.13872) and AEBM-Diff (Geng 2024, 2403.01666). v10 mechanism-aligned per CLAUDE.md.",
+    "phase_0_tasks": [
+      "v02 IN-1K cancellation postmortem",
+      "v10 code + configs + sbatch",
+      "v10 CIFAR sanity (1 seed 150ep)",
+      "v11 fallback sketch (in case v10 fails Phase 1 gate)",
+      "Weekly arxiv sweep log started"
+    ],
+    "phase_1_gate": "v10 IN-1K-256 EqM-B/2 80ep seed 0 FID <= 30.41 (vs trusted vanilla 31.41). Otherwise 1 retune of lambda then kill.",
+    "spec": "projects/diff-EqM/documentation/phase-0-spec.md",
+    "budget": "<=50 GPU-h (smoke only)",
+    "execution_order": "0.1 + 0.4 + 0.5 parallel (no compute) -> 0.2 -> 0.3 (compute, ~8h)",
+    "window": "remaining Phase 0 + Phase 1a: 2026-05-19 to 2026-06-23",
+    "lit_review": "leads phase; synthesis informs v10 code + v11 sketch + framing",
+    "branch": "B-Both",
+    "needs_user": "Yes \u2014 cluster SSH credentials need refresh for v02 postmortem and Phase 0.C.2 smoke. Local code work can proceed without."
   },
   "autoresearch_variants": {
     "active": true,
     "metric": "cifar10_variant_fid",
     "direction": "minimize",
     "round": 1,
-    "round_1_first_attempt_25ep_INVALID": {"jobs": ["8370711", "8370723"], "fids": {"v00": 341.9385, "v01": 334.2711}, "verdict": "25ep too short to resolve known 150ep gap; v01 mining inert at random init. Proxy bumped to 100ep, v01 dropped from proxy."},
+    "round_1_first_attempt_25ep_INVALID": {
+      "jobs": [
+        "8370711",
+        "8370723"
+      ],
+      "fids": {
+        "v00": 341.9385,
+        "v01": 334.2711
+      },
+      "verdict": "25ep too short to resolve known 150ep gap; v01 mining inert at random init. Proxy bumped to 100ep, v01 dropped from proxy."
+    },
     "round_1_retry_submitted_at": "2026-04-26T00:00:00Z",
-    "round_1_retry_jobs": ["8611605_0", "8611605_1", "8611605_2"],
+    "round_1_retry_jobs": [
+      "8611605_0",
+      "8611605_1",
+      "8611605_2"
+    ],
     "round_1_retry_purpose": "v00_vanilla x 3 seeds at 100ep to pin (mu_vanilla, sigma_vanilla) noise floor",
     "round_1_retry_completed_at": "2026-04-26T14:24:02Z",
     "vanilla_noise_floor": {
       "metric": "cifar10_variant_fid (5K samples, 100ep)",
-      "per_seed_5K": [22.0852, 22.5712, 22.2810],
-      "per_seed_2K_e100_eval": [29.8711, 29.7610, 29.4908],
+      "per_seed_5K": [
+        22.0852,
+        22.5712,
+        22.281
+      ],
+      "per_seed_2K_e100_eval": [
+        29.8711,
+        29.761,
+        29.4908
+      ],
       "mu": 22.3125,
-      "sigma": 0.2440,
+      "sigma": 0.244,
       "n": 3,
       "promotion_threshold_5K_fid": 20.83,
       "promotion_threshold_formula": "mu - 1.96*sigma - 1.0",
       "elimination_threshold_5K_fid": 27.31,
       "elimination_threshold_formula": "mu + 5.0",
-      "validity_check": "2K e100 mean 29.71 +- 0.19 matches prior cifar_seed_study vanilla e100 30.18 +- 0.28 (within 1 sigma) — proxy is valid"
+      "validity_check": "2K e100 mean 29.71 +- 0.19 matches prior cifar_seed_study vanilla e100 30.18 +- 0.28 (within 1 sigma) \u2014 proxy is valid"
     },
     "round_2_submitted_at": "2026-04-27T00:00:00Z",
-    "round_2_jobs": {"v03": "8898137", "v06": "8898147", "v02": "8898150", "v04": "8898152"},
-    "round_2_skipped": ["v05_drop_geometry"],
+    "round_2_jobs": {
+      "v03": "8898137",
+      "v06": "8898147",
+      "v02": "8898150",
+      "v04": "8898152"
+    },
+    "round_2_skipped": [
+      "v05_drop_geometry"
+    ],
     "round_2_skip_reason": "v05 inherits v01's inert hinge; near-zero probability of beating vanilla. Run later for paper appendix if needed.",
     "initial_variants": [
       "v00_vanilla",
@@ -106,7 +198,15 @@
       "v05_drop_geometry",
       "v06_diffusion_recovery"
     ],
-    "order_of_trial": ["v00_vanilla", "v01_current", "v03_noised_negatives", "v05_drop_geometry", "v02_score_repulsion", "v06_diffusion_recovery", "v04_ebm_contrastive"],
+    "order_of_trial": [
+      "v00_vanilla",
+      "v01_current",
+      "v03_noised_negatives",
+      "v05_drop_geometry",
+      "v02_score_repulsion",
+      "v06_diffusion_recovery",
+      "v04_ebm_contrastive"
+    ],
     "pilot_epochs": 25,
     "pilot_fid_samples": 5000,
     "confirmation_epochs": 150,
@@ -123,36 +223,333 @@
     "sbatch": "projects/diff-EqM/slurm/jobs/variant_pilot.sbatch"
   },
   "needs_user_input": {
-    "value": false,
-    "prompt": "Restructure complete. Pending: submit Round 1 pilots (v00_vanilla + v01_current). Also pending: offline fix of IN-100 reference-stats schema mismatch (KeyError: mu) to recover FID for the 3 completed vanilla IN-100 80ep seed runs — no retrain needed, just a ref-stats regenerate + FID compute."
+    "value": true,
+    "prompt": "Cluster SSH returning 'Permission denied (keyboard-interactive)'. Need to refresh credentials / MFA before v02 postmortem (Task 0.1) and CAFM smoke (Task 0.C.2) can run. Run: bash scripts/cluster/ssh.sh 'echo ok' to verify connectivity."
   },
-  "active_runs": [
-    {"run_id": "variant_pilot_v03_noised_negatives_s0_retry", "job_id": "8941251", "partition": "gpu", "status": "pending", "description": "Round 2 retry: v03_noised_negatives @ 100ep seed 0 on gpu (8898137 OOM'd on gpu_test 20G). Mining at t~U(0,1) instead of hardcoded t=1 (Luo 2023 DCD).", "submitted_at": "2026-04-27T01:00:00Z", "git_sha": "3184d9f", "sbatch_path": "projects/diff-EqM/slurm/jobs/variant_pilot.sbatch", "config_path": "projects/diff-EqM/configs/variants/v03_noised_negatives.json", "expected_runtime": "~5h", "stage": "AUTORESEARCH-VARIANTS-R2"},
-    {"run_id": "variant_pilot_v06_diffusion_recovery_s0_retry", "job_id": "8941252", "partition": "gpu", "status": "pending", "description": "Round 2 retry: v06_diffusion_recovery @ 100ep seed 0 on gpu (8898147 OOM'd on gpu_test 20G).", "submitted_at": "2026-04-27T01:00:00Z", "git_sha": "3184d9f", "sbatch_path": "projects/diff-EqM/slurm/jobs/variant_pilot.sbatch", "config_path": "projects/diff-EqM/configs/variants/v06_diffusion_recovery.json", "expected_runtime": "~5h", "stage": "AUTORESEARCH-VARIANTS-R2"},
-    {"run_id": "variant_pilot_v02_score_repulsion_s0", "job_id": "8898150", "partition": "gpu", "status": "pending", "description": "Round 2: v02_score_repulsion @ 100ep, seed 0. VeCoR-style two-sided cosine contrastive (Jiang 2025).", "submitted_at": "2026-04-27T00:00:00Z", "git_sha": "3184d9f", "sbatch_path": "projects/diff-EqM/slurm/jobs/variant_pilot.sbatch", "config_path": "projects/diff-EqM/configs/variants/v02_score_repulsion.json", "expected_runtime": "~5h", "stage": "AUTORESEARCH-VARIANTS-R2"},
-    {"run_id": "variant_pilot_v04_ebm_contrastive_s0", "job_id": "8898152", "partition": "gpu", "status": "pending", "description": "Round 2: v04_ebm_contrastive @ 100ep, seed 0. InfoNCE softplus on velocity-norm energy (Du 2021 CD).", "submitted_at": "2026-04-27T00:00:00Z", "git_sha": "3184d9f", "sbatch_path": "projects/diff-EqM/slurm/jobs/variant_pilot.sbatch", "config_path": "projects/diff-EqM/configs/variants/v04_ebm_contrastive.json", "expected_runtime": "~5h", "stage": "AUTORESEARCH-VARIANTS-R2"}
-  ],
   "completed_runs": [
-    {"run_id": "variant_pilot_v03_noised_negatives_s0_OOM", "job_id": "8898137", "partition": "gpu_test", "status": "failed", "failure_mode": "CUDA OOM at first forward pass", "root_cause": "gpu_test 20G card insufficient for mining variants (PGA = 3-4x activation memory). Resubmitted to gpu as 8941251.", "completed_at": "2026-04-27T09:24:07Z", "elapsed": "00:02:33", "git_sha": "3184d9f"},
-    {"run_id": "variant_pilot_v06_diffusion_recovery_s0_OOM", "job_id": "8898147", "partition": "gpu_test", "status": "failed", "failure_mode": "CUDA OOM at first forward pass", "root_cause": "Same as 8898137. Resubmitted to gpu as 8941252.", "completed_at": "2026-04-27T09:23:52Z", "elapsed": "00:02:15", "git_sha": "3184d9f"},
-    {"run_id": "variant_pilot_v00_vanilla_s0_r1retry", "job_id": "8611605_0", "result_dir": "variant_v00_vanilla_8612283_seed0", "partition": "gpu", "status": "completed", "description": "R1 retry: v00_vanilla 100ep, seed 0. Validates proxy at 100ep.", "completed_at": "2026-04-26T14:14:43Z", "elapsed": "03:06:47", "final_fid_5K": 22.0852, "fid_2K_e100": 29.8711, "git_sha": "3184d9f"},
-    {"run_id": "variant_pilot_v00_vanilla_s1_r1retry", "job_id": "8611605_1", "result_dir": "variant_v00_vanilla_8612575_seed1", "partition": "gpu", "status": "completed", "description": "R1 retry: v00_vanilla 100ep, seed 1.", "completed_at": "2026-04-26T14:19:38Z", "elapsed": "03:09:14", "final_fid_5K": 22.5712, "fid_2K_e100": 29.7610, "git_sha": "3184d9f"},
-    {"run_id": "variant_pilot_v00_vanilla_s2_r1retry", "job_id": "8611605_2", "result_dir": "variant_v00_vanilla_8611605_seed2", "partition": "gpu", "status": "completed", "description": "R1 retry: v00_vanilla 100ep, seed 2. R1 complete: noise floor mu=22.31, sigma=0.244 — proxy VALID.", "completed_at": "2026-04-26T14:24:02Z", "elapsed": "03:07:01", "final_fid_5K": 22.2810, "fid_2K_e100": 29.4908, "git_sha": "3184d9f"},
-    {"run_id": "variant_pilot_v00_25ep_s0_INVALID_PROXY", "job_id": "8370711", "partition": "gpu", "status": "completed", "description": "Round 1 first attempt at 25ep — proxy invalid (cannot resolve known 150ep gap; both v00 and v01 still in steep descent, v01 mining inert). Result preserved for reference.", "completed_at": "2026-04-25T14:36:25Z", "elapsed": "00:55:34", "final_fid_5K_e25": 341.9385, "git_sha": "a9442b1"},
-    {"run_id": "variant_pilot_v01_25ep_s0_INVALID_PROXY", "job_id": "8370723", "partition": "gpu", "status": "completed", "description": "Round 1 first attempt at 25ep, v01_current. neg_loss=0 every epoch (margin=50 hinge inert at random init). Proxy invalid; v01 dropped from future proxy rounds.", "completed_at": "2026-04-25T15:11:03Z", "elapsed": "01:28:41", "final_fid_5K_e25": 334.2711, "git_sha": "a9442b1"},
-    {"run_id": "cifar_dganm_resume_s0", "job_id": "7455358_0", "stage": "A.5-B-seedstudy", "partition": "gpu", "status": "completed", "description": "DG-ANM v01 resume e125->e150 seed 0. Final 10K FID 16.72.", "submitted_at": "2026-04-22T19:50:00-04:00", "completed_at": "2026-04-22T21:13:45-04:00", "elapsed": "01:35:27", "final_fid_10K": 16.7248, "fid_2K_e150": 27.8488, "git_sha": "5af6f48"},
-    {"run_id": "cifar_dganm_resume_s1", "job_id": "7455358_1", "stage": "A.5-B-seedstudy", "partition": "gpu", "status": "completed", "description": "DG-ANM v01 resume e125->e150 seed 1. Final 10K FID 32.91.", "submitted_at": "2026-04-22T19:50:00-04:00", "completed_at": "2026-04-22T21:11:35-04:00", "elapsed": "01:33:17", "final_fid_10K": 32.9136, "fid_2K_e150": 41.5314, "git_sha": "5af6f48"},
-    {"run_id": "cifar_dganm_resume_s2", "job_id": "7455358_2", "stage": "A.5-B-seedstudy", "partition": "gpu", "status": "completed", "description": "DG-ANM v01 resume e125->e150 seed 2. Final 10K FID 15.35.", "submitted_at": "2026-04-22T19:50:00-04:00", "completed_at": "2026-04-22T21:19:25-04:00", "elapsed": "01:36:03", "final_fid_10K": 15.3475, "fid_2K_e150": 26.2790, "git_sha": "5af6f48"},
-    {"run_id": "cifar_dganm_150ep_3seed_SUMMARY", "status": "completed", "note": "Mean 10K FID 21.66 +- 9.95; neg_loss=0 on 99% of epochs at margin=50. DG-ANM v01 formulation is broken — absolute worse than vanilla and high-variance. Triggered program.md restructure to variant search.", "per_seed_10K_fid": [16.7248, 32.9136, 15.3475], "mean_std_10K": [21.66, 9.95]},
-    {"run_id": "stage_b_vanilla_seed2_fid_failed", "job_id": "6820064_2", "stage": "B", "partition": "gpu", "status": "completed_fid_error", "description": "Stage B vanilla EqM-B/2 IN-100 80ep seed 2. Train+sample 50K complete (exit 0, 6h23m). FID step failed: KeyError 'mu' — ref-stats schema mismatch. Samples + checkpoint preserved. FID fixable offline.", "submitted_at": "2026-04-20T09:30:00-04:00", "completed_at": "2026-04-22T21:43:10-04:00", "elapsed": "06:23:14", "git_sha": "dadf6c9"},
-    {"run_id": "cifar_dganm_ext_TIMEOUT_all3", "array_job_id": "7024903", "stage": "A.5-B-seedstudy", "partition": "gpu", "status": "timeout_all_seeds", "headline": "All 3 DG-ANM extension seeds timed out at 8h walltime, reaching e147-150 of 150. Background rsync loop successfully persisted e125 checkpoints. Resubmitted as 7455358 which completed.", "mean_e125_2K": [38.43, 9.67], "completed_at": "2026-04-22T17:44:06-04:00", "git_sha": "df330df"},
-    {"run_id": "stage_b_vanilla_seed0_fid_failed", "job_id": "6820064_0", "stage": "B", "partition": "gpu", "status": "completed_fid_error", "headline": "Train+sample DONE 6h13m. FID failed KeyError 'mu'. Samples + checkpoint preserved.", "completed_at": "2026-04-21T14:54:42-04:00", "git_sha": "dadf6c9"},
-    {"run_id": "stage_b_vanilla_seed1_fid_failed", "job_id": "6820064_1", "stage": "B", "partition": "gpu", "status": "completed_fid_error", "headline": "Train+sample DONE 6h01m. FID failed KeyError 'mu'.", "completed_at": "2026-04-22T19:31:10-04:00", "git_sha": "dadf6c9"},
-    {"run_id": "step_a_vanilla_eqm_cifar_TIMEOUT_useful", "job_id": "6540051", "stage": "A.5-A", "partition": "gpu", "status": "timeout", "summary": "Vanilla EqM on FM UNet reached epoch 1459/1800 in 48h walltime. FID plateau ~9.5-10.0 on 5K samples from e600 onwards. Defines the variant-search baseline to beat.", "fid_trajectory_5K": {"e600": 9.9986, "e1100": 9.5046, "e1400": 9.6886}, "completed_at": "2026-04-21T08:40:57-04:00", "git_sha": "c8a5f7b"},
-    {"run_id": "cifar_seed_study_COMPLETE", "array_job_id": "6821254", "stage": "A.5-B-seedstudy", "partition": "gpu", "status": "completed_with_timeouts", "headline": "DG-ANM v01 statistically WORSE than vanilla at e100 (Welch t~3.1 sigma). DG-ANM seed variance 27x vanilla's. Confirmed in resubmit 7455358 (10K FID 21.66 +- 9.95 vs vanilla 12.54 +- 1.15).", "completed_at": "2026-04-20T18:30:00-04:00", "git_sha": "6a87262"},
-    {"run_id": "step_a_dganm_eqm_cifar_KILLED_INERT", "job_id": "6540067", "status": "cancelled", "reason": "Confirmed inert by diag_dganm_signal.py: ||field|| ~47, margin=5 produces zero gradient. Killed after ~26h compute.", "cancelled_at": "2026-04-20T09:40:00-04:00", "git_sha": "0f87344"},
-    {"run_id": "in100_vanilla_80ep_prior_1seed", "job_id": "3261967", "status": "completed", "fid": 121.24},
-    {"run_id": "in100_dganm_80ep_prior_1seed", "job_id": "3288599", "status": "completed", "fid": 112.58, "note": "Prior single-seed IN-100 gain since invalidated by 3-seed CIFAR seed study (see cifar_seed_study_COMPLETE)."}
+    {
+      "run_id": "stage_b_v02_in1k_80ep_CANCELLED_2x",
+      "status": "cancelled",
+      "jobs": [
+        "10198798 (cancelled @ 4h54m)",
+        "10387316 (cancelled @ 9h57m)"
+      ],
+      "dates": "2026-05-05, 2026-05-06",
+      "note": "v02 Stage B IN-1K attempts cancelled twice; reason not recorded. v10 proposal drafted as pivot (PGA saturation hypothesis at EqM-B/2 scale).",
+      "logged_at": "2026-05-19"
+    },
+    {
+      "run_id": "autoresearch_variants_R2c_through_R6_SUMMARY",
+      "status": "completed",
+      "logged_at": "2026-05-19",
+      "note": "Reconciled from sacct + results_variants.tsv (pipeline state was 3 weeks stale).",
+      "rounds": {
+        "R2c (4-28)": "v03 22.01, v06 22.23, v04 436.79 ELIM, v02 timeout",
+        "R2d (4-29)": "v02 rerun 24.80 (eliminated at 100ep proxy)",
+        "R3 (5-01)": "150ep variant harness: v02 12.26 KEEP, v06 13.73, v03 14.10",
+        "R4 (5-02)": "v00 baseline 14.17; v02 seeds 1/2 = 13.65/12.96; lambda_neg sweep 0.1/0.3/2.0 = 12.50/12.55/12.91; v07 anneal 12.28",
+        "R5 (5-04)": "v00 seeds 1/2 = 15.97/15.04 (mu=15.06); v07 seeds 1/2 = 13.43/13.30 (mu=13.00); v08 v02+v06 = 12.90",
+        "R6 (5-06)": "v09 Jacobian penalty: collapsed lambda=0.1, neutral lambda=0.001 (jobs 10673957, 10768964)"
+      },
+      "stage_a_gate": {
+        "vanilla_mu_150ep_5K_variant_harness": 15.06,
+        "v02_mu_150ep_5K_variant_harness": 12.96,
+        "gap": 2.1,
+        "threshold": 1.0,
+        "verdict": "PASSED for v02_score_repulsion (and v07_anneal_v02 which ties)"
+      }
+    },
+    {
+      "run_id": "variant_pilot_v04_ebm_contrastive_s0",
+      "job_id": "8898152",
+      "partition": "gpu",
+      "status": "cancelled",
+      "description": "Round 2: v04_ebm_contrastive @ 100ep, seed 0. InfoNCE softplus on velocity-norm energy (Du 2021 CD).",
+      "submitted_at": "2026-04-27T00:00:00Z",
+      "git_sha": "3184d9f",
+      "sbatch_path": "projects/diff-EqM/slurm/jobs/variant_pilot.sbatch",
+      "config_path": "projects/diff-EqM/configs/variants/v04_ebm_contrastive.json",
+      "expected_runtime": "~5h",
+      "stage": "AUTORESEARCH-VARIANTS-R2",
+      "cancelled_at": "2026-04-28T10:05:58Z",
+      "reason": "superseded by R2c (jobs 9061659/9061660/9061675/9061676)"
+    },
+    {
+      "run_id": "variant_pilot_v02_score_repulsion_s0",
+      "job_id": "8898150",
+      "partition": "gpu",
+      "status": "cancelled",
+      "description": "Round 2: v02_score_repulsion @ 100ep, seed 0. VeCoR-style two-sided cosine contrastive (Jiang 2025).",
+      "submitted_at": "2026-04-27T00:00:00Z",
+      "git_sha": "3184d9f",
+      "sbatch_path": "projects/diff-EqM/slurm/jobs/variant_pilot.sbatch",
+      "config_path": "projects/diff-EqM/configs/variants/v02_score_repulsion.json",
+      "expected_runtime": "~5h",
+      "stage": "AUTORESEARCH-VARIANTS-R2",
+      "cancelled_at": "2026-04-28T10:05:58Z",
+      "reason": "superseded by R2c (jobs 9061659/9061660/9061675/9061676)"
+    },
+    {
+      "run_id": "variant_pilot_v06_diffusion_recovery_s0_retry",
+      "job_id": "8941252",
+      "partition": "gpu",
+      "status": "cancelled",
+      "description": "Round 2 retry: v06_diffusion_recovery @ 100ep seed 0 on gpu (8898147 OOM'd on gpu_test 20G).",
+      "submitted_at": "2026-04-27T01:00:00Z",
+      "git_sha": "3184d9f",
+      "sbatch_path": "projects/diff-EqM/slurm/jobs/variant_pilot.sbatch",
+      "config_path": "projects/diff-EqM/configs/variants/v06_diffusion_recovery.json",
+      "expected_runtime": "~5h",
+      "stage": "AUTORESEARCH-VARIANTS-R2",
+      "cancelled_at": "2026-04-28T10:05:58Z",
+      "reason": "superseded by R2c (jobs 9061659/9061660/9061675/9061676)"
+    },
+    {
+      "run_id": "variant_pilot_v03_noised_negatives_s0_retry",
+      "job_id": "8941251",
+      "partition": "gpu",
+      "status": "cancelled",
+      "description": "Round 2 retry: v03_noised_negatives @ 100ep seed 0 on gpu (8898137 OOM'd on gpu_test 20G). Mining at t~U(0,1) instead of hardcoded t=1 (Luo 2023 DCD).",
+      "submitted_at": "2026-04-27T01:00:00Z",
+      "git_sha": "3184d9f",
+      "sbatch_path": "projects/diff-EqM/slurm/jobs/variant_pilot.sbatch",
+      "config_path": "projects/diff-EqM/configs/variants/v03_noised_negatives.json",
+      "expected_runtime": "~5h",
+      "stage": "AUTORESEARCH-VARIANTS-R2",
+      "cancelled_at": "2026-04-28T10:05:58Z",
+      "reason": "superseded by R2c (jobs 9061659/9061660/9061675/9061676)"
+    },
+    {
+      "run_id": "variant_pilot_v03_noised_negatives_s0_OOM",
+      "job_id": "8898137",
+      "partition": "gpu_test",
+      "status": "failed",
+      "failure_mode": "CUDA OOM at first forward pass",
+      "root_cause": "gpu_test 20G card insufficient for mining variants (PGA = 3-4x activation memory). Resubmitted to gpu as 8941251.",
+      "completed_at": "2026-04-27T09:24:07Z",
+      "elapsed": "00:02:33",
+      "git_sha": "3184d9f"
+    },
+    {
+      "run_id": "variant_pilot_v06_diffusion_recovery_s0_OOM",
+      "job_id": "8898147",
+      "partition": "gpu_test",
+      "status": "failed",
+      "failure_mode": "CUDA OOM at first forward pass",
+      "root_cause": "Same as 8898137. Resubmitted to gpu as 8941252.",
+      "completed_at": "2026-04-27T09:23:52Z",
+      "elapsed": "00:02:15",
+      "git_sha": "3184d9f"
+    },
+    {
+      "run_id": "variant_pilot_v00_vanilla_s0_r1retry",
+      "job_id": "8611605_0",
+      "result_dir": "variant_v00_vanilla_8612283_seed0",
+      "partition": "gpu",
+      "status": "completed",
+      "description": "R1 retry: v00_vanilla 100ep, seed 0. Validates proxy at 100ep.",
+      "completed_at": "2026-04-26T14:14:43Z",
+      "elapsed": "03:06:47",
+      "final_fid_5K": 22.0852,
+      "fid_2K_e100": 29.8711,
+      "git_sha": "3184d9f"
+    },
+    {
+      "run_id": "variant_pilot_v00_vanilla_s1_r1retry",
+      "job_id": "8611605_1",
+      "result_dir": "variant_v00_vanilla_8612575_seed1",
+      "partition": "gpu",
+      "status": "completed",
+      "description": "R1 retry: v00_vanilla 100ep, seed 1.",
+      "completed_at": "2026-04-26T14:19:38Z",
+      "elapsed": "03:09:14",
+      "final_fid_5K": 22.5712,
+      "fid_2K_e100": 29.761,
+      "git_sha": "3184d9f"
+    },
+    {
+      "run_id": "variant_pilot_v00_vanilla_s2_r1retry",
+      "job_id": "8611605_2",
+      "result_dir": "variant_v00_vanilla_8611605_seed2",
+      "partition": "gpu",
+      "status": "completed",
+      "description": "R1 retry: v00_vanilla 100ep, seed 2. R1 complete: noise floor mu=22.31, sigma=0.244 \u2014 proxy VALID.",
+      "completed_at": "2026-04-26T14:24:02Z",
+      "elapsed": "03:07:01",
+      "final_fid_5K": 22.281,
+      "fid_2K_e100": 29.4908,
+      "git_sha": "3184d9f"
+    },
+    {
+      "run_id": "variant_pilot_v00_25ep_s0_INVALID_PROXY",
+      "job_id": "8370711",
+      "partition": "gpu",
+      "status": "completed",
+      "description": "Round 1 first attempt at 25ep \u2014 proxy invalid (cannot resolve known 150ep gap; both v00 and v01 still in steep descent, v01 mining inert). Result preserved for reference.",
+      "completed_at": "2026-04-25T14:36:25Z",
+      "elapsed": "00:55:34",
+      "final_fid_5K_e25": 341.9385,
+      "git_sha": "a9442b1"
+    },
+    {
+      "run_id": "variant_pilot_v01_25ep_s0_INVALID_PROXY",
+      "job_id": "8370723",
+      "partition": "gpu",
+      "status": "completed",
+      "description": "Round 1 first attempt at 25ep, v01_current. neg_loss=0 every epoch (margin=50 hinge inert at random init). Proxy invalid; v01 dropped from future proxy rounds.",
+      "completed_at": "2026-04-25T15:11:03Z",
+      "elapsed": "01:28:41",
+      "final_fid_5K_e25": 334.2711,
+      "git_sha": "a9442b1"
+    },
+    {
+      "run_id": "cifar_dganm_resume_s0",
+      "job_id": "7455358_0",
+      "stage": "A.5-B-seedstudy",
+      "partition": "gpu",
+      "status": "completed",
+      "description": "DG-ANM v01 resume e125->e150 seed 0. Final 10K FID 16.72.",
+      "submitted_at": "2026-04-22T19:50:00-04:00",
+      "completed_at": "2026-04-22T21:13:45-04:00",
+      "elapsed": "01:35:27",
+      "final_fid_10K": 16.7248,
+      "fid_2K_e150": 27.8488,
+      "git_sha": "5af6f48"
+    },
+    {
+      "run_id": "cifar_dganm_resume_s1",
+      "job_id": "7455358_1",
+      "stage": "A.5-B-seedstudy",
+      "partition": "gpu",
+      "status": "completed",
+      "description": "DG-ANM v01 resume e125->e150 seed 1. Final 10K FID 32.91.",
+      "submitted_at": "2026-04-22T19:50:00-04:00",
+      "completed_at": "2026-04-22T21:11:35-04:00",
+      "elapsed": "01:33:17",
+      "final_fid_10K": 32.9136,
+      "fid_2K_e150": 41.5314,
+      "git_sha": "5af6f48"
+    },
+    {
+      "run_id": "cifar_dganm_resume_s2",
+      "job_id": "7455358_2",
+      "stage": "A.5-B-seedstudy",
+      "partition": "gpu",
+      "status": "completed",
+      "description": "DG-ANM v01 resume e125->e150 seed 2. Final 10K FID 15.35.",
+      "submitted_at": "2026-04-22T19:50:00-04:00",
+      "completed_at": "2026-04-22T21:19:25-04:00",
+      "elapsed": "01:36:03",
+      "final_fid_10K": 15.3475,
+      "fid_2K_e150": 26.279,
+      "git_sha": "5af6f48"
+    },
+    {
+      "run_id": "cifar_dganm_150ep_3seed_SUMMARY",
+      "status": "completed",
+      "note": "Mean 10K FID 21.66 +- 9.95; neg_loss=0 on 99% of epochs at margin=50. DG-ANM v01 formulation is broken \u2014 absolute worse than vanilla and high-variance. Triggered program.md restructure to variant search.",
+      "per_seed_10K_fid": [
+        16.7248,
+        32.9136,
+        15.3475
+      ],
+      "mean_std_10K": [
+        21.66,
+        9.95
+      ]
+    },
+    {
+      "run_id": "stage_b_vanilla_seed2_fid_failed",
+      "job_id": "6820064_2",
+      "stage": "B",
+      "partition": "gpu",
+      "status": "completed_fid_error",
+      "description": "Stage B vanilla EqM-B/2 IN-100 80ep seed 2. Train+sample 50K complete (exit 0, 6h23m). FID step failed: KeyError 'mu' \u2014 ref-stats schema mismatch. Samples + checkpoint preserved. FID fixable offline.",
+      "submitted_at": "2026-04-20T09:30:00-04:00",
+      "completed_at": "2026-04-22T21:43:10-04:00",
+      "elapsed": "06:23:14",
+      "git_sha": "dadf6c9"
+    },
+    {
+      "run_id": "cifar_dganm_ext_TIMEOUT_all3",
+      "array_job_id": "7024903",
+      "stage": "A.5-B-seedstudy",
+      "partition": "gpu",
+      "status": "timeout_all_seeds",
+      "headline": "All 3 DG-ANM extension seeds timed out at 8h walltime, reaching e147-150 of 150. Background rsync loop successfully persisted e125 checkpoints. Resubmitted as 7455358 which completed.",
+      "mean_e125_2K": [
+        38.43,
+        9.67
+      ],
+      "completed_at": "2026-04-22T17:44:06-04:00",
+      "git_sha": "df330df"
+    },
+    {
+      "run_id": "stage_b_vanilla_seed0_fid_failed",
+      "job_id": "6820064_0",
+      "stage": "B",
+      "partition": "gpu",
+      "status": "completed_fid_error",
+      "headline": "Train+sample DONE 6h13m. FID failed KeyError 'mu'. Samples + checkpoint preserved.",
+      "completed_at": "2026-04-21T14:54:42-04:00",
+      "git_sha": "dadf6c9"
+    },
+    {
+      "run_id": "stage_b_vanilla_seed1_fid_failed",
+      "job_id": "6820064_1",
+      "stage": "B",
+      "partition": "gpu",
+      "status": "completed_fid_error",
+      "headline": "Train+sample DONE 6h01m. FID failed KeyError 'mu'.",
+      "completed_at": "2026-04-22T19:31:10-04:00",
+      "git_sha": "dadf6c9"
+    },
+    {
+      "run_id": "step_a_vanilla_eqm_cifar_TIMEOUT_useful",
+      "job_id": "6540051",
+      "stage": "A.5-A",
+      "partition": "gpu",
+      "status": "timeout",
+      "summary": "Vanilla EqM on FM UNet reached epoch 1459/1800 in 48h walltime. FID plateau ~9.5-10.0 on 5K samples from e600 onwards. Defines the variant-search baseline to beat.",
+      "fid_trajectory_5K": {
+        "e600": 9.9986,
+        "e1100": 9.5046,
+        "e1400": 9.6886
+      },
+      "completed_at": "2026-04-21T08:40:57-04:00",
+      "git_sha": "c8a5f7b"
+    },
+    {
+      "run_id": "cifar_seed_study_COMPLETE",
+      "array_job_id": "6821254",
+      "stage": "A.5-B-seedstudy",
+      "partition": "gpu",
+      "status": "completed_with_timeouts",
+      "headline": "DG-ANM v01 statistically WORSE than vanilla at e100 (Welch t~3.1 sigma). DG-ANM seed variance 27x vanilla's. Confirmed in resubmit 7455358 (10K FID 21.66 +- 9.95 vs vanilla 12.54 +- 1.15).",
+      "completed_at": "2026-04-20T18:30:00-04:00",
+      "git_sha": "6a87262"
+    },
+    {
+      "run_id": "step_a_dganm_eqm_cifar_KILLED_INERT",
+      "job_id": "6540067",
+      "status": "cancelled",
+      "reason": "Confirmed inert by diag_dganm_signal.py: ||field|| ~47, margin=5 produces zero gradient. Killed after ~26h compute.",
+      "cancelled_at": "2026-04-20T09:40:00-04:00",
+      "git_sha": "0f87344"
+    },
+    {
+      "run_id": "in100_vanilla_80ep_prior_1seed",
+      "job_id": "3261967",
+      "status": "completed",
+      "fid": 121.24
+    },
+    {
+      "run_id": "in100_dganm_80ep_prior_1seed",
+      "job_id": "3288599",
+      "status": "completed",
+      "fid": 112.58,
+      "note": "Prior single-seed IN-100 gain since invalidated by 3-seed CIFAR seed study (see cifar_seed_study_COMPLETE)."
+    }
   ],
   "archived_autoresearch_hp": {
     "active": false,
@@ -160,20 +557,112 @@
     "last_round": 4,
     "best_proxy_metric_in100": 249.3343,
     "best_commit": "3844ed3",
-    "terminated_reason": "HP tuning on an inert primitive cannot recover signal. Structural fix required — see program.md and documentation/research-plan.md."
+    "terminated_reason": "HP tuning on an inert primitive cannot recover signal. Structural fix required \u2014 see program.md and documentation/research-plan.md."
   },
   "slurm_wait": {
-    "next_poll_after": "2026-04-25T00:02:00Z",
-    "poll_interval_seconds": 120,
-    "early_poll_note": "Poll ~60s after submit to catch init errors (module load, pip install, clone). After first successful poll resume normal interval."
+    "next_poll_after": null,
+    "note": "Queue empty as of 2026-05-19 reconciliation."
   },
   "events": [
-    {"id": "evt-0001", "ts": "2026-03-31T18:00:00Z", "action": "INIT", "detail": "Project created."},
-    {"id": "evt-0016", "ts": "2026-04-02T21:35:00Z", "action": "VANILLA_80EP", "detail": "Vanilla EqM-B/2 80-epoch (1 seed, IN-100) FID 121.24."},
-    {"id": "evt-0017", "ts": "2026-04-03T03:17:00Z", "action": "DGANM_80EP", "detail": "DG-ANM EqM-B/2 80-epoch (1 seed, IN-100) FID 112.58. Later invalidated by 3-seed CIFAR seed study."},
-    {"id": "evt-0020", "ts": "2026-04-18T20:00:00Z", "action": "DIAGNOSTIC", "detail": "diag_dganm_signal.py: ||field|| ~47 at mined negatives, margin=5 gives zero gradient. DG-ANM hinge is inert at any realistic margin."},
-    {"id": "evt-0021", "ts": "2026-04-20T18:30:00Z", "action": "SEED_STUDY", "detail": "CIFAR 3v3 seed study: DG-ANM e100 30% FID-worse than vanilla, 27x variance."},
-    {"id": "evt-0022", "ts": "2026-04-22T21:19:00Z", "action": "DGANM_150EP_3SEED", "detail": "DG-ANM v01 CIFAR 150ep 3-seed 10K FID 21.66 +- 9.95 vs vanilla 12.54 +- 1.15. Confirms v01 formulation is broken."},
-    {"id": "evt-0023", "ts": "2026-04-23T00:00:00Z", "action": "RESTRUCTURE", "detail": "Abandoned HP tuning. Autoresearch restructured around code variants informed by literature review (VeCoR 2025, Du 2021 CD, Luo 2023 DCD, Pidstrigach 2022, Kim 2024 CTM). Variant slate v00..v06 in experiments/dganm_variants/. Old HP history archived to results_hp_archive.tsv."}
-  ]
+    {
+      "id": "evt-0001",
+      "ts": "2026-03-31T18:00:00Z",
+      "action": "INIT",
+      "detail": "Project created."
+    },
+    {
+      "id": "evt-0016",
+      "ts": "2026-04-02T21:35:00Z",
+      "action": "VANILLA_80EP",
+      "detail": "Vanilla EqM-B/2 80-epoch (1 seed, IN-100) FID 121.24."
+    },
+    {
+      "id": "evt-0017",
+      "ts": "2026-04-03T03:17:00Z",
+      "action": "DGANM_80EP",
+      "detail": "DG-ANM EqM-B/2 80-epoch (1 seed, IN-100) FID 112.58. Later invalidated by 3-seed CIFAR seed study."
+    },
+    {
+      "id": "evt-0020",
+      "ts": "2026-04-18T20:00:00Z",
+      "action": "DIAGNOSTIC",
+      "detail": "diag_dganm_signal.py: ||field|| ~47 at mined negatives, margin=5 gives zero gradient. DG-ANM hinge is inert at any realistic margin."
+    },
+    {
+      "id": "evt-0021",
+      "ts": "2026-04-20T18:30:00Z",
+      "action": "SEED_STUDY",
+      "detail": "CIFAR 3v3 seed study: DG-ANM e100 30% FID-worse than vanilla, 27x variance."
+    },
+    {
+      "id": "evt-0022",
+      "ts": "2026-04-22T21:19:00Z",
+      "action": "DGANM_150EP_3SEED",
+      "detail": "DG-ANM v01 CIFAR 150ep 3-seed 10K FID 21.66 +- 9.95 vs vanilla 12.54 +- 1.15. Confirms v01 formulation is broken."
+    },
+    {
+      "id": "evt-0023",
+      "ts": "2026-04-23T00:00:00Z",
+      "action": "RESTRUCTURE",
+      "detail": "Abandoned HP tuning. Autoresearch restructured around code variants informed by literature review (VeCoR 2025, Du 2021 CD, Luo 2023 DCD, Pidstrigach 2022, Kim 2024 CTM). Variant slate v00..v06 in experiments/dganm_variants/. Old HP history archived to results_hp_archive.tsv."
+    },
+    {
+      "id": "evt-0024",
+      "ts": "2026-05-19T00:00:00Z",
+      "action": "RECONCILE",
+      "detail": "Reconciled 3-week-stale pipeline state vs sacct. Stage A gate PASSED for v02 (gap 2.10 FID). Stage B vanilla IN-1K baseline trusted (FID 31.41). v02 IN-1K 80ep cancelled 2x. v10 hard-example proposal drafted (e36ca0f) as Stage B pivot."
+    },
+    {
+      "id": "evt-0025",
+      "ts": "2026-05-19T00:00:00Z",
+      "action": "SUMMER_PLAN_LOCKED",
+      "detail": "15-week summer plan locked. Broad framing. Targets: NeurIPS 2026 workshop (Aug 29) + ICLR 2027 (~Oct 1). NeurIPS 2026 main missed. Differentiation locked vs DAT (Wu 2025) and AEBM-Diff (Geng 2024). 2400 GPU-h budget."
+    },
+    {
+      "id": "evt-0026",
+      "ts": "2026-05-19T00:00:00Z",
+      "action": "PHASE_0_SPEC_LOCKED",
+      "detail": "Phase 0 spec written to documentation/phase-0-spec.md. Five tasks with pre-registered gates. Project scope locked to diff-EqM only in CLAUDE.md."
+    },
+    {
+      "id": "evt-0027",
+      "ts": "2026-05-19T00:00:00Z",
+      "action": "PHASE_0_LIT_REVIEW_BLOCK_ADDED",
+      "detail": "Phase 0 extended 7->14 days. Lit-review tasks 0.A.1/0.A.2/0.A.3 + 0.B synthesis-apply lead the phase. ~18 papers across 5 buckets. SYNTHESIS.md feeds v10 mechanism design, v11 fallback, framing. CLAUDE.md adds literature review protocol."
+    },
+    {
+      "id": "evt-0028",
+      "ts": "2026-05-19T00:00:00Z",
+      "action": "BRANCH_B_BOTH_LOCKED",
+      "detail": "Branch B-Both locked. Lin et al. AFM/CAFM identified as dominant prior. Combine v10 PGD with CAFM discriminator AT on EqM (Phases 1-4) + SiT head-to-head Phase 5. Repo github.com/ByteDance-Seed/Adversarial-Flow-Models cloned for adaptation. Compute budget revised to ~2600 GPU-h (15% over 2400)."
+    },
+    {
+      "id": "evt-0029",
+      "ts": "2026-05-19T00:00:00Z",
+      "action": "PHASE_0_LIT_REVIEW_COMPLETE",
+      "detail": "17 papers read, SYNTHESIS.md written. Positioning sharpened: 'first adaptive hard-negative mining for regression-target generative models' per VeCoR future-work cite. Mechanism threat from Briglia (invariance fails diffusion AT) flagged; v10-equivariant fallback ready. CAFM-EqM port design + v10+CAFM combination design + v11 fallback all locked. EqM confirmed latent-space (SD VAE 4x32x32) - CAFM port directly compatible. Lin repo cloned (MIT). SSH locked - v02 postmortem deferred."
+    }
+  ],
+  "active_runs": [],
+  "phase_0_progress": {
+    "tasks_done": [
+      "0.A.1 read slate",
+      "0.A.2 ~17 paper notes",
+      "0.A.3 SYNTHESIS.md",
+      "0.B applied edits (positioning, v10 proposal, related-work memo)",
+      "0.C.1 cloned Lin AFM/CAFM repo (MIT)",
+      "0.2 CAFM-EqM port design doc",
+      "0.3 v10+CAFM combination design doc",
+      "0.4 v11 fallback sketches (equivariant primary)",
+      "0.5 arxiv weekly sweep log started"
+    ],
+    "tasks_blocked_on_ssh": [
+      "0.1 v02 IN-1K cancellation postmortem (SSH permission denied; ssh-key/MFA needs refresh)",
+      "0.C.2 CAFM-on-SiT smoke run (requires cluster submit)"
+    ],
+    "tasks_deferred_low_priority": [
+      "Bucket 3-5 skim reads (DiT, OHEM, Focal)"
+    ],
+    "ready_for_phase_1a": "YES (pending SSH refresh for v02 postmortem; not blocking design work; can proceed with local Phase 1a implementation)"
+  }
 }
