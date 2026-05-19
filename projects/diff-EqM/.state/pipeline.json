@@ -228,6 +228,24 @@
   },
   "completed_runs": [
     {
+      "run_id": "v10_cifar_sanity_seed0_seas_gpu_eval_crash",
+      "job_id": "13848332",
+      "partition": "seas_gpu",
+      "status": "failed",
+      "exit_code": 135,
+      "elapsed": "03:21:29",
+      "epochs_completed": 75,
+      "final_diagnostics": {
+        "base": "2.31 -> 2.13 (descending)",
+        "ratio": "1.043 -> 1.049 (stable, mining active)",
+        "delta_norm": 0.3,
+        "mechanism_gates_AB_C_D": "PASS (no collapse, ratio>1 throughout, ||\u03b4|| at boundary)"
+      },
+      "root_cause": "Exit 135 = SIGBUS/SEGV during epoch-75 FID eval; likely OOM in sample generation (2000 samples \u00d7 batch 256 \u00d7 100 Euler steps). No ckpt saved (ckpt save is AFTER FID compute).",
+      "lesson": "Reduce eval_fid_samples=1000, eval_every_epochs=30 (earlier ckpts), sample_batch_size=64.",
+      "failed_at": "2026-05-19T15:55:00Z"
+    },
+    {
       "run_id": "cafm_eqm_smoke_seed0_v2_gpu_test_cancelled",
       "job_id": "13859233",
       "partition": "gpu_test",
@@ -688,20 +706,6 @@
   ],
   "active_runs": [
     {
-      "run_id": "v10_cifar_sanity_seed0_seas_gpu",
-      "job_id": "13848332",
-      "partition": "seas_gpu",
-      "status": "pending",
-      "description": "Phase 0.3: v10 CIFAR sanity 150ep (resubmit to seas_gpu after gpu queue too long).",
-      "submitted_at": "2026-05-19T13:00:00Z",
-      "git_sha": "4f6b210",
-      "sbatch_path": "projects/diff-EqM/slurm/jobs/variant_pilot.sbatch",
-      "config_path": "projects/diff-EqM/configs/variants/v10_hard_example_150ep.json",
-      "expected_runtime": "~6h",
-      "phase": "0.3",
-      "gate": "stability + L_hard>L_clean first 50% + ||delta|| at boundary"
-    },
-    {
       "run_id": "cafm_eqm_smoke_seed0_v3",
       "job_id": "13867085",
       "partition": "seas_gpu",
@@ -712,6 +716,19 @@
       "sbatch_path": "projects/diff-EqM/slurm/jobs/cafm_eqm_smoke.sbatch",
       "expected_runtime": "~30min",
       "phase": "1a"
+    },
+    {
+      "run_id": "v10_cifar_sanity_seed0_v2",
+      "job_id": "13868114",
+      "partition": "seas_gpu",
+      "status": "pending",
+      "description": "Phase 0.3 v10 CIFAR sanity retry (smaller/more-frequent eval, time=10h).",
+      "submitted_at": "2026-05-19T16:00:00Z",
+      "git_sha": "a61b352",
+      "sbatch_path": "projects/diff-EqM/slurm/jobs/variant_pilot.sbatch",
+      "config_path": "projects/diff-EqM/configs/variants/v10_hard_example_150ep.json",
+      "expected_runtime": "~6.5h (50% faster eval, more frequent ckpt)",
+      "phase": "0.3"
     }
   ],
   "phase_0_progress": {
