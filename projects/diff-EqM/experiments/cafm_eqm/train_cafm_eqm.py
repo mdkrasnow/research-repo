@@ -30,6 +30,13 @@ from pathlib import Path
 import torch
 import torch.distributed as dist
 from torch.utils.data import DataLoader, DistributedSampler
+
+# Disable flash / mem-efficient SDP so torch.func.jvp works through the
+# discriminator's attention layers. Forward AD only supports the math SDP
+# backend. Mirrors Lin's train_continuous_adversarial_flow_imagenet.py.
+torch.backends.cuda.enable_math_sdp(True)
+torch.backends.cuda.enable_flash_sdp(False)
+torch.backends.cuda.enable_mem_efficient_sdp(False)
 from torchvision import transforms
 from torchvision.datasets import ImageFolder
 
