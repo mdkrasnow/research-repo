@@ -41,4 +41,7 @@ cmd="${*:?remote command required}"
 ssh -p "$port" \
   -o BatchMode=yes \
   -o ControlPath="$control_path" \
+  -o ServerAliveInterval=60 \
+  -o ServerAliveCountMax=60 \
+  -o TCPKeepAlive=yes \
   "$user@$host" "$cmd"
