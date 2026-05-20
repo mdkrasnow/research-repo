@@ -7,7 +7,7 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=256GB
 #SBATCH --time=2:00:00
-#SBATCH --partition=gpu_test
+#SBATCH --partition=seas_gpu
 #SBATCH --gres=gpu:4
 
 # CAFM-EqM smoke: 500-step end-to-end validation of the port. ~6-15 min on
