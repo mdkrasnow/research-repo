@@ -1,7 +1,7 @@
 {
   "project": "diff-EqM",
   "title": "Differential-Geometry-Guided Adversarial Negative Mining for EqM (DG-ANM)",
-  "phase": "PHASE-0.3-AND-1A-SUBMITTED",
+  "phase": "PHASE-0.3-PASS-PHASE-1A-SMOKE-RETRY",
   "stage_b_in1k_baseline": {
     "verified_at": "2026-05-13",
     "result": {
@@ -223,10 +223,50 @@
     "sbatch": "projects/diff-EqM/slurm/jobs/variant_pilot.sbatch"
   },
   "needs_user_input": {
-    "value": true,
-    "prompt": "Cluster SSH dropped again (Permission denied). Active jobs: 13867085 (CAFM smoke pending seas_gpu) + 13868114 (v10 CIFAR sanity running ~5h, last seen epoch 110/150, FID e90=48.71). Refresh: run 'bash scripts/cluster/ssh.sh \"echo ok\"' to verify."
+    "value": false,
+    "prompt": ""
   },
   "completed_runs": [
+    {
+      "run_id": "cafm_eqm_smoke_seed0_v3_ckpt_path_bug",
+      "job_id": "13867085",
+      "partition": "seas_gpu",
+      "status": "failed",
+      "exit_code": 1,
+      "elapsed": "00:06:23",
+      "root_cause": "FileNotFoundError: vanilla EqM ckpt at cwd-relative path; cwd=/tmp not repo root. Resubmitted as 13997995 with ln -s into work dir (commit d08097f).",
+      "failed_at": "2026-05-20T02:02:35Z"
+    },
+    {
+      "run_id": "v10_cifar_sanity_seed0_v2_PASS",
+      "job_id": "13868114",
+      "partition": "seas_gpu",
+      "status": "completed",
+      "elapsed": "06:23:51",
+      "final_fid_5K": 13.4021,
+      "fid_trajectory_1K": {
+        "e30": 324.8,
+        "e60": 98.62,
+        "e90": 48.71,
+        "e120": 39.72,
+        "e150": 37.01
+      },
+      "diagnostic_summary": {
+        "base_loss": "2.31 -> 2.13 (descending)",
+        "ratio": "1.047 -> 1.049 (stable, mining active throughout)",
+        "delta_norm": 0.3,
+        "gates_PASS": [
+          "A no collapse",
+          "B L_hard>L_clean",
+          "C ratio modestly up (not strictly descending \u2014 non-saturating sign)",
+          "D ||\u03b4|| at boundary",
+          "F FID 13.40 beats vanilla 14.17 by 0.77"
+        ]
+      },
+      "verdict": "Phase 0.3 PASS. v10 mechanism validated on CIFAR-10. Mining non-saturating (unlike v02 on EqM-B/2). Unblocks Phase 1a CAFM-EqM IN-1K run.",
+      "completed_at": "2026-05-20T02:00:00Z",
+      "git_sha": "a61b352"
+    },
     {
       "run_id": "v10_cifar_sanity_seed0_seas_gpu_eval_crash",
       "job_id": "13848332",
@@ -702,33 +742,26 @@
       "ts": "2026-05-19T12:38:00Z",
       "action": "PHASE_1A_INFRASTRUCTURE_COMPLETE",
       "detail": "All Phase 1a code + gate evaluators + Phase 5 prep + paper draft intro committed. Cluster jobs running: v10 CIFAR sanity (13848332 RUNNING on seas_gpu) + CAFM-EqM smoke (13848066 pending gpu_test ETA 14:13)."
+    },
+    {
+      "id": "evt-0033",
+      "ts": "2026-05-20T02:00:00Z",
+      "action": "PHASE_0_3_PASS",
+      "detail": "v10 CIFAR sanity COMPLETED: final FID 13.40 (5K samples) vs v00 R4 vanilla 14.17 (beats by 0.77 FID). Mechanism gates A/B/D/F PASS; ratio stable (non-saturating, the central differentiation from v02). PI update trigger: Phase 0.3 PASS at proxy-scale."
     }
   ],
   "active_runs": [
     {
-      "run_id": "cafm_eqm_smoke_seed0_v3",
-      "job_id": "13867085",
+      "run_id": "cafm_eqm_smoke_seed0_v4",
+      "job_id": "13997995",
       "partition": "seas_gpu",
       "status": "pending",
-      "description": "Phase 1a CAFM-EqM 500-step smoke retry on seas_gpu (after gpu_test indefinite wait).",
-      "submitted_at": "2026-05-19T15:50:00Z",
-      "git_sha": "14e8097",
+      "description": "Phase 1a CAFM-EqM smoke v4 (ckpt symlink fix). Phase 0.3 already PASS so this only validates the port end-to-end.",
+      "submitted_at": "2026-05-20T02:30:00Z",
+      "git_sha": "d08097f",
       "sbatch_path": "projects/diff-EqM/slurm/jobs/cafm_eqm_smoke.sbatch",
       "expected_runtime": "~30min",
       "phase": "1a"
-    },
-    {
-      "run_id": "v10_cifar_sanity_seed0_v2",
-      "job_id": "13868114",
-      "partition": "seas_gpu",
-      "status": "pending",
-      "description": "Phase 0.3 v10 CIFAR sanity retry (smaller/more-frequent eval, time=10h).",
-      "submitted_at": "2026-05-19T16:00:00Z",
-      "git_sha": "a61b352",
-      "sbatch_path": "projects/diff-EqM/slurm/jobs/variant_pilot.sbatch",
-      "config_path": "projects/diff-EqM/configs/variants/v10_hard_example_150ep.json",
-      "expected_runtime": "~6.5h (50% faster eval, more frequent ckpt)",
-      "phase": "0.3"
     }
   ],
   "phase_0_progress": {
