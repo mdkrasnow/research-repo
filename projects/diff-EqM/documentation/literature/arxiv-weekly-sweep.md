@@ -62,3 +62,43 @@
 ## Week of 2026-05-26 (Phase 0 wrap-up + Phase 1a launch)
 
 TBD — fill at next sweep.
+
+---
+
+## Week of 2026-05-20 (Phase 0.3 PASS + Phase 1a smoke)
+
+### Searches run
+- "adversarial flow matching arxiv 2026 generative"
+- "adaptive hard negative mining flow matching 2026 generative"
+- "equilibrium matching 2026 adversarial PGD energy-based"
+- "Shanchuan Lin ByteDance Seed adversarial flow 2026 new paper"
+- "Yilun Du Runqian Wang equilibrium matching follow-up 2026"
+- "PGD regression diffusion flow matching 2026 arxiv"
+
+### New hits
+- **arxiv:2605.00880** — *Adversarial Flow Matching for Imperceptible Attacks on End-to-End Autonomous Driving* (April 2026). Threat: **LOW**. Attack/defense for AD perception, not generative SOTA. No overlap.
+- **arxiv:2602.22486** — *Flow Matching is Adaptive to Manifold Structures*. Theory paper. Threat: **LOW**. Cite optionally in §2 background.
+- **SeedVR2** (ICLR 2026, ByteDance Seed). Video restoration via diffusion adversarial post-training. Same lab as Lin AFM/CAFM (different sub-team). Threat: **LOW** (video restoration ≠ generation). Confirms Lin lab keeps shipping adversarial-AT post-training results.
+- **arxiv:2602.11105** — *FastFlow* — bandit inference acceleration for flow matching. Threat: **LOW**.
+- **arxiv:2503.04824** — *ProReflow* — progressive reflow with decomposed velocity. Threat: **LOW**.
+- **arxiv:2506.08604** — *Flow Matching Meets PDEs* — physics-constrained. Threat: **LOW**.
+
+### No new HIGH threats
+- No Lin/ByteDance Seed paper combining PGD-on-input with discriminator AT.
+- No Du/Wang follow-up extending EqM with adversarial training. EqM paper itself flagged "sensitivity to adversarial perturbations" as **unexamined future work** — direct external support our direction is open.
+- No "adaptive hard-negative mining + flow matching" combination.
+
+### Threat assessment
+Branch B-Both **still uncontested in our specific niche** (PGD-on-EqM-target × CAFM-discriminator combination). Window remains open through ~next 2-4 weeks before scoop risk increases. Workshop submission Aug 29 well within window.
+
+### Notable quote from EqM paper (just discovered)
+> "sensitivity to adversarial perturbations, spurious minima, dataset biases, and privacy risks in gradient-based samplers is unexamined in the current work, suggesting this is an area for future research"
+
+This is a **second external "open future work" citation** beyond VeCoR §7 supporting our adversarial-EqM direction. Use both verbatim in workshop paper intro.
+
+### Action items
+- None blocking.
+- Add EqM paper's "unexamined" quote to `paper-draft-intro.md`.
+- Continue Monday cadence next week.
+
+---
