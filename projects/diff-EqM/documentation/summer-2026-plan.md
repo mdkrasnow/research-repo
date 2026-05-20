@@ -166,16 +166,31 @@ ICLR submission: Oct 1.
 
 Tight on 2400 GPU-h budget. Mitigation: drop v10-only Phase 3 seed (saves 150) if needed; reduce SiT Phase 5 seeds 3→2 (saves 130).
 
-## Risks
+## Risks (updated 2026-05-20 post Phase 0.3 PASS)
 
-| Risk | Likelihood | Severity | Mitigation |
-|---|---|---|---|
-| CAFM port to EqM fails (time conditioning incompatible) | M | Plan blocker | Phase 1a gate; fallback B-SiT (all on SiT) |
-| v10 + CAFM don't compound (redundant signals) | M | Workshop only | Phase 2 gate forces decision early |
-| Compute overrun | M | Slip schedule | Drop seeds; smaller scaling phase |
-| Lin v3 paper adds PGD-on-input before Oct 1 | M | Scoop | Weekly arxiv sweep; pre-register via workshop Aug 29 |
-| EqM reviewer pushback ("why not just SiT?") | L | Claim narrows | Phase 5 SiT head-to-head answers this |
-| Discriminator training instability | M | Lost time | Lin's repo + recipe lowers risk; least-squares loss + N=16 ratio + low LR (1e-5) is their stable recipe |
+| Risk | Likelihood | Severity | Mitigation | Status |
+|---|---|---|---|---|
+| v10 mechanism collapses (Briglia invariance threat) | ~~M~~ → **L** | Plan blocker | v11 equivariant fallback ready | **RETIRED** — v10 trained 150 epochs CIFAR without collapse, ratio stable 1.047-1.049 |
+| v10 saturates on EqM-B/2 (like v02 cosine) | ~~M~~ → **L** | Workshop kill | Mechanism design uses L2 regression (unbounded gradient) | **RETIRED** — non-saturating signature confirmed in 150-epoch CIFAR run |
+| CAFM port to EqM fails (time conditioning incompatible) | M | Plan blocker | Phase 1a gate; fallback B-SiT (all on SiT) | Awaiting smoke 13997995 result |
+| v10 + CAFM don't compound (redundant signals) | M | Workshop only | Phase 2 gate forces decision early | Awaiting Phase 1b/2 |
+| Compute overrun | M | Slip schedule | Drop seeds; smaller scaling phase | Tracking |
+| Lin v3 paper adds PGD-on-input before Oct 1 | M | Scoop | Weekly arxiv sweep; pre-register via workshop Aug 29 | Sweep 2026-05-20: no new HIGH threats |
+| Du/Wang adversarial-EqM follow-up before Oct 1 | M | Scoop | Same | Sweep 2026-05-20: no new HIGH threats; EqM paper own "future work" cite supports our direction |
+| EqM reviewer pushback ("why not just SiT?") | L | Claim narrows | Phase 5 SiT head-to-head answers this | Phase 5 plan locked |
+| Discriminator training instability | M | Lost time | Lin's recipe (LSGAN + N=16 + low LR) is published stable | Awaiting Phase 1b |
+| Cluster SSH credentials drop | M | Day-scale delay | Refresh via login when notified | Recurring; observed 2x in past 24h |
+
+**Updated probability estimates** (post Phase 0.3 PASS):
+
+| Outcome | Pre-0.3 | Post-0.3 |
+|---|---|---|
+| v10 mechanism sound | 60% | **85%** |
+| v10 alone beats vanilla EqM-B/2 IN-1K | 40% | **55%** |
+| CAFM port to EqM works at all | 50% | 50% (unchanged; different mechanism) |
+| v10+CAFM compounds (Phase 2 gate PASS) | 50% | 50% (unchanged) |
+| Workshop paper publishable | 60% | **70%** |
+| ICLR main publishable | 35% | **40%** |
 
 ## Hard rules (per CLAUDE.md)
 
