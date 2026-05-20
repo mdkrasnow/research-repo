@@ -148,3 +148,23 @@ Subject: DG-ANM update — Stage A.5 gate passed, CIFAR FID 497 bug isolated to 
 - When a triggered event fires, append a draft update entry within the same session and flag `needs_user_input.value=true` in pipeline.json with a prompt like "Draft PI update ready in documentation/pi-updates.md — review and send?"
 - Never fabricate headline numbers. If an experiment is still running, say "in progress, expected by <date>."
 - Weekly digest: the agent should prepare a draft Monday morning even if nothing triggered, so the PI has a consistent signal of life.
+
+---
+
+## DRAFT — 2026-05-20: Phase 0.3 PASS + Phase 1a smoke retry
+
+**Status**: ready for review by user; not yet sent.
+
+**Headline**: v10 PGD hard-example mining on EqM CIFAR-10 (150 epochs) achieved FID **13.40**, beating vanilla EqM (R4 baseline 14.17) by **0.77 FID**. Mechanism gates A/B/D pass; ratio L_hard/L_clean stable at 1.047-1.049 throughout (non-saturating — central differentiation from v02 which saturated to cosine=1.0 on EqM-B/2 within 9 epochs).
+
+**Direction repositioned** post Phase 0 lit review (17 papers): "first adaptive hard-negative mining for regression-target generative models" (per VeCoR §7 explicit future-work cite). Branch B-Both: combine PGD-on-EqM-target (v10) with CAFM-style discriminator post-training (Lin et al. 2026 AFM/CAFM, ICML 2026). Primary on EqM-B/2 IN-256; secondary head-to-head on SiT Phase 5.
+
+**Targets**: NeurIPS 2026 workshop (Aug 29) + ICLR 2027 (~Oct 1). NeurIPS 2026 main missed (May 6).
+
+**Code complete**: CAFM-to-EqM port (5 modules), 14/14 unit tests pass, gate evaluators, Phase 5 SiT subclass, Phase 1b submitter helper, workshop paper intro drafted.
+
+**Outstanding blockers**: cluster SSH dropped twice in past 24h (need credential refresh discipline). Smoke 13997995 in flight (ckpt path bug fix).
+
+**Decisions needed from PI**: none currently.
+
+**Next**: smoke PASS → submit 10ep CAFM-EqM full run (Phase 1b). If CAFM-only seed-0 IN-256 FID < 25 (vs vanilla 31.41), proceed to v10+CAFM combined Phase 2.
