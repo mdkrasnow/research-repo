@@ -130,6 +130,14 @@ def build_discriminator(cfg, device):
     dis_args = dict(cfg.dis.model_kwargs)
     dis = Discriminator(**dis_args).to(device)
 
+    # Force CFG token-drop probability to 0 on the discriminator's label
+    # embedder. The embedder calls torch.rand() under vmap, which raises
+    # 'vmap: called random operation while in randomness error mode'. We
+    # don't need CFG dropout on the discriminator anyway.
+    if hasattr(dis, "y_embedder") and hasattr(dis.y_embedder, "dropout_prob"):
+        dis.y_embedder.dropout_prob = 0.0
+        print(f"[dis] forced y_embedder.dropout_prob = 0 (vmap-safe)")
+
     if cfg.dis.get("checkpoint"):
         state = torch.load(cfg.dis.checkpoint, map_location=device)
         dis.load_state_dict(state.get("model", state))
