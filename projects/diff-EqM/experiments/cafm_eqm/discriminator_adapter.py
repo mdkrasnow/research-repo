@@ -50,14 +50,17 @@ def _ensure_external_path():
 
 
 def load_cafm_discriminator_classes():
-    """Return (Discriminator, DiscriminatorJVP) classes from the cloned AFM repo."""
+    """Return (Discriminator, DiscriminatorJVP) classes from the cloned AFM repo.
+
+    Note: EqM's upstream `models.py` lives on sys.path as a top-level module.
+    Lin's repo provides a `models/cafm/...` package. Naive `import
+    models.cafm.*` resolves to EqM's models.py first (returning ModuleNotFound
+    on the sub-import). We work around this by:
+      (a) putting EXTERNAL_AFM_ROOT first on sys.path, and
+      (b) flushing any cached `models` module from sys.modules so the next
+          import resolves into Lin's package.
+    """
     _ensure_external_path()
-    # Lin's CAFM discriminator imports from `models.cafm.sit.sit_mod` which itself
-    # requires the SiT source at `models/cafm/sit/sit.py`. Per their README, the
-    # user must download `sit.py` from the original SiT repo first:
-    #   https://github.com/willisma/SiT/blob/main/models.py → place at
-    #   external/Adversarial-Flow-Models/models/cafm/sit/sit.py
-    # If sit.py is missing, this import will raise; surface the user-facing fix.
     sit_path = EXTERNAL_AFM_ROOT / "models" / "cafm" / "sit" / "sit.py"
     if not sit_path.exists():
         raise RuntimeError(
@@ -65,6 +68,15 @@ def load_cafm_discriminator_classes():
             "  Download sit.py from https://github.com/willisma/SiT/blob/main/models.py\n"
             f"  and place it at {sit_path}\n"
         )
+
+    afm_root_str = str(EXTERNAL_AFM_ROOT)
+    while afm_root_str in sys.path:
+        sys.path.remove(afm_root_str)
+    sys.path.insert(0, afm_root_str)
+
+    for mod_name in list(sys.modules):
+        if mod_name == "models" or mod_name.startswith("models."):
+            del sys.modules[mod_name]
 
     from models.cafm.sit.discriminator import Discriminator  # noqa: E402
     from models.cafm.jvp.discriminator import DiscriminatorJVP  # noqa: E402
