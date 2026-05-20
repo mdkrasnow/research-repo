@@ -43,6 +43,20 @@ git clone --depth=1 https://github.com/ByteDance-Seed/Adversarial-Flow-Models.gi
 curl -fL -o projects/diff-EqM/external/Adversarial-Flow-Models/models/cafm/sit/sit.py \
     https://raw.githubusercontent.com/willisma/SiT/main/models.py 2>&1 | tail -3 || exit 1
 
+# Pre-stage Lin's models/cafm/ to a uniquely-named local package dir to dodge
+# the EqM `models.py` namespace collision. Done once here (before DDP fork) so
+# the 4 DDP ranks don't race on shutil.copytree.
+STAGING="projects/diff-EqM/external/cafm_pkg"
+rm -rf "$STAGING"
+mkdir -p "$STAGING"
+touch "$STAGING/__init__.py"
+cp -r projects/diff-EqM/external/Adversarial-Flow-Models/models/cafm "$STAGING/cafm"
+# Add __init__.py to every subdirectory so the copied tree is a real package.
+find "$STAGING/cafm" -type d -exec touch {}/__init__.py \;
+echo "=== Pre-staged cafm_pkg at $STAGING ===" >&2
+ls -la "$STAGING/cafm/sit" >&2 || true
+ls -la "$STAGING/cafm/jvp" >&2 || true
+
 pip install --quiet timm diffusers accelerate scipy torchvision pytorch-fid omegaconf 2>&1 | tail -3
 pip install --quiet -r projects/diff-EqM/external/Adversarial-Flow-Models/requirements_cafm.txt 2>&1 | tail -3 || true
 
