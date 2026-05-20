@@ -52,16 +52,18 @@ def _ensure_external_path():
 def load_cafm_discriminator_classes():
     """Return (Discriminator, DiscriminatorJVP) classes from the cloned AFM repo.
 
-    Note: EqM's upstream `models.py` lives on sys.path as a top-level module.
-    Lin's repo provides a `models/cafm/...` package. Naive `import
-    models.cafm.*` resolves to EqM's models.py first (returning ModuleNotFound
-    on the sub-import). We work around this by:
-      (a) putting EXTERNAL_AFM_ROOT first on sys.path, and
-      (b) flushing any cached `models` module from sys.modules so the next
-          import resolves into Lin's package.
+    Approach: Lin's `models/cafm/` is a namespace package (no __init__.py).
+    EqM upstream has a top-level `models.py` that shadows it irreversibly via
+    Python's import finders. Rather than fight Python's namespace resolution,
+    we copy Lin's `models/cafm/` directory to a uniquely-named local staging
+    directory, add a stub __init__.py, and import via that distinct name.
+
+    Lin's internal relative imports (e.g. `from .sit_mod import ...`) work
+    because they are relative within the cafm sub-package.
     """
     _ensure_external_path()
-    sit_path = EXTERNAL_AFM_ROOT / "models" / "cafm" / "sit" / "sit.py"
+    src_cafm = EXTERNAL_AFM_ROOT / "models" / "cafm"
+    sit_path = src_cafm / "sit" / "sit.py"
     if not sit_path.exists():
         raise RuntimeError(
             f"Missing {sit_path}. Per Lin's CAFM README:\n"
@@ -69,17 +71,25 @@ def load_cafm_discriminator_classes():
             f"  and place it at {sit_path}\n"
         )
 
-    afm_root_str = str(EXTERNAL_AFM_ROOT)
-    while afm_root_str in sys.path:
-        sys.path.remove(afm_root_str)
-    sys.path.insert(0, afm_root_str)
+    # Stage to a unique top-level package name to avoid `models` collision.
+    staging = PROJECT_ROOT / "external" / "cafm_pkg"
+    staging.mkdir(parents=True, exist_ok=True)
+    (staging / "__init__.py").touch(exist_ok=True)
+    cafm_dest = staging / "cafm"
+    if not cafm_dest.exists():
+        import shutil
+        shutil.copytree(src_cafm, cafm_dest)
+        # Add __init__.py at every level so it's an importable package.
+        for d in [cafm_dest, *(p for p in cafm_dest.rglob("*") if p.is_dir())]:
+            init = d / "__init__.py"
+            init.touch(exist_ok=True)
 
-    for mod_name in list(sys.modules):
-        if mod_name == "models" or mod_name.startswith("models."):
-            del sys.modules[mod_name]
+    parent = str(staging.parent)
+    if parent not in sys.path:
+        sys.path.insert(0, parent)
 
-    from models.cafm.sit.discriminator import Discriminator  # noqa: E402
-    from models.cafm.jvp.discriminator import DiscriminatorJVP  # noqa: E402
+    from cafm_pkg.cafm.sit.discriminator import Discriminator  # noqa: E402
+    from cafm_pkg.cafm.jvp.discriminator import DiscriminatorJVP  # noqa: E402
     return Discriminator, DiscriminatorJVP
 
 
