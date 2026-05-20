@@ -51,6 +51,21 @@ RESULTS_SUBDIR="projects/diff-EqM/results/cafm_eqm_smoke"
 PERSIST_DIR="$REPO_ROOT/$RESULTS_SUBDIR"
 mkdir -p "$WORK_DIR/$RESULTS_SUBDIR" "$PERSIST_DIR"
 
+# Stage vanilla EqM-B/2 80ep ckpt for CAFM post-training. Config references it
+# at projects/diff-EqM/results/... relative to CWD; CWD is $WORK_DIR, so we
+# create the same relative path inside WORK_DIR pointing at the persistent ckpt.
+CKPT_REL="projects/diff-EqM/results/stage_b_vanilla_in1k_80ep_seed0/000-EqM-B-2-Linear-velocity-None-vanilla/checkpoints/0380000.pt"
+CKPT_SRC="$REPO_ROOT/$CKPT_REL"
+CKPT_DST="$WORK_DIR/$CKPT_REL"
+mkdir -p "$(dirname "$CKPT_DST")"
+if [ -f "$CKPT_SRC" ]; then
+    ln -sf "$CKPT_SRC" "$CKPT_DST"
+    echo "=== Linked vanilla EqM ckpt: $(du -h "$CKPT_SRC" | cut -f1) ===" >&2
+else
+    echo "ERROR: vanilla EqM ckpt not found at $CKPT_SRC" >&2
+    exit 1
+fi
+
 MASTER_PORT=$((29500 + RANDOM % 1000))
 
 ENABLE_V10="${ENABLE_V10:-0}"
