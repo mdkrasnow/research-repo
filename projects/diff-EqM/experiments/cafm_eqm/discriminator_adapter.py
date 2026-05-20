@@ -72,17 +72,24 @@ def load_cafm_discriminator_classes():
         )
 
     # Stage to a unique top-level package name to avoid `models` collision.
+    # Sbatch pre-stages this (single-threaded, before DDP fork). If missing,
+    # fall back to runtime copy with a lock for DDP-safety.
     staging = PROJECT_ROOT / "external" / "cafm_pkg"
-    staging.mkdir(parents=True, exist_ok=True)
-    (staging / "__init__.py").touch(exist_ok=True)
     cafm_dest = staging / "cafm"
     if not cafm_dest.exists():
+        # Runtime fallback. Use file lock to serialize across DDP ranks.
+        import fcntl
         import shutil
-        shutil.copytree(src_cafm, cafm_dest)
-        # Add __init__.py at every level so it's an importable package.
-        for d in [cafm_dest, *(p for p in cafm_dest.rglob("*") if p.is_dir())]:
-            init = d / "__init__.py"
-            init.touch(exist_ok=True)
+        staging.mkdir(parents=True, exist_ok=True)
+        lock_path = staging / ".stage.lock"
+        with open(lock_path, "w") as lock:
+            fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+            if not cafm_dest.exists():
+                (staging / "__init__.py").touch(exist_ok=True)
+                shutil.copytree(src_cafm, cafm_dest)
+                for d in [cafm_dest, *(p for p in cafm_dest.rglob("*") if p.is_dir())]:
+                    (d / "__init__.py").touch(exist_ok=True)
+            fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
 
     parent = str(staging.parent)
     if parent not in sys.path:
