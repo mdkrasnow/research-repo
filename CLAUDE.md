@@ -122,6 +122,12 @@ CIFAR can answer: does code run? does model collapse? are diagnostics finite? Is
 CIFAR cannot answer: will this transfer to EqM-B/2? IN-1K? Is this better than vanilla EqM at scale?
 Note: variant harness ≠ legacy harness — never compare FIDs across harnesses (4.7 FID gap documented).
 
+### v10 CIFAR sanity status (2026-05-20)
+v10_hard_example: 150ep variant harness PASS. Final FID 13.40 (5K) vs v00 R4 vanilla 14.17 (beats by 0.77).
+Mining ratio L_v10/L_EqM stable 1.047-1.049 across 150ep — non-saturating signature, central differentiation
+from v02 cosine saturation at EqM-B/2 IN-1K scale. Per CIFAR rule above: still requires Phase 1b/2 IN-1K
+confirmation; not publishable on its own.
+
 ### Diagnostics required every auxiliary-loss run
 Log at min every N=200 steps:
 - clean base loss `L_clean`
