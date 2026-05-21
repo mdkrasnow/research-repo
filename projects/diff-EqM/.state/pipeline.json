@@ -1,7 +1,7 @@
 {
   "project": "diff-EqM",
   "title": "Differential-Geometry-Guided Adversarial Negative Mining for EqM (DG-ANM)",
-  "phase": "PHASE-0.3-PASS-PHASE-1A-SMOKE-RETRY",
+  "phase": "PHASE-1B-CAFM-ONLY-IN1K-RUNNING",
   "stage_b_in1k_baseline": {
     "verified_at": "2026-05-13",
     "result": {
@@ -115,7 +115,7 @@
     ]
   },
   "next_action": {
-    "command": "Monitor: v10 CIFAR sanity (13848000, ~6h) + CAFM-EqM smoke (13848066, ~15min). On smoke PASS: submit full 10ep CAFM-EqM run (cafm_eqm_b2_in256.sbatch). On smoke FAIL: debug per logs. On v10 CIFAR PASS: Phase 1 unblocked.",
+    "command": "Monitor Phase 1b job 14207013 (~24-36h on seas_gpu). On COMPLETED: run FID eval on resulting ckpt, evaluate Phase 1 gate (FID <= 30.41). PASS -> submit Phase 2 v10+CAFM combined (ENABLE_V10=1). FAIL -> 1 retune of cp_scale or warmup, else kill.",
     "reason": "Plan locked 2026-05-19 in documentation/summer-2026-plan.md. Broad framing approved (EqM-first, flow-matching transfer Phase 4). Venues: NeurIPS 2026 workshop (Aug 29) + ICLR 2027 (~Oct 1). Differentiation memo locked vs DAT (Wu 2025, 2510.13872) and AEBM-Diff (Geng 2024, 2403.01666). v10 mechanism-aligned per CLAUDE.md.",
     "phase_0_tasks": [
       "v02 IN-1K cancellation postmortem",
@@ -223,10 +223,28 @@
     "sbatch": "projects/diff-EqM/slurm/jobs/variant_pilot.sbatch"
   },
   "needs_user_input": {
-    "value": true,
-    "prompt": "SSH dropped (4th time today). Smoke v6 14007417 was RUNNING at 0:25 last seen; status unknown. Refresh: 'bash scripts/cluster/ssh.sh \"echo ok\"'."
+    "value": false,
+    "prompt": null
   },
   "completed_runs": [
+    {
+      "run_id": "cafm_eqm_smoke_seed0_v11_PASS",
+      "job_id": "14104174",
+      "partition": "gpu_test",
+      "status": "completed",
+      "exit_code": 0,
+      "elapsed": "00:28:18",
+      "completed_at": "2026-05-20T20:30:24Z",
+      "git_sha": "53bc963",
+      "diagnostics": {
+        "dis_loss": "2.00 -> 0.15 (decreasing, finite)",
+        "dis_cp_loss": "~1e-3 -> 0 (stable)",
+        "gen_loss_step475": 3.9435,
+        "gen_ot_loss": 0,
+        "ckpts_saved": ["ckpt_00000200.pt", "ckpt_00000400.pt", "eqm_compat_*.pt"]
+      },
+      "verdict": "Smoke PASS end-to-end after 11 fix iterations. CAFM-EqM port validates: vanilla ckpt loads, discriminator integrates, JVP forward-AD works (math SDP backend), losses finite throughout 500 steps. Unblocks Phase 1b full 10ep run."
+    },
     {
       "run_id": "cafm_eqm_smoke_seed0_v5_still_namespace_bug",
       "job_id": "14002146",
@@ -768,20 +786,33 @@
       "ts": "2026-05-20T02:00:00Z",
       "action": "PHASE_0_3_PASS",
       "detail": "v10 CIFAR sanity COMPLETED: final FID 13.40 (5K samples) vs v00 R4 vanilla 14.17 (beats by 0.77 FID). Mechanism gates A/B/D/F PASS; ratio stable (non-saturating, the central differentiation from v02). PI update trigger: Phase 0.3 PASS at proxy-scale."
+    },
+    {
+      "id": "evt-0034",
+      "ts": "2026-05-20T20:30:00Z",
+      "action": "PHASE_1A_SMOKE_PASS",
+      "detail": "CAFM-EqM smoke v11 (14104174) COMPLETED exit 0 in 28min on gpu_test (batch=4). Dis loss 2.0->0.15, gen loss 3.94 finite, ckpts persisted. Port validates end-to-end after 11 fix iterations. Unblocks Phase 1b."
+    },
+    {
+      "id": "evt-0035",
+      "ts": "2026-05-20T20:35:00Z",
+      "action": "PHASE_1B_SUBMITTED",
+      "detail": "Phase 1b CAFM-only IN-1K-256 EqM-B/2 10ep post-training submitted: job 14207013 on seas_gpu, ENABLE_V10=0, seed 0, SHA 53bc963. Gate: FID <= 30.41."
     }
   ],
   "active_runs": [
     {
-      "run_id": "cafm_eqm_smoke_seed0_v6",
-      "job_id": "14007417",
+      "run_id": "phase_1b_cafm_only_seed0",
+      "job_id": "14207013",
       "partition": "seas_gpu",
       "status": "pending",
-      "description": "Phase 1a smoke v6 (cafm_pkg staging fix).",
-      "submitted_at": "2026-05-20T08:30:00Z",
-      "git_sha": "2ecf4f3",
-      "sbatch_path": "projects/diff-EqM/slurm/jobs/cafm_eqm_smoke.sbatch",
-      "expected_runtime": "~30min",
-      "phase": "1a"
+      "description": "Phase 1b full CAFM-EqM 10ep post-training on IN-1K-256 from vanilla EqM-B/2 80ep ckpt (FID 31.41). CAFM-only (ENABLE_V10=0); seed 0. Gate: FID <= 30.41.",
+      "submitted_at": "2026-05-20T20:35:00Z",
+      "git_sha": "53bc963",
+      "sbatch_path": "projects/diff-EqM/slurm/jobs/cafm_eqm_b2_in256.sbatch",
+      "expected_runtime": "~24-36h",
+      "phase": "1b",
+      "gate": "Phase 1 gate: FID <= 30.41 (vs trusted vanilla 31.41)"
     }
   ],
   "phase_0_progress": {
