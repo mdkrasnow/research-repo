@@ -83,6 +83,22 @@ def load_config(path: str):
 # ---------------------------------------------------------------------------
 
 
+def all_reduce_grads(module: torch.nn.Module, world_size: int) -> None:
+    """Manually average gradients across DDP ranks.
+
+    We don't use torch.nn.parallel.DistributedDataParallel because the
+    discriminator forward goes through torch.func.jvp, which doesn't compose
+    cleanly with DDP's autograd hooks. Manual all_reduce after backward is the
+    standard workaround used by Lin's CAFM repo.
+    """
+    if world_size == 1:
+        return
+    for p in module.parameters():
+        if p.grad is not None:
+            dist.all_reduce(p.grad, op=dist.ReduceOp.SUM)
+            p.grad.div_(world_size)
+
+
 def setup_distributed(smoke: bool):
     if smoke:
         return 0, 1, torch.device("cpu")
@@ -265,18 +281,44 @@ def main():
     ema_decay = cfg.ema.decay
     total_steps = cfg.training.total_steps
 
+    # Broadcast model state from rank 0 so all ranks start identical. Gen ckpt
+    # loads deterministically per rank but dis is randomly initialized per rank.
+    if not args.smoke and world_size > 1:
+        for p in gen_wrapper.eqm.parameters():
+            dist.broadcast(p.data, src=0)
+        for b in gen_wrapper.eqm.buffers():
+            dist.broadcast(b.data, src=0)
+        if dis_model is not None:
+            for p in dis_model.parameters():
+                dist.broadcast(p.data, src=0)
+            for b in dis_model.buffers():
+                dist.broadcast(b.data, src=0)
+        for p in ema.parameters():
+            dist.broadcast(p.data, src=0)
+        for b in ema.buffers():
+            dist.broadcast(b.data, src=0)
+        if rank == 0:
+            print("[init] broadcast model state from rank 0 to all ranks")
+
     if rank == 0:
         print(f"=== CAFM-EqM training start ===")
         print(f"world_size={world_size}, total_steps={total_steps}, N={N}, warmup={warmup}")
         print(f"v10 enabled: {args.enable_v10}")
+        print(f"local_batch_size={cfg.training.local_batch_size}, global_batch={cfg.training.local_batch_size * world_size}")
 
     step = 0
+    epoch = 0
+    if not args.smoke and hasattr(loader, "sampler") and hasattr(loader.sampler, "set_epoch"):
+        loader.sampler.set_epoch(epoch)
     loader_iter = iter(loader)
 
     while step < total_steps:
         try:
             batch = next(loader_iter)
         except StopIteration:
+            epoch += 1
+            if not args.smoke and hasattr(loader, "sampler") and hasattr(loader.sampler, "set_epoch"):
+                loader.sampler.set_epoch(epoch)
             loader_iter = iter(loader)
             batch = next(loader_iter)
 
@@ -295,6 +337,7 @@ def main():
         if dis_phase and dis_jvp is not None and dis_opt is not None:
             losses = cafm_dis_step(dis_jvp, gen_wrapper, inputs, cp_scale=cp_scale)
             losses["loss/total_dis"].backward()
+            all_reduce_grads(dis_model, world_size)
             dis_opt.step()
             dis_opt.zero_grad(set_to_none=True)
             gen_opt.zero_grad(set_to_none=True)
@@ -308,6 +351,7 @@ def main():
             else:
                 losses = cafm_gen_step(dis_jvp, gen_wrapper, inputs, ot_scale=ot_scale)
             losses["loss/total_gen"].backward()
+            all_reduce_grads(gen_wrapper.eqm, world_size)
             gen_opt.step()
             gen_opt.zero_grad(set_to_none=True)
             if dis_opt is not None:
