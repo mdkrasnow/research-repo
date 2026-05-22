@@ -228,6 +228,24 @@
   },
   "completed_runs": [
     {
+      "run_id": "cafm_eqm_smoke_v14_PASS_real_ddp",
+      "job_id": "14508475",
+      "partition": "seas_gpu",
+      "nodelist": "holygpu8a16304",
+      "status": "completed",
+      "exit_code": 0,
+      "elapsed": "00:10:15",
+      "git_sha": "a7f20b1",
+      "diagnostics": {
+        "init_broadcast": "rank 0 -> ranks 1-3 OK",
+        "dis_loss": "2.00 -> 0.03 (steeper convergence than v11's 2.0->0.15, confirms grad sync now active)",
+        "gen_loss_step475": 4.0853,
+        "ckpts_saved": ["ckpt_00000200.pt", "ckpt_00000400.pt", "eqm_compat_*.pt"]
+      },
+      "verdict": "DDP grad sync + init broadcast validated on real A100-80GB. Phase 1b unblocked.",
+      "completed_at": "2026-05-22T09:35:00Z"
+    },
+    {
       "run_id": "cafm_eqm_smoke_v13_FAILED_stale_sbatch",
       "job_id": "14507937",
       "partition": "gpu_test",
@@ -845,21 +863,27 @@
       "ts": "2026-05-20T20:35:00Z",
       "action": "PHASE_1B_SUBMITTED",
       "detail": "Phase 1b CAFM-only IN-1K-256 EqM-B/2 10ep post-training submitted: job 14207013 on seas_gpu, ENABLE_V10=0, seed 0, SHA 53bc963. Gate: FID <= 30.41."
+    },
+    {
+      "id": "evt-0036",
+      "ts": "2026-05-22T09:40:00Z",
+      "action": "AUDIT_FIX_DDP_AND_RESUBMIT",
+      "detail": "Audit caught: (1) gen/dis never DDP-wrapped (4 ranks trained independently); (2) cluster home repo dir stale so sbatch directives ignored. Fixes: manual all_reduce + init broadcast + rsync slurm/ before submit. Smoke v11 (no collectives), v12/v13 (NCCL on MIG) consumed, v14 PASS on real A100. Phase 1b resubmitted 14509440 SHA 375ab56."
     }
   ],
   "active_runs": [
     {
-      "run_id": "cafm_eqm_smoke_v14_real_seas_gpu",
-      "job_id": "14508475",
+      "run_id": "phase_1b_cafm_only_seed0_v3",
+      "job_id": "14509440",
       "partition": "seas_gpu",
       "status": "pending",
-      "description": "Smoke v14: actually on seas_gpu this time. Bug: cluster home repo's sbatch file was STALE (still had partition=gpu_test). sbatch directives parsed at submit from cluster file, not from in-tmp git clone. Fix: rsync slurm/ before submit. v12/v13 both ran on MIG cards despite local sbatch being seas_gpu.",
-      "submitted_at": "2026-05-22T09:25:00Z",
-      "git_sha": "a7f20b1",
-      "sbatch_path": "projects/diff-EqM/slurm/jobs/cafm_eqm_smoke.sbatch",
-      "expected_runtime": "~30min",
-      "phase": "1a-revalidate",
-      "gate": "exit 0 + broadcast + all_reduce work + losses finite"
+      "description": "Phase 1b CAFM-only IN-1K 10ep, seed 0. Submitted after smoke v14 PASS confirmed DDP grad sync working on real GPUs. Effective global_batch 256 (4*64). Gate: FID <= 30.41.",
+      "submitted_at": "2026-05-22T09:40:00Z",
+      "git_sha": "375ab56",
+      "sbatch_path": "projects/diff-EqM/slurm/jobs/cafm_eqm_b2_in256.sbatch",
+      "expected_runtime": "~30-50h (may TIMEOUT at 48h cap)",
+      "phase": "1b",
+      "gate": "Phase 1 gate: FID <= 30.41 (vs trusted vanilla 31.41)"
     }
   ],
   "phase_0_progress": {
