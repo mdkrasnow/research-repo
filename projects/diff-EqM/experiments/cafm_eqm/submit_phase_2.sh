@@ -33,6 +33,12 @@ echo "  CONFIG: $CONFIG"
 echo "  SEED: $SEED"
 echo "  ENABLE_V10: $ENABLE_V10"
 
+# Sync slurm/ first (sbatch directives parsed from cluster file at submit time).
+CONTROL_PATH="$HOME/.ssh/cc-research-repo-%r@%h:%p"
+rsync -az -e "ssh -o ControlPath=$CONTROL_PATH" \
+    projects/diff-EqM/slurm/ \
+    mkrasnow@login.rc.fas.harvard.edu:/n/home03/mkrasnow/research-repo/projects/diff-EqM/slurm/
+
 bash scripts/cluster/ssh.sh "cd /n/home03/mkrasnow/research-repo && \
   sbatch --export=GIT_URL=$GIT_URL,GIT_SHA=$GIT_SHA,SEED=$SEED,ENABLE_V10=$ENABLE_V10,CONFIG=$CONFIG \
   projects/diff-EqM/slurm/jobs/cafm_eqm_b2_in256.sbatch"

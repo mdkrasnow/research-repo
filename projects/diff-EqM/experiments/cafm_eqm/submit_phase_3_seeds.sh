@@ -22,6 +22,12 @@ fi
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
 cd "$REPO_ROOT"
 
+# Sync slurm/ first (sbatch directives parsed from cluster-side file).
+CONTROL_PATH="$HOME/.ssh/cc-research-repo-%r@%h:%p"
+rsync -az -e "ssh -o ControlPath=$CONTROL_PATH" \
+    projects/diff-EqM/slurm/ \
+    mkrasnow@login.rc.fas.harvard.edu:/n/home03/mkrasnow/research-repo/projects/diff-EqM/slurm/
+
 # Submit pattern: split across partitions for QOS budget.
 # 4 jobs total: (cafm s1, cafm s2, v10cafm s1, v10cafm s2)
 declare -a JOBS=(
