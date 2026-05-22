@@ -228,6 +228,18 @@
   },
   "completed_runs": [
     {
+      "run_id": "cafm_eqm_smoke_v13_FAILED_stale_sbatch",
+      "job_id": "14507937",
+      "partition": "gpu_test",
+      "status": "failed",
+      "exit_code": 1,
+      "elapsed": "00:03:15",
+      "git_sha": "a7f20b1",
+      "root_cause": "Same NCCL duplicate-GPU error as v12. Job ran on gpu_test (MIG) despite sbatch directive --partition=seas_gpu. Root cause: cluster home repo /n/home03/mkrasnow/research-repo was a plain dir copy (NOT a git clone), and its slurm/jobs/cafm_eqm_smoke.sbatch was stale (still had --partition=gpu_test from before v11). sbatch parses directives from cluster-side file at submit time, not from in-tmp git clone.",
+      "lesson": "MUST rsync projects/diff-EqM/slurm/ to cluster before any submit. submit_phase_1b.sh updated to include rsync.",
+      "failed_at": "2026-05-22T09:17:34Z"
+    },
+    {
       "run_id": "cafm_eqm_smoke_v12_FAILED_nccl_mig",
       "job_id": "14504722",
       "partition": "gpu_test",
@@ -837,12 +849,12 @@
   ],
   "active_runs": [
     {
-      "run_id": "cafm_eqm_smoke_v13_ddp_seas_gpu",
-      "job_id": "14507937",
+      "run_id": "cafm_eqm_smoke_v14_real_seas_gpu",
+      "job_id": "14508475",
       "partition": "seas_gpu",
       "status": "pending",
-      "description": "Smoke v13: re-validate DDP fix on real GPUs (seas_gpu). v12 FAILED on gpu_test MIG slices (NCCL duplicate-GPU error: ranks share PCI bus). NCCL collectives require non-MIG cards.",
-      "submitted_at": "2026-05-22T09:15:00Z",
+      "description": "Smoke v14: actually on seas_gpu this time. Bug: cluster home repo's sbatch file was STALE (still had partition=gpu_test). sbatch directives parsed at submit from cluster file, not from in-tmp git clone. Fix: rsync slurm/ before submit. v12/v13 both ran on MIG cards despite local sbatch being seas_gpu.",
+      "submitted_at": "2026-05-22T09:25:00Z",
       "git_sha": "a7f20b1",
       "sbatch_path": "projects/diff-EqM/slurm/jobs/cafm_eqm_smoke.sbatch",
       "expected_runtime": "~30min",
