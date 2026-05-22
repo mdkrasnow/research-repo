@@ -228,6 +228,14 @@
   },
   "completed_runs": [
     {
+      "run_id": "phase_1b_cafm_only_seed0_v2_CANCELLED_audit",
+      "job_id": "14500046",
+      "partition": "seas_gpu",
+      "status": "cancelled",
+      "reason": "Cancelled pre-start during pipeline audit: discovered gen/dis never wrapped in DDP -> 4 ranks would train independent copies with no grad sync. Fixed in commit a7f20b1 (manual all_reduce + init broadcast). Re-validating via smoke 14504722 before resubmit.",
+      "cancelled_at": "2026-05-22T00:50:00Z"
+    },
+    {
       "run_id": "phase_1b_cafm_only_seed0_v1_FAILED_ckpt_path",
       "job_id": "14207013",
       "partition": "seas_gpu",
@@ -816,17 +824,17 @@
   ],
   "active_runs": [
     {
-      "run_id": "phase_1b_cafm_only_seed0_v2",
-      "job_id": "14500046",
-      "partition": "seas_gpu",
-      "status": "pending",
-      "description": "Phase 1b retry after 14207013 FAILED on missing ckpt symlink. CAFM-only seed 0 from vanilla EqM-B/2 80ep. Gate: FID <= 30.41.",
-      "submitted_at": "2026-05-22T00:00:00Z",
-      "git_sha": "f467c8b",
-      "sbatch_path": "projects/diff-EqM/slurm/jobs/cafm_eqm_b2_in256.sbatch",
-      "expected_runtime": "~24-36h",
-      "phase": "1b",
-      "gate": "Phase 1 gate: FID <= 30.41 (vs trusted vanilla 31.41)"
+      "run_id": "cafm_eqm_smoke_v12_ddp_fix",
+      "job_id": "14504722",
+      "partition": "gpu_test",
+      "status": "running",
+      "description": "Smoke v12 re-validates port after DDP fix (manual all_reduce + init broadcast + sampler.set_epoch). 500 steps batch=4. Confirms grad sync works + no regression vs v11 PASS.",
+      "submitted_at": "2026-05-22T01:00:00Z",
+      "git_sha": "a7f20b1",
+      "sbatch_path": "projects/diff-EqM/slurm/jobs/cafm_eqm_smoke.sbatch",
+      "expected_runtime": "~30min",
+      "phase": "1a-revalidate",
+      "gate": "exit 0 + dis loss decreases + finite gen loss"
     }
   ],
   "phase_0_progress": {
