@@ -281,8 +281,27 @@ def main():
     ema_decay = cfg.ema.decay
     total_steps = cfg.training.total_steps
 
+    # Resume from prior CAFM-EqM checkpoint, if requested. Load BEFORE broadcast
+    # so loaded state is then synced to all ranks via the broadcast below.
+    start_step = 0
+    if args.ckpt_resume:
+        if rank == 0:
+            print(f"[resume] loading from {args.ckpt_resume}")
+        state = torch.load(args.ckpt_resume, map_location=device)
+        gen_wrapper.eqm.load_state_dict(state["gen"])
+        if dis_model is not None and state.get("dis") is not None:
+            dis_model.load_state_dict(state["dis"])
+        ema.load_state_dict(state["ema"])
+        gen_opt.load_state_dict(state["gen_opt"])
+        if dis_opt is not None and state.get("dis_opt") is not None:
+            dis_opt.load_state_dict(state["dis_opt"])
+        start_step = int(state["step"])
+        if rank == 0:
+            print(f"[resume] resuming at step={start_step}")
+
     # Broadcast model state from rank 0 so all ranks start identical. Gen ckpt
     # loads deterministically per rank but dis is randomly initialized per rank.
+    # Also re-syncs resumed state across ranks (idempotent).
     if not args.smoke and world_size > 1:
         for p in gen_wrapper.eqm.parameters():
             dist.broadcast(p.data, src=0)
@@ -305,8 +324,10 @@ def main():
         print(f"world_size={world_size}, total_steps={total_steps}, N={N}, warmup={warmup}")
         print(f"v10 enabled: {args.enable_v10}")
         print(f"local_batch_size={cfg.training.local_batch_size}, global_batch={cfg.training.local_batch_size * world_size}")
+        if start_step > 0:
+            print(f"resume start_step={start_step}")
 
-    step = 0
+    step = start_step
     epoch = 0
     if not args.smoke and hasattr(loader, "sampler") and hasattr(loader.sampler, "set_epoch"):
         loader.sampler.set_epoch(epoch)

@@ -105,6 +105,24 @@ if [ "$ENABLE_V10" = "1" ]; then
     V10_FLAG="--enable-v10"
 fi
 
+# Optional resume: pass CKPT_RESUME env to point at a previous ckpt_NNNNNNNN.pt.
+RESUME_FLAG=""
+if [ -n "${CKPT_RESUME:-}" ]; then
+    # If relative, resolve against repo persist dir so symlink/copy avoidable.
+    if [ ! -f "$CKPT_RESUME" ]; then
+        CAND="$REPO_ROOT/$CKPT_RESUME"
+        if [ -f "$CAND" ]; then
+            CKPT_RESUME="$CAND"
+        fi
+    fi
+    if [ ! -f "$CKPT_RESUME" ]; then
+        echo "ERROR: CKPT_RESUME=$CKPT_RESUME not found" >&2
+        exit 1
+    fi
+    RESUME_FLAG="--ckpt-resume $CKPT_RESUME"
+    echo "=== Resuming from $CKPT_RESUME ===" >&2
+fi
+
 echo "=== CAFM-EqM training start: $(date) ===" >&2
 echo "  SEED=$SEED  ENABLE_V10=$ENABLE_V10  CONFIG=$CONFIG" >&2
 
@@ -112,5 +130,5 @@ python -m torch.distributed.run \
     --nnodes=1 --nproc_per_node=4 --master_port=$MASTER_PORT \
     projects/diff-EqM/experiments/cafm_eqm/train_cafm_eqm.py \
     --config "$CONFIG" \
-    $V10_FLAG \
+    $V10_FLAG $RESUME_FLAG \
     2>&1 | tee train.log
