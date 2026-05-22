@@ -228,6 +228,19 @@
   },
   "completed_runs": [
     {
+      "run_id": "cafm_eqm_smoke_v12_FAILED_nccl_mig",
+      "job_id": "14504722",
+      "partition": "gpu_test",
+      "status": "failed",
+      "exit_code": 1,
+      "elapsed": "00:15:11",
+      "git_sha": "a7f20b1",
+      "root_cause": "NCCL error 'Duplicate GPU detected: rank 0 and rank 1 both on CUDA device 31000' on dist.broadcast in new init code. gpu_test MIG slices share underlying PCI bus; NCCL collectives cannot route between MIG instances of same physical card. v11 (no collectives) ran successfully on gpu_test because grads never synced — confirming the original bug.",
+      "lesson": "gpu_test is single-GPU-only for our work. Real DDP requires seas_gpu (full A100/H200).",
+      "resubmitted_as": "14507937 on seas_gpu",
+      "failed_at": "2026-05-22T09:13:40Z"
+    },
+    {
       "run_id": "phase_1b_cafm_only_seed0_v2_CANCELLED_audit",
       "job_id": "14500046",
       "partition": "seas_gpu",
@@ -824,17 +837,17 @@
   ],
   "active_runs": [
     {
-      "run_id": "cafm_eqm_smoke_v12_ddp_fix",
-      "job_id": "14504722",
-      "partition": "gpu_test",
-      "status": "running",
-      "description": "Smoke v12 re-validates port after DDP fix (manual all_reduce + init broadcast + sampler.set_epoch). 500 steps batch=4. Confirms grad sync works + no regression vs v11 PASS.",
-      "submitted_at": "2026-05-22T01:00:00Z",
+      "run_id": "cafm_eqm_smoke_v13_ddp_seas_gpu",
+      "job_id": "14507937",
+      "partition": "seas_gpu",
+      "status": "pending",
+      "description": "Smoke v13: re-validate DDP fix on real GPUs (seas_gpu). v12 FAILED on gpu_test MIG slices (NCCL duplicate-GPU error: ranks share PCI bus). NCCL collectives require non-MIG cards.",
+      "submitted_at": "2026-05-22T09:15:00Z",
       "git_sha": "a7f20b1",
       "sbatch_path": "projects/diff-EqM/slurm/jobs/cafm_eqm_smoke.sbatch",
       "expected_runtime": "~30min",
       "phase": "1a-revalidate",
-      "gate": "exit 0 + dis loss decreases + finite gen loss"
+      "gate": "exit 0 + broadcast + all_reduce work + losses finite"
     }
   ],
   "phase_0_progress": {
