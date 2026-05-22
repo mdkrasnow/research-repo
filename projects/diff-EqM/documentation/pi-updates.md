@@ -168,3 +168,30 @@ Subject: DG-ANM update — Stage A.5 gate passed, CIFAR FID 497 bug isolated to 
 **Decisions needed from PI**: none currently.
 
 **Next**: smoke PASS → submit 10ep CAFM-EqM full run (Phase 1b). If CAFM-only seed-0 IN-256 FID < 25 (vs vanilla 31.41), proceed to v10+CAFM combined Phase 2.
+
+---
+
+## DRAFT — 2026-05-22: Phase 1b CAFM-EqM IN-1K-256 RUNNING (after infra audit)
+
+**Status**: ready for review by user; not yet sent.
+
+**Headline**: Phase 1b CAFM-only post-training of vanilla EqM-B/2 80ep ckpt (FID 31.41) submitted on seas_gpu (job 14509440, SHA 375ab56). 4×A100-80GB, batch 64 local × 4 = 256 global (matches Lin CAFM recipe). Pre-scheduled start ~2026-05-23T08:49.
+
+**Infra audit before launch** caught 3 correctness/robustness bugs:
+1. `gen` and `dis` were never wrapped in DDP — 4 ranks would have trained independent copies with no gradient sync. Effective batch = 64 not 256. Fixed: manual `dist.all_reduce` after backward + init broadcast from rank 0 (commit a7f20b1). This is the pattern Lin's CAFM repo uses; torch.func.jvp doesn't compose cleanly with `torch.nn.parallel.DistributedDataParallel` autograd hooks.
+2. Cluster home `/n/home03/.../research-repo/` is a plain directory copy (not a git clone). sbatch directives are parsed at submit time from the cluster-side file, NOT from the in-tmp git clone done by the job script. Earlier smoke v12/v13 ran on MIG cards (NCCL fail) because the cluster sbatch was stale. Fixed: submit helpers rsync `slurm/` to cluster before submit (commit 942365e, 0bfd2e4).
+3. Phase 1b sbatch missing the `cafm_pkg` namespace staging + vanilla-ckpt symlink that smoke sbatch had. Fixed: ported both (commit f467c8b).
+
+**Validation**: Smoke v14 PASSED on real A100-80GB (10:15, holygpu8a16304). Init broadcast logged, dis loss 2.00→0.03 (steeper convergence than smoke v11's 2.0→0.15, consistent with grads now actually syncing across ranks).
+
+**New capability landed alongside**: `--ckpt-resume` flag wired through train script + sbatch (commit 55bd7c0) so a TIMEOUT at 48h can resume from latest ckpt (saved every 5K steps). FID eval submit script reuses existing `imagenet1k_fid_eval.sbatch` (same pipeline that produced vanilla baseline FID 31.41).
+
+**Gate**: Phase 1 = CAFM-only seed-0 IN-1K-256 FID ≤ 30.41 (vs trusted vanilla 31.41). Pass → Phase 2 v10+CAFM combined. Fail → 1 retune of `cp_scale` or `warmup`, else kill Branch B-Both.
+
+**Outstanding risks** (not blockers):
+- 48h seas_gpu cap; smoke extrapolation suggests 30-50h, marginal. Resume path exists if TIMEOUT.
+- HF VAE download not pre-cached; smoke shows unauthenticated warnings but downloads succeed.
+
+**Decisions needed from PI**: none.
+
+**Next**: monitor 14509440 to start (~23h queue) → train (~30-50h) → FID eval (~3-6h) → gate eval. Workshop submission window 2026-08-15 to 2026-08-29.
