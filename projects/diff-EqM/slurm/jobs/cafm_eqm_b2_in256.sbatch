@@ -51,6 +51,17 @@ curl -fL -o projects/diff-EqM/external/Adversarial-Flow-Models/models/cafm/sit/s
     https://raw.githubusercontent.com/willisma/SiT/main/models.py \
     2>&1 | tail -3 || exit 1
 
+# Pre-stage Lin's models/cafm/ to a uniquely-named local package dir to dodge
+# the EqM `models.py` namespace collision. Single-threaded here so 4 DDP ranks
+# don't race on shutil.copytree.
+STAGING="projects/diff-EqM/external/cafm_pkg"
+rm -rf "$STAGING"
+mkdir -p "$STAGING"
+touch "$STAGING/__init__.py"
+cp -r projects/diff-EqM/external/Adversarial-Flow-Models/models/cafm "$STAGING/cafm"
+find "$STAGING/cafm" -type d -exec touch {}/__init__.py \;
+echo "=== Pre-staged cafm_pkg at $STAGING ===" >&2
+
 # Install deps.
 pip install --quiet timm diffusers accelerate scipy torchvision pytorch-fid omegaconf 2>&1 | tail -3
 pip install --quiet -r projects/diff-EqM/external/Adversarial-Flow-Models/requirements_cafm.txt 2>&1 | tail -3 || true
@@ -60,6 +71,20 @@ REPO_ROOT="/n/home03/mkrasnow/research-repo"
 RESULTS_SUBDIR="projects/diff-EqM/results/cafm_eqm_b2_in256_seed${SEED}"
 PERSIST_DIR="$REPO_ROOT/$RESULTS_SUBDIR"
 mkdir -p "$WORK_DIR/$RESULTS_SUBDIR" "$PERSIST_DIR"
+
+# Stage vanilla EqM-B/2 80ep ckpt. Config references it at projects/diff-EqM/results/...
+# relative to CWD ($WORK_DIR); symlink into WORK_DIR pointing at persistent ckpt.
+CKPT_REL="projects/diff-EqM/results/stage_b_vanilla_in1k_80ep_seed0/000-EqM-B-2-Linear-velocity-None-vanilla/checkpoints/0380000.pt"
+CKPT_SRC="$REPO_ROOT/$CKPT_REL"
+CKPT_DST="$WORK_DIR/$CKPT_REL"
+mkdir -p "$(dirname "$CKPT_DST")"
+if [ -f "$CKPT_SRC" ]; then
+    ln -sf "$CKPT_SRC" "$CKPT_DST"
+    echo "=== Linked vanilla EqM ckpt: $(du -h "$CKPT_SRC" | cut -f1) ===" >&2
+else
+    echo "ERROR: vanilla EqM ckpt not found at $CKPT_SRC" >&2
+    exit 1
+fi
 
 rsync_loop() {
     while true; do
