@@ -1,7 +1,7 @@
 {
   "project": "diff-EqM",
   "title": "Differential-Geometry-Guided Adversarial Negative Mining for EqM (DG-ANM)",
-  "phase": "PHASE-1B-FID-EVAL-RUNNING",
+  "phase": "PHASE-1B-FID-FAIL-DIAGNOSTIC",
   "stage_b_in1k_baseline": {
     "verified_at": "2026-05-13",
     "result": {
@@ -227,6 +227,23 @@
     "prompt": null
   },
   "completed_runs": [
+    {
+      "run_id": "phase_1b_fid_seed0_FAIL_CATASTROPHIC",
+      "job_id": "14959695",
+      "partition": "gpu_requeue",
+      "nodelist": "holygpu8a27402",
+      "status": "completed",
+      "exit_code": 0,
+      "elapsed": "01:25:36",
+      "git_sha": "545567a",
+      "ckpt": "eqm_compat_00045000.pt",
+      "num_fid_samples": 50000,
+      "fid": 341.2480,
+      "vanilla_baseline_fid": 31.41,
+      "gate_threshold": 30.41,
+      "verdict": "Phase 1 gate FAIL by 10x. FID 341 vs vanilla 31.41 = catastrophic collapse, not retune-tier. Suspect mechanism bug: c(γ)->0 near γ=1 makes EqM target (ε-x)*c(γ) ≈ 0, but gen outputs non-zero EqM gradient -> dis trivially discriminates -> gen suppresses field -> collapse. Diagnostic FIDs queued for ckpt_5000 (14985377) + vanilla 10K baseline (14985404).",
+      "completed_at": "2026-05-23T16:42:06Z"
+    },
     {
       "run_id": "phase_1b_cafm_only_seed0_v3_COMPLETED",
       "job_id": "14509440",
@@ -901,17 +918,26 @@
   ],
   "active_runs": [
     {
-      "run_id": "phase_1b_fid_seed0_requeue",
-      "job_id": "14959695",
+      "run_id": "phase_1b_diag_ckpt5000",
+      "job_id": "14985377",
       "partition": "gpu_requeue",
       "status": "pending",
-      "description": "Phase 1b FID eval moved from seas_gpu (4h queue wait) to gpu_requeue (fits FASRC sub-1-day use case; idempotent so preemption auto-requeue acceptable). 50K samples via sample_gd.py + pytorch-fid on eqm_compat_00045000.pt.",
-      "submitted_at": "2026-05-23T14:25:00Z",
+      "description": "Diagnostic FID on eqm_compat_00005000.pt (earliest CAFM-trained ckpt, just after warmup=1000). 10K samples for speed. Test if catastrophic drift was early (loss broken from start) or late (gen instability).",
+      "submitted_at": "2026-05-23T17:00:00Z",
       "git_sha": "545567a",
-      "sbatch_path": "projects/diff-EqM/slurm/jobs/imagenet1k_fid_eval.sbatch",
-      "expected_runtime": "~2-4h (preemption: auto-requeue, worst case ~6h)",
-      "phase": "1b-eval",
-      "gate": "Phase 1 gate: FID <= 30.41 (vs trusted vanilla 31.41)"
+      "phase": "1b-diag",
+      "expected_runtime": "~30-45min"
+    },
+    {
+      "run_id": "phase_1b_diag_vanilla10k",
+      "job_id": "14985404",
+      "partition": "gpu_requeue",
+      "status": "pending",
+      "description": "Vanilla EqM baseline at 10K samples for noise-matched comparison vs CAFM diagnostic. Vanilla 50K = 31.41; 10K may be 32-35.",
+      "submitted_at": "2026-05-23T17:00:00Z",
+      "git_sha": "545567a",
+      "phase": "1b-diag",
+      "expected_runtime": "~30-45min"
     }
   ],
   "phase_0_progress": {
