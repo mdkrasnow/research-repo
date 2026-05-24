@@ -1,7 +1,7 @@
 {
   "project": "diff-EqM",
   "title": "Differential-Geometry-Guided Adversarial Negative Mining for EqM (DG-ANM)",
-  "phase": "BRANCH-B-BOTH-RETIRED-PIVOT-TO-V10-ONLY",
+  "phase": "V10-ONLY-IN1K-SEED0-PENDING",
   "stage_b_in1k_baseline": {
     "verified_at": "2026-05-13",
     "result": {
@@ -115,7 +115,7 @@
     ]
   },
   "next_action": {
-    "command": "AWAITING USER PIVOT CONFIRM. Branch B-Both retired. Proposed pivot: v10-only. Steps once confirmed: (1) port v10 from CIFAR variant to eqm-upstream/train.py IN-1K stack; (2) update summer-2026-plan.md Phases 1-5; (3) submit v10-only IN-1K-256 seed-0 18-24h run; (4) gate FID <= 30.41.",
+    "command": "Monitor v10 IN-1K seed-0 job 15067741 (~36h on gpu partition). At step 5000 (~2h after start): submit FID eval on first eqm_compat ckpt via submit_phase_1b_fid.sh adapted. If FID > 100 -> cancel + diagnose. If FID < 50 -> let run to completion, then 50K-sample FID for Phase 1 gate (FID <= 30.41).",
     "reason": "Plan locked 2026-05-19 in documentation/summer-2026-plan.md. Broad framing approved (EqM-first, flow-matching transfer Phase 4). Venues: NeurIPS 2026 workshop (Aug 29) + ICLR 2027 (~Oct 1). Differentiation memo locked vs DAT (Wu 2025, 2510.13872) and AEBM-Diff (Geng 2024, 2403.01666). v10 mechanism-aligned per CLAUDE.md.",
     "phase_0_tasks": [
       "v02 IN-1K cancellation postmortem",
@@ -223,8 +223,8 @@
     "sbatch": "projects/diff-EqM/slurm/jobs/variant_pilot.sbatch"
   },
   "needs_user_input": {
-    "value": true,
-    "prompt": "Branch B-Both retired after CAFM-on-EqM FID 341 catastrophic FAIL. Pivot to v10-only? PI update draft in documentation/pi-updates.md (2026-05-23 entry). Postmortem in documentation/postmortem-cafm-eqm-2026-05-23.md. Confirm pivot OR direct alternative."
+    "value": false,
+    "prompt": null
   },
   "completed_runs": [
     {
@@ -950,7 +950,21 @@
       "detail": "Audit caught: (1) gen/dis never DDP-wrapped (4 ranks trained independently); (2) cluster home repo dir stale so sbatch directives ignored. Fixes: manual all_reduce + init broadcast + rsync slurm/ before submit. Smoke v11 (no collectives), v12/v13 (NCCL on MIG) consumed, v14 PASS on real A100. Phase 1b resubmitted 14509440 SHA 375ab56."
     }
   ],
-  "active_runs": [],
+  "active_runs": [
+    {
+      "run_id": "v10_in1k_80ep_seed0",
+      "job_id": "15067741",
+      "partition": "gpu",
+      "status": "pending",
+      "description": "v10-only 80ep IN-1K EqM-B/2 from scratch, seed 0. mining-flavor v10 in train_imagenet.py (new); gamma=0.1, eps=0.3, K=1, mine-every=1. Smoke probe: FID eval first 5K-step ckpt early to catch mechanism failure fast.",
+      "submitted_at": "2026-05-23T21:30:00Z",
+      "git_sha": "31cc863",
+      "sbatch_path": "projects/diff-EqM/slurm/jobs/imagenet1k_80ep_v10.sbatch",
+      "expected_runtime": "~36h (K=1 mining = +50% per step vs vanilla 24h)",
+      "phase": "1-v10",
+      "gate": "Phase 1 gate: FID <= 30.41 (vs trusted vanilla 31.41)"
+    }
+  ],
   "phase_0_progress": {
     "tasks_done": [
       "0.A.1 read slate",
