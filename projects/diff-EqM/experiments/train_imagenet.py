@@ -395,6 +395,63 @@ def _v02_cosine_contrastive_step(
 #       v09 Jacobian: random-noise finite-diff Jacobian regularizer             #
 #################################################################################
 
+def _v10_pgd_hard_example_step(
+    model_ddp, model_module, x, y, transport,
+    train_eps, v10_eps_radius, v10_K, v10_lr,
+    device,
+):
+    """v10 PGD hard-example mining on EqM regression target.
+
+    Mirror of dganm_variants/v10_hard_example.py adapted to IN-1K latents.
+
+    Loss: L_aux = ||f(x_t + δ*) - target||²
+        δ* = argmax_{||δ||₂ ≤ ε} ||f(x_t + δ) - target||²
+        target = (x - x0) · c(t)  (EqM regression target)
+
+    Returns (loss_v10, diag).
+    """
+    B = x.shape[0]
+    eps = train_eps if train_eps is not None else 1e-3
+    # FM forward path at random t — mirrors transport.training_losses internals
+    # but exposes target externally for mining.
+    t = torch.rand(B, device=device) * (1.0 - 2.0 * eps) + eps
+    t_ = t.view(B, 1, 1, 1)
+    x0 = torch.randn_like(x)
+    x_t = (1.0 - t_) * x0 + t_ * x
+    ut = (x - x0)
+    ct = transport.get_ct(t).view(B, 1, 1, 1)
+    target = ct * ut  # EqM energy-compatible regression target
+
+    # --- PGD mine: maximize MSE(f(x_t + δ), target) ---
+    model_ddp.eval()
+    delta = torch.zeros_like(x_t).normal_(0.0, v10_eps_radius / 2.0)
+    # project to L2 ball
+    flat = delta.flatten(1).norm(dim=1, keepdim=True).view(B, 1, 1, 1)
+    delta = delta * torch.clamp(v10_eps_radius / (flat + 1e-8), max=1.0)
+    for _ in range(v10_K):
+        delta = delta.detach().requires_grad_(True)
+        pred_neg = model_module(x_t.detach() + delta, t, y, train=False)
+        loss_adv = ((pred_neg - target) ** 2).mean()
+        g = torch.autograd.grad(loss_adv, delta, retain_graph=False)[0]
+        with torch.no_grad():
+            delta = delta + v10_lr * g.sign()
+            flat = delta.flatten(1).norm(dim=1, keepdim=True).view(B, 1, 1, 1)
+            delta = delta * torch.clamp(v10_eps_radius / (flat + 1e-8), max=1.0)
+    delta = delta.detach()
+    model_ddp.train()
+
+    # --- Hard-example loss; grads flow through DDP for sync ---
+    pred_hard = model_ddp(x_t.detach() + delta, t, y, train=True)
+    loss_v10 = F.mse_loss(pred_hard, target)
+
+    diag = {
+        "v10_hard_loss": loss_v10.item(),
+        "v10_delta_norm": delta.flatten(1).norm(dim=1).mean().item(),
+        "v10_field_norm": pred_hard.flatten(1).norm(dim=1).mean().item(),
+    }
+    return loss_v10, diag
+
+
 def _v09_jacobian_step(model_ddp, x, y, train_eps, jac_sigma, jac_lambda, device):
     """Architecture-agnostic local-smoothness regularizer.
 
@@ -638,6 +695,24 @@ def main(args):
                         loss = loss + args.gamma * loss_v09
                         loss_neg_val = loss_v09.item()
                         mining_info["v09_aux_over_base"] = (loss_neg_val / max(loss_base.item(), 1e-8))
+                elif args.mining_flavor == "v10":
+                    # v10: PGD hard-example mining on EqM regression target.
+                    # FGSM-style (K=1) per Briglia 2025; non-saturating per CIFAR
+                    # Phase 0.3 PASS (ratio L_hard/L_clean stable 1.047-1.049).
+                    if train_steps % args.mine_every == 0:
+                        loss_v10, mining_info = _v10_pgd_hard_example_step(
+                            model_ddp=model, model_module=model.module,
+                            x=x, y=y, transport=transport,
+                            train_eps=args.train_eps,
+                            v10_eps_radius=args.v10_eps_radius,
+                            v10_K=args.v10_K,
+                            v10_lr=args.mining_lr,
+                            device=device,
+                        )
+                        cached_x_neg = None
+                        loss = loss + args.gamma * loss_v10
+                        loss_neg_val = loss_v10.item()
+                        mining_info["v10_aux_over_base"] = (loss_neg_val / max(loss_base.item(), 1e-8))
                 elif args.mining_flavor == "v02":
                     # v02: cosine-contrastive on velocity at uniform t.
                     # Warmup: skip mining until base loss has trained the model
@@ -728,6 +803,10 @@ def main(args):
                     running_mining_normal += mining_info["v09_jac_loss"]
                     running_mining_tangent += mining_info["v09_aux_over_base"]
                     running_mining_field += mining_info["v09_anchor_norm"]
+                elif args.mining_flavor == "v10":
+                    running_mining_normal += mining_info["v10_hard_loss"]
+                    running_mining_tangent += mining_info["v10_aux_over_base"]
+                    running_mining_field += mining_info["v10_delta_norm"]
                 elif args.mining_flavor == "v02":
                     running_mining_normal += mining_info["v02_pos_loss"]
                     running_mining_tangent += mining_info["v02_neg_loss"]
@@ -779,6 +858,13 @@ def main(args):
                             f", v09(jac={avg_mining_normal:.3f}"
                             f", aux/base={avg_mining_tangent:.3f}"
                             f", |v|={avg_mining_field:.3f})"
+                        )
+                    elif args.mining_flavor == "v10":
+                        diag_label = (
+                            f", Aux: {avg_loss_neg:.4f}"
+                            f", v10(hard={avg_mining_normal:.4f}"
+                            f", aux/base={avg_mining_tangent:.3f}"
+                            f", ||δ||={avg_mining_field:.3f})"
                         )
                     elif args.mining_flavor == "v02":
                         diag_label = (
@@ -906,9 +992,11 @@ if __name__ == "__main__":
                         help="Mine negatives every K steps, reuse cached for others")
 
     # --- Mining flavor (v01 = original DG-ANM, v02 = cosine-contrastive) ---
-    parser.add_argument("--mining-flavor", type=str, choices=["v01", "v02", "v09"], default="v01",
+    parser.add_argument("--mining-flavor", type=str, choices=["v01", "v02", "v09", "v10"], default="v01",
                         help="v01: feature-PCA geometry + margin hinge at t=1 (original DG-ANM). "
-                             "v02: cosine-contrastive on velocity at uniform t (CIFAR-validated winner).")
+                             "v02: cosine-contrastive on velocity at uniform t (cancelled IN-1K, cosine saturated). "
+                             "v09: random-noise Jacobian regularizer. "
+                             "v10: PGD hard-example mining on EqM regression target (CIFAR Phase 0.3 PASS 13.40 vs 14.17).")
     parser.add_argument("--lambda-pos", type=float, default=1.0,
                         help="v02: weight on (1 - cos(v_pos, v_anchor)) leg")
     parser.add_argument("--lambda-neg", type=float, default=1.0,
@@ -926,6 +1014,11 @@ if __name__ == "__main__":
                         help="v09: stddev of Gaussian perturbation in latent space")
     parser.add_argument("--jac-lambda", type=float, default=0.1,
                         help="v09: weight on (||v(x+δ)-v(x)||²/σ²) regularizer")
+    # --- v10 PGD hard-example args ---
+    parser.add_argument("--v10-K", type=int, default=1,
+                        help="v10: PGD inner steps (FGSM K=1 per Briglia 2025)")
+    parser.add_argument("--v10-eps-radius", type=float, default=0.3,
+                        help="v10: L2 ball radius for δ (CIFAR Phase 0.3 PASS regime)")
 
     parse_transport_args(parser)
     args = parser.parse_args()
