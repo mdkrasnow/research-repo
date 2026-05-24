@@ -195,3 +195,53 @@ Subject: DG-ANM update — Stage A.5 gate passed, CIFAR FID 497 bug isolated to 
 **Decisions needed from PI**: none.
 
 **Next**: monitor 14509440 to start (~23h queue) → train (~30-50h) → FID eval (~3-6h) → gate eval. Workshop submission window 2026-08-15 to 2026-08-29.
+
+---
+
+## DRAFT — 2026-05-23: Branch B-Both RETIRED; v10-only pivot
+
+**Status**: ready for review by user; not yet sent. **PIVOT trigger** + **bug invalidating prior plan**.
+
+**Headline**: Phase 1b CAFM-on-EqM port FAILED catastrophically. FID 341.25 vs vanilla 31.41 (10× worse). Mechanism bug, not a retune-tier miss. Branch B-Both retired. **Pivoting to v10-only** for workshop submission.
+
+**What happened**:
+- 50K-step CAFM-only post-training of vanilla EqM-B/2 80ep completed cleanly (17h50m, loss curves finite). FID eval on the resulting checkpoint = 341.25.
+- Diagnostic FID at ckpt_5000 (just past warmup, ~250 gen updates) = 369.64. Collapse was instant, not cumulative.
+- Vanilla baseline FID at 10K samples (noise-matched) = 37.09. Consistent with our trusted 50K = 31.41. Vanilla model intact; failure is specific to CAFM post-training.
+
+**Root cause** (see `documentation/postmortem-cafm-eqm-2026-05-23.md`):
+- CAFM works when the generator was trained adversarially-compatible from scratch (Lin's SiT setup).
+- Vanilla EqM was trained by pure regression on `(ε − x)·c(γ)` — no adversarial signal in its history.
+- Freshly-initialized discriminator quickly learns "anything ≠ vanilla EqM output = fake" trivially. First gen updates push generator away from the regression-target manifold to fool the disc → field collapse, instant.
+- The smoke v14 dis loss curve (2.0 → 0.03 one-sided) was the failure signature. We misread it as "healthy adversarial convergence." It is the textbook sign that the discriminator has found a trivial discrimination shortcut.
+
+**Why we did not catch it earlier**:
+1. Smoke validated loss-finiteness and exit code, NOT sample quality. A 5-min sample probe on the smoke checkpoint would have caught this and saved ~20 GPU-h.
+2. Misread the smoke loss curve. Adversarial losses fail with one-sided monotonic decrease; we logged it as healthy because the gen loss stayed bounded.
+3. Design doc reasoned about JVP geometry, not about discriminator-shortcut failure modes specific to non-adversarially-trained generators.
+
+**Pivot to v10-only**:
+- v10 (PGD hard-example mining on the EqM regression target) passed Phase 0.3 PASS: CIFAR-10 FID 13.40 vs vanilla 14.17 across 150 epochs, with mining ratio L_hard/L_clean stable at 1.047-1.049 (non-saturating).
+- Path: port v10 from CIFAR variant harness to the trusted EqM-B/2 IN-1K-256 training stack (Stage B vanilla 80ep produced the trusted FID 31.41 — same stack). Re-baseline confirmation not needed.
+- Phase 1 v10-only gate: FID ≤ 30.41 on IN-1K-256 seed-0. Estimated 18-24h per seed on 4×A100-80GB.
+- Workshop story: "first adaptive hard-negative mining for regression-target generative models" (per VeCoR §7 future-work cite). Single-method paper. Compute budget tightens but still fits NeurIPS 2026 workshop deadline 2026-08-29.
+
+**Process changes landed in CLAUDE.md**:
+- Mandatory smoke-time sample-quality probe for any new loss on a generative model.
+- Discriminator-loss-specific failure-mode checklist (oscillation, not monotonic-decrease).
+
+**Numbers**:
+- Phase 1b CAFM-only FID (50K samples): 341.25 (gate threshold 30.41) → FAIL.
+- ckpt_5000 diagnostic FID (10K samples): 369.64.
+- Vanilla baseline 10K samples: 37.09 (consistent with trusted 50K = 31.41).
+- Phase 0.3 v10 CIFAR (preserved): 13.40 vs 14.17 vanilla.
+
+**Cost of detour**: ~33 GPU-h (smoke iterations + Phase 1b 18h + FID 1.5h + diagnostics 1.5h).
+
+**Decisions needed from PI**: confirm v10-only pivot, OR direct alternative (e.g., investigate CAFM-port repair, or new variant proposal).
+
+**Next**:
+1. (Pending PI confirm) port v10 to IN-1K training stack.
+2. Update `summer-2026-plan.md` Phases 1-5 timeline for v10-only.
+3. Submit Phase 1 v10-only IN-1K seed-0 run.
+4. CAFM-EqM port code archived in `experiments/cafm_eqm/` for record.

@@ -1,7 +1,7 @@
 {
   "project": "diff-EqM",
   "title": "Differential-Geometry-Guided Adversarial Negative Mining for EqM (DG-ANM)",
-  "phase": "PHASE-1B-FID-FAIL-DIAGNOSTIC",
+  "phase": "BRANCH-B-BOTH-RETIRED-PIVOT-TO-V10-ONLY",
   "stage_b_in1k_baseline": {
     "verified_at": "2026-05-13",
     "result": {
@@ -115,7 +115,7 @@
     ]
   },
   "next_action": {
-    "command": "Monitor Phase 1b job 14207013 (~24-36h on seas_gpu). On COMPLETED: run FID eval on resulting ckpt, evaluate Phase 1 gate (FID <= 30.41). PASS -> submit Phase 2 v10+CAFM combined (ENABLE_V10=1). FAIL -> 1 retune of cp_scale or warmup, else kill.",
+    "command": "AWAITING USER PIVOT CONFIRM. Branch B-Both retired. Proposed pivot: v10-only. Steps once confirmed: (1) port v10 from CIFAR variant to eqm-upstream/train.py IN-1K stack; (2) update summer-2026-plan.md Phases 1-5; (3) submit v10-only IN-1K-256 seed-0 18-24h run; (4) gate FID <= 30.41.",
     "reason": "Plan locked 2026-05-19 in documentation/summer-2026-plan.md. Broad framing approved (EqM-first, flow-matching transfer Phase 4). Venues: NeurIPS 2026 workshop (Aug 29) + ICLR 2027 (~Oct 1). Differentiation memo locked vs DAT (Wu 2025, 2510.13872) and AEBM-Diff (Geng 2024, 2403.01666). v10 mechanism-aligned per CLAUDE.md.",
     "phase_0_tasks": [
       "v02 IN-1K cancellation postmortem",
@@ -223,10 +223,32 @@
     "sbatch": "projects/diff-EqM/slurm/jobs/variant_pilot.sbatch"
   },
   "needs_user_input": {
-    "value": false,
-    "prompt": null
+    "value": true,
+    "prompt": "Branch B-Both retired after CAFM-on-EqM FID 341 catastrophic FAIL. Pivot to v10-only? PI update draft in documentation/pi-updates.md (2026-05-23 entry). Postmortem in documentation/postmortem-cafm-eqm-2026-05-23.md. Confirm pivot OR direct alternative."
   },
   "completed_runs": [
+    {
+      "run_id": "phase_1b_diag_ckpt5000_CONFIRMS_INSTANT_COLLAPSE",
+      "job_id": "14985377",
+      "partition": "gpu_requeue",
+      "status": "completed",
+      "exit_code": 0,
+      "elapsed": "01:24:31",
+      "num_fid_samples": 10000,
+      "fid": 369.6431,
+      "verdict": "Catastrophic collapse already present at ckpt_5000 (~250 gen updates past warmup). Confirms drift was instant, not cumulative. Loss broken from start. Not retunable."
+    },
+    {
+      "run_id": "phase_1b_diag_vanilla10k_noise_match",
+      "job_id": "14985404",
+      "partition": "gpu_requeue",
+      "status": "completed",
+      "exit_code": 0,
+      "elapsed": "00:20:25",
+      "num_fid_samples": 10000,
+      "fid": 37.0878,
+      "verdict": "Vanilla baseline 10K-sample noise floor. Consistent with trusted 50K = 31.41. Vanilla model intact; failure specific to CAFM post-training."
+    },
     {
       "run_id": "phase_1b_fid_seed0_FAIL_CATASTROPHIC",
       "job_id": "14959695",
@@ -910,36 +932,25 @@
       "detail": "Phase 1b CAFM-only IN-1K-256 EqM-B/2 10ep COMPLETED exit 0 in 17:50:12 on holygpu8a16304. 50K steps. Gen loss converged 4.0->1.7-2.3; dis loss healthy 0.9-2.1 oscillating. FID eval submitted as 14957638."
     },
     {
+      "id": "evt-0038",
+      "ts": "2026-05-23T16:42:00Z",
+      "action": "PHASE_1B_FID_CATASTROPHIC_FAIL",
+      "detail": "Phase 1b 50K-sample FID = 341.25 vs vanilla 31.41 (10x worse). Phase 1 gate FAIL. Not retunable."
+    },
+    {
+      "id": "evt-0039",
+      "ts": "2026-05-23T20:00:00Z",
+      "action": "BRANCH_B_BOTH_RETIRED",
+      "detail": "Diagnostic at ckpt_5000 = FID 369 confirms instant collapse (post-warmup). Vanilla 10K = 37.09 (noise floor consistent). Mechanism bug: freshly-init dis finds trivial shortcut against regression-trained gen; gen pushed away from EqM target manifold by adversarial signal. Postmortem documentation/postmortem-cafm-eqm-2026-05-23.md. CLAUDE.md updated: mandatory smoke-time sample probe + discriminator-loss oscillation check. Pivot proposed: v10-only branch (Phase 0.3 PASS evidence intact). needs_user_input set; awaiting confirm."
+    },
+    {
       "id": "evt-0036",
       "ts": "2026-05-22T09:40:00Z",
       "action": "AUDIT_FIX_DDP_AND_RESUBMIT",
       "detail": "Audit caught: (1) gen/dis never DDP-wrapped (4 ranks trained independently); (2) cluster home repo dir stale so sbatch directives ignored. Fixes: manual all_reduce + init broadcast + rsync slurm/ before submit. Smoke v11 (no collectives), v12/v13 (NCCL on MIG) consumed, v14 PASS on real A100. Phase 1b resubmitted 14509440 SHA 375ab56."
     }
   ],
-  "active_runs": [
-    {
-      "run_id": "phase_1b_diag_ckpt5000",
-      "job_id": "14985377",
-      "partition": "gpu_requeue",
-      "status": "pending",
-      "description": "Diagnostic FID on eqm_compat_00005000.pt (earliest CAFM-trained ckpt, just after warmup=1000). 10K samples for speed. Test if catastrophic drift was early (loss broken from start) or late (gen instability).",
-      "submitted_at": "2026-05-23T17:00:00Z",
-      "git_sha": "545567a",
-      "phase": "1b-diag",
-      "expected_runtime": "~30-45min"
-    },
-    {
-      "run_id": "phase_1b_diag_vanilla10k",
-      "job_id": "14985404",
-      "partition": "gpu_requeue",
-      "status": "pending",
-      "description": "Vanilla EqM baseline at 10K samples for noise-matched comparison vs CAFM diagnostic. Vanilla 50K = 31.41; 10K may be 32-35.",
-      "submitted_at": "2026-05-23T17:00:00Z",
-      "git_sha": "545567a",
-      "phase": "1b-diag",
-      "expected_runtime": "~30-45min"
-    }
-  ],
+  "active_runs": [],
   "phase_0_progress": {
     "tasks_done": [
       "0.A.1 read slate",

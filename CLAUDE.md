@@ -128,6 +128,12 @@ Mining ratio L_v10/L_EqM stable 1.047-1.049 across 150ep — non-saturating sign
 from v02 cosine saturation at EqM-B/2 IN-1K scale. Per CIFAR rule above: still requires Phase 1b/2 IN-1K
 confirmation; not publishable on its own.
 
+### Branch B-Both retired (2026-05-23)
+CAFM-on-EqM port FAILED Phase 1: FID 341.25 vs vanilla 31.41. Mechanism bug, not retunable.
+See `documentation/postmortem-cafm-eqm-2026-05-23.md`. Branch pivots to v10-only.
+Workshop story: "first adaptive hard-negative mining for regression-target generative models" (per VeCoR §7).
+CAFM-EqM port code preserved in `experiments/cafm_eqm/` for record; unused going forward.
+
 ### Diagnostics required every auxiliary-loss run
 Log at min every N=200 steps:
 - clean base loss `L_clean`
@@ -141,6 +147,24 @@ Log at min every N=200 steps:
 - FID or proxy eval when available
 
 If aux/base ratio dominates → stop, retune. If aux saturates near zero → stop, diagnose.
+
+### Smoke-time sample probe (mandatory for new losses on generative models)
+
+Lesson from CAFM-EqM Phase 1b failure (postmortem 2026-05-23): "loss finite + exit 0" smoke is necessary but NOT sufficient. CAFM smoke v14 passed all loss-finiteness checks; Phase 1b then produced FID 341 (10× worse than vanilla 31.41) — visible at ckpt step 5000 already.
+
+For any NEW loss on a generative model:
+- Smoke MUST sample ≥16 images from the resulting checkpoint and either eyeball or run a tiny FID (≤2K samples) against a small ref set.
+- Cost: typically <5 min on the smoke hardware. Catches mechanism bugs that loss curves hide.
+- This applies to discriminator losses, adversarial losses, contrastive losses, EBM-style losses — any objective whose loss-curve shape doesn't directly predict sample quality.
+
+### Discriminator-based loss check (specific failure modes)
+
+Adversarial losses have a distinct failure pattern that monotonic-decrease checks miss:
+- Healthy: dis loss oscillates around its baseline; gen loss oscillates; both bounded.
+- Failure (dis dominates): dis loss collapses one-sided toward 0 (e.g. 2.0 → 0.03). Gen stuck with high adv loss. Gen is being pushed into an unrecoverable hole.
+- Failure (gen dominates): dis loss explodes upward, gen loss collapses to 0. Mode collapse.
+
+When evaluating an adversarial smoke: check OSCILLATION, not monotonic decrease. One-sided dis crush = STOP, mechanism bug, NOT a retune target.
 
 ### No literature laundering
 Citation ≠ mechanism. State exactly what the paper supports and what it doesn't.
