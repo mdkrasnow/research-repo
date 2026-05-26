@@ -59,9 +59,46 @@
 
 ---
 
-## Week of 2026-05-26 (Phase 0 wrap-up + Phase 1a launch)
+## Week of 2026-05-26 (Phase 1 v10-only IN-1K mid-run, post-CAFM retire)
 
-TBD — fill at next sweep.
+### Searches run
+- "equilibrium matching adversarial PGD hard negative mining diffusion arxiv 2026"
+- "adversarial training regression target flow matching generative model 2026 arxiv"
+- "hard example mining diffusion image generation ImageNet 2026 arxiv"
+- "Yilun Du Runqian Wang equilibrium matching follow-up 2026"
+- "Adversarial Flow Models arxiv 2511.22475 authors method"
+
+### New hits
+
+- **arxiv:2511.22475 — Adversarial Flow Models (AFM)** (Lin, Yang, Z. Lin, Chen, Fan; ByteDance Seed; Nov 2025). XL/2 IN-256 FID **2.38** (one-step); 56-layer 2.08; 112-layer 1.94. Generator = deterministic noise→data map (OT-aligned); trained adversarial-only (no flow-matching regression target). Threat: **MEDIUM** for branch positioning. Same Lin lab as CAFM (2604.11521) — they have now shipped 3 adversarial-flow papers in 12mo (AFM, CAFM, AAPT). See per-paper note `lin2025_afm.md`. Implication: tightens "adversarial gen models = discriminator-based" niche they own. Reinforces v10's distinctness (no discriminator, single-objective regression + hard-mining). Cite as related work §2.
+- **arxiv:2508.21019 — Phased One-Step Adversarial Equilibrium for Video Diffusion (V-PAE)** (Aug 2025). Distills video diffusion via "unified adversarial equilibrium". Threat: **LOW** (video, distillation; "equilibrium" = self-adversarial schedule, not EqM-style energy landscape). Cite at most as background.
+- **arxiv:2411.18109 — Difficulty Controlled Diffusion** (Nov 2024). Controls synthetic-data difficulty for downstream classifier training. Not about training the generator with hard samples. Threat: **LOW**. No cite.
+- **arxiv:2602.04770 — Generative Modeling via Drifting**. Drift-based generative method. Threat: **LOW**. Skim only.
+
+### No new HIGH threats
+- No Lin/ByteDance Seed paper combining hard-negative MINING (no discriminator) with regression-target gen models.
+- No Du/Wang EqM follow-up. EqM (2510.02300) authors still silent on the "adversarial perturbations" future-work direction they themselves flagged.
+- No "adaptive hard-negative mining + flow/EqM" combination from VeCoR group.
+
+### Threat assessment
+**v10 niche still uncontested.** Lin lab cornered DISCRIMINATOR-based adversarial flow (AFM/CAFM/AAPT/V-PAE). v10 cornered MINING-based regression-target adversarial training. The two niches are mechanistically distinct (single-player regression vs two-player game). After CAFM-EqM port FAIL (FID 341.25, postmortem 2026-05-23), our pivot to v10-only puts us squarely in the unclaimed mining-based niche.
+
+### Framing implication (propagate)
+The framing in `related-work-differentiation.md` and `documentation/summer-2026-plan.md` should now explicitly distinguish:
+- Discriminator-based adversarial flow (Lin lab dominant)
+- Mining-based adversarial-style regression (v10 — first to do this on a regression-target gen model)
+
+Workshop paper §2 should cite AFM as the strongest discriminator-based comparator (FID 2.38 IN-256 XL/2). v10's claim is NOT "beats AFM at scale"; it's "first adversarial-style training for regression-target gen models that doesn't require a discriminator, doesn't require a two-player game, and cannot collapse to trivial solutions." Vanilla-EqM-comparable scale (B/2, 80ep) is the right comparison surface.
+
+### Action items
+- [x] AFM per-paper note `lin2025_afm.md`.
+- [ ] SYNTHESIS.md §4 update on Lin lab niche consolidation (AFM added) — do next pass.
+- [ ] `related-work-differentiation.md` add explicit "discriminator-based vs mining-based" axis — do when v10 IN-1K result lands.
+- Continue Monday cadence.
+
+### Window assessment
+- v10 mechanism still uncontested through Aug 29 submission window (~13 weeks).
+- Scoop risk: MEDIUM-LOW. Closest competing direction (Lin lab) is locked on discriminator approach with 3-paper momentum; unlikely to pivot to mining within window.
 
 ---
 
