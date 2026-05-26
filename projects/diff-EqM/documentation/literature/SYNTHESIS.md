@@ -77,16 +77,27 @@ Lin CAFM uses **N=16 discriminator updates per generator update**. Vanilla EqM 8
 
 ## 4. New / sharpened risks
 
+### 4.1 Update 2026-05-26 — post CAFM-EqM retire + AFM hit
+- **Branch B-Both retired** 2026-05-23 (CAFM-EqM Phase 1b FID 341.25 catastrophe — postmortem). v10-only forward.
+- **AFM (Lin Nov 2025, arxiv:2511.22475)** added to lit notes. Lin lab now 4 papers in 12mo (AFM/CAFM/AAPT/V-PAE), confirms discriminator-based adversarial-flow niche fully owned by that group. IN-256 XL/2 FID **2.38** one-step.
+- **Niche partition**: discriminator-based (Lin lab) vs mining-based (v10). Mechanistically distinct; the two are not direct competitors on the same axis. v10 owns the mining-based-regression-target niche.
+
+### 4.2 Risk table
+
 | Risk | Likelihood | Severity | Mitigation |
 |---|---|---|---|
-| Lin lab publishes "v10-equivalent" before Oct 1 | M-H | HIGH | Weekly arxiv sweep on Lin/Yang/Chen/Fan; pre-register via workshop Aug 29 (PRIMARY) |
-| Du group publishes adversarial-EqM follow-up | M | HIGH | Du = senior author of EqM. Watch raywang4 (Wang) + Yilun Du. Same mitigation. |
-| v10 invariance-flavored loss collapses at non-trivial λ (Briglia) | M | MED | Small λ; CIFAR sanity diagnoses early; equivariant fallback ready |
-| CAFM port to EqM doesn't transfer (time-conditioning mismatch) | M | HIGH | Phase 1a smoke gate; γ-conditional discriminator fallback |
-| Lin CAFM repo doesn't reproduce easily (deps, data) | M | MED | Phase 0.C.2 smoke catches early; allocate 1 week buffer |
-| Our 31.41 baseline is invalid (paper has different config) | L | HIGH (DONE: reconciled, see `eqm_baseline_reconciliation.md`) | RESOLVED |
-| ICLR reviewer asks "why B/2 80ep when paper does XL/2 1400ep?" | M | MED | Honest framing: "ablation-regime improvement", scaling curve in Phase 3, SiT head-to-head in Phase 5 |
-| VeCoR adds adversarial mining in v2 of their paper | M | MED | Watch arxiv:2511.18942 versions. Their team (JIIOV) has resources |
+| Lin lab publishes mining-based variant before Oct 1 | LOW (was M-H) | HIGH | They have 4-paper discriminator-track momentum; pivoting to mining unlikely in this window. Weekly arxiv sweep continues. |
+| Du group publishes adversarial-EqM follow-up | M | HIGH | Du = senior author of EqM. Watch raywang4 + Yilun Du. EqM paper itself flagged "adversarial perturbations" as unexamined future work (external open-direction support for v10). |
+| v10 saturates / collapses at IN-1K scale (CIFAR PASS doesn't transfer) | LOW (smoke probe FID 78.91 at ckpt_65000 confirms healthy trajectory) | HIGH | Smoke-probe protocol per CLAUDE.md catches early. Auto-prune keeps cluster from quota-wedging the train. |
+| Phase 1 gate fail (FID > 30.41) | M | HIGH | 1 retune of λ ∈ {0.03, 0.3, 1.0}; if still fail, v11 equivariant fallback (Briglia) |
+| ICLR reviewer asks "why B/2 80ep when paper does XL/2 1400ep?" | M | MED | Methodological framing: "first discriminator-free adversarial-style training for regression-target gen models". Cite AFM 2.38 as the discriminator-based SOTA point — different axis. |
+| VeCoR adds adversarial mining in v2 | M | MED | Watch arxiv:2511.18942 versions. JIIOV has resources. |
+| Bug invalidating CIFAR Phase 0.3 PASS or smoke-probe FID 78.91 | LOW | HIGH | Code path (`train_imagenet.py`) is trusted — same that produced vanilla FID 31.41. |
+
+### 4.3 RESOLVED / OBSOLETE
+- ~~"CAFM port to EqM doesn't transfer (time-conditioning mismatch)"~~ — CONFIRMED catastrophic 2026-05-23, branch retired
+- ~~"Lin CAFM repo doesn't reproduce easily"~~ — moot; branch retired
+- ~~"Our 31.41 baseline is invalid"~~ — RESOLVED (`eqm_baseline_reconciliation.md`)
 
 ## 5. Recommended edits
 

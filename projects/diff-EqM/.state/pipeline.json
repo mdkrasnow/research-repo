@@ -1,7 +1,7 @@
 {
   "project": "diff-EqM",
   "title": "Differential-Geometry-Guided Adversarial Negative Mining for EqM (DG-ANM)",
-  "phase": "V10-ONLY-IN1K-SEED0-PENDING",
+  "phase": "V10-ONLY-IN1K-SEED0-TRAIN-RUNNING",
   "stage_b_in1k_baseline": {
     "verified_at": "2026-05-13",
     "result": {
@@ -73,7 +73,7 @@
     },
     "summer_plan_doc": "projects/diff-EqM/documentation/summer-2026-plan.md",
     "related_work_memo": "projects/diff-EqM/documentation/related-work-differentiation.md",
-    "framing": "Branch B-Both: PGD-on-target (v10) + CAFM-style discriminator AT (Lin et al. 2026). Primary on EqM-B/2 IN-1K (Phases 1-4); SiT head-to-head Phase 5.",
+    "framing": "v10-only (Branch B-Both retired 2026-05-23 post CAFM-EqM FID 341.25 catastrophe). v10 = PGD hard-example mining on EqM regression target. Method claim: first adversarial-style training for regression-target gen models without a discriminator (mining-based, single-objective, cannot collapse). Lin lab AFM/CAFM/AAPT/V-PAE own discriminator-based niche; v10 owns mining-based niche.",
     "missed_venues": [
       "NeurIPS 2026 main (May 6, 2026)",
       "ICML 2026 (Jan 28, 2026)"
@@ -115,7 +115,7 @@
     ]
   },
   "next_action": {
-    "command": "Monitor v10 IN-1K seed-0 job 15067741 (~36h on gpu partition). At step 5000 (~2h after start): submit FID eval on first eqm_compat ckpt via submit_phase_1b_fid.sh adapted. If FID > 100 -> cancel + diagnose. If FID < 50 -> let run to completion, then 50K-sample FID for Phase 1 gate (FID <= 30.41).",
+    "command": "Wait for v10 IN-1K seed-0 job 15638767 to complete (currently step ~285K of 380K, ETA ~10h). On COMPLETED: bash projects/diff-EqM/experiments/cafm_eqm/submit_v10_phase1_fid.sh (auto-resolves latest ckpt, runs 50K-sample FID for Phase 1 gate FID <= 30.41). If PASS: bash projects/diff-EqM/experiments/cafm_eqm/submit_v10_phase2_seeds.sh (seeds 1+2 for Phase 2 Welch t test). If FAIL: 1 retune of lambda in {0.03, 0.3, 1.0} per CLAUDE.md, then kill direction.",
     "reason": "Plan locked 2026-05-19 in documentation/summer-2026-plan.md. Broad framing approved (EqM-first, flow-matching transfer Phase 4). Venues: NeurIPS 2026 workshop (Aug 29) + ICLR 2027 (~Oct 1). Differentiation memo locked vs DAT (Wu 2025, 2510.13872) and AEBM-Diff (Geng 2024, 2403.01666). v10 mechanism-aligned per CLAUDE.md.",
     "phase_0_tasks": [
       "v02 IN-1K cancellation postmortem",
@@ -227,6 +227,20 @@
     "prompt": null
   },
   "completed_runs": [
+    {
+      "run_id": "v10_smoke_probe_fid_ckpt65000",
+      "job_id": "15635872",
+      "partition": "seas_gpu",
+      "status": "completed",
+      "exit_code": 0,
+      "git_sha": "ae31c46",
+      "ckpt": "imagenet1k_80ep_v10_seed0/000-EqM-B-2-Linear-velocity-None-dganm/checkpoints/0065000.pt",
+      "ckpt_epoch_approx": 13,
+      "num_fid_samples": 10000,
+      "fid": 78.91,
+      "verdict": "PASS smoke-time sample-probe per CLAUDE.md. Healthy trajectory (vanilla 76ep = 37.09, catastrophic threshold > 200). v10 mechanism transferring at IN-1K scale.",
+      "completed_at": "2026-05-25T08:00:00Z"
+    },
     {
       "run_id": "phase_1b_diag_ckpt5000_CONFIRMS_INSTANT_COLLAPSE",
       "job_id": "14985377",
@@ -948,6 +962,30 @@
       "ts": "2026-05-22T09:40:00Z",
       "action": "AUDIT_FIX_DDP_AND_RESUBMIT",
       "detail": "Audit caught: (1) gen/dis never DDP-wrapped (4 ranks trained independently); (2) cluster home repo dir stale so sbatch directives ignored. Fixes: manual all_reduce + init broadcast + rsync slurm/ before submit. Smoke v11 (no collectives), v12/v13 (NCCL on MIG) consumed, v14 PASS on real A100. Phase 1b resubmitted 14509440 SHA 375ab56."
+    },
+    {
+      "id": "evt-0040",
+      "ts": "2026-05-25T08:00:00Z",
+      "action": "V10_SMOKE_PROBE_FID_PASS",
+      "detail": "Smoke-probe FID (10K samples) at ckpt_65000 (~13ep) = 78.91. Healthy trajectory; vanilla 76ep = 37.09; catastrophic threshold > 200 (CAFM Phase 1b ckpt_5000 was 369). v10 mechanism transferring at IN-1K scale; aux/base ratio 1.006-1.022 matches CIFAR Phase 0.3 PASS 1.047-1.049 signature."
+    },
+    {
+      "id": "evt-0041",
+      "ts": "2026-05-26T00:00:00Z",
+      "action": "QUOTA_AUTO_PRUNER_DEPLOYED",
+      "detail": "Quota alert (90/100GB) hit twice in 12h from ckpt_every=5000 backlog. Manual prune freed 77G (89->12G). Auto-pruner sbatch (prune_v10_ckpts.sbatch) deployed as job 15933157 on shared partition; watches main job 15638767, keeps anchors {5000, 65000} + latest 2, exits on main completion. Prevents recurrence of 15290932 quota-wedge."
+    },
+    {
+      "id": "evt-0042",
+      "ts": "2026-05-26T00:00:00Z",
+      "action": "PHASE_1_2_HELPERS_STAGED",
+      "detail": "Pre-staged submit_v10_phase1_fid.sh (50K-sample Phase 1 gate FID, auto-resolves latest ckpt) and submit_v10_phase2_seeds.sh (seeds 1+2 80ep train for Phase 2 Welch t test). One-shot launch on train completion / gate pass."
+    },
+    {
+      "id": "evt-0043",
+      "ts": "2026-05-26T00:00:00Z",
+      "action": "LIT_SWEEP_2026_05_26",
+      "detail": "Weekly arxiv sweep. New MEDIUM hit: AFM (Lin Nov 2025, arxiv:2511.22475, IN-256 XL/2 FID 2.38 one-step adversarial flow). Per-paper note literature/lin2025_afm.md. Lin lab now 4 papers in 12mo, owns discriminator-based niche. v10 mining-based niche still uncontested. Framing implication: workshop §1 frames v10 as methodological (first discriminator-free adversarial-style regression-target training), NOT FID-SOTA contender."
     }
   ],
   "active_runs": [
@@ -955,8 +993,9 @@
       "run_id": "v10_in1k_80ep_seed0_resume_from_65000",
       "job_id": "15638767",
       "partition": "seas_gpu",
-      "status": "pending",
-      "description": "v10 IN-1K 80ep seed 0 RESUMED from ckpt_65000.pt after 15290932 wedged on home-quota deadlock (rsync of bg-loop hit quota at step ~70K, blocked SLURM stdout pipe, training froze). 66GB freed by deleting cafm_eqm_b2_in256_seed0 + cafm_eqm_smoke dirs.",
+      "nodelist": "holygpu8a16403",
+      "status": "running",
+      "description": "v10 IN-1K 80ep seed 0 RESUMED from ckpt_65000.pt after 15290932 wedged on home-quota deadlock. Healthy: at last check step ~285K of 380K, aux/base 1.006-1.022 (CIFAR PASS signature), ||delta||=0.3, base loss 10.55 matches vanilla 10.3.",
       "submitted_at": "2026-05-25T03:30:00Z",
       "git_sha": "ae31c46",
       "sbatch_path": "projects/diff-EqM/slurm/jobs/imagenet1k_80ep_v10.sbatch",
@@ -964,6 +1003,20 @@
       "phase": "1-v10",
       "gate": "Phase 1 gate: FID <= 30.41 (vs trusted vanilla 31.41)",
       "previous_jobs": ["15067741 gpu PENDING 12h cancelled", "15290932 seas_gpu wedged at step 74200 quota deadlock"]
+    },
+    {
+      "run_id": "prune_v10_ckpts_watchdog",
+      "job_id": "15933157",
+      "partition": "shared",
+      "nodelist": "holy7c24604",
+      "status": "running",
+      "description": "Periodic ckpt pruner watching main job 15638767. Keeps anchors {5000, 65000} + latest 2; deletes intermediates every 10min. Exits on main-job completion.",
+      "submitted_at": "2026-05-26T00:00:00Z",
+      "git_sha": "0b21852",
+      "sbatch_path": "projects/diff-EqM/slurm/jobs/prune_v10_ckpts.sbatch",
+      "expected_runtime": "<= 48h (auto-exits on MAIN_JOB_ID completion)",
+      "phase": "1-v10-infra",
+      "gate": "n/a (infra; prevents quota wedge of main job)"
     }
   ],
   "phase_0_progress": {

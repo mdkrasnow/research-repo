@@ -1,20 +1,26 @@
 # Experiment Queue — DG-ANM for EqM
 
 ## PUBLICATION GOAL
-Target: **NeurIPS / ICML / ICLR**. See `documentation/publishability-plan.md`.
+Targets: **NeurIPS 2026 workshop (Aug 29)** + **ICLR 2027 (~Oct 1)**. See `documentation/summer-2026-plan.md`.
 
-Current stage: **A — variant-search autoresearch** on CIFAR-10 25ep pilot. Hyperparameter sweeps abandoned 2026-04-23 after 150ep 3-seed confirmation showed v01 DG-ANM (10K FID 21.66 ± 9.95) loses to vanilla (12.54 ± 1.15) and `diag_dganm_signal.py` proved the margin-hinge is structurally inert.
+Current phase: **1 — v10-only IN-1K seed 0 train RUNNING** (job 15638767 on seas_gpu, ~10h to completion).
+Branch B-Both retired 2026-05-23 after CAFM-EqM Phase 1b FID 341.25 catastrophe (postmortem `postmortem-cafm-eqm-2026-05-23.md`).
+v10 = PGD hard-example mining on EqM regression target. Single-objective, no discriminator, mining-based.
 
-See `program.md` and `documentation/research-plan.md` for the new plan. Variant slate: v00_vanilla, v01_current, v02_score_repulsion (VeCoR 2025), v03_noised_negatives (Luo 2023 DCD), v04_ebm_contrastive (Du 2021 CD), v05_drop_geometry (Pidstrigach 2022), v06_diffusion_recovery (Kim 2024 CTM).
+## Top-of-queue (Phase 1 → Phase 2)
 
-## Top-of-queue (variant-search autoresearch)
-1. **Round 1 baseline pinning**: submit v00_vanilla and v01_current at 25ep pilot, 1 seed each. Must reproduce the known 150ep ordering (vanilla << v01) or raise pilot_epochs. Config: `configs/variants/v{00,01}*.json`. Sbatch: `slurm/jobs/variant_pilot.sbatch` with `CONFIG_PATH` env var.
-2. **Round 2 cheap variants**: v03_noised_negatives + v05_drop_geometry (1 seed each). v03 is the highest-probability single-change win per lit (fix t-schedule mining bug).
-3. **Round 3 reformulations**: v02_score_repulsion + v06_diffusion_recovery (1 seed each). Both replace the saturating hinge with non-saturating objectives.
-4. **Round 4 exotic**: v04_ebm_contrastive (1 seed). Budget for instability per Du 2021.
-5. **Promotion gate per variant**: 1-seed pilot beats v00 by >=1 FID → run 2 more seeds at pilot scale. 3-seed pilot mean beats v00 by >=1 FID → promote to 150ep 3-seed confirmation.
-6. **Confirmation gate (Stage A.5)**: 150ep 3-seed 10K FID mean beats v01 by >=1 FID AND within 3 FID of vanilla.
-7. **Stage B (gated on A.5 passing)**: winning variant vs vanilla on IN-100 EqM-B/2 80ep × 3 seeds, 50K FID. Blocked on IN-100 ref-stats `KeyError: mu` offline fix (3 completed vanilla seed runs preserved, FID recomputable without retrain).
+1. **WAIT** for v10 train 15638767 to complete (step ~285K of 380K at last check; ETA ~10h on seas_gpu, 48h cap). Auto-pruner 15933157 keeps quota in check.
+2. **ON COMPLETION** → `bash projects/diff-EqM/experiments/cafm_eqm/submit_v10_phase1_fid.sh` (50K-sample FID on latest ckpt). Gate: **FID ≤ 30.41** (vs vanilla 31.41).
+3. **IF GATE PASS** → `bash projects/diff-EqM/experiments/cafm_eqm/submit_v10_phase2_seeds.sh` (seeds 1+2 80ep each). Phase 2 gate: 3-seed Welch t p<0.05, mean ≥ 1 FID gain.
+4. **IF GATE FAIL** → 1 retune of λ ∈ {0.03, 0.3, 1.0} per CLAUDE.md, then kill direction → propose v11 (Briglia equivariant fallback, sketch in `documentation/v11_fallback_sketch.md`).
+5. **PI update trigger** on Phase 1 gate result (drafted in `pi-updates.md`, user-send only).
+6. **Phase 3** (gated on Phase 2 PASS): scaling curves S/2, B/2, L/2 on IN-1K.
+7. **Phase 4** (gated on Phase 3): SiT transfer ≥ 0.5 FID.
+8. **Phase 5** (gated on Phase 4): workshop draft ready by 2026-08-22 (7-day buffer to deadline).
+
+## In-flight
+- 15638767 v10 IN-1K seed-0 train (seas_gpu, RUNNING)
+- 15933157 ckpt auto-pruner (shared, RUNNING)
 
 Historical top-of-queue items preserved below for reference but no longer active.
 
