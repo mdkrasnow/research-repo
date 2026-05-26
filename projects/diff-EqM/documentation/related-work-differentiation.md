@@ -79,7 +79,34 @@
 - They test SiT/JiT. We are first to apply CAFM-style AT to EqM family.
 - They do not test combining PGD-on-input with discriminator AT. We do (Branch B).
 
-## v10 — our positioning (Branch B-Both)
+## POST-2026-05-23 PIVOT: Discriminator-based vs Mining-based axis
+
+Branch B-Both retired 2026-05-23 after CAFM-EqM Phase 1b FID 341.25 catastrophe (postmortem `postmortem-cafm-eqm-2026-05-23.md`). Project now **v10-only**.
+
+The lit landscape (with AFM/CAFM/AAPT/V-PAE from Lin lab + EqM from Du group) partitions cleanly along a single axis:
+
+| Axis | **Discriminator-based** | **Mining-based (ours)** |
+|---|---|---|
+| Method family | Adversarial 2-player (generator + discriminator) | Single-player regression with adversarially mined inputs |
+| Examples | AFM, CAFM, AAPT, V-PAE, DAT, AEBM-Diff, Rob-GAN | **v10** (no prior on regression-target gen models) |
+| Loss form | LSGAN / BCE / Jeffrey div on discriminator output | MSE on regression target evaluated at PGD-mined input |
+| Collapse modes | Mode collapse, discriminator dominance, field-collapse | None (loss bounded below by 0; aux = base form) |
+| Adversarial mechanism | Discriminator gradient | Input-space PGD on regression loss |
+| EqM compatibility | **FAILS catastrophically** (CAFM-EqM FID 341.25 — fresh dis trivially crushes regression-trained gen) | **Works** (CIFAR 13.40 vs 14.17 PASS; IN-1K smoke-probe 78.91 at ckpt_65000 on healthy trajectory) |
+| Best result | AFM XL/2 IN-256 FID 2.38 (Lin Nov 2025) | Phase 1 in flight: gate FID ≤ 30.41 vs vanilla 31.41 (B/2, 80ep) |
+| Inference cost | Native 1NFE (AFM) or vanilla flow | Vanilla EqM gradient flow (no change) |
+
+**Niche partition (post-2026-05-26 sweep)**:
+- Lin lab (4 papers in 12mo) owns the discriminator-based niche outright.
+- v10 owns the mining-based-regression-target niche — uncontested through workshop window (Aug 29).
+
+**Methodological claim (revised post-pivot)**: First adversarial-style training for regression-target generative models that requires no discriminator, no two-player game, and cannot collapse to trivial solutions. NOT a FID-SOTA contender vs AFM 2.38; instead, a methodological contribution at the vanilla-EqM-comparable scale (B/2, 80ep).
+
+The "v10+CAFM" composition columns below are HISTORICAL — preserved for record but no longer the current positioning. The v10-only row remains active.
+
+---
+
+## v10 — our positioning (Branch B-Both — HISTORICAL; see above for current post-pivot positioning)
 
 ### Method
 - Same EqM regression target: `target = (ε - x) · c(γ)`, `L_base = ||f(x_γ) - target||²`.

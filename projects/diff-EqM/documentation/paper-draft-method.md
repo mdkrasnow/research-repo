@@ -1,12 +1,16 @@
 # Workshop Paper Draft — §3 Method
 
-Status: v1 draft, 2026-05-20 (post Phase 0.3 PASS). To be iterated when Phase 1b/2 numbers arrive.
+Status: v2 draft, 2026-05-26 (post Branch B-Both retire + v10-only pivot). v10 IN-1K Phase 1 train in flight. To be iterated when Phase 1/2 numbers arrive.
+
+**Version log**:
+- v2 2026-05-26: Removed §3.3–3.5 CAFM port + combination (Branch B-Both retired after Phase 1b FID 341.25 catastrophe; postmortem 2026-05-23). Replaced with §3.3 "Why mining-based, not discriminator-based" and §3.4 implementation.
+- v1 2026-05-20: Initial draft proposed v10 + CAFM combination.
 
 ---
 
 ## 3. Method
 
-We propose two complementary modifications to the training objective of regression-target generative models: (i) **v10**, a PGD-mined hard-example loss on the regression target itself, and (ii) **v10+CAFM**, a combined objective that augments CAFM-style discriminator post-training (Lin et al. 2026) with v10. We instantiate both on Equilibrium Matching (EqM, Wang & Du 2025) as the primary base model, and confirm the combination on Scalable Interpolant Transformers (SiT, Ma et al. 2024) in §5.
+We propose **v10**, a PGD-mined hard-example loss on the regression target of regression-target generative models. We instantiate on Equilibrium Matching (EqM, Wang & Du 2025) as the primary base model; transfer to flow matching (SiT, Ma et al. 2024) is shown in §5. v10 is the **first adversarial-style training objective for regression-target generative models that does not require a discriminator, does not introduce a two-player game, and cannot collapse to trivial solutions** — properties we establish in §3.3.
 
 ### 3.1 Background: Equilibrium Matching
 
@@ -51,55 +55,35 @@ We detach ``δ*`` so gradients of ``L_v10`` flow only through ``θ``, not throug
 
 **Cost.** With ``K=1``, ``L_v10`` adds one extra forward pass and one extra backward pass per training step (≈2× generator compute). In the combined v10+CAFM regime (§3.4), the discriminator runs N=16 updates per generator update, so v10's contribution to wall-clock is ≈5-10% of total.
 
-### 3.3 Background: CAFM (Lin et al. 2026)
+### 3.3 Why mining-based, not discriminator-based
 
-Continuous Adversarial Flow Matching (CAFM) post-trains a pretrained flow-matching generator ``G_θ`` with a learned discriminator ``D_φ`` that operates on the velocity field via Jacobian-vector products (JVP). At each step, with ``x_t = (1−t)x + tε`` and target velocity ``v̄_t = ε − x``:
+A natural alternative to ``L_v10`` is to apply discriminator-based adversarial training to EqM directly — instantiating the Continuous Adversarial Flow Models (CAFM, Lin et al. 2026) or Adversarial Flow Models (AFM, Lin et al. 2025) recipes on EqM. **This fails catastrophically.** We attempted this port (Branch B-Both in our internal notes); training was clean by every loss-curve diagnostic (gen loss converged from 4.0 to 1.7–2.3; discriminator loss oscillated 0.9–2.1; centering penalty stayed at ``1×10⁻⁴``), but the resulting checkpoint produced a 50K-sample FID of **341.25** versus the vanilla EqM-B/2 80-epoch baseline of **31.41** — a 10× degradation. Sample-probe FID at checkpoint 5,000 (~250 generator updates past warmup) was already 369, confirming an instant rather than cumulative drift.
 
-```
-L_CAFM_G(θ) = E [ f(D_jvp(x_t, t, G_θ(x_t, t), 1); 1) ] + λ_ot · ‖ G_θ(x_t, t) ‖²
-L_CAFM_D(φ) = E [ f(D_jvp(x_t, t, v̄_t, 1); 1) + f(D_jvp(x_t, t, G_θ(x_t, t), 1); −1) ] + λ_cp · D_jvp(x_t, t)²
-```
+The mechanism is structural, not a bug. EqM trains the network ``f_θ`` by pure regression against an explicit target ``(ε−x)·c(γ)``; ``f_θ`` was never exposed to an adversarial signal during pretraining. When a freshly-initialized discriminator ``D_φ`` is attached, it trivially discriminates "vanilla-EqM output ≠ training-data velocity" and pushes ``f_θ`` away from the EqM target manifold to fool ``D_φ``, satisfying the adversarial objective while destroying the regression objective. The schedule ``c(γ) → 0`` near the data manifold amplifies the asymmetry: any non-zero adversarial gradient at high ``γ`` is preferred over satisfying a vanishing regression target. The two-player equilibrium drifts to a point where ``D_φ`` is satisfied and ``f_θ`` produces field-magnitude collapse.
 
-where ``f(a; b) = (a − b)²`` (least-squares GAN), ``D_jvp(x, t, v, ṫ) = JVP_{(x,t)} D_φ(·) · (v, ṫ)`` discriminates in velocity-derivative space, and the discriminator is updated ``N`` times per generator update (Lin use N=16). Lin report ImageNet-256 SiT-XL/2 guidance-free FID improving from 8.26 (vanilla FM) to **3.63** after 10 epochs of CAFM post-training, and 2.06 → **1.53** with classifier-free guidance.
+This failure is specific to regression-target generative models and is **not** observed in CAFM or AFM, both of which start from flow-matching pretrained generators whose targets do not vanish at the data manifold and whose loss is symmetric in time. We document the failure in detail in Appendix A as a negative result for future work attempting to port discriminator-based adversarial training to EqM or other regression-target generative models.
 
-### 3.4 Porting CAFM to EqM
+By contrast, ``L_v10`` is a **single-player objective** with no degenerate minimum:
+- Both ``L_EqM`` and ``L_v10`` regress to the *same* fixed target ``(ε−x)·c(γ)``.
+- The minimum of ``L_v10`` is bounded below by 0 (perfect regression at the mined input).
+- There is no adversary that benefits from ``f_θ`` moving away from the target.
+- The aux/base ratio ``L_v10 / L_EqM`` is bounded above by a constant determined by the Lipschitz constant of ``f_θ`` over the L2 ball — observed empirically in [1.00, 1.05] throughout training.
 
-EqM is time-unconditional: ``f_θ`` does not receive ``γ`` as an input. To use CAFM's time-conditioned discriminator architecture, we map EqM's mixing coefficient ``γ`` onto the discriminator's time slot ``t``: the discriminator becomes ``D_φ(x_γ, γ)`` while the generator remains ``f_θ(x_γ)``. The JVP tangent direction (``ṫ = 1``) is preserved. Concretely we replace CAFM's ``v̄_t = ε − x`` with EqM's energy-compatible target ``v̄_γ = (ε − x) · c(γ)``, and we treat the generator output ``f_θ(x_γ)`` itself as the velocity-shaped quantity fed to the discriminator (since EqM trains it to match exactly this target).
+This positions ``L_v10`` as the first adversarial-style training method that is compatible with regression-target generative models. It does not compete head-to-head with discriminator-based methods on the same axis (AFM XL/2 achieves IN-256 FID 2.38 one-step, a result we do not approach at our B/2 80-epoch scale); rather, it occupies the disjoint niche of "adversarial-style training that preserves the regression objective."
 
-This yields a single-line modification to Lin's CAFM training step (replace ``velocity_real = noises − latents`` with ``velocity_real = (noises − latents) · c(gamma)`` and remove the time embedding's coupling to flow-matching schedule). All other components — ``N=16`` discriminator-to-generator ratio, least-squares loss, centering penalty ``λ_cp = 0.001``, post-training learning rate ``1×10⁻⁵`` with Adam ``β = (0, 0.95)``, EMA decay ``0.99``, 10-epoch budget — are kept identical to Lin's recipe. To our knowledge this is the first application of CAFM-style adversarial post-training to the EqM family.
+### 3.4 Implementation
 
-### 3.5 v10 + CAFM: combined objective
+Code is at `projects/diff-EqM/experiments/` (MIT-licensed). ``L_v10`` is wired into the trusted EqM training path (`train_imagenet.py` — the same path that produced the vanilla baseline FID 31.41), with a single dispatch branch selected by ``--mining-flavor v10``. The core function `_v10_pgd_hard_example_step` computes the perturbed forward pass, applies one FGSM-style step with L2 projection, and returns ``L_v10`` for backpropagation. No new model architecture, no new loss head, no second optimizer.
 
-The combined generator loss simply adds the v10 term to the CAFM generator loss:
+CIFAR-10 variant (`v10_hard_example.py`) was used for the §4.1 sanity check. Unit tests (14/14 passing) verify ``c(γ)`` matches Wang & Du's `transport.py` at canonical ``γ`` values and that PGA mining respects the L2 ball and increases the regression loss.
 
-```
-L_G_combined(θ) = L_CAFM_G(θ) + λ · L_v10(θ)
-```
-
-The discriminator loss is unchanged. Crucially, the v10 hard-example mining is performed against the **EqM regression loss**, not against the discriminator — the two adversarial signals are decoupled:
-
-- The discriminator catches **global distributional mismatch** between generated and real velocity fields at each ``γ``.
-- ``L_v10`` catches **local pointwise regression failures** of ``f_θ`` in a neighborhood of each training input.
-
-We hypothesize these signals are complementary because they constrain different failure modes: the discriminator's gradient depends on the marginal distribution of velocity fields and can be satisfied by a model that produces correct velocities *on average* even if individual samples are misfit; conversely, ``L_v10`` can be satisfied by a model that is locally well-fit at every training point but produces an aggregate distribution biased from the data. We test this hypothesis empirically in §4.2 with a 3-seed ablation (vanilla / v10 / CAFM / v10+CAFM) on EqM-B/2 ImageNet-256.
-
-### 3.6 Implementation
-
-Code is at `projects/diff-EqM/experiments/cafm_eqm/` (MIT-licensed). The core modules are:
-
-- `eqm_target.py`: ``c(γ)`` and target construction matching Wang & Du's `transport.py` exactly.
-- `v10_mining.py`: PGA mining + ``L_v10`` computation, framework-agnostic.
-- `discriminator_adapter.py`: imports Lin's `DiscriminatorJVP` from the cloned `Adversarial-Flow-Models` repo (no reimplementation needed; ``γ`` passes through the existing time slot).
-- `training_step.py`: drop-in ``cafm_dis_step``, ``cafm_gen_step``, ``cafm_v10_gen_step`` mirroring Lin's training-step signature.
-- `train_cafm_eqm.py`: minimal DDP training loop (no Entrypoint/PersistenceMixin dependency).
-- `v10_sit_trainer.py`: subclass of Lin's ``ContinuousAdversarialFlowTrainer`` that adds the ``L_v10`` term for the §5 SiT head-to-head.
-
-Unit tests (14/14 passing) verify ``c(γ)`` matches the upstream EqM implementation exactly at canonical ``γ`` values, that PGA mining respects the L2 ball, and that mining increases the regression loss as expected.
+The aux/base ratio, perturbation norm ``‖δ‖``, and field-norm ``‖f(x_γ+δ)‖`` are logged every 200 steps as the mandatory diagnostics specified in our research protocol.
 
 ---
 
-## Notes for revision after Phase 1b/2 numbers arrive
+## Notes for revision after Phase 1 / 2 numbers arrive
 
-- §3.5 hypothesis: replace "We hypothesize" with concrete diagnostic numbers from Phase 2 ablation showing the two losses are non-redundant (e.g., L_v10 still nonzero when discriminator loss has converged).
-- §3.4 add reference to the trusted vanilla EqM-B/2 80ep IN-1K baseline (FID 31.41) and the CAFM-only post-training result (FID Y) once available.
-- Method figure: pipeline diagram showing two adversarial signals branching into the same generator. Reference Lin's CAFM figure for analogy.
+- §3.3 Appendix A reference: link to `postmortem-cafm-eqm-2026-05-23.md` content in supplementary.
+- Insert Phase 1 v10 IN-1K seed-0 FID number into the §3.3 closing paragraph (vs vanilla 31.41).
+- §3.4 add reference to the trusted vanilla EqM-B/2 80ep IN-1K baseline (FID 31.41) and the v10 Phase 1 result once available.
+- Method figure: pipeline diagram showing ``f_θ`` evaluated at clean ``x_γ`` (yields ``L_EqM``) and mined ``x_γ + δ*`` (yields ``L_v10``), with a sub-figure marking the failed discriminator-based alternative.
