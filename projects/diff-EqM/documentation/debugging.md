@@ -71,3 +71,51 @@ Replaces the "POSTMORTEM PENDING" entry below.
 4. Confirms Branch B framing: v02 saturation is mechanism-level; v10 + CAFM mechanistically immune.
 
 **No remediation needed**. v02 path dead. v10 + CAFM is correct continuation.
+
+---
+
+## 2026-05-23: CAFM-EqM Phase 1b CATASTROPHIC FID 341.25
+
+Full postmortem: `postmortem-cafm-eqm-2026-05-23.md`.
+
+**Headline**: CAFM port to EqM, after clean training (gen loss 4.0→1.7, dis loss 0.9-2.1 oscillating), produced 50K-sample FID 341.25 vs vanilla 31.41 (10× worse). Ckpt_5000 diagnostic FID 369.64 confirmed instant (not cumulative) collapse.
+
+**Root cause**: Vanilla EqM was trained by pure regression; freshly-initialized discriminator trivially discriminates "vanilla-EqM output ≠ training-data velocity" and pushes generator off the EqM target manifold. `c(γ)→0` near data manifold amplifies asymmetry — any adversarial gradient at high γ preferred over vanishing regression target.
+
+**Process failures**:
+1. Smoke validated loss-finiteness + exit 0, NOT sample quality.
+2. Misread one-sided monotonic dis-loss decrease as healthy convergence.
+3. Design doc reasoned about JVP geometry, not about discriminator-shortcut against non-adversarially-trained generators.
+
+**Fixes landed in CLAUDE.md**:
+- Mandatory smoke-time sample-quality probe for new losses on gen models.
+- Discriminator-loss oscillation check (one-sided decrease = STOP).
+- Branch B-Both retired; v10-only pivot confirmed.
+
+---
+
+## 2026-05-24/25: Home-quota deadlock killed v10 train 15290932
+
+**Headline**: Main job 15290932 wedged at step 74,200 of 380K. Symptom: SLURM .out write blocked → Python stdout buffer filled → training process froze (no exit, no crash, no error).
+
+**Root cause**: Home quota 100GB hard limit hit. ckpt-every=5000 + 30min rsync sync from /tmp persisted ~70 ckpts × 2GB = 140GB total over ~13h. Combined with prior CAFM dirs (66GB) + ref-stats files (114MB) = >100GB triggered quota wall. Process froze on first write attempt that exceeded quota.
+
+**Recovery**: cancelled 15290932; deleted ~66GB of CAFM dead-tree dirs (with user approval); resumed v10 from ckpt_65000.pt as 15638767. Completed clean in 1d11h32m.
+
+**Mitigation deployed**: `slurm/jobs/prune_v10_ckpts.sbatch` — periodic shared-partition pruner watching MAIN_JOB_ID, keeps anchors {5000, 65000} + latest 2, prunes every 10min, exits on main-job completion. Used during 15638767 successfully (peak quota 50G/95G, never wedged).
+
+**Outstanding bug**: main job's sync_checkpoints rsync re-uploads ckpts from /tmp source every 30min, resurrecting pruner-deleted files. Requires 1-2 manual prunes per train. Fix: patch sync_checkpoints to thin /tmp side BEFORE rsync. Deferred to next sbatch revision (applies only to future runs, not in-flight).
+
+---
+
+## 2026-05-27: FID eval failed on .JPEG case-sensitivity (16327377)
+
+**Headline**: Phase 1 gate FID resubmission 16327377 (gpu_requeue) failed at 2m27s. Error: "Flat reference: 0 images" → "ERROR: No reference images found in /n/holylabs/.../imagenet/train".
+
+**Root cause**: `imagenet_fid.sbatch` line 91 used `find -name "*.jpg" -o -name "*.jpeg" -o -name "*.png"` (case-sensitive). IN-1K data uses `.JPEG` (uppercase). Find matched 0 files → 0 symlinks → 0 ref → exit.
+
+**Why missed earlier**: `imagenet_fid.sbatch` was generic (IN-100 was lowercase .jpg). Trusted IN-1K baseline FID 31.41 (12590806) used a different sbatch: `imagenet1k_fid_eval.sbatch` which has both `.JPEG` and `.jpg` patterns + 50K shuf subsample (handles 1.3M file count). Pre-staged helper `submit_v10_phase1_fid.sh` pointed to the wrong sbatch.
+
+**Fix**: commit `fef80d7` — switched helper to `imagenet1k_fid_eval.sbatch`. Resubmitted as 16328965 → COMPLETED FID 29.01 in 2h20m.
+
+**Lesson**: Pre-staged helpers must match the trusted-baseline path verbatim. Audit any sbatch interaction with NFS-mounted datasets for case-sensitivity + extension assumptions.
