@@ -36,20 +36,14 @@ if [ -z "$CKPT_REL" ]; then
     echo "Auto-resolved latest ckpt: $CKPT_REL"
 fi
 
-IN1K_REF="/n/holylabs/ydu_lab/Lab/raywang4/imagenet/train"
-
-echo "Submitting Phase 1 gate FID:"
+echo "Submitting Phase 1 gate FID (using IN-1K-specific sbatch with .JPEG handling + 50K shuf subsample):"
 echo "  ckpt: $CKPT_REL"
-echo "  ref:  $IN1K_REF"
 echo "  N:    50000 samples"
 echo "  SHA:  $GIT_SHA"
 
 bash scripts/cluster/ssh.sh "cd /n/home03/mkrasnow/research-repo && \
     sbatch --export=GIT_URL=$GIT_URL,GIT_SHA=$GIT_SHA,\
 CHECKPOINT_PATH=$CKPT_REL,\
-NUM_CLASSES=1000,\
 NUM_FID_SAMPLES=50000,\
-SAMPLE_BATCH_SIZE=64,\
-IMAGENET_REF=$IN1K_REF,\
-MODEL=EqM-B/2 \
-    projects/diff-EqM/slurm/jobs/imagenet_fid.sbatch"
+SAMPLE_BATCH_SIZE=64 \
+    projects/diff-EqM/slurm/jobs/imagenet1k_fid_eval.sbatch"
