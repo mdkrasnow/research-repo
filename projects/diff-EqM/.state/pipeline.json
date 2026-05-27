@@ -1,7 +1,7 @@
 {
   "project": "diff-EqM",
   "title": "Differential-Geometry-Guided Adversarial Negative Mining for EqM (DG-ANM)",
-  "phase": "V10-ONLY-IN1K-SEED0-TRAIN-RUNNING",
+  "phase": "V10-ONLY-IN1K-SEED0-FID-EVAL-PENDING",
   "stage_b_in1k_baseline": {
     "verified_at": "2026-05-13",
     "result": {
@@ -227,6 +227,28 @@
     "prompt": null
   },
   "completed_runs": [
+    {
+      "run_id": "v10_in1k_80ep_seed0_train_COMPLETED",
+      "job_id": "15638767",
+      "partition": "seas_gpu",
+      "nodelist": "holygpu8a16403",
+      "status": "completed",
+      "exit_code": 0,
+      "elapsed": "1-11:31:51",
+      "git_sha": "ae31c46",
+      "total_steps": 405000,
+      "final_ckpt": "imagenet1k_80ep_v10_seed0/000-EqM-B-2-Linear-velocity-None-dganm/checkpoints/final.pt",
+      "verdict": "Phase 1 train COMPLETED clean. Resumed from ckpt_65000 to 405K. FID eval submitted 16304913 for gate decision.",
+      "completed_at": "2026-05-27T00:25:00Z"
+    },
+    {
+      "run_id": "prune_v10_ckpts_watchdog_COMPLETED",
+      "job_id": "15933157",
+      "partition": "shared",
+      "status": "completed",
+      "verdict": "Pruner exited on main job completion. Kept quota stable 30-50G across train run; final manual prune to 4 ckpts (anchors 5K/65K + 405K + final.pt).",
+      "completed_at": "2026-05-27T00:25:00Z"
+    },
     {
       "run_id": "v10_smoke_probe_fid_ckpt65000",
       "job_id": "15635872",
@@ -990,33 +1012,18 @@
   ],
   "active_runs": [
     {
-      "run_id": "v10_in1k_80ep_seed0_resume_from_65000",
-      "job_id": "15638767",
-      "partition": "seas_gpu",
-      "nodelist": "holygpu8a16403",
-      "status": "running",
-      "description": "v10 IN-1K 80ep seed 0 RESUMED from ckpt_65000.pt after 15290932 wedged on home-quota deadlock. Healthy: at last check step ~285K of 380K, aux/base 1.006-1.022 (CIFAR PASS signature), ||delta||=0.3, base loss 10.55 matches vanilla 10.3.",
-      "submitted_at": "2026-05-25T03:30:00Z",
-      "git_sha": "ae31c46",
-      "sbatch_path": "projects/diff-EqM/slurm/jobs/imagenet1k_80ep_v10.sbatch",
-      "expected_runtime": "~30h (335K remaining steps at 2.76 steps/sec)",
-      "phase": "1-v10",
-      "gate": "Phase 1 gate: FID <= 30.41 (vs trusted vanilla 31.41)",
-      "previous_jobs": ["15067741 gpu PENDING 12h cancelled", "15290932 seas_gpu wedged at step 74200 quota deadlock"]
-    },
-    {
-      "run_id": "prune_v10_ckpts_watchdog",
-      "job_id": "15933157",
-      "partition": "shared",
-      "nodelist": "holy7c24604",
-      "status": "running",
-      "description": "Periodic ckpt pruner watching main job 15638767. Keeps anchors {5000, 65000} + latest 2; deletes intermediates every 10min. Exits on main-job completion.",
-      "submitted_at": "2026-05-26T00:00:00Z",
-      "git_sha": "0b21852",
-      "sbatch_path": "projects/diff-EqM/slurm/jobs/prune_v10_ckpts.sbatch",
-      "expected_runtime": "<= 48h (auto-exits on MAIN_JOB_ID completion)",
-      "phase": "1-v10-infra",
-      "gate": "n/a (infra; prevents quota wedge of main job)"
+      "run_id": "v10_in1k_seed0_phase1_fid_50k",
+      "job_id": "16304913",
+      "partition": "gpu",
+      "status": "pending",
+      "description": "Phase 1 gate FID eval on v10 IN-1K seed-0 final.pt (405K steps, 80ep). 50K samples, 4xA100 DDP, gd sampler eta=0.003 steps=250 cfg=1.0. Gate: FID <= 30.41 (vs vanilla 31.41).",
+      "submitted_at": "2026-05-27T00:30:00Z",
+      "git_sha": "562d7a5",
+      "sbatch_path": "projects/diff-EqM/slurm/jobs/imagenet_fid.sbatch",
+      "expected_runtime": "~2-3h (sampling ~1.5-2h, FID compute ~15min)",
+      "phase": "1-v10-gate",
+      "gate": "Phase 1: FID <= 30.41",
+      "ckpt": "imagenet1k_80ep_v10_seed0/000-EqM-B-2-Linear-velocity-None-dganm/checkpoints/final.pt"
     }
   ],
   "phase_0_progress": {
