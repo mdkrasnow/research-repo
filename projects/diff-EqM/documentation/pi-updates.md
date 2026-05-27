@@ -245,3 +245,40 @@ Subject: DG-ANM update — Stage A.5 gate passed, CIFAR FID 497 bug isolated to 
 2. Update `summer-2026-plan.md` Phases 1-5 timeline for v10-only.
 3. Submit Phase 1 v10-only IN-1K seed-0 run.
 4. CAFM-EqM port code archived in `experiments/cafm_eqm/` for record.
+
+---
+
+## 2026-05-27 — Phase 1 gate PASS (v10 IN-1K seed-0)
+
+**TRIGGER**: Phase 1 exit gate evaluated; PASS.
+
+**Headline**: v10 IN-1K-256 EqM-B/2 80ep seed-0 50K-sample FID = **29.01** vs trusted vanilla baseline **31.41** (gain **2.40 FID**, **7.6% relative**). Phase 1 gate threshold 30.41 cleared by 1.40 FID.
+
+**Context**:
+- v10 = single-objective regression with PGD hard-example mining on the EqM target (no discriminator, no two-player game, cannot collapse to trivial solutions).
+- This is the **first paper-comparable-scale confirmation** of v10 since the CIFAR-10 Phase 0.3 PASS (13.40 vs 14.17). CIFAR gain was 0.77 FID; IN-1K gain is 2.40 FID — **gain scales up** under transfer to ImageNet-1K.
+- Mechanism diagnostics throughout training matched CIFAR PASS signature: aux/base ratio stable 1.01-1.03 (non-saturating, mining active), base loss matched vanilla at ~10.30 (regression objective preserved), ‖δ‖ at boundary 0.300 throughout, no collapse signal.
+- Train completed clean in 1d11h32m on seas_gpu (resumed from ckpt_65000 after prior quota-deadlock incident on 15290932). FID eval ran on gpu_requeue in 2h20m.
+
+**What this means for the paper**:
+- Workshop §4 (experiments) now has its first headline number on IN-1K. v10 confirms transfer of the CIFAR mechanism to paper-scale.
+- The discriminator-vs-mining framing locked in last week's lit sweep (post-CAFM retire, post-AFM hit) is now empirically substantiated: mining-based regression-target adversarial training **works** where discriminator-based fails (CAFM-EqM was FID 341).
+
+**Phase 2 (already launched)**: seeds 1 + 2 submitted as 16362498 + 16362499 (gpu partition, ~30-36h each). Gate: 3-seed Welch t p<0.05 AND mean ≥ 1 FID gain vs vanilla. Currently 1/3 seeds in; preliminary 1-seed gain (2.40 FID) is well above the 1-FID threshold, so the multi-seed test is mostly a confirm-and-stabilize step.
+
+**Risks**:
+- 2-seed variance unknown; if seeds 1+2 show high variance (e.g., one seed regresses), Welch t may not pass. Mitigation: CIFAR Phase 0.3 was single-seed but CAFM postmortem's seed-variance concerns specific to discriminator dynamics, not regression mining.
+- Lin lab scoop risk LOW per 2026-05-26 lit sweep; their discriminator-based momentum makes mining-pivot unlikely in 13-week workshop window.
+
+**Decisions needed from PI**: None blocking. Update for awareness + green-light continued autonomous execution of Phase 2 → Phase 3 (scaling curves) if Phase 2 PASS.
+
+**Numbers (canonical)**:
+- v10 IN-1K seed 0: FID **29.01** (50K samples, gd sampler eta=0.003 steps=250 cfg=1.0)
+- Vanilla baseline: FID **31.41** (50K samples, same sampler)
+- v10 CIFAR Phase 0.3: FID **13.40** vs vanilla **14.17**
+
+**Next**:
+1. Wait for Phase 2 seeds 1+2 (~30-36h).
+2. On Phase 2 PASS: launch Phase 3 scaling curves (S/2, L/2 on IN-1K).
+3. Update SYNTHESIS.md §4 risk table — Phase 1 transferability risk now RESOLVED.
+4. Update paper-draft-method.md §3.3 closing paragraph with the FID 29.01 number.

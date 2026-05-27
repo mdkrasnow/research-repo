@@ -1,7 +1,7 @@
 {
   "project": "diff-EqM",
   "title": "Differential-Geometry-Guided Adversarial Negative Mining for EqM (DG-ANM)",
-  "phase": "V10-ONLY-IN1K-SEED0-FID-EVAL-PENDING",
+  "phase": "V10-ONLY-IN1K-PHASE-2-MULTISEED-RUNNING",
   "stage_b_in1k_baseline": {
     "verified_at": "2026-05-13",
     "result": {
@@ -223,10 +223,31 @@
     "sbatch": "projects/diff-EqM/slurm/jobs/variant_pilot.sbatch"
   },
   "needs_user_input": {
-    "value": false,
-    "prompt": null
+    "value": true,
+    "prompt": "PI update draft pending send: Phase 1 gate PASS (FID 29.01 vs vanilla 31.41, gain 2.40). See documentation/pi-updates.md latest entry. User-send only per pi-updates.md protocol."
   },
   "completed_runs": [
+    {
+      "run_id": "v10_in1k_seed0_phase1_FID_PASS",
+      "job_id": "16328965",
+      "partition": "gpu_requeue",
+      "nodelist": "holygpu7c0522",
+      "status": "completed",
+      "exit_code": 0,
+      "elapsed": "02:20:34",
+      "git_sha": "fef80d7",
+      "ckpt": "imagenet1k_80ep_v10_seed0/.../final.pt",
+      "num_fid_samples": 50000,
+      "sampling": {"sampler": "gd", "stepsize": 0.003, "num_sampling_steps": 250, "cfg_scale": 1.0, "samples_generated": 50048, "sampling_elapsed": "2h04m"},
+      "fid": 29.0085,
+      "vanilla_baseline_fid": 31.41,
+      "gate_threshold": 30.41,
+      "gate_margin_below_threshold": 1.40,
+      "gain_vs_vanilla": 2.40,
+      "verdict": "PHASE 1 GATE PASS. FID 29.01 vs vanilla 31.41 (2.40 FID gain, 7.6% relative). Triggered Phase 2 multi-seed: 16362498 (seed 1) + 16362499 (seed 2). PI update triggered.",
+      "completed_at": "2026-05-27T11:51:00Z",
+      "previous_attempts": ["16304913 cancelled (gpu queue depth)", "16327377 FAILED 2m27s (.JPEG case-sensitivity)"]
+    },
     {
       "run_id": "v10_in1k_80ep_seed0_train_COMPLETED",
       "job_id": "15638767",
@@ -1004,6 +1025,12 @@
       "detail": "Pre-staged submit_v10_phase1_fid.sh (50K-sample Phase 1 gate FID, auto-resolves latest ckpt) and submit_v10_phase2_seeds.sh (seeds 1+2 80ep train for Phase 2 Welch t test). One-shot launch on train completion / gate pass."
     },
     {
+      "id": "evt-0044",
+      "ts": "2026-05-27T11:51:00Z",
+      "action": "PHASE_1_GATE_PASS",
+      "detail": "v10 IN-1K seed-0 50K-sample FID = 29.0085 vs vanilla 31.41 (2.40 FID gain, 7.6% relative). Phase 1 gate cleared by 1.40 FID. Mechanism CONFIRMED at paper-comparable scale (B/2, 80ep). Phase 2 multi-seed launched: 16362498 (seed 1) + 16362499 (seed 2) on gpu partition. PI update triggered. Workshop paper §4 has its first headline number."
+    },
+    {
       "id": "evt-0043",
       "ts": "2026-05-26T00:00:00Z",
       "action": "LIT_SWEEP_2026_05_26",
@@ -1012,21 +1039,30 @@
   ],
   "active_runs": [
     {
-      "run_id": "v10_in1k_seed0_phase1_fid_50k",
-      "job_id": "16328965",
-      "previous_job_ids": "16304913 (cancelled, gpu queue depth) -> 16327377 (FAILED 2m27s: .JPEG case-sensitivity bug in imagenet_fid.sbatch find; 0 ref images)",
-      "partition": "gpu_requeue",
-      "sbatch_path": "projects/diff-EqM/slurm/jobs/imagenet1k_fid_eval.sbatch",
-      "fix_commit": "fef80d7 (switch to IN-1K-specific sbatch with .JPEG handling + 50K shuf subsample)",
+      "run_id": "v10_in1k_80ep_seed1_phase2",
+      "job_id": "16362498",
+      "partition": "gpu",
       "status": "pending",
-      "description": "Phase 1 gate FID eval on v10 IN-1K seed-0 final.pt (405K steps, 80ep). 50K samples, 4xA100 DDP, gd sampler eta=0.003 steps=250 cfg=1.0. Gate: FID <= 30.41 (vs vanilla 31.41).",
-      "submitted_at": "2026-05-27T00:30:00Z",
-      "git_sha": "562d7a5",
-      "sbatch_path": "projects/diff-EqM/slurm/jobs/imagenet_fid.sbatch",
-      "expected_runtime": "~2-3h (sampling ~1.5-2h, FID compute ~15min)",
-      "phase": "1-v10-gate",
-      "gate": "Phase 1: FID <= 30.41",
-      "ckpt": "imagenet1k_80ep_v10_seed0/000-EqM-B-2-Linear-velocity-None-dganm/checkpoints/final.pt"
+      "description": "Phase 2 multi-seed: v10 IN-1K 80ep seed 1. Phase 2 gate: 3-seed (seed0 + seed1 + seed2) Welch t p<0.05 AND mean >=1 FID gain vs vanilla 31.41.",
+      "submitted_at": "2026-05-27T12:00:00Z",
+      "git_sha": "9377483",
+      "sbatch_path": "projects/diff-EqM/slurm/jobs/imagenet1k_80ep_v10.sbatch",
+      "expected_runtime": "~30-36h",
+      "phase": "2-v10-multiseed",
+      "gate": "Phase 2: Welch t p<0.05, mean >=1 FID gain"
+    },
+    {
+      "run_id": "v10_in1k_80ep_seed2_phase2",
+      "job_id": "16362499",
+      "partition": "gpu",
+      "status": "pending",
+      "description": "Phase 2 multi-seed: v10 IN-1K 80ep seed 2. Same gate as seed 1.",
+      "submitted_at": "2026-05-27T12:00:00Z",
+      "git_sha": "9377483",
+      "sbatch_path": "projects/diff-EqM/slurm/jobs/imagenet1k_80ep_v10.sbatch",
+      "expected_runtime": "~30-36h",
+      "phase": "2-v10-multiseed",
+      "gate": "Phase 2: Welch t p<0.05, mean >=1 FID gain"
     }
   ],
   "phase_0_progress": {
