@@ -30,7 +30,7 @@ while true; do
         exit 0
     fi
 
-    # Smoke dirs: delete all ckpts
+    # Smoke dirs: delete all ckpts (and any rsync temp files)
     for d in $RESULTS_ROOT/imagenet1k_*smoke*/000-*/checkpoints; do
         [ -d "$d" ] || continue
         N=$(ls "$d"/*.pt 2>/dev/null | wc -l)
@@ -38,7 +38,11 @@ while true; do
             rm -f "$d"/*.pt
             echo "$(date) smoke pruned $N from $d" >&2
         fi
+        find "$d" -name '.*.pt.*' -type f -delete 2>/dev/null || true
     done
+
+    # Rsync temp file cleanup across all run dirs (catches preempt-orphaned partials)
+    find "$RESULTS_ROOT" -name '.*.pt.*' -type f -delete 2>/dev/null || true
 
     # Full run dirs: keep anchors + latest 2
     for d in $RESULTS_ROOT/imagenet1k_80ep_*/000-*/checkpoints; do
