@@ -243,6 +243,21 @@ Maximum **1 retune per failing direction** (CLAUDE.md hard rule). No retune inde
 ### Early polling
 After every submit → first poll ~60s post-submit (catch init errors: module load, pip, clone). Then resume normal interval (120s for short jobs, 1800s for long).
 
+### Auto-pruner standing infrastructure (long-running parallel trains)
+When ≥3 simultaneous train jobs write ckpts every 5K steps on home filesystem:
+- Launch `slurm/jobs/prune_all_active.sbatch` on shared partition. Pruner watches all `imagenet1k_*` dirs, keeps anchors {5000, 65000} + latest 2 per dir, deletes ALL ckpts in `imagenet1k_*smoke*` dirs (smokes never need them), AND nukes rsync temp files (`.X.pt.YYYYY` patterns).
+- Without pruner: 4×A100 v10 B/2 80ep produces ~75 ckpts × 2GB = 150GB; home quota is 100GB hard limit; train wedges on quota-deadlock (SLURM stdout pipe blocks).
+- Auto-exits when no `eqm-1k|eqm-imagenet|prune-v10` jobs remain in queue.
+
+### Rsync temp-file failure mode
+Symptoms: persistent results dir grows large despite pruner running; hidden files `.0015000.pt.yJJYZ6` etc. visible in `find`.
+Cause: rsync partial transfer interrupted (SLURM SIGTERM, preempt, timeout) leaves `.dst.XXXXXX` temp files. Default pruner glob `*.pt` misses them.
+Mitigation: pruner_all_active.sbatch also runs `find $RESULTS_ROOT -name '.*.pt.*' -delete`. ANY new sbatch with rsync sync MUST tolerate these temps existing.
+
+### gpu_requeue MIG roulette
+gpu_requeue picks nodes from a pool that includes MIG (sliced) cards. MIG-sliced cards cannot do multi-rank NCCL — `Duplicate GPU detected: rank 1 and rank 0 both on CUDA device 6000`. Symptoms: job FAILED ~3min after start, NCCL `ncclRemoteError` in stderr.
+Mitigation: for multi-GPU DDP jobs, use seas_gpu (full A100/H200) unless preempt-recoverable + lucky on node assignment. Single-GPU jobs OK on gpu_requeue.
+
 ### Job verification (do FIRST every session)
 1. For every `active_runs` entry: cross-check `scripts/cluster/status.sh <job_id>` or `sacct`.
 2. If status mismatch → fetch logs (`scripts/cluster/remote_fetch.sh diff-EqM`), determine failure, write to `debugging.md`, move to `completed_runs`, set `phase=DEBUG` if blocking.

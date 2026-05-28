@@ -119,3 +119,32 @@ Full postmortem: `postmortem-cafm-eqm-2026-05-23.md`.
 **Fix**: commit `fef80d7` — switched helper to `imagenet1k_fid_eval.sbatch`. Resubmitted as 16328965 → COMPLETED FID 29.01 in 2h20m.
 
 **Lesson**: Pre-staged helpers must match the trusted-baseline path verbatim. Audit any sbatch interaction with NFS-mounted datasets for case-sensitivity + extension assumptions.
+
+---
+
+## 2026-05-27/28: gpu_requeue MIG roulette + preempt
+
+Two events on gpu_requeue:
+
+**Event 1 — 16371645 K=3 B/2 smoke FAILED 5min**: Node `holygpu7c0705` was MIG-sliced. NCCL `Duplicate GPU detected: rank 1 and rank 0 both on CUDA device 6000`. Same class as gpu_test MIG bug. Resubmit to seas_gpu as 16374706 → PASS (timeout but loss curve healthy).
+
+**Event 2 — 16376978 vanilla L/2 PREEMPTED 3min**: Got non-MIG node (DDP init OK) but preempted before 5K-step ckpt. No state saved → had to start from scratch. Resubmit to seas_gpu as 16406011 → RUNNING successfully.
+
+**Decision**: gpu_requeue is too unreliable for long multi-GPU DDP trains. Use only for: (a) single-GPU jobs (eval, FID); (b) jobs that tolerate restart from scratch within minutes; (c) when seas_gpu/gpu queues catastrophic.
+
+CLAUDE.md "gpu_requeue MIG roulette" + "Auto-pruner standing infrastructure" sections added.
+
+---
+
+## 2026-05-28: Smoke ckpt accumulation + rsync temp file leak (quota hit 95G)
+
+**Headline**: Quota hit 95G/100G with 6 jobs running. Investigation found 21G in dead XL/2 smoke dir = all hidden rsync temp files `.0015000.pt.yJJYZ6` etc, not actual `*.pt` ckpts.
+
+**Root cause**: When SLURM signals smoke jobs at wall-time (TIMEOUT), in-flight rsync from /tmp to home leaves partial-transfer temp files. Pruner glob `*.pt` doesn't match hidden temp pattern. Smoke dir keeps growing across multiple aborted rsync calls.
+
+**Triple fix**:
+1. Manual mass-prune: `find $RESULTS -name '.*.pt.*' -delete` (freed 27G immediately).
+2. Pruner patched (commit `a75fd5e`) to include same find-delete every 5min cycle.
+3. CLAUDE.md "Rsync temp-file failure mode" section added for durable cluster discipline.
+
+**Other contributor**: 4 smokes ran with `--ckpt-every 5000` (default in scaling sbatch) → each saved 3-15 ckpts × 1-7GB = up to 21G per smoke. Smokes have no use for ckpts. Pruner's smoke-dir loop deletes all `*.pt` in smoke dirs (and now temps too).
