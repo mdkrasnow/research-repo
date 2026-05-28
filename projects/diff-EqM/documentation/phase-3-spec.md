@@ -24,6 +24,9 @@ Establish whether v10's B/2 80ep gain (2.40 FID vs vanilla 31.41) **holds, grows
 
 All trained 80 epochs, IN-1K-256, class-conditional, gd sampler eta=0.003 steps=250 cfg=1.0, 50K-sample FID.
 
+### Paper-reported FID at 80ep per scale (extracted 2026-05-28)
+EqM paper (arxiv:2510.02300v1) Figure 3 middle panel reports scaling experiment at 80 epochs across S/B/L/XL with patch=2², but **no explicit FID table is provided**. Only B/2 80ep = **32.85** is tabulated (Table 3 ablation). S/2, L/2, XL/2 80ep numbers are figure-only and not numerically extracted in the paper. Implication: our own vanilla baselines at S/2 + L/2 (jobs 16369650, 16406011) are the canonical comparison numbers for Phase 3.
+
 ### v10 hyperparameters (held constant across scale, per Phase 1 PASS recipe)
 - λ (gamma) = 0.1
 - K = 1 (FGSM-style)
