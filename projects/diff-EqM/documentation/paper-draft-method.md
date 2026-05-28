@@ -63,6 +63,8 @@ The mechanism is structural, not a bug. EqM trains the network ``f_θ`` by pure 
 
 This failure is specific to regression-target generative models and is **not** observed in CAFM or AFM, both of which start from flow-matching pretrained generators whose targets do not vanish at the data manifold and whose loss is symmetric in time. We document the failure in detail in Appendix A as a negative result for future work attempting to port discriminator-based adversarial training to EqM or other regression-target generative models.
 
+**Empirically (Phase 1 result)**: v10 IN-1K-256 EqM-B/2 80ep seed-0 50K-sample FID = **29.01** vs our trusted vanilla baseline 31.41 (gain 2.40 FID, 7.6% relative) and vs paper-reported B/2 80ep = 32.85 (Table 3, Wang & Du 2025). The v10 mechanism therefore does not just avoid catastrophic collapse — it produces a measurable improvement over vanilla at paper-comparable scale.
+
 By contrast, ``L_v10`` is a **single-player objective** with no degenerate minimum:
 - Both ``L_EqM`` and ``L_v10`` regress to the *same* fixed target ``(ε−x)·c(γ)``.
 - The minimum of ``L_v10`` is bounded below by 0 (perfect regression at the mined input).

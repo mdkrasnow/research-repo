@@ -88,8 +88,10 @@ Lin CAFM uses **N=16 discriminator updates per generator update**. Vanilla EqM 8
 |---|---|---|---|
 | Lin lab publishes mining-based variant before Oct 1 | LOW (was M-H) | HIGH | They have 4-paper discriminator-track momentum; pivoting to mining unlikely in this window. Weekly arxiv sweep continues. |
 | Du group publishes adversarial-EqM follow-up | M | HIGH | Du = senior author of EqM. Watch raywang4 + Yilun Du. EqM paper itself flagged "adversarial perturbations" as unexamined future work (external open-direction support for v10). |
-| v10 saturates / collapses at IN-1K scale (CIFAR PASS doesn't transfer) | LOW (smoke probe FID 78.91 at ckpt_65000 confirms healthy trajectory) | HIGH | Smoke-probe protocol per CLAUDE.md catches early. Auto-prune keeps cluster from quota-wedging the train. |
-| Phase 1 gate fail (FID > 30.41) | M | HIGH | 1 retune of λ ∈ {0.03, 0.3, 1.0}; if still fail, v11 equivariant fallback (Briglia) |
+| ~~v10 saturates / collapses at IN-1K scale~~ | **RESOLVED 2026-05-27** | n/a | Phase 1 gate PASS: FID 29.01 vs vanilla 31.41 (gain 2.40, gate cleared by 1.40). Mechanism transferred from CIFAR (gain 0.77) to IN-1K (gain 2.40) — scaled UP. |
+| ~~Phase 1 gate fail (FID > 30.41)~~ | **RESOLVED 2026-05-27** | n/a | PASS by 1.40 FID margin. λ retune not triggered; λ=0.3 ablation running anyway for paper table. |
+| Phase 2 Welch t fails (high seed variance) | M | HIGH | Seeds 1+2 v10 (16376973/74) + vanilla seeds 1+2 (16594167/73) all launched. If true seed sensitivity, v11 equivariant fallback. |
+| Phase 3 scaling: mining doesn't transfer to S/2 or L/2 | M | MED | Smokes PASS at S/2 (aux/base 1.04) and L/2 (aux/base 1.000 — weak signal); L/2 may need ε_rad retune. XL/2 smoke confirms GBS=32 fits 4xA100-80GB. |
 | ICLR reviewer asks "why B/2 80ep when paper does XL/2 1400ep?" | M | MED | Methodological framing: "first discriminator-free adversarial-style training for regression-target gen models". Cite AFM 2.38 as the discriminator-based SOTA point — different axis. |
 | VeCoR adds adversarial mining in v2 | M | MED | Watch arxiv:2511.18942 versions. JIIOV has resources. |
 | Bug invalidating CIFAR Phase 0.3 PASS or smoke-probe FID 78.91 | LOW | HIGH | Code path (`train_imagenet.py`) is trusted — same that produced vanilla FID 31.41. |
