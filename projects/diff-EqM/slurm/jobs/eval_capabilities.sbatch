@@ -59,7 +59,7 @@ mkdir -p "$OUT_DIR"
 run_one () {
     local mode="$1" ckpt="$2" tag="$3"
     echo "=== $mode / $tag ===" >&2
-    python projects/diff-EqM/experiments/eval_capabilities.py \
+    python -u projects/diff-EqM/experiments/eval_capabilities.py \
         --mode "$mode" --ckpt "$ckpt" --tag "$tag" \
         --out-dir "$OUT_DIR" --model "$MODEL" \
         --num-images "$NUM_IMAGES" --val-path "$VAL_PATH" 2>&1 | tail -20

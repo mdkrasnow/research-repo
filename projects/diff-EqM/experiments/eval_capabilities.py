@@ -39,9 +39,9 @@ from pathlib import Path
 
 import numpy as np
 import torch
+from PIL import Image
 from torchvision import transforms
 from torchvision.utils import make_grid, save_image
-from torchvision.datasets import ImageFolder
 
 # eqm-upstream on path (sibling dir); same import style as train_imagenet.py
 UPSTREAM = str(Path(__file__).resolve().parent.parent / "eqm-upstream")
@@ -151,14 +151,22 @@ def load_val_images(val_path, n, image_size, device, seed=0):
         transforms.ToTensor(),
         transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5]),  # -> [-1,1]
     ])
-    ds = ImageFolder(val_path, transform=tf)
-    g = torch.Generator().manual_seed(seed)
-    idx = torch.randperm(len(ds), generator=g)[:n].tolist()
+    # Manual fast loader: avoid ImageFolder's full 50K-file tree scan (slow on
+    # holylabs NFS). Class idx = sorted-synset order, matching training's
+    # ImageFolder convention exactly (val + train share synset dir names).
+    synsets = sorted(d for d in os.listdir(val_path)
+                     if os.path.isdir(os.path.join(val_path, d)))
+    rng = np.random.default_rng(seed)
+    # pick n distinct classes deterministically, one image each
+    chosen = rng.choice(len(synsets), size=n, replace=(n > len(synsets)))
     imgs, labels = [], []
-    for i in idx:
-        img, lab = ds[i]
-        imgs.append(img)
-        labels.append(lab)
+    for ci in chosen:
+        cls_dir = os.path.join(val_path, synsets[int(ci)])
+        files = sorted(os.listdir(cls_dir))
+        fpath = os.path.join(cls_dir, files[0])
+        img = Image.open(fpath).convert("RGB")
+        imgs.append(tf(img))
+        labels.append(int(ci))
     return torch.stack(imgs).to(device), torch.tensor(labels, device=device)
 
 
