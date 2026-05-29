@@ -110,22 +110,26 @@ def eqm_field(model, x, t, y):
 # GD sampler core (mirrors sample_gd.py: xt <- xt + f(xt,t,y)*stepsize)
 # --------------------------------------------------------------------------- #
 def gd_restore(model, x_init, y, t_init, stepsize, num_steps, device,
-               clamp_fn=None):
+               clamp_fn=None, clamp_start_frac=0.0):
     """Run EqM gradient descent from x_init at t_init up toward t=1.
 
-    clamp_fn(xt) -> xt is applied AFTER every GD step (used for inpainting
-    to re-impose the known region).
+    clamp_fn(xt, t) -> xt is applied AFTER each GD step once the loop has
+    passed clamp_start_frac of its iterations. Delaying the clamp lets the
+    global structure form before the known region is locked (RePaint-style);
+    clamping from step 0 leaves the hole as garbage because the model never
+    sees a half-clean/half-noise input it was trained on.
     """
     xt = x_init.clone()
     t = torch.full((xt.shape[0],), float(t_init), device=device)
     n_iter = max(1, int(round((1.0 - t_init) / stepsize)) if num_steps is None
                  else num_steps)
-    for _ in range(n_iter):
+    clamp_after = int(clamp_start_frac * n_iter)
+    for i in range(n_iter):
         out = eqm_field(model, xt, t, y)
         xt = xt + out * stepsize
         t = t + stepsize
-        if clamp_fn is not None:
-            xt = clamp_fn(xt)
+        if clamp_fn is not None and i >= clamp_after:
+            xt = clamp_fn(xt, float(t[0].item()))
     return xt
 
 
@@ -254,29 +258,49 @@ def run_inpaint(model, vae, device, args):
     else:
         raise ValueError(f"unknown mask {args.mask}")
 
-    def clamp_fn(xt):
-        return mask * z0 + (1.0 - mask) * xt
-
-    masked_px = decode(clamp_fn(torch.randn_like(z0)), vae)
-
+    # Fixed noise for the known-region forward diffusion (RePaint-style).
     torch.manual_seed(args.seed)
+    known_noise = torch.randn_like(z0)
+
+    # EqM path: x_t = (1-t)*noise + t*data; t=1 is data, t=0 is noise.
+    # Clamp the KNOWN region to its correct value at the current t so the
+    # model always sees an on-path input there, and let the hole evolve freely.
+    def clamp_fn(xt, t):
+        known_at_t = (1.0 - t) * known_noise + t * z0
+        return mask * known_at_t + (1.0 - mask) * xt
+
+    # masked preview (known region clean, hole grey) for the grid
+    masked_px = decode(mask * z0, vae)
+
     x0 = torch.randn_like(z0)
-    x0 = clamp_fn(x0)
+    # Clamp only after 50% of steps: global structure forms first, then the
+    # known region locks. Clamping from step 0 leaves the hole as noise mosaic.
     filled = gd_restore(model, x0, labels, t_init=0.0,
                         stepsize=args.stepsize, num_steps=args.num_sampling_steps,
-                        device=device, clamp_fn=clamp_fn)
+                        device=device, clamp_fn=clamp_fn,
+                        clamp_start_frac=args.inpaint_clamp_start)
     filled_px = decode(filled, vae)
 
     lp = try_lpips(device)
-    # hole-region metric: decode is global, so report whole-image + note caveat
+    # Hole-only PSNR: upsample latent hole-mask (1-mask) to pixel resolution.
+    import torch.nn.functional as Fnn
+    hole_px = Fnn.interpolate(1.0 - mask, size=orig_px.shape[-2:],
+                              mode="nearest")          # (n,1,H,W), 1 in hole
+    hole_px = hole_px.expand(-1, 3, -1, -1)
+    def psnr_masked(a, b, m):
+        se = ((a - b) ** 2) * m
+        mse = se.sum(dim=(1, 2, 3)) / m.sum(dim=(1, 2, 3)).clamp_min(1)
+        return (10.0 * torch.log10(1.0 / mse.clamp_min(1e-10))).tolist()
     metrics = {
         "mode": "inpaint", "tag": args.tag, "mask": args.mask,
-        "psnr_filled_vs_orig": psnr(filled_px, orig_px),
+        "clamp_start_frac": args.inpaint_clamp_start,
+        "psnr_filled_vs_orig_wholeimg": psnr(filled_px, orig_px),
+        "psnr_hole_only": psnr_masked(filled_px, orig_px, hole_px),
         "lpips_filled_vs_orig": lpips_score(lp, filled_px, orig_px),
-        "note": "metric is whole-image; hole is middle 50% (box) or right half (half)",
     }
-    print(f"[inpaint {args.mask}] mean PSNR="
-          f"{np.mean(metrics['psnr_filled_vs_orig']):.2f}")
+    print(f"[inpaint {args.mask}] hole-only PSNR="
+          f"{np.mean(metrics['psnr_hole_only']):.2f} "
+          f"whole={np.mean(metrics['psnr_filled_vs_orig_wholeimg']):.2f}")
 
     rows = [orig_px.cpu(), masked_px.cpu(), filled_px.cpu()]
     save_grid(torch.cat(rows, dim=0), args.num_images,
@@ -285,17 +309,34 @@ def run_inpaint(model, vae, device, args):
 
 
 def run_compose(model, vae, device, args):
-    pairs = [tuple(int(x) for x in p.split(":"))
-             for p in args.class_pairs.split(",")]
+    # N random distinct class pairs (deterministic by seed) for a real sample
+    # size, instead of a handful of hand-picked pairs.
+    if args.class_pairs:
+        pairs = [tuple(int(x) for x in p.split(":"))
+                 for p in args.class_pairs.split(",")]
+    else:
+        rng = np.random.default_rng(args.seed)
+        pairs = []
+        while len(pairs) < args.num_pairs:
+            a, b = int(rng.integers(args.num_classes)), int(rng.integers(args.num_classes))
+            if a != b:
+                pairs.append((a, b))
     n = len(pairs)
     latent_size = args.image_size // 8
     torch.manual_seed(args.seed)
-    x0 = torch.randn(n, 4, latent_size, latent_size, device=device)
-    y1 = torch.tensor([p[0] for p in pairs], device=device)
-    y2 = torch.tensor([p[1] for p in pairs], device=device)
 
-    out = gd_compose(model, x0, y1, y2, stepsize=args.stepsize,
-                     num_steps=args.num_sampling_steps, device=device)
+    # batch the GD over all pairs (chunk to fit memory)
+    chunk = args.compose_batch
+    outs = []
+    for s in range(0, n, chunk):
+        pc = pairs[s:s + chunk]
+        x0 = torch.randn(len(pc), 4, latent_size, latent_size, device=device)
+        y1 = torch.tensor([p[0] for p in pc], device=device)
+        y2 = torch.tensor([p[1] for p in pc], device=device)
+        oc = gd_compose(model, x0, y1, y2, stepsize=args.stepsize,
+                        num_steps=args.num_sampling_steps, device=device)
+        outs.append(oc)
+    out = torch.cat(outs, dim=0)
     out_px = decode(out, vae)
 
     metrics = {"mode": "compose", "tag": args.tag,
@@ -321,7 +362,8 @@ def run_compose(model, vae, device, args):
     except Exception as e:
         print(f"[warn] classifier eval skipped ({e})", file=sys.stderr)
 
-    save_grid(out_px.cpu(), n, Path(args.out_dir) / f"compose_{args.tag}.png")
+    save_grid(out_px.cpu(), min(10, n),
+              Path(args.out_dir) / f"compose_{args.tag}.png")
     return metrics
 
 
@@ -356,8 +398,14 @@ def main():
     ap.add_argument("--gammas", default="0.3,0.5,0.7,0.9",
                     help="denoise noise fractions")
     ap.add_argument("--mask", default="box", choices=["box", "half"])
-    ap.add_argument("--class-pairs", default="207:281,0:1,933:954",
-                    help="compose: comma list of c1:c2")
+    ap.add_argument("--inpaint-clamp-start", type=float, default=0.5,
+                    help="fraction of steps before clamping known region (RePaint-style)")
+    ap.add_argument("--class-pairs", default="",
+                    help="compose: comma list of c1:c2; empty = random --num-pairs")
+    ap.add_argument("--num-pairs", type=int, default=50,
+                    help="compose: number of random class pairs when --class-pairs empty")
+    ap.add_argument("--compose-batch", type=int, default=25,
+                    help="compose: GD batch size (memory; 2 fwd/step)")
     args = ap.parse_args()
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
