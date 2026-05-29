@@ -43,8 +43,13 @@ git checkout "${GIT_SHA}" 2>&1 | tail -3 || {
     git checkout "${GIT_SHA}" 2>&1 | tail -3 || exit 1
 }
 
-echo "=== Installing dependencies ===" >&2
-pip install timm diffusers accelerate scipy torchvision lpips pillow 2>&1 | tail -5
+echo "=== Checking dependencies (skip pip if importable; pip re-check on NFS .local is slow + has D-state-stalled prior jobs) ===" >&2
+if ! python -c "import timm, diffusers, scipy, torchvision, lpips" 2>/dev/null; then
+    echo "=== Some deps missing, installing ===" >&2
+    pip install --no-input timm diffusers accelerate scipy torchvision lpips pillow 2>&1 | tail -5
+else
+    echo "=== All deps importable, skipping pip ===" >&2
+fi
 
 REPO_ROOT="/n/home03/mkrasnow/research-repo"
 MODEL="${MODEL:-EqM-B/2}"
