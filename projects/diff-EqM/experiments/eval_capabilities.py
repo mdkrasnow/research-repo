@@ -293,6 +293,8 @@ def run_inpaint(model, vae, device, args):
         return (10.0 * torch.log10(1.0 / mse.clamp_min(1e-10))).tolist()
     metrics = {
         "mode": "inpaint", "tag": args.tag, "mask": args.mask,
+        "note": "INPAINTING IS NOT IN THE EqM PAPER. This is our own RePaint-style "
+                "extension (late-clamp known region). Not a paper-recipe comparison.",
         "clamp_start_frac": args.inpaint_clamp_start,
         "psnr_filled_vs_orig_wholeimg": psnr(filled_px, orig_px),
         "psnr_hole_only": psnr_masked(filled_px, orig_px, hole_px),
@@ -400,8 +402,15 @@ def main():
     ap.add_argument("--mask", default="box", choices=["box", "half"])
     ap.add_argument("--inpaint-clamp-start", type=float, default=0.5,
                     help="fraction of steps before clamping known region (RePaint-style)")
-    ap.add_argument("--class-pairs", default="",
-                    help="compose: comma list of c1:c2; empty = random --num-pairs")
+    # Paper (EqM §5.4 Fig 11) composes SEMANTICALLY composable pairs via
+    # gradient summation, not random pairs. Defaults mirror paper-style
+    # object+scene / related-concept pairs (ImageNet idx):
+    #   388 giant_panda, 979 valley, 928 ice_cream, 960 chocolate_sauce,
+    #   937 broccoli, 938 cauliflower, 980 volcano, 933 cheeseburger,
+    #   950 orange, 951 lemon, 207 golden_retriever, 235 german_shepherd
+    ap.add_argument("--class-pairs",
+                    default="388:979,928:960,937:938,980:388,950:951,933:980,207:979,235:980",
+                    help="compose: comma list of c1:c2 (paper-style semantic pairs)")
     ap.add_argument("--num-pairs", type=int, default=50,
                     help="compose: number of random class pairs when --class-pairs empty")
     ap.add_argument("--compose-batch", type=int, default=25,
