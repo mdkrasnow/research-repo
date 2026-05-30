@@ -35,15 +35,16 @@ echo "=== GPU verification ===" >&2
 nvidia-smi || { echo "ERROR: No GPU available"; exit 1; }
 
 export PYTHONUNBUFFERED=1            # live step/disp_ratio logs (fresh train.py has no -u)
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True  # reduce fragmentation on 20GB gpu_test cards
 
 ARM="${ARM:?ERROR: set ARM=vanilla or ARM=anm}"
 MODEL="${MODEL:-EqM-S/8}"            # smallest-compute config: fewest tokens -> most steps/hr
-GLOBAL_BATCH="${GLOBAL_BATCH:-256}"
+GLOBAL_BATCH="${GLOBAL_BATCH:-64}"   # 256 OOMs the 20GB gpu_test card (VAE encode @256px); 64 fits w/ mining
 # EQUAL-STEP budget (fair vs ANM's higher per-step cost). MAX_MINUTES is a backstop only.
 MAX_STEPS="${MAX_STEPS:-3000}"
 MAX_MINUTES="${MAX_MINUTES:-100}"
 NUM_FID="${NUM_FID:-5000}"           # quick FID; not publishable, just signal
-SAMPLE_BATCH="${SAMPLE_BATCH:-250}"
+SAMPLE_BATCH="${SAMPLE_BATCH:-50}"   # also bounded by the 20GB card (model+VAE decode); 5000/50=100 iters
 ANM_STEPS="${ANM_STEPS:-2}"          # keep overhead ~3x for the quick run
 ANM_STEP_SIZE="${ANM_STEP_SIZE:-0.15}"
 ANM_EPS_BALL="${ANM_EPS_BALL:-0.5}"
@@ -88,34 +89,43 @@ echo "=== ARM=$ARM  MODEL=$MODEL  ANM_FLAGS='${ANM_FLAGS:-none}' ===" >&2
 MASTER_PORT=$((29500 + RANDOM % 1000))
 
 # ============================ STEP 1: TRAIN ============================
-echo "=== [1/3] Training $ARM for ${MAX_MINUTES} min  (start $(date)) ===" >&2
-python -m torch.distributed.run --nnodes=1 --nproc_per_node=1 --master_port=$MASTER_PORT \
-    projects/EqM-restart/train.py \
-    --model "$MODEL" \
-    --data-path "$IMAGENET_PATH" \
-    --num-classes 1000 \
-    --global-batch-size "$GLOBAL_BATCH" \
-    --image-size 256 \
-    --epochs 1000 \
-    --max-steps "$MAX_STEPS" \
-    --max-minutes "$MAX_MINUTES" \
-    --ckpt-every 1000 \
-    --log-every 50 \
-    --results-dir "$RESULTS_DIR" \
-    $ANM_FLAGS \
-    2>&1 | tee train.log
-TRAIN_EXIT=${PIPESTATUS[0]}
-echo "=== Train exit=$TRAIN_EXIT  ($(date)) ===" >&2
-[ $TRAIN_EXIT -eq 0 ] || { cp train.log "$SYNC_DIR/train.log" 2>/dev/null || true; exit $TRAIN_EXIT; }
+# RERUN_FID=1 skips training and reuses the already-synced final.pt (e.g. to redo
+# only sampling+FID after a FID-side bug). Otherwise train from scratch.
+if [ "${RERUN_FID:-0}" = "1" ]; then
+    echo "=== [1/3] RERUN_FID: skipping training, reusing synced final.pt ===" >&2
+    CKPT="$SYNC_DIR/final.pt"
+    [ -f "$CKPT" ] || { echo "ERROR: RERUN_FID set but $CKPT missing" >&2; exit 1; }
+    STEPS_REACHED=$(grep -oE 'steps_reached=[0-9]+' "$SYNC_DIR/RESULT.txt" 2>/dev/null | grep -oE '[0-9]+' || echo "reused")
+else
+    echo "=== [1/3] Training $ARM for ${MAX_MINUTES} min  (start $(date)) ===" >&2
+    python -m torch.distributed.run --nnodes=1 --nproc_per_node=1 --master_port=$MASTER_PORT \
+        projects/EqM-restart/train.py \
+        --model "$MODEL" \
+        --data-path "$IMAGENET_PATH" \
+        --num-classes 1000 \
+        --global-batch-size "$GLOBAL_BATCH" \
+        --image-size 256 \
+        --epochs 1000 \
+        --max-steps "$MAX_STEPS" \
+        --max-minutes "$MAX_MINUTES" \
+        --ckpt-every 1000 \
+        --log-every 50 \
+        --results-dir "$RESULTS_DIR" \
+        $ANM_FLAGS \
+        2>&1 | tee train.log
+    TRAIN_EXIT=${PIPESTATUS[0]}
+    echo "=== Train exit=$TRAIN_EXIT  ($(date)) ===" >&2
+    [ $TRAIN_EXIT -eq 0 ] || { cp train.log "$SYNC_DIR/train.log" 2>/dev/null || true; exit $TRAIN_EXIT; }
 
-STEPS_REACHED=$(grep -oE 'step=[0-9]+' train.log | tail -1 | grep -oE '[0-9]+' || echo "unknown")
-echo "=== $ARM reached step $STEPS_REACHED ===" >&2
+    STEPS_REACHED=$(grep -oE 'step=[0-9]+' train.log | tail -1 | grep -oE '[0-9]+' || echo "unknown")
+    echo "=== $ARM reached step $STEPS_REACHED ===" >&2
 
-# locate checkpoint: prefer final.pt, else newest *.pt
-EXP_DIR=$(find "$WORK_DIR/$RESULTS_DIR" -type d -name 'checkpoints' | head -1)
-CKPT="$EXP_DIR/final.pt"
-if [ ! -f "$CKPT" ]; then
-    CKPT=$(find "$EXP_DIR" -name '*.pt' -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2-)
+    # locate checkpoint: prefer final.pt, else newest *.pt
+    EXP_DIR=$(find "$WORK_DIR/$RESULTS_DIR" -type d -name 'checkpoints' | head -1)
+    CKPT="$EXP_DIR/final.pt"
+    if [ ! -f "$CKPT" ]; then
+        CKPT=$(find "$EXP_DIR" -name '*.pt' -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2-)
+    fi
 fi
 [ -f "$CKPT" ] || { echo "ERROR: no checkpoint produced" >&2; cp train.log "$SYNC_DIR/train.log"; exit 1; }
 echo "=== Using checkpoint: $CKPT ($(du -h "$CKPT" | cut -f1)) ===" >&2
@@ -142,9 +152,13 @@ echo "=== Sample exit=$SAMPLE_EXIT ($(date)) ===" >&2
 echo "=== [3/3] Building flat reference + FID ($(date)) ===" >&2
 FLAT_REF="$WORK_DIR/ref_flat"
 mkdir -p "$FLAT_REF"
+# NOTE: pytorch-fid globs image extensions case-sensitively (lowercase jpg/jpeg/png).
+# ImageNet files are uppercase .JPEG, so link names MUST end in lowercase .jpeg or
+# they are silently skipped -> empty ref dir -> batch_size=0 (the bug we hit).
 find "$IMAGENET_PATH" -type f \( -name "*.JPEG" -o -name "*.jpg" -o -name "*.jpeg" -o -name "*.png" \) \
     | shuf -n "$NUM_FID" | while read f; do
-        ln -s "$f" "$FLAT_REF/$(basename "$(dirname "$f")")_$(basename "$f")"
+        base="$(basename "$(dirname "$f")")_$(basename "$f")"
+        ln -s "$f" "$FLAT_REF/${base%.*}.jpeg"
     done
 echo "=== ref images: $(ls "$FLAT_REF" | wc -l) ===" >&2
 
