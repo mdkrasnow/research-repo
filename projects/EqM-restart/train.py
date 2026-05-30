@@ -150,9 +150,9 @@ def main(args):
         logger = create_logger(experiment_dir)
         logger.info(f"Experiment directory created at {experiment_dir}")
 
-        entity = os.environ["ENTITY"]
-        project = os.environ["PROJECT"]
-        if args.wandb:
+        if args.wandb:  # only require ENTITY/PROJECT env when wandb is actually used
+            entity = os.environ["ENTITY"]
+            project = os.environ["PROJECT"]
             wandb_utils.initialize(args, entity, experiment_name, project)
     else:
         logger = create_logger(None)
