@@ -328,8 +328,11 @@ def main(args):
                     logger.info(f"Saved checkpoint to {checkpoint_path}")
                 dist.barrier()
 
-            # Wall-clock cap (--max-minutes): save final.pt and stop. For quick A/B runs.
-            if args.max_minutes > 0 and (time() - train_start) / 60.0 >= args.max_minutes:
+            # Training cap (--max-steps for equal-budget A/B, or --max-minutes wall-clock):
+            # save final.pt and stop.
+            hit_step_cap = args.max_steps > 0 and train_steps >= args.max_steps
+            hit_time_cap = args.max_minutes > 0 and (time() - train_start) / 60.0 >= args.max_minutes
+            if hit_step_cap or hit_time_cap:
                 if rank == 0:
                     checkpoint = {
                         "model": model.module.state_dict(),
@@ -339,7 +342,8 @@ def main(args):
                     }
                     checkpoint_path = f"{checkpoint_dir}/final.pt"
                     torch.save(checkpoint, checkpoint_path)
-                    logger.info(f"Hit --max-minutes={args.max_minutes} at step {train_steps}; saved {checkpoint_path}")
+                    cap = "max-steps" if hit_step_cap else "max-minutes"
+                    logger.info(f"Hit --{cap} at step {train_steps} ({(time()-train_start)/60.0:.1f} min); saved {checkpoint_path}")
                 dist.barrier()
                 stop_training = True
                 break
@@ -364,6 +368,8 @@ if __name__ == "__main__":
     parser.add_argument("--epochs", type=int, default=80)
     parser.add_argument("--max-minutes", type=float, default=0.0,
                         help="Wall-clock training cap in minutes (0=off); saves final.pt and stops. For quick A/B runs.")
+    parser.add_argument("--max-steps", type=int, default=0,
+                        help="Optimizer-step cap (0=off); saves final.pt and stops. Use for EQUAL-STEP A/B (fair vs ANM's higher per-step cost).")
     parser.add_argument("--global-batch-size", type=int, default=256)
     parser.add_argument("--global-seed", type=int, default=0)
     parser.add_argument("--vae", type=str, choices=["ema", "mse"], default="ema")  # Choice doesn't affect training

@@ -34,10 +34,14 @@ module load cuda/11.8.0-fasrc01
 echo "=== GPU verification ===" >&2
 nvidia-smi || { echo "ERROR: No GPU available"; exit 1; }
 
+export PYTHONUNBUFFERED=1            # live step/disp_ratio logs (fresh train.py has no -u)
+
 ARM="${ARM:?ERROR: set ARM=vanilla or ARM=anm}"
 MODEL="${MODEL:-EqM-S/8}"            # smallest-compute config: fewest tokens -> most steps/hr
 GLOBAL_BATCH="${GLOBAL_BATCH:-256}"
-MAX_MINUTES="${MAX_MINUTES:-60}"
+# EQUAL-STEP budget (fair vs ANM's higher per-step cost). MAX_MINUTES is a backstop only.
+MAX_STEPS="${MAX_STEPS:-3000}"
+MAX_MINUTES="${MAX_MINUTES:-100}"
 NUM_FID="${NUM_FID:-5000}"           # quick FID; not publishable, just signal
 SAMPLE_BATCH="${SAMPLE_BATCH:-250}"
 ANM_STEPS="${ANM_STEPS:-2}"          # keep overhead ~3x for the quick run
@@ -93,6 +97,7 @@ python -m torch.distributed.run --nnodes=1 --nproc_per_node=1 --master_port=$MAS
     --global-batch-size "$GLOBAL_BATCH" \
     --image-size 256 \
     --epochs 1000 \
+    --max-steps "$MAX_STEPS" \
     --max-minutes "$MAX_MINUTES" \
     --ckpt-every 1000 \
     --log-every 50 \
