@@ -98,7 +98,7 @@ echo "=== Using $NUM_GPUS GPU(s) ===" >&2
 
 python -m torch.distributed.run --nnodes=1 --nproc_per_node=$NUM_GPUS --master_port=$MASTER_PORT \
     projects/diff-EqM/eqm-upstream/sample_gd.py \
-    --model EqM-B/2 \
+    --model "${MODEL:-EqM-B/2}" \
     --ckpt "$LOCAL_CKPT" \
     --num-classes 1000 \
     --sampler gd \
