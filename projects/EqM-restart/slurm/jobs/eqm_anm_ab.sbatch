@@ -149,17 +149,37 @@ echo "=== Sample exit=$SAMPLE_EXIT ($(date)) ===" >&2
 [ $SAMPLE_EXIT -eq 0 ] || { cp sample.log "$SYNC_DIR/sample.log"; exit $SAMPLE_EXIT; }
 
 # ============================ STEP 3: FID ============================
-echo "=== [3/3] Building flat reference + FID ($(date)) ===" >&2
+# Build the reference by CENTER-CROP-RESIZING raw ImageNet to 256x256 PNGs.
+# Raw ImageNet JPEGs are variable-size -> pytorch-fid's default-collate can't stack
+# them (RuntimeError: storage not resizable). Resizing to 256 (matching train.py's
+# center_crop_arr) gives uniform images that batch, and the same preprocessing both
+# arms see. Generated samples are already uniform 256 PNGs.
+echo "=== [3/3] Building 256x256 reference + FID ($(date)) ===" >&2
 FLAT_REF="$WORK_DIR/ref_flat"
 mkdir -p "$FLAT_REF"
-# NOTE: pytorch-fid globs image extensions case-sensitively (lowercase jpg/jpeg/png).
-# ImageNet files are uppercase .JPEG, so link names MUST end in lowercase .jpeg or
-# they are silently skipped -> empty ref dir -> batch_size=0 (the bug we hit).
 find "$IMAGENET_PATH" -type f \( -name "*.JPEG" -o -name "*.jpg" -o -name "*.jpeg" -o -name "*.png" \) \
-    | shuf -n "$NUM_FID" | while read f; do
-        base="$(basename "$(dirname "$f")")_$(basename "$f")"
-        ln -s "$f" "$FLAT_REF/${base%.*}.jpeg"
-    done
+    | shuf -n "$NUM_FID" > "$WORK_DIR/ref_list.txt"
+python - "$WORK_DIR/ref_list.txt" "$FLAT_REF" <<'PY'
+import sys, numpy as np
+from PIL import Image
+files = [l.strip() for l in open(sys.argv[1]) if l.strip()]
+outdir = sys.argv[2]
+def center_crop_256(pil, size=256):
+    while min(pil.size) >= 2*size:
+        pil = pil.resize(tuple(x//2 for x in pil.size), resample=Image.BOX)
+    scale = size/min(pil.size)
+    pil = pil.resize(tuple(round(x*scale) for x in pil.size), resample=Image.BICUBIC)
+    a = np.array(pil); cy=(a.shape[0]-size)//2; cx=(a.shape[1]-size)//2
+    return Image.fromarray(a[cy:cy+size, cx:cx+size])
+n=0
+for i,f in enumerate(files):
+    try:
+        img = center_crop_256(Image.open(f).convert("RGB"))
+        img.save(f"{outdir}/{i:06d}.png"); n+=1
+    except Exception as e:
+        print("skip", f, e)
+print("wrote", n, "reference images")
+PY
 echo "=== ref images: $(ls "$FLAT_REF" | wc -l) ===" >&2
 
 FID=$(python -m pytorch_fid "$SAMPLES_DIR" "$FLAT_REF" --device cuda 2>&1 | tee fid.log | grep -oE 'FID:.*' || echo "FID: PARSE_FAIL")
