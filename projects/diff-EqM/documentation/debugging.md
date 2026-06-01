@@ -153,3 +153,13 @@ CLAUDE.md "gpu_requeue MIG roulette" + "Auto-pruner standing infrastructure" sec
 - **Symptom**: intermittent cell failures in the full sweep (job 17828606), ~3% (1/33 early). job.log: `RuntimeError: ... EADDRINUSE ... port: 29629` from torch.distributed.elastic static_tcp_rendezvous. Failed cell recorded with `generate_rc=1`, fid empty, n=0; driver continues (no crash).
 - **Root cause**: `generate()` set `master_port = 29500 + hash((sampler,nfe,sm))%1000`. Across 80 sequential torchrun launches, ports collide (birthday) and/or reuse a port still in TIME_WAIT from the previous cell.
 - **Fix (commit 8aa5308)**: OS-assigned free port via `socket.bind(("",0))` + 3x retry with a fresh port on nonzero rc. Applies to future runs (50k resume / reruns). The in-flight 17828606 keeps old code -> expect ~2-4 holes/80; analysis dropna's them, result still interpretable.
+
+## Exp1: exec>tee NFS logging causes SIGPIPE job death (2026-06-01)
+- **Symptom**: full sweep job 17828606 died at 58/80 cells (12h56m), sacct State=FAILED ExitCode 0:13 (signal 13 = SIGPIPE), MaxRSS 7G/64G (NOT OOM), elapsed < wall (NOT timeout). anm_ngd block never ran.
+- **Root cause**: sbatch used `exec > >(tee -a "$SYNC/job.log") 2>&1` for failsafe NFS logging. The `tee` process substitution can die on a transient NFS write hiccup; the next write from the script then hits a broken pipe -> SIGPIPE -> whole job killed. The failsafe BECAME the fragility. The per-call `python ... | tee exp1.log` had the same risk.
+- **Fix (commit c88ffbe)**: replace with a plain redirect `exec >> "$SYNC/job.log" 2>&1` (no pipe -> cannot SIGPIPE) and drop the `| tee` (wrap `python` in `set +e; ...; RC=$?; set -e` so sync still runs on nonzero rc). LESSON: never pipe a long-lived job's stdout through `tee` to NFS; redirect to a file directly.
+
+## Exp1 operational gotchas (2026-06-01)
+- **remote_submit.sh needs an ABSOLUTE sbatch path AND case must match the helper's `pwd`** (macOS case-insensitive FS: pass `/Users/mkrasnow/desktop/...` lowercase 'desktop' to match `scripts/cluster` resolution, else relpath produces a broken `../../../../Desktop/...` and sbatch can't open the file).
+- **slurm/logs/*.out is rsync --delete'd by any concurrent remote_submit** -> job stdout there can vanish mid-run. Durable logs MUST go under results/ (not synced). This is why exp1 logs to results/.../job.log.
+- **Resume + fixed-latents batch coupling**: the deterministic init-latents bank is padded to a multiple of SAMPLE_BATCH (ceil(N/bs)*bs). A resume/merge run MUST reuse the SAME SAMPLE_BATCH (and GLOBAL_SEED, NUM_SAMPLES, imagenet_ref) as the original, or new cells get a DIFFERENT latent bank and break the paired vanilla-vs-anm comparison. exp1_merge.sbatch pins batch=64 to match 17828606.
