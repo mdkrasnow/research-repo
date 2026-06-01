@@ -53,6 +53,14 @@ REPO_ROOT="/n/home03/mkrasnow/research-repo"
 EXPDIR="projects/diff-EqM/experiments/exp1_sampler_robustness"
 OUTDIR="$WORK_DIR/exp1_out"
 
+# --- failsafe logging: results/ is NOT rsync --delete'd (unlike slurm/logs),
+# so a concurrent remote_submit can't wipe it. Mirror all output here and copy
+# on ANY exit, so failures are always diagnosable. ---
+SYNC="$REPO_ROOT/projects/diff-EqM/results/exp1_sampler_robustness_${SLURM_JOB_ID}"
+mkdir -p "$SYNC"
+exec > >(tee -a "$SYNC/job.log") 2>&1
+trap 'echo "=== EXIT trap (rc=$?) $(date) ==="; cp "$WORK_DIR/exp1.log" "$SYNC/" 2>/dev/null || true' EXIT
+
 # Resolve checkpoints (repo-relative -> absolute under REPO_ROOT if needed)
 resolve_ckpt() {
     local c="$1"
