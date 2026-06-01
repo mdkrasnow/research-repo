@@ -18,6 +18,9 @@ v10 = PGD hard-example mining on EqM regression target. Single-objective, no dis
 7. **Phase 4** (gated on Phase 3): SiT transfer ≥ 0.5 FID.
 8. **Phase 5** (gated on Phase 4): workshop draft ready by 2026-08-22 (7-day buffer to deadline).
 
+## Analysis experiments (mechanism / robustness — built, NOT yet submitted)
+- **Exp 1 — NFE/sampler robustness** (`experiments/exp1_sampler_robustness/`, README there): vanilla vs v10 B/2 frozen-ckpt sampler sweep {gd,ngd}×nfe{10,25,50,100,250}×step_mult{0.5,1,1.5,2}, FID+KID, AUC + nfe-to-match. Eval-only (no training touched). Local dry-run + synthetic analysis/plots verified. NEXT: Smoke A→B on cluster once ckpt paths confirmed, then 5k pilot, then full 50k via `slurm/jobs/exp1_sweep.sbatch`. Strengthens the workshop sampling-robustness story alongside the FID result.
+
 ## In-flight
 - 15638767 v10 IN-1K seed-0 train (seas_gpu, RUNNING)
 - 15933157 ckpt auto-pruner (shared, RUNNING)
