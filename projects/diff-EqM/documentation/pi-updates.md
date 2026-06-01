@@ -282,3 +282,38 @@ Subject: DG-ANM update — Stage A.5 gate passed, CIFAR FID 497 bug isolated to 
 2. On Phase 2 PASS: launch Phase 3 scaling curves (S/2, L/2 on IN-1K).
 3. Update SYNTHESIS.md §4 risk table — Phase 1 transferability risk now RESOLVED.
 4. Update paper-draft-method.md §3.3 closing paragraph with the FID 29.01 number.
+
+---
+
+## DRAFT — 2026-06-01 — Exp 2: mechanism evidence for the v10 FID gain (DO NOT SEND until reviewed)
+
+**Trigger**: result at paper-comparable scale (IN-1K B/2) — mechanism diagnostic for v10.
+
+**TL;DR**: Built a field-level diagnostic asking whether v10/ANM's FID gain is backed
+by a real mechanism — does ANM make the EqM field more accurate *off* the training
+trajectory? On 5120 held-out IN-1K val latents (frozen vanilla FID 31.41 vs v10 FID
+29.01, EqM-B/2, paired bootstrap CI over sample_id), the answer is **yes, but small**.
+
+**Result** (ANM − vanilla, all statistically significant, n≈30k pairs/cell):
+- Random off-trajectory perturbations: ANM lower field-MSE / higher cosine at every
+  radius; the gap **widens** with radius (dMSE −0.0164 on-path → −0.0277 at rel-radius 0.1).
+- **Largest gap at the real v10-mined perturbation** (dMSE −0.0368 [CI −0.0396,−0.0340],
+  dCos +0.00109) — ANM is most accurate exactly in the off-trajectory region its
+  training mining targets. Cleanest possible mechanism-confirmation.
+
+**Honest caveat**: effect size is small — dMSE ≈ −0.02 to −0.037 against vanilla MSE ≈
+10.3 (0.2–0.4% relative). Significant (huge n, tight CI) but modest. Consistent with
+the earlier NULL B/2 capability eval: v10's B/2 benefit is real but small; may amplify
+at XL/2 (untested). This is a *local* field-robustness proxy, not proof of global energy
+correctness or sampling optimality.
+
+**Use for paper**: supports the workshop story — "ANM doesn't just improve FID, it makes
+the learned field measurably more robust to local off-trajectory drift, most where it
+mines." Pairs with Exp 1 (sampler/NFE robustness) and the FID number. Report effect size
+honestly; flag XL/2 as the scale where the mechanism may matter more.
+
+**Decisions needed from PI**: None blocking. Awareness + sanity-check on whether the
+small effect size is worth foregrounding vs relegating to appendix.
+
+**Artifacts**: `documentation/exp2-offtraj-field-robustness-results.md`;
+`results/diagnostics/offtraj_{random,sampler}/`; jobs 17788287 + 17788329 (both exit 0).
