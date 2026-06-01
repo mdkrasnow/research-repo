@@ -148,3 +148,8 @@ CLAUDE.md "gpu_requeue MIG roulette" + "Auto-pruner standing infrastructure" sec
 3. CLAUDE.md "Rsync temp-file failure mode" section added for durable cluster discipline.
 
 **Other contributor**: 4 smokes ran with `--ckpt-every 5000` (default in scaling sbatch) → each saved 3-15 ckpts × 1-7GB = up to 21G per smoke. Smokes have no use for ckpts. Pruner's smoke-dir loop deletes all `*.pt` in smoke dirs (and now temps too).
+
+## Exp1 sampler-robustness: torchrun master-port collision (2026-06-01)
+- **Symptom**: intermittent cell failures in the full sweep (job 17828606), ~3% (1/33 early). job.log: `RuntimeError: ... EADDRINUSE ... port: 29629` from torch.distributed.elastic static_tcp_rendezvous. Failed cell recorded with `generate_rc=1`, fid empty, n=0; driver continues (no crash).
+- **Root cause**: `generate()` set `master_port = 29500 + hash((sampler,nfe,sm))%1000`. Across 80 sequential torchrun launches, ports collide (birthday) and/or reuse a port still in TIME_WAIT from the previous cell.
+- **Fix (commit 8aa5308)**: OS-assigned free port via `socket.bind(("",0))` + 3x retry with a fresh port on nonzero rc. Applies to future runs (50k resume / reruns). The in-flight 17828606 keeps old code -> expect ~2-4 holes/80; analysis dropna's them, result still interpretable.
