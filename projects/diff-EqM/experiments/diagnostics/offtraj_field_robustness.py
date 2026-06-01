@@ -42,7 +42,8 @@ import torch
 # Repo imports (reuse, do NOT reimplement target geometry)
 # --------------------------------------------------------------------------- #
 _HERE = Path(__file__).resolve()
-_DIFF_EQM = _HERE.parents[1]                       # projects/diff-EqM
+# experiments/diagnostics/<this>.py -> parents[2] = projects/diff-EqM
+_DIFF_EQM = _HERE.parents[2]
 _UPSTREAM = _DIFF_EQM / "eqm-upstream"
 sys.path.insert(0, str(_UPSTREAM))
 
