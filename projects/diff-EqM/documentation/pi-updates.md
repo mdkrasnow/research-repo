@@ -307,6 +307,10 @@ the earlier NULL B/2 capability eval: v10's B/2 benefit is real but small; may a
 at XL/2 (untested). This is a *local* field-robustness proxy, not proof of global energy
 correctness or sampling optimality.
 
+**Rule-outs**: ANM does not win by rescaling field norms (norm_ratio 0.730 both ckpts,
+identical); improvement is broad across t and peaks mid-trajectory (t~0.55–0.75), not an
+artifact of near-zero targets at t→1.
+
 **Use for paper**: supports the workshop story — "ANM doesn't just improve FID, it makes
 the learned field measurably more robust to local off-trajectory drift, most where it
 mines." Pairs with Exp 1 (sampler/NFE robustness) and the FID number. Report effect size
