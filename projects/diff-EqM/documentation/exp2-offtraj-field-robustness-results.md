@@ -71,6 +71,33 @@ t~0.05 dMSE -0.0083  ...  t~0.55 -0.0568  t~0.65 -0.0568  t~0.75 -0.0565  ...  t
 Effect is broad across all t-bins and **peaks mid-trajectory** (t~0.55–0.75), the
 sampling-relevant region — not concentrated where the target norm is unstable.
 
+## Dose-response: lambda=0.3 vs lambda=0.1 (added 2026-06-01)
+
+Re-ran Exp 2 on the lambda=0.3 ckpt (FID 27.09 — better than lambda=0.1's 29.01) to fix
+a confound (original Exp 2 used the weaker lambda=0.1 model) and test whether lambda acts
+as a dose knob. Jobs 17829106 (random) + 17829107 (sampler), both exit 0, 5120 latents.
+
+| ANM−vanilla dMSE | lambda=0.1 | lambda=0.3 | ratio |
+|---|---|---|---|
+| random r0 | −0.0164 | −0.0344 | 2.1× |
+| random r0.1 | −0.0277 | −0.0607 | 2.2× |
+| sampler mined | −0.0368 | −0.0565 | 1.5× |
+| sampler drift | −0.0194 | −0.0397 | 2.0× |
+| mined dCos | +0.00109 | +0.00166 | 1.5× |
+
+All SIG (paired bootstrap CI). **Clean monotonic dose-response**: lambda 0.1→0.3 improves
+*both* FID (29.01→27.09) *and* the off-trajectory field-robustness gap (larger at every
+radius and every perturbation type). lambda is a single knob controlling both.
+
+Nuance: at lambda=0.3 the random-r0.1 gap (−0.0607) now *exceeds* the mined gap (−0.0565),
+whereas at lambda=0.1 mined was largest. As mining strengthens, the robustness improvement
+**spreads beyond the mined region** to generic large-radius off-trajectory points. Strengthens
+the mechanism claim (not just memorizing mined δ; genuinely flattening the local field).
+
+Effect at lambda=0.3 still modest in absolute terms (dMSE ~−0.034 to −0.061 vs vanMSE ~10.3,
+0.3–0.6% rel) but ~2× the lambda=0.1 effect — the dose-response is the headline, not the
+absolute size.
+
 ## Interpretation for the paper
 Supports the workshop story: *"ANM does not merely improve final FID — it makes the
 learned EqM field measurably more accurate under local off-trajectory drift, with the
