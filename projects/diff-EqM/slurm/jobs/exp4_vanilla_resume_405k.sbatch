@@ -3,12 +3,12 @@
 #SBATCH --output=slurm/logs/exp4-van-resume_%A.out
 #SBATCH --error=slurm/logs/exp4-van-resume_%A.err
 #SBATCH --nodes=1
-#SBATCH --ntasks-per-node=4
+#SBATCH --ntasks-per-node=2
 #SBATCH --cpus-per-task=8
-#SBATCH --mem=256GB
-#SBATCH --time=6:00:00
+#SBATCH --mem=192GB
+#SBATCH --time=8:00:00
 #SBATCH --partition=gpu
-#SBATCH --gres=gpu:4
+#SBATCH --gres=gpu:2
 
 # Experiment 4 fairness fix: resume vanilla EqM-B/2 seed0 from 0380000.pt (76ep)
 # to 80 epochs (405000 steps) so the step-matched arm is 80ep-vs-80ep against
@@ -41,7 +41,7 @@ mkdir -p "$WORK_DIR/$RESULTS_DIR"
 LOCAL_CKPT="$WORK_DIR/resume_ckpt.pt"; cp "$RESUME_CKPT" "$LOCAL_CKPT"
 MASTER_PORT=$((29500 + RANDOM % 1000))
 
-python -m torch.distributed.run --nnodes=1 --nproc_per_node=4 --master_port=$MASTER_PORT \
+python -m torch.distributed.run --nnodes=1 --nproc_per_node=2 --master_port=$MASTER_PORT \
     projects/diff-EqM/experiments/train_imagenet.py \
     --model EqM-B/2 --data-path "$IMAGENET_PATH" --num-classes 1000 \
     --global-batch-size 256 --epochs 80 --image-size 256 \
