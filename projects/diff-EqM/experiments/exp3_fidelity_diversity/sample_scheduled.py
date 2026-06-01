@@ -19,9 +19,10 @@ import os
 import sys
 from pathlib import Path
 
+import time
+
 import numpy as np
 import torch
-import torch.distributed as dist
 from PIL import Image
 
 torch.backends.cuda.matmul.allow_tf32 = True
@@ -91,11 +92,14 @@ def gd_sample(model, z, y, stepsize, num_steps, sampler, mu):
 
 
 def main(args):
+    # Generation is embarrassingly parallel: each rank renders its own disjoint
+    # set of global indices and writes its own PNGs. NO cross-rank comms -> we
+    # deliberately do NOT use torch.distributed (NCCL barriers on these nodes
+    # caused 'Duplicate GPU' and mid-run crashes). Sharding is pure env-based.
     assert torch.cuda.is_available()
-    dist.init_process_group("nccl")
-    rank = dist.get_rank()
-    world = dist.get_world_size()
-    device = int(os.environ["LOCAL_RANK"])
+    rank = int(os.environ.get("RANK", "0"))
+    world = int(os.environ.get("WORLD_SIZE", "1"))
+    device = int(os.environ.get("LOCAL_RANK", "0"))
     torch.cuda.set_device(device)
 
     # --- schedule (shared, identical across arms) ---
@@ -143,10 +147,16 @@ def main(args):
                 for p in Path(args.folder).glob("*.png"):
                     p.unlink()
         prov_path.write_text(json.dumps(fp, indent=2))
-    dist.barrier()
-    # all ranks confirm the on-disk provenance matches their own fingerprint
-    assert json.loads(prov_path.read_text())["hash"] == fp["hash"], \
-        f"[exp3-sample rank{rank}] provenance mismatch after barrier"
+    else:
+        # filesystem barrier (no NCCL): wait for rank0 to publish provenance.
+        # rank0 clears stale PNGs BEFORE writing provenance, so once the file
+        # exists any clearing is finished -> no write/clear race.
+        for _ in range(300):
+            if prov_path.exists():
+                break
+            time.sleep(1)
+    assert prov_path.exists() and json.loads(prov_path.read_text())["hash"] == fp["hash"], \
+        f"[exp3-sample rank{rank}] provenance not published/mismatched"
 
     manifest_path = Path(args.folder) / f"manifest_part_{rank}.csv"
     mf = open(manifest_path, "w")
@@ -182,11 +192,9 @@ def main(args):
         if rank == 0 and done % (bs * 20) < bs:
             print(f"[exp3-sample] rank0 {done}/{len(my_indices)}", flush=True)
     mf.close()
-    dist.barrier()
-    if rank == 0:
-        n_png = len(list(Path(args.folder).glob("*.png")))
-        print(f"[exp3-sample] DONE arm={args.tag} pngs={n_png}/{N}", flush=True)
-    dist.destroy_process_group()
+    n_png = len(list(Path(args.folder).glob("*.png")))
+    print(f"[exp3-sample] rank{rank} DONE arm={args.tag}; folder pngs={n_png}/{N}",
+          flush=True)
 
 
 if __name__ == "__main__":
