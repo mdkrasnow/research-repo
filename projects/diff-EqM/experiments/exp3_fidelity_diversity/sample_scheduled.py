@@ -36,7 +36,29 @@ from models import EqM_models            # noqa: E402  (eqm-upstream on path)
 from download import find_model          # noqa: E402
 from diffusers.models import AutoencoderKL  # noqa: E402
 
+# schedule.py lives in this script's own dir (auto on sys.path as script dir)
+from schedule import schedule_hash       # noqa: E402
+
 VAE_SCALE = 0.18215
+
+
+def provenance_fingerprint(args, sched):
+    """Identifies the EXACT generation config of a sample folder, so a rerun
+    with a different checkpoint/sampler can never silently reuse old PNGs."""
+    import hashlib
+    fp = {
+        "ckpt": args.ckpt_id or os.path.basename(args.ckpt),
+        "model": args.model,
+        "sampler": args.sampler,
+        "stepsize": args.stepsize,
+        "num_sampling_steps": args.num_sampling_steps,
+        "cfg_scale": args.cfg_scale,
+        "image_size": args.image_size,
+        "vae": args.vae,
+        "schedule_hash": schedule_hash(sched),
+    }
+    fp["hash"] = hashlib.sha256(json.dumps(fp, sort_keys=True).encode()).hexdigest()[:16]
+    return fp
 
 
 def eqm_field(model, x, t, y):
@@ -100,6 +122,28 @@ def main(args):
     vae = AutoencoderKL.from_pretrained(f"stabilityai/sd-vae-ft-{args.vae}").to(device).eval()
 
     os.makedirs(args.folder, exist_ok=True)
+
+    # --- provenance guard: refuse to mix samples from a different config ---
+    fp = provenance_fingerprint(args, sched)
+    prov_path = Path(args.folder) / "gen_provenance.json"
+    if rank == 0:
+        if prov_path.exists():
+            old = json.loads(prov_path.read_text())
+            if old.get("hash") != fp["hash"]:
+                if not args.overwrite:
+                    raise RuntimeError(
+                        f"[exp3-sample] folder {args.folder} already holds samples with "
+                        f"provenance {old.get('hash')} but this run is {fp['hash']}. "
+                        f"Refusing to mix. Pass --overwrite to regenerate.")
+                # overwrite with different config -> clear stale PNGs
+                for p in Path(args.folder).glob("*.png"):
+                    p.unlink()
+        prov_path.write_text(json.dumps(fp, indent=2))
+    dist.barrier()
+    # all ranks confirm the on-disk provenance matches their own fingerprint
+    assert json.loads(prov_path.read_text())["hash"] == fp["hash"], \
+        f"[exp3-sample rank{rank}] provenance mismatch after barrier"
+
     manifest_path = Path(args.folder) / f"manifest_part_{rank}.csv"
     mf = open(manifest_path, "w")
     mf.write("sample_id,seed,requested_label\n")
@@ -145,6 +189,9 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", default="EqM-B/2", choices=list(EqM_models.keys()))
     ap.add_argument("--ckpt", required=True)
+    ap.add_argument("--ckpt-id", default="",
+                    help="real checkpoint identity for provenance (the original "
+                         "path, since --ckpt is often a /tmp copy)")
     ap.add_argument("--tag", required=True, help="vanilla | anm")
     ap.add_argument("--schedule", required=True, help="shared schedule.json")
     ap.add_argument("--folder", required=True)

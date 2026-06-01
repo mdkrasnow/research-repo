@@ -54,29 +54,49 @@ def load_reference(ref_dir, num_classes):
             "cnt_by": cnt_by, "feats_by": feats_by}
 
 
+def gen_provenance_hash(gen_dir):
+    p = Path(gen_dir) / "gen_provenance.json"
+    return json.loads(p.read_text())["hash"] if p.exists() else "noprov"
+
+
 def cached_features(gen_dir, cache_npy, device, batch_size):
+    """Provenance-aware cache: reuse only if BOTH the file count and the
+    generation provenance hash match. Prevents serving stale features after the
+    images were regenerated with a different checkpoint/sampler."""
     cache_npy = Path(cache_npy)
+    meta_path = cache_npy.with_suffix(".meta.json")
     files = feat_mod._list_images(gen_dir)
-    stems = [int(Path(f).stem) for f in files]
-    if cache_npy.exists():
-        feats = np.load(cache_npy)
-        if len(feats) == len(files):
-            return feats, np.asarray(stems)
+    stems = np.asarray([int(Path(f).stem) for f in files])
+    prov = gen_provenance_hash(gen_dir)
+    if cache_npy.exists() and meta_path.exists():
+        meta = json.loads(meta_path.read_text())
+        if meta.get("n") == len(files) and meta.get("prov") == prov:
+            feats = np.load(cache_npy)
+            if len(feats) == len(files):
+                return feats, stems
+        print(f"  [cache] invalidating {cache_npy.name} (prov/count changed)")
     feats, _ = feat_mod.inception_features(gen_dir, device=device, batch_size=batch_size,
                                            files=files)
     np.save(cache_npy, feats)
-    return feats, np.asarray(stems)
+    meta_path.write_text(json.dumps({"n": len(files), "prov": prov}))
+    return feats, stems
 
 
 def cached_preds(gen_dir, cache_csv, device, batch_size):
     cache_csv = Path(cache_csv)
-    if cache_csv.exists():
-        rows = list(csv.DictReader(open(cache_csv)))
-        top1 = np.array([int(r["top1"]) for r in rows])
-        top5 = np.array([[int(x) for x in r["top5"].split("|")] for r in rows])
-        stems = np.array([int(r["sample_id"]) for r in rows])
-        return {"top1": top1, "top5": top5, "stems": stems}
+    meta_path = cache_csv.with_suffix(".meta.json")
     files = feat_mod._list_images(gen_dir)
+    prov = gen_provenance_hash(gen_dir)
+    if cache_csv.exists() and meta_path.exists():
+        meta = json.loads(meta_path.read_text())
+        rows = list(csv.DictReader(open(cache_csv)))
+        if meta.get("n") == len(files) and meta.get("prov") == prov \
+                and len(rows) == len(files):
+            top1 = np.array([int(r["top1"]) for r in rows])
+            top5 = np.array([[int(x) for x in r["top5"].split("|")] for r in rows])
+            stems = np.array([int(r["sample_id"]) for r in rows])
+            return {"top1": top1, "top5": top5, "stems": stems}
+        print(f"  [cache] invalidating {cache_csv.name} (prov/count changed)")
     p = feat_mod.classifier_predictions(gen_dir, device=device, batch_size=batch_size,
                                         files=files)
     stems = np.array([int(s) for s in p["stems"]])
@@ -87,6 +107,7 @@ def cached_preds(gen_dir, cache_csv, device, batch_size):
             w.writerow([int(stems[i]), int(p["top1"][i]),
                         "|".join(str(int(x)) for x in p["top5"][i]),
                         float(p["prob_top1"][i])])
+    meta_path.write_text(json.dumps({"n": len(files), "prov": prov}))
     return {"top1": p["top1"], "top5": p["top5"], "stems": stems}
 
 
@@ -112,10 +133,18 @@ def run_arm(arm, gen_dir, ckpt, schedule, ref, device, batch_size, out, prdc_k):
     preds = cached_preds(gen_dir, Path(out) / f"classifier_{arm}.csv", device, batch_size)
     sanity_checks(arm, feats, fstems, schedule, preds)
 
+    # align classifier preds to feature order by sample id. If the two
+    # extractors skipped different unreadable files, restrict to the common set
+    # rather than KeyError on a missing stem.
+    order = {int(s): i for i, s in enumerate(preds["stems"])}
+    common = np.array([int(s) in order for s in fstems])
+    if not common.all():
+        print(f"  [WARN {arm}] {int((~common).sum())} feature samples lack a "
+              f"classifier prediction; dropping them from this arm")
+        feats = feats[common]
+        fstems = fstems[common]
     labels_full = schedule["labels"]
     gen_labels = labels_full[fstems]
-    # align classifier preds to feature order by sample id
-    order = {int(s): i for i, s in enumerate(preds["stems"])}
     pi = np.array([order[int(s)] for s in fstems])
     top1 = preds["top1"][pi]
     top5 = preds["top5"][pi]
@@ -145,7 +174,8 @@ def run_arm(arm, gen_dir, ckpt, schedule, ref, device, batch_size, out, prdc_k):
 
     return {"feats": feats, "gen_labels": gen_labels, "agg": agg, "div_ci": div_ci,
             "is": (is_mean, is_std), "clf": clf, "cls_rows": cls_rows,
-            "cond_by": cond_by, "ckpt": ckpt, "n": len(feats)}
+            "cond_by": cond_by, "ckpt": ckpt, "n": len(feats),
+            "stems": fstems, "prov": gen_provenance_hash(gen_dir)}
 
 
 def write_aggregate_csv(path, arm_results, schedule, cfg):
@@ -324,6 +354,27 @@ def main():
         arm_results[arm] = run_arm(arm, gen_dirs[arm], ckpts[arm], schedule, ref,
                                    device, args.batch_size, out, args.prdc_k)
 
+    # ---- CROSS-ARM PARITY GATE (paired comparison is invalid otherwise) ----
+    sv = set(int(s) for s in arm_results["vanilla"]["stems"])
+    sa = set(int(s) for s in arm_results["anm"]["stems"])
+    if sv != sa:
+        only_v, only_a = len(sv - sa), len(sa - sv)
+        raise SystemExit(
+            f"[exp3] PARITY FAIL: vanilla has {len(sv)} samples, anm has {len(sa)}; "
+            f"{only_v} only-vanilla, {only_a} only-anm. The arms must cover the "
+            f"identical sample-id set. Regenerate the deficient arm (re-run "
+            f"generation; resume fills gaps) before computing metrics.")
+    if arm_results["vanilla"]["prov"] != "noprov" \
+            and arm_results["vanilla"]["prov"] == arm_results["anm"]["prov"]:
+        raise SystemExit(
+            "[exp3] PARITY FAIL: vanilla and anm share the SAME generation "
+            "provenance hash -- same checkpoint+config produced both arms. "
+            "One arm's gen folder is wrong.")
+    if args.vanilla_ckpt and args.anm_ckpt and args.vanilla_ckpt == args.anm_ckpt:
+        raise SystemExit("[exp3] PARITY FAIL: --vanilla-ckpt == --anm-ckpt.")
+    print(f"[exp3] parity OK: both arms cover {len(sv)} identical sample ids "
+          f"(prov vanilla={arm_results['vanilla']['prov']} anm={arm_results['anm']['prov']})")
+
     # weak-class quartiles from VANILLA only
     quartile_map = M.weak_class_scores(arm_results["vanilla"]["cls_rows"],
                                        arm_results["vanilla"]["cond_by"])
@@ -357,6 +408,12 @@ def main():
 
     summary = {
         "verdict": verdict, "reasons": reasons,
+        "schedule_hash": schedule_hash(schedule),
+        "base_seed": schedule["base_seed"], "shuffle_seed": schedule["shuffle_seed"],
+        "feature_extractor": EXTRACTOR, "reference_split": cfg["reference_split"],
+        "sampler": cfg["sampler"], "nfe": cfg["nfe"], "step_size": cfg["step_size"],
+        "cfg_scale": cfg["cfg_scale"],
+        "vanilla_ckpt": args.vanilla_ckpt, "anm_ckpt": args.anm_ckpt,
         "frac_classes_anm_better_feature_distance": frac_improved,
         "vanilla": {k: arm_results["vanilla"]["agg"][k]
                     for k in ["fid", "kid_mean", "precision", "recall", "density", "coverage"]},

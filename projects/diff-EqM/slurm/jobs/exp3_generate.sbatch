@@ -50,6 +50,7 @@ elif [ -f "$REPO_ROOT/$CKPT_PATH" ]; then
     CKPT_PATH="$REPO_ROOT/$CKPT_PATH"
 fi
 [ -f "$CKPT_PATH" ] || { echo "ERROR: ckpt not found: $CKPT_PATH"; exit 1; }
+CKPT_ID="$CKPT_PATH"   # real identity for provenance (before /tmp copy)
 LOCAL_CKPT="$WORK_DIR/ckpt.pt"; cp "$CKPT_PATH" "$LOCAL_CKPT"
 echo "=== arm=$TAG ckpt=$CKPT_PATH ($(du -h "$LOCAL_CKPT"|cut -f1)) ==="
 
@@ -63,7 +64,7 @@ echo "=== generating arm=$TAG on $NUM_GPUS GPU(s), start $(date) ==="
 
 python -m torch.distributed.run --nnodes=1 --nproc_per_node=$NUM_GPUS --master_port=$MASTER_PORT \
     projects/diff-EqM/experiments/exp3_fidelity_diversity/sample_scheduled.py \
-    --model "$MODEL" --ckpt "$LOCAL_CKPT" --tag "$TAG" \
+    --model "$MODEL" --ckpt "$LOCAL_CKPT" --ckpt-id "$CKPT_ID" --tag "$TAG" \
     --schedule "$SCHEDULE_ABS" --folder "$PERSIST_GEN" \
     --num-classes 1000 --sampler gd --stepsize "$STEPSIZE" \
     --num-sampling-steps "$NUM_SAMPLING_STEPS" --cfg-scale 1.0 \
