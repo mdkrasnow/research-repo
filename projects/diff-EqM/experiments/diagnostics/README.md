@@ -45,34 +45,41 @@ the OPPOSITE label convention — do not mix.
   matched training step (380000).
 
 ## Smoke test
+IMPORTANT: comma-separated values (`T_VALUES`, `RADII`) MUST be set as shell env
+vars BEFORE `sbatch` with `--export=ALL` — passing them inside the `--export=` list
+silently truncates at the first comma (SLURM parses `--export` as comma-separated
+KEY=VAL, so `RADII=0,0.1` becomes `RADII=0`).
 ```bash
-sbatch --export=ALL,\
-GIT_SHA=$(git rev-parse HEAD),\
-VANILLA_CKPT=projects/diff-EqM/results/stage_b_vanilla_in1k_80ep_seed0/000-EqM-B-2-Linear-velocity-None-vanilla/checkpoints/0380000.pt,\
-ANM_CKPT=projects/diff-EqM/results/imagenet1k_80ep_v10_seed0/000-EqM-B-2-Linear-velocity-None-dganm/checkpoints/0380000.pt,\
-OUTPUT_DIR=projects/diff-EqM/results/diagnostics/offtraj_smoke,\
-NUM_BATCHES=1,BATCH_SIZE=8,T_VALUES=0.25,0.75,RADII=0,0.1,\
-PERTURB_TYPE=random_l2,PRECISION=fp32 \
-  projects/diff-EqM/slurm/jobs/offtraj_field_diag.sbatch
+GIT_SHA=$(git rev-parse HEAD) \
+VANILLA_CKPT=projects/diff-EqM/results/stage_b_vanilla_in1k_80ep_seed0/000-EqM-B-2-Linear-velocity-None-vanilla/checkpoints/0380000.pt \
+ANM_CKPT=projects/diff-EqM/results/imagenet1k_80ep_v10_seed0/000-EqM-B-2-Linear-velocity-None-dganm/checkpoints/final.pt \
+OUTPUT_DIR=projects/diff-EqM/results/diagnostics/offtraj_smoke \
+NUM_BATCHES=1 BATCH_SIZE=8 T_VALUES=0.25,0.75 RADII=0,0.1 \
+PERTURB_TYPE=random_l2 PRECISION=fp32 \
+  sbatch --export=ALL projects/diff-EqM/slurm/jobs/offtraj_field_diag.sbatch
 ```
 Smoke HARD-FAILS (exit nonzero) if radius-0 cosine ≤ 0 (sign mismatch), radius-0
 `xtd ≠ xt`, or any non-finite field. Check `sanity/first_batch_checks.json`.
 
 ## Full run
+Defaults (no `T_VALUES`/`RADII` override) use the built-in 10-t grid and 7-radius
+sweep — safest, since they avoid the comma issue entirely. Override only via shell
+env + `--export=ALL` (never inside the `--export=` list).
 ```bash
-# Run 1: random orthogonal sweep (≥5k latents)
-sbatch --export=ALL,GIT_SHA=$(git rev-parse HEAD),\
-VANILLA_CKPT=...vanilla...0380000.pt,ANM_CKPT=...v10...0380000.pt,\
-OUTPUT_DIR=projects/diff-EqM/results/diagnostics/offtraj_random,\
-NUM_BATCHES=80,BATCH_SIZE=64,PERTURB_TYPE=random_l2_orthogonal \
-  projects/diff-EqM/slurm/jobs/offtraj_field_diag.sbatch
+V=projects/diff-EqM/results/stage_b_vanilla_in1k_80ep_seed0/000-EqM-B-2-Linear-velocity-None-vanilla/checkpoints/0380000.pt
+A=projects/diff-EqM/results/imagenet1k_80ep_v10_seed0/000-EqM-B-2-Linear-velocity-None-dganm/checkpoints/final.pt
+
+# Run 1: random orthogonal sweep (≥5k latents) — uses default t-grid + radii
+GIT_SHA=$(git rev-parse HEAD) VANILLA_CKPT=$V ANM_CKPT=$A \
+OUTPUT_DIR=projects/diff-EqM/results/diagnostics/offtraj_random \
+NUM_BATCHES=80 BATCH_SIZE=64 PERTURB_TYPE=random_l2_orthogonal \
+  sbatch --export=ALL projects/diff-EqM/slurm/jobs/offtraj_field_diag.sbatch
 
 # Run 2: ANM-mined + local drift (shared frozen vanilla probe)
-sbatch --export=ALL,GIT_SHA=$(git rev-parse HEAD),\
-VANILLA_CKPT=...,ANM_CKPT=...,\
-OUTPUT_DIR=projects/diff-EqM/results/diagnostics/offtraj_sampler,\
-NUM_BATCHES=80,BATCH_SIZE=64,PERTURB_TYPE=all \
-  projects/diff-EqM/slurm/jobs/offtraj_field_diag.sbatch
+GIT_SHA=$(git rev-parse HEAD) VANILLA_CKPT=$V ANM_CKPT=$A \
+OUTPUT_DIR=projects/diff-EqM/results/diagnostics/offtraj_sampler \
+NUM_BATCHES=80 BATCH_SIZE=64 PERTURB_TYPE=all \
+  sbatch --export=ALL projects/diff-EqM/slurm/jobs/offtraj_field_diag.sbatch
 ```
 Add `RESUME=1` to continue an interrupted run (skips completed batches in the jsonl).
 Secondary: rerun Run 1 with `ANM_CKPT=<λ=0.3 best-FID ckpt>` — report separately (best-FID, not matched-step).

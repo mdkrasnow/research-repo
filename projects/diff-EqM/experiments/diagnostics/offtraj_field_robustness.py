@@ -189,6 +189,11 @@ def load_eqm(ckpt_path, *, use_ema, model_name, num_classes, ebm, uncond,
         model.load_state_dict(state)
         loaded = "raw"
     model.eval()
+    # No training graph through params: mining only needs grad wrt delta, and
+    # metric eval is under no_grad. Freezing params guarantees param.grad stays
+    # None and saves the mining forward's activation graph over weights.
+    for p in model.parameters():
+        p.requires_grad_(False)
     return model, loaded
 
 
@@ -257,18 +262,21 @@ def aggregate(rows, run_id):
     for r in rows:
         key = (r["checkpoint_type"], r["perturbation_type"],
                _radius_key(r["radius_rel_requested"]), r["t_bin"])
-        for m in ("mse", "cosine", "rel_norm_err", "field_norm_rms", "norm_ratio"):
+        for m in ("mse", "cosine", "rel_norm_err", "field_norm_rms", "norm_ratio",
+                  "pred_norm", "target_norm"):
             groups[key][m].append(r[m])
 
     agg = []
     for (ct, pt, rad, tb), met in sorted(groups.items()):
         n = len(met["mse"])
         row = {"run_id": run_id, "checkpoint_type": ct, "perturbation_type": pt,
-               "radius_rel_value": rad, "t_bin": tb, "n": n}
+               "radius_rel_value": rad, "t_bin": tb, "n": n, "sample_count": n}
         for m in ("mse", "cosine", "rel_norm_err"):
             a = np.asarray(met[m], dtype=np.float64)
             row[f"{m}_mean"] = float(a.mean())
             row[f"{m}_se"] = float(a.std(ddof=1) / np.sqrt(n)) if n > 1 else 0.0
+        for m in ("pred_norm", "target_norm"):
+            row[f"{m}_mean"] = float(np.asarray(met[m], dtype=np.float64).mean())
         for m in ("field_norm_rms", "norm_ratio"):
             a = np.asarray(met[m], dtype=np.float64)
             row[f"{m}_mean"] = float(a.mean())
