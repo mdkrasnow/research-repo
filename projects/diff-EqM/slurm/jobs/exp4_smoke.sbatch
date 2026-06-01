@@ -7,7 +7,7 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=48GB
 #SBATCH --time=1:00:00
-#SBATCH --partition=gpu_test
+#SBATCH --partition=gpu
 #SBATCH --gres=gpu:1
 
 # Experiment 4 cluster smoke: (1) plumbing via local_smoke.py (stub backbone),
