@@ -318,13 +318,17 @@ def main():
     if not results_csv.exists():
         with open(results_csv, "w", newline="") as f:
             csv.DictWriter(f, CSV_FIELDS).writeheader()
-    done = set()
+    # done_valid = cells already in the CSV with a non-empty FID. On --resume we
+    # trust a recorded metric and skip the cell even if its local samples/features
+    # are gone (e.g. seeded from a recovered job.log after a crash).
+    done_valid = set()
     if results_csv.exists():
         import pandas as pd
         try:
-            done = set(pd.read_csv(results_csv).run_id.astype(str))
+            prev = pd.read_csv(results_csv)
+            done_valid = set(prev[prev.fid.notna()].run_id.astype(str))
         except Exception:
-            done = set()
+            done_valid = set()
 
     gsha = git_commit()
     # a completed cell has >= num_samples PNGs (full run) or >= 16 (smoke)
@@ -335,7 +339,7 @@ def main():
         feat_path = feats_root / f"{rid}_inception.npz"
         notes = ""
 
-        if a.resume and rid in done and have_outputs(samples_dir, feat_path, expected_min):
+        if a.resume and (rid in done_valid or have_outputs(samples_dir, feat_path, expected_min)):
             print(f"[skip] {rid}")
             continue
         if have_outputs(samples_dir, feat_path, expected_min) and not a.force and not a.resume:

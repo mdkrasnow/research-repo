@@ -51,15 +51,18 @@ pip install timm diffusers accelerate scipy torchvision pytorch-fid pandas matpl
 
 REPO_ROOT="/n/home03/mkrasnow/research-repo"
 EXPDIR="projects/diff-EqM/experiments/exp1_sampler_robustness"
-OUTDIR="$WORK_DIR/exp1_out"
+# OUTDIR override (OUTDIR_OVERRIDE) lets a resume run point at a persistent NFS
+# dir pre-seeded with recovered metrics; default is node-local /tmp.
+OUTDIR="${OUTDIR_OVERRIDE:-$WORK_DIR/exp1_out}"
 
-# --- failsafe logging: results/ is NOT rsync --delete'd (unlike slurm/logs),
-# so a concurrent remote_submit can't wipe it. Mirror all output here and copy
-# on ANY exit, so failures are always diagnosable. ---
-SYNC="$REPO_ROOT/projects/diff-EqM/results/exp1_sampler_robustness_${SLURM_JOB_ID}"
+# --- failsafe logging: results/ is NOT rsync --delete'd (unlike slurm/logs).
+# Direct append to an NFS file -- NOT `exec > >(tee ...)`: that process-sub tee
+# can die on an NFS hiccup and SIGPIPE-kill the whole job (lost run 17828606 at
+# 12h56m, signal 13). A plain redirect has no pipe and cannot SIGPIPE. ---
+SYNC="${SYNC_OVERRIDE:-$REPO_ROOT/projects/diff-EqM/results/exp1_sampler_robustness_${SLURM_JOB_ID}}"
 mkdir -p "$SYNC"
-exec > >(tee -a "$SYNC/job.log") 2>&1
-trap 'echo "=== EXIT trap (rc=$?) $(date) ==="; cp "$WORK_DIR/exp1.log" "$SYNC/" 2>/dev/null || true' EXIT
+exec >> "$SYNC/job.log" 2>&1
+trap 'echo "=== EXIT trap (rc=$?) $(date) ==="' EXIT
 
 # Resolve checkpoints (repo-relative -> absolute under REPO_ROOT if needed)
 resolve_ckpt() {
@@ -95,12 +98,13 @@ ARGS=(
 echo "=== Running exp1_driver (gpus=$NUM_GPUS) ===" >&2
 echo "    vanilla=$VANILLA_CKPT" >&2
 echo "    anm=$ANM_CKPT" >&2
-python "$EXPDIR/exp1_driver.py" "${ARGS[@]}" 2>&1 | tee exp1.log
-RC=${PIPESTATUS[0]}
+# No `| tee`: stdout already redirects to $SYNC/job.log; a tee pipe risks SIGPIPE.
+set +e
+python "$EXPDIR/exp1_driver.py" "${ARGS[@]}"
+RC=$?
+set -e
 
 # === Sync results back (metrics/plots/manifest only; samples stay on scratch) ===
-SYNC="$REPO_ROOT/projects/diff-EqM/results/exp1_sampler_robustness_${SLURM_JOB_ID}"
-mkdir -p "$SYNC"
 cp -r "$OUTDIR/metrics" "$OUTDIR/plots" "$SYNC/" 2>/dev/null || true
 cp "$OUTDIR/eval_inputs/metadata.json" "$SYNC/" 2>/dev/null || true
 cp exp1.log "$SYNC/" 2>/dev/null || true
