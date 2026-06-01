@@ -17,6 +17,7 @@ import argparse
 import csv
 import hashlib
 import json
+import socket
 import subprocess
 import sys
 import time
@@ -227,11 +228,18 @@ def have_outputs(samples_dir, feat_path, expected_min):
             and Path(feat_path).exists())
 
 
+def _free_port():
+    """OS-assigned free TCP port. Avoids the master-port collisions (EADDRINUSE)
+    a fixed hash%1000 scheme hits across 80 sequential torchrun launches."""
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.bind(("", 0))
+    p = s.getsockname()[1]
+    s.close()
+    return p
+
+
 def generate(a, ckpt, sampler, nfe, sm, samples_dir, latents_p, labels_p):
-    port = 29500 + (hash((sampler, nfe, sm)) % 1000)
-    cmd = [
-        sys.executable, "-m", "torch.distributed.run",
-        "--nnodes=1", f"--nproc_per_node={a.num_gpus}", f"--master_port={port}",
+    base = [
         str(SAMPLE_SCRIPT),
         "--model", a.model, "--image-size", str(a.image_size),
         "--num-classes", str(a.num_classes), "--ckpt", ckpt,
@@ -245,8 +253,16 @@ def generate(a, ckpt, sampler, nfe, sm, samples_dir, latents_p, labels_p):
         "--global-seed", str(a.global_seed),
     ]
     t0 = time.time()
-    r = subprocess.run(cmd)
-    return r.returncode, time.time() - t0
+    rc = 1
+    for attempt in range(3):
+        port = _free_port()
+        cmd = [sys.executable, "-m", "torch.distributed.run", "--nnodes=1",
+               f"--nproc_per_node={a.num_gpus}", f"--master_port={port}"] + base
+        rc = subprocess.run(cmd).returncode
+        if rc == 0:
+            break
+        print(f"  [retry] generate rc={rc} (attempt {attempt+1}/3), new port next")
+    return rc, time.time() - t0
 
 
 def main():
