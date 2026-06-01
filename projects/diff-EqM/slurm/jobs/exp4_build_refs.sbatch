@@ -7,7 +7,7 @@
 #SBATCH --cpus-per-task=16
 #SBATCH --mem=128GB
 #SBATCH --time=8:00:00
-#SBATCH --partition=seas_gpu
+#SBATCH --partition=gpu
 #SBATCH --gres=gpu:1
 
 # Experiment 4: build val + train reference banks (FIXES B1 -- project had no
