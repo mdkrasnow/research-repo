@@ -448,6 +448,11 @@ def _v10_pgd_hard_example_step(
         "v10_hard_loss": loss_v10.item(),
         "v10_delta_norm": delta.flatten(1).norm(dim=1).mean().item(),
         "v10_field_norm": pred_hard.flatten(1).norm(dim=1).mean().item(),
+        # Experiment-4 compute accounting: model forwards spent inside this mining
+        # call = v10_K inner grad forwards + 1 hard forward. Accumulated by the
+        # caller into the checkpoint as `anm_inner_forward_count` so compute-matched
+        # comparison can use exact counts instead of the ~2x FEU estimate.
+        "v10_inner_forwards": int(v10_K + 1),
     }
     return loss_v10, diag
 
@@ -554,6 +559,7 @@ def main(args):
     # Load checkpoint if provided
     resume_epoch = 0
     resume_step = 0
+    resume_anm_forwards = 0
     if args.ckpt is not None:
         ckpt_path = args.ckpt
         state_dict = find_model(ckpt_path)
@@ -563,6 +569,7 @@ def main(args):
             opt.load_state_dict(state_dict["opt"])
             resume_epoch = state_dict.get("epoch", 0)
             resume_step = state_dict.get("train_steps", 0)
+            resume_anm_forwards = state_dict.get("anm_inner_forward_count", 0)
             logger.info(f"Resuming from epoch {resume_epoch}, step {resume_step}")
         else:
             model.load_state_dict(state_dict)
@@ -633,6 +640,10 @@ def main(args):
     running_mining_normal = 0
     running_mining_tangent = 0
     running_mining_field = 0
+    # Experiment-4 compute accounting: cumulative ANM inner mining batch-forwards
+    # (K inner grad forwards + 1 hard forward per mined step). Persisted in each
+    # checkpoint for exact compute-matched comparison. Resumes from prior ckpt.
+    anm_inner_forward_count = resume_anm_forwards
     start_time = time()
 
     # Sampling setup (for visualization during training)
@@ -807,6 +818,7 @@ def main(args):
                     running_mining_normal += mining_info["v10_hard_loss"]
                     running_mining_tangent += mining_info["v10_aux_over_base"]
                     running_mining_field += mining_info["v10_delta_norm"]
+                    anm_inner_forward_count += mining_info.get("v10_inner_forwards", 0)
                 elif args.mining_flavor == "v02":
                     running_mining_normal += mining_info["v02_pos_loss"]
                     running_mining_tangent += mining_info["v02_neg_loss"]
@@ -912,6 +924,8 @@ def main(args):
                         "args": args,
                         "train_steps": train_steps,
                         "epoch": epoch,
+                        # Experiment-4 compute accounting (0 for vanilla; >0 for v10/ANM).
+                        "anm_inner_forward_count": int(anm_inner_forward_count),
                     }
                     checkpoint_path = f"{checkpoint_dir}/{train_steps:07d}.pt"
                     torch.save(checkpoint, checkpoint_path)
@@ -928,6 +942,7 @@ def main(args):
             "args": args,
             "train_steps": train_steps,
             "epoch": args.epochs,
+            "anm_inner_forward_count": int(anm_inner_forward_count),
         }
         final_path = f"{checkpoint_dir}/final.pt"
         torch.save(final_ckpt, final_path)

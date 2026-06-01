@@ -94,7 +94,14 @@ def main(args):
     torch.cuda.set_device(device)
     print(f"Starting rank={rank}, seed={seed}, world_size={dist.get_world_size()}.")
     local_batch_size = int(args.global_batch_size // dist.get_world_size())
-    
+
+    # Experiment-4: dedicated label generator for a fixed, checkpoint-invariant
+    # label schedule (independent of sampler-internal RNG draws).
+    label_gen = None
+    if args.label_seed is not None:
+        label_gen = torch.Generator(device=device)
+        label_gen.manual_seed(args.label_seed * dist.get_world_size() + rank)
+
     # Create model:
     assert args.image_size % 8 == 0, "Image size must be divisible by 8 (for the VAE encoder)."
     latent_size = args.image_size // 8
@@ -171,7 +178,10 @@ def main(args):
     for i in pbar:
         with torch.no_grad():
             z = torch.randn(n, 4, latent_size, latent_size, device=device)
-            y = torch.randint(0, args.num_classes, (n,), device=device)
+            if label_gen is not None:
+                y = torch.randint(0, args.num_classes, (n,), device=device, generator=label_gen)
+            else:
+                y = torch.randint(0, args.num_classes, (n,), device=device)
             t = torch.ones((n,)).to(z).to(device)
             if use_cfg:
                 z = torch.cat([z, z], 0)
@@ -221,6 +231,11 @@ if __name__ == "__main__":
     parser.add_argument("--num-classes", type=int, default=1000)
     parser.add_argument("--global-batch-size", type=int, default=256)
     parser.add_argument("--global-seed", type=int, default=0)
+    parser.add_argument("--label-seed", type=int, default=None,
+                        help="Experiment-4 fixed label schedule: if set, class labels are drawn "
+                             "from a dedicated per-rank generator seeded by label_seed*world+rank, "
+                             "so the label schedule is identical across checkpoints regardless of "
+                             "sampler-internal RNG. Pin --global-seed and a fixed world_size too.")
     parser.add_argument("--vae", type=str, choices=["ema", "mse"], default="ema")  # Choice doesn't affect training
     parser.add_argument("--cfg-scale", type=float, default=4.0)
     parser.add_argument("--ckpt", type=str, default=None,
