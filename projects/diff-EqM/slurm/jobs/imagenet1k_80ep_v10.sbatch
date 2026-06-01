@@ -54,7 +54,8 @@ pip install timm diffusers accelerate scipy torchvision 2>&1 | tail -10
 
 IMAGENET_PATH="/n/holylabs/ydu_lab/Lab/raywang4/imagenet/train"
 SEED="${SEED:-0}"
-RESULTS_DIR="projects/diff-EqM/results/imagenet1k_80ep_v10_seed${SEED}"
+GAMMA="${GAMMA:-0.1}"
+RESULTS_DIR="${RESULTS_DIR:-projects/diff-EqM/results/imagenet1k_80ep_v10_seed${SEED}}"
 REPO_ROOT="/n/home03/mkrasnow/research-repo"
 
 if [ ! -d "$IMAGENET_PATH" ]; then
@@ -95,6 +96,10 @@ trap cleanup SIGTERM SIGINT EXIT
 
 MASTER_PORT=$((29500 + RANDOM % 1000))
 
+# MINING=v10 (default) trains with v10 hard-example mining; MINING=none trains a
+# plain vanilla baseline (reuses this sbatch's robust periodic-sync + trap, which the
+# dedicated vanilla sbatch lacks — that omission lost a 2-day seed2 train to timeout).
+MINING="${MINING:-v10}"
 TRAIN_CMD="python -m torch.distributed.run --nnodes=1 --nproc_per_node=4 --master_port=$MASTER_PORT \
     projects/diff-EqM/experiments/train_imagenet.py \
     --model EqM-B/2 \
@@ -105,14 +110,17 @@ TRAIN_CMD="python -m torch.distributed.run --nnodes=1 --nproc_per_node=4 --maste
     --image-size 256 \
     --results-dir $RESULTS_DIR \
     --ckpt-every 5000 \
-    --global-seed $SEED \
+    --global-seed $SEED"
+if [ "$MINING" = "v10" ]; then
+    TRAIN_CMD="$TRAIN_CMD \
     --use-mining \
     --mining-flavor v10 \
-    --gamma 0.1 \
+    --gamma $GAMMA \
     --v10-K 1 \
     --v10-eps-radius 0.3 \
     --mining-lr 0.05 \
     --mine-every 1"
+fi
 
 if [ -n "${RESUME_CKPT:-}" ] && [ -f "$RESUME_CKPT" ]; then
     echo "=== Resuming from checkpoint: $RESUME_CKPT ===" >&2
@@ -121,8 +129,12 @@ if [ -n "${RESUME_CKPT:-}" ] && [ -f "$RESUME_CKPT" ]; then
     TRAIN_CMD="$TRAIN_CMD --ckpt $LOCAL_CKPT"
 fi
 
-echo "=== v10 mining ENABLED (gamma=0.1, eps=0.3, K=1, lr=0.05, mine-every=1) ===" >&2
-echo "=== Starting v10 80-epoch training on ImageNet-1K, seed=$SEED ===" >&2
+if [ "$MINING" = "v10" ]; then
+    echo "=== v10 mining ENABLED (gamma=$GAMMA, eps=0.3, K=1, lr=0.05, mine-every=1) ===" >&2
+else
+    echo "=== MINING DISABLED (vanilla baseline) ===" >&2
+fi
+echo "=== Starting 80-epoch training (MINING=$MINING) on ImageNet-1K, seed=$SEED ===" >&2
 echo "=== Job ID: $SLURM_JOB_ID, Node: $(hostname), Start: $(date) ===" >&2
 
 set +e
