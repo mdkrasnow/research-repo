@@ -135,11 +135,14 @@ def main(args):
         with torch.no_grad():
             global_idx = torch.arange(n) * world + rank + total  # matches save indexing
             if fixed_latents is not None:
-                z = fixed_latents[global_idx].to(device)
+                # modulo guards the tail: total_samples = ceil(num_fid/batch)*batch
+                # can exceed the precomputed bank (driver pads to a batch multiple,
+                # so wrap only ever hits the pad region; identical for both arms).
+                z = fixed_latents[global_idx % fixed_latents.shape[0]].to(device)
             else:
                 z = torch.randn(n, 4, latent_size, latent_size, device=device)
             if fixed_labels is not None:
-                y = fixed_labels[global_idx].to(device)
+                y = fixed_labels[global_idx % fixed_labels.shape[0]].to(device)
             else:
                 y = torch.randint(0, args.num_classes, (n,), device=device)
 

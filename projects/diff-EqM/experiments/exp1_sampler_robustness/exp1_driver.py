@@ -116,7 +116,11 @@ def precompute_fixed_inputs(a, eval_dir):
     labels_p = eval_dir / "labels.npy"
     latents_p = eval_dir / "init_latents.pt"
     meta_p = eval_dir / "metadata.json"
-    N = a.num_samples
+    # Pad to a whole number of batches: sample_gd_fixed iterates over
+    # total_samples = ceil(num_samples/batch)*batch and indexes the bank by global
+    # id, so the bank must cover every index that gets sampled.
+    bs = a.sample_batch_size
+    N = int(np.ceil(a.num_samples / bs) * bs)
 
     if all(p.exists() for p in [seeds_p, labels_p, latents_p, meta_p]):
         return latents_p, labels_p, json.loads(meta_p.read_text())
@@ -214,9 +218,12 @@ def run_id(ct, sampler, nfe, sm):
     return f"{ct}_{sampler}_nfe{nfe}_step{sm}"
 
 
-def have_outputs(samples_dir, feat_path):
+def have_outputs(samples_dir, feat_path, expected_min):
+    """Complete iff samples folder has >= expected_min PNGs AND the feature
+    cache exists. Count check (not mere existence) prevents resume from skipping
+    a cell that was interrupted mid-generation."""
     return (Path(samples_dir).exists()
-            and len(list(Path(samples_dir).glob("*.png"))) > 0
+            and len(list(Path(samples_dir).glob("*.png"))) >= expected_min
             and Path(feat_path).exists())
 
 
@@ -304,18 +311,23 @@ def main():
             done = set()
 
     gsha = git_commit()
+    # a completed cell has >= num_samples PNGs (full run) or >= 16 (smoke)
+    expected_min = min(a.num_samples, 16) if a.num_samples < 1000 else a.num_samples
     for ct, sampler, nfe, sm in cells:
         rid = run_id(ct, sampler, nfe, sm)
         samples_dir = samples_root / ct / sampler / f"nfe_{nfe}" / f"step_{sm}"
         feat_path = feats_root / f"{rid}_inception.npz"
         notes = ""
 
-        if a.resume and rid in done and have_outputs(samples_dir, feat_path):
+        if a.resume and rid in done and have_outputs(samples_dir, feat_path, expected_min):
             print(f"[skip] {rid}")
             continue
-        if have_outputs(samples_dir, feat_path) and not a.force and not a.resume:
+        if have_outputs(samples_dir, feat_path, expected_min) and not a.force and not a.resume:
             print(f"[exists] {rid} (use --resume to skip, --force to redo)")
         samples_dir.mkdir(parents=True, exist_ok=True)
+        # invalidate any stale feature cache before regenerating this cell, else
+        # extract_features() would silently return the previous run's features.
+        Path(feat_path).unlink(missing_ok=True)
 
         rc, wall = generate(a, ckpts[ct], sampler, nfe, sm, samples_dir, latents_p, labels_p)
         png_n = len(list(samples_dir.glob("*.png")))
@@ -335,6 +347,8 @@ def main():
                                             batch_size=a.sample_batch_size)
                 if np.var(feats) < 1e-8:
                     notes = "degenerate_features(near-identical samples)"
+                if a.num_samples < 5000 or a.smoke:
+                    notes = (notes + ";" if notes else "") + "UNRELIABLE_small_n"
                 fid = cm.compute_fid(feats, ref_mu, ref_sigma)
                 fid_lo, fid_hi = cm.bootstrap_fid_ci(feats, ref_mu, ref_sigma)
                 kid_m, kid_s, kid_lo, kid_hi = cm.compute_kid(
