@@ -27,10 +27,14 @@ from PIL import Image
 torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
 
-# eqm-upstream on path (sibling dir), same style as eval_capabilities.py
-_UPSTREAM = str(Path(__file__).resolve().parent.parent / "eqm-upstream")
-if _UPSTREAM not in sys.path:
-    sys.path.insert(0, _UPSTREAM)
+# eqm-upstream lives at projects/diff-EqM/eqm-upstream; this script is one level
+# deeper than eval_capabilities.py (in experiments/exp3_fidelity_diversity/), so
+# go up THREE parents: [0]=exp3 dir, [1]=experiments, [2]=diff-EqM.
+_HERE = str(Path(__file__).resolve().parent)
+_UPSTREAM = str(Path(__file__).resolve().parents[2] / "eqm-upstream")
+for _p in (_HERE, _UPSTREAM):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 
 from models import EqM_models            # noqa: E402  (eqm-upstream on path)
 from download import find_model          # noqa: E402
