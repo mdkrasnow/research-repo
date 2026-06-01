@@ -222,13 +222,20 @@ def pooled_bottom_quartile(gen_feats, gen_labels, ref_feats, quartile_map,
 # --------------------------------------------------------------------------- #
 # Classifier histogram metrics
 # --------------------------------------------------------------------------- #
+# resnet50 IMAGENET1K_V2 always emits 1000-way predictions, independent of how
+# many classes the schedule conditions on (smoke uses 100). All classifier
+# histograms MUST be length CLF_VOCAB or pred/requested/real arrays mismatch.
+CLF_VOCAB = 1000
+
+
 def classifier_hist_metrics(pred_top1, pred_top5, requested_labels,
-                            num_classes, real_hist=None):
+                            num_classes, real_hist=None, vocab=CLF_VOCAB):
     pred_top1 = np.asarray(pred_top1)
     requested = np.asarray(requested_labels)
-    counts = np.bincount(pred_top1, minlength=num_classes).astype(np.float64)
+    vocab = max(vocab, int(pred_top1.max()) + 1, int(requested.max()) + 1)
+    counts = np.bincount(pred_top1, minlength=vocab).astype(np.float64)
     pred_hist = counts / counts.sum()
-    req_counts = np.bincount(requested, minlength=num_classes).astype(np.float64)
+    req_counts = np.bincount(requested, minlength=vocab).astype(np.float64)
     req_hist = req_counts / req_counts.sum()
 
     nz = pred_hist > 0
@@ -248,7 +255,8 @@ def classifier_hist_metrics(pred_top1, pred_top5, requested_labels,
            "conditional_top5_accuracy": cond_top5,
            "pred_hist": pred_hist, "requested_hist": req_hist}
     if real_hist is not None:
-        out["classifier_tv_to_real"] = float(0.5 * np.abs(pred_hist - real_hist).sum())
+        rh = np.zeros(vocab); rh[:min(vocab, len(real_hist))] = real_hist[:vocab]
+        out["classifier_tv_to_real"] = float(0.5 * np.abs(pred_hist - rh).sum())
     return out
 
 

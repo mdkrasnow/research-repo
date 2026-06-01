@@ -77,7 +77,8 @@ def main():
     preds = feat_mod.classifier_predictions(None, device=device,
                                             batch_size=args.batch_size,
                                             files=agg_files)
-    counts = np.bincount(preds["top1"], minlength=args.num_classes).astype(np.float64)
+    # resnet50 is 1000-way regardless of num_classes -> always 1000 bins
+    counts = np.bincount(preds["top1"], minlength=1000).astype(np.float64)
     np.save(out / "real_classifier_hist.npy", counts / counts.sum())
 
     # ---- per-class reference stats (full-train based, ref_per_class each) ----
