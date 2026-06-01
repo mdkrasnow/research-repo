@@ -50,6 +50,27 @@ seed → same result, confirming both models saw identical inputs.
 - **Local proxy only.** This tests local field accuracy around the vanilla path; it
   does NOT prove global energy correctness or sampling optimality.
 
+## Failure-mode rule-outs (both PASS)
+
+**Win-by-rescaling — RULED OUT.** Field norms are near-identical between ckpts, so the
+MSE/cosine advantage is genuine alignment, not norm shrink/inflate:
+| | norm_ratio mean | norm_ratio p95 | field_rms |
+|---|---|---|---|
+| random r0 vanilla | 0.7298 | 0.8584 | 3.4748 |
+| random r0 **anm** | 0.7301 | 0.8587 | 3.4767 |
+| mined vanilla | 0.7302 | 0.8752 | 3.4754 |
+| mined **anm** | 0.7306 | 0.8676 | 3.4771 |
+
+Δnorm_ratio ≈ 4e-4; anm mined p95 slightly *tighter* (0.868 vs 0.875) — not heavier-tailed.
+
+**Edge-artifact (only near t→1, target→0) — RULED OUT.** Mined dMSE/dCos by t-bin
+(t = data fraction; t→1 = data manifold, c(t)→0):
+```
+t~0.05 dMSE -0.0083  ...  t~0.55 -0.0568  t~0.65 -0.0568  t~0.75 -0.0565  ...  t~0.95 -0.0446
+```
+Effect is broad across all t-bins and **peaks mid-trajectory** (t~0.55–0.75), the
+sampling-relevant region — not concentrated where the target norm is unstable.
+
 ## Interpretation for the paper
 Supports the workshop story: *"ANM does not merely improve final FID — it makes the
 learned EqM field measurably more accurate under local off-trajectory drift, with the
