@@ -163,3 +163,8 @@ CLAUDE.md "gpu_requeue MIG roulette" + "Auto-pruner standing infrastructure" sec
 - **remote_submit.sh needs an ABSOLUTE sbatch path AND case must match the helper's `pwd`** (macOS case-insensitive FS: pass `/Users/mkrasnow/desktop/...` lowercase 'desktop' to match `scripts/cluster` resolution, else relpath produces a broken `../../../../Desktop/...` and sbatch can't open the file).
 - **slurm/logs/*.out is rsync --delete'd by any concurrent remote_submit** -> job stdout there can vanish mid-run. Durable logs MUST go under results/ (not synced). This is why exp1 logs to results/.../job.log.
 - **Resume + fixed-latents batch coupling**: the deterministic init-latents bank is padded to a multiple of SAMPLE_BATCH (ceil(N/bs)*bs). A resume/merge run MUST reuse the SAME SAMPLE_BATCH (and GLOBAL_SEED, NUM_SAMPLES, imagenet_ref) as the original, or new cells get a DIFFERENT latent bank and break the paired vanilla-vs-anm comparison. exp1_merge.sbatch pins batch=64 to match 17828606.
+
+## 2026-06-02 exp4 vanilla-resume 17982683 FAILED (node glitch)
+- Symptom: State FAILED exit 0:53, elapsed 1s, node holygpu8a22501. batch step CANCELLED, extern step COMPLETED, stdout+stderr EMPTY.
+- Diagnosis: launch/node glitch (allocation succeeded -> extern OK; batch killed instantly before any echo). Not a code/sbatch bug — harness passed exp4_smoke 17788555.
+- Action: resubmitted unchanged as 18607103 (SHA 1b915a9). remote_submit rsync failed (2FA on fresh ssh); submitted via control-socket sbatch directly.
