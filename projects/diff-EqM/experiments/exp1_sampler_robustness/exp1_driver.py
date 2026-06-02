@@ -24,6 +24,11 @@ import time
 from pathlib import Path
 
 import numpy as np
+from PIL import ImageFile
+
+# Survive truncated/corrupt ImageNet JPEGs during the reference center-crop
+# (libjpeg can otherwise C-crash mid-decode and kill the job with no traceback).
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 HERE = Path(__file__).resolve().parent
 SAMPLE_SCRIPT = HERE / "sample_gd_fixed.py"

@@ -14,8 +14,12 @@ reused by all 80 conditions.
 import pathlib
 import numpy as np
 import torch
-from PIL import Image
+from PIL import Image, ImageFile
 from torchvision import transforms
+
+# ImageNet has truncated/corrupt JPEGs; without this libjpeg can hard-crash
+# (C-level, no Python traceback) mid-decode and kill the whole job.
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".webp", ".JPEG"}
 

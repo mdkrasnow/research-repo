@@ -27,6 +27,7 @@ module load cuda/11.8.0-fasrc01
 echo "=== GPU verification ===" >&2
 nvidia-smi || { echo "ERROR: No GPU available"; exit 1; }
 export PYTHONUNBUFFERED=1
+export PYTHONFAULTHANDLER=1   # dump a traceback even on a C-level segfault (libjpeg/CUDA)
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
 WORK_DIR="/tmp/exp1-sampler-robust-${SLURM_JOB_ID}"
