@@ -7,7 +7,7 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=64GB
 #SBATCH --time=08:00:00
-#SBATCH --partition=gpu
+#SBATCH --partition=seas_gpu
 #SBATCH --gres=gpu:1
 
 # Exp1 MERGE/RESUME: finish the ~23 cells lost when run 17828606 died (SIGPIPE
