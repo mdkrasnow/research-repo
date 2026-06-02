@@ -220,4 +220,19 @@ if __name__ == "__main__":
     args = ap.parse_args()
     assert abs(args.cfg_scale - 1.0) < 1e-9, \
         "Exp3 holds cfg=1.0 (matches the FID-trusted run); cfg>1 path not wired."
-    main(args)
+    try:
+        main(args)
+    except Exception:
+        # Durable per-rank traceback: torchrun/buffering has been swallowing the
+        # real error. Write it to the gen folder so it survives the job kill.
+        import traceback
+        rank = os.environ.get("RANK", "0")
+        tb = traceback.format_exc()
+        try:
+            os.makedirs(args.folder, exist_ok=True)
+            with open(os.path.join(args.folder, f"ERROR_rank{rank}.txt"), "w") as f:
+                f.write(tb)
+        except Exception:
+            pass
+        print(f"[exp3-sample rank{rank}] FATAL:\n{tb}", flush=True)
+        raise

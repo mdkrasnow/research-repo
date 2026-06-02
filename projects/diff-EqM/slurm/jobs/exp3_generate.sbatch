@@ -71,6 +71,12 @@ MASTER_PORT=$((29500 + RANDOM % 1000))
 NUM_GPUS=$(python -c 'import torch; print(torch.cuda.device_count())')
 echo "=== generating arm=$TAG on $NUM_GPUS GPU(s), start $(date) ==="
 
+# Unbuffered so a worker's traceback flushes to the log BEFORE torchrun kills the
+# job (prior failures lost the real error to block-buffering). HF cache shared so
+# the VAE isn't re-fetched per rank; disable telemetry noise.
+export PYTHONUNBUFFERED=1
+export HF_HUB_DISABLE_TELEMETRY=1
+
 python -m torch.distributed.run --nnodes=1 --nproc_per_node=$NUM_GPUS --master_port=$MASTER_PORT \
     projects/diff-EqM/experiments/exp3_fidelity_diversity/sample_scheduled.py \
     --model "$MODEL" --ckpt "$LOCAL_CKPT" --ckpt-id "$CKPT_ID" --tag "$TAG" \
