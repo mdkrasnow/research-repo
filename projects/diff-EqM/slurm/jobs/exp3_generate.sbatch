@@ -41,18 +41,27 @@ MODEL="${MODEL:-EqM-B/2}"
 STEPSIZE="${STEPSIZE:-0.003}"
 NUM_SAMPLING_STEPS="${NUM_SAMPLING_STEPS:-250}"
 SAMPLE_BATCH_SIZE="${SAMPLE_BATCH_SIZE:-64}"
-OVERWRITE_FLAG=""; [ "${OVERWRITE:-0}" = "1" ] && OVERWRITE_FLAG="--overwrite"
+OVERWRITE_FLAG=""
+if [ "${OVERWRITE:-0}" = "1" ]; then OVERWRITE_FLAG="--overwrite"; fi
 
-# resolve ckpt (allow dir -> latest .pt)
-if [ -d "$REPO_ROOT/$CKPT_PATH" ]; then
-    CKPT_PATH=$(ls "$REPO_ROOT/$CKPT_PATH"/*.pt 2>/dev/null | sort -V | tail -1)
-elif [ -f "$REPO_ROOT/$CKPT_PATH" ]; then
+# resolve ckpt: accept a file, or a dir holding .pt files anywhere beneath it
+# (the *.pt often live nested at <dir>/000-.../checkpoints/), pick highest-sorted.
+echo "=== resolving ckpt: $CKPT_PATH ==="
+if [ -f "$REPO_ROOT/$CKPT_PATH" ]; then
     CKPT_PATH="$REPO_ROOT/$CKPT_PATH"
+elif [ -f "$CKPT_PATH" ]; then
+    :
+elif [ -d "$REPO_ROOT/$CKPT_PATH" ]; then
+    CKPT_PATH=$(find "$REPO_ROOT/$CKPT_PATH" -name '*.pt' 2>/dev/null | sort -V | tail -1)
+elif [ -d "$CKPT_PATH" ]; then
+    CKPT_PATH=$(find "$CKPT_PATH" -name '*.pt' 2>/dev/null | sort -V | tail -1)
 fi
-[ -f "$CKPT_PATH" ] || { echo "ERROR: ckpt not found: $CKPT_PATH"; exit 1; }
+[ -n "$CKPT_PATH" ] && [ -f "$CKPT_PATH" ] || { echo "ERROR: ckpt not found for $TAG: '$CKPT_PATH'"; exit 1; }
 CKPT_ID="$CKPT_PATH"   # real identity for provenance (before /tmp copy)
-LOCAL_CKPT="$WORK_DIR/ckpt.pt"; cp "$CKPT_PATH" "$LOCAL_CKPT"
-echo "=== arm=$TAG ckpt=$CKPT_PATH ($(du -h "$LOCAL_CKPT"|cut -f1)) ==="
+echo "=== arm=$TAG resolved ckpt=$CKPT_PATH ; /tmp free: $(df -h "$WORK_DIR" | tail -1 | awk '{print $4}') ==="
+LOCAL_CKPT="$WORK_DIR/ckpt.pt"
+cp "$CKPT_PATH" "$LOCAL_CKPT" || { echo "ERROR: ckpt copy failed (disk?)"; exit 1; }
+echo "=== arm=$TAG ckpt copied ($(du -h "$LOCAL_CKPT"|cut -f1)) ==="
 
 PERSIST_GEN="$REPO_ROOT/$GEN_DIR_REL"; mkdir -p "$PERSIST_GEN"
 SCHEDULE_ABS="$REPO_ROOT/$SCHEDULE_REL"
