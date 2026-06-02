@@ -224,9 +224,23 @@
   },
   "needs_user_input": {
     "value": true,
-    "prompt": "Exp 2 PI update drafted in documentation/pi-updates.md (mechanism evidence for v10 FID gain; small but SIG). Review + send if desired. Non-blocking."
+    "prompt": "Home quota FULL (~110G, dominated by exp3 43G + other agents train ckpts) -> home readonly, blocks rsync + any job writing to home. exp1 rerouted to netscratch as workaround. BROADER: other diff-EqM trains/experiments writing to home will also deadlock. Decide: clear exp3? run/expand pruner? raise quota?"
   },
   "completed_runs": [
+    {
+      "run_id": "exp1_merge_resume_5k_seas_v2",
+      "job_id": "18367691",
+      "partition": "seas_gpu",
+      "status": "failed",
+      "description": "Exp1 merge/resume retry w/ LOAD_TRUNCATED_IMAGES fix. Submitted directly via ssh (home rsync failing - likely home quota ~110G). Finishes ~23 cells into seeded exp1_run_5k_merged.",
+      "submitted_at": "2026-06-02",
+      "git_sha": "4bf0dd8",
+      "sbatch_path": "projects/diff-EqM/slurm/jobs/exp1_merge.sbatch",
+      "expected_runtime": "~4h",
+      "phase": "2",
+      "gate": "exp1 full 80-cell result",
+      "error": "HOME WRITE FAILED (quota full ~110G from exp3 43G + other agents ckpts; home readonly). Job died 6s at first home write. Rerouted to netscratch."
+    },
     {
       "run_id": "exp1_merge_resume_5k_seas",
       "job_id": "18361440",
@@ -1280,14 +1294,14 @@
   ],
   "active_runs": [
     {
-      "run_id": "exp1_merge_resume_5k_seas_v2",
-      "job_id": "18367691",
+      "run_id": "exp1_merge_resume_5k_scratch",
+      "job_id": "18369465",
       "partition": "seas_gpu",
       "status": "running",
-      "description": "Exp1 merge/resume retry w/ LOAD_TRUNCATED_IMAGES fix. Submitted directly via ssh (home rsync failing - likely home quota ~110G). Finishes ~23 cells into seeded exp1_run_5k_merged.",
+      "description": "Exp1 merge/resume routed via /n/netscratch (home quota full). All I/O on scratch; seeded w/ 57 recovered cells; runs ~23 missing. Read final metrics from scratch (home unwritable).",
       "submitted_at": "2026-06-02",
       "git_sha": "4bf0dd8",
-      "sbatch_path": "projects/diff-EqM/slurm/jobs/exp1_merge.sbatch",
+      "sbatch_path": "netscratch/ydu_lab/Lab/mkrasnow/exp1_merge_scratch.sbatch",
       "expected_runtime": "~4h",
       "phase": "2",
       "gate": "exp1 full 80-cell result"
