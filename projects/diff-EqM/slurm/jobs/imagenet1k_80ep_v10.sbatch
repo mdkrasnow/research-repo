@@ -63,7 +63,10 @@ if [ ! -d "$IMAGENET_PATH" ]; then
     exit 1
 fi
 
-PERSISTENT_RESULTS="$REPO_ROOT/$RESULTS_DIR"
+# PERSISTENT_RESULTS defaults to home repo, but home (/n/home03) is only 95G and
+# wedges trains via quota deadlock. Override to holylabs scratch (1.5PB free):
+#   PERSISTENT_RESULTS=/n/holylabs/ydu_lab/Lab/mkrasnow_eqm/<dir>
+PERSISTENT_RESULTS="${PERSISTENT_RESULTS:-$REPO_ROOT/$RESULTS_DIR}"
 mkdir -p "$WORK_DIR/$RESULTS_DIR"
 mkdir -p "$PERSISTENT_RESULTS"
 
