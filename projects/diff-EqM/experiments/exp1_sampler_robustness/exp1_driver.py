@@ -53,6 +53,12 @@ def parse_args():
     p = argparse.ArgumentParser()
     p.add_argument("--vanilla-ckpt", required=True)
     p.add_argument("--anm-ckpt", required=True)
+    p.add_argument("--anm-tag", default="anm",
+                   help="checkpoint_type label for the anm arm (e.g. anm_l01, anm_l03). "
+                        "Lets multiple dose arms share one CSV without colliding.")
+    p.add_argument("--skip-vanilla", action="store_true",
+                   help="C1 dose runs: skip the vanilla arm (already computed in a "
+                        "sibling run) and evaluate only the anm arm.")
     p.add_argument("--model", default="EqM-B/2")
     p.add_argument("--image-size", type=int, default=256)
     p.add_argument("--num-classes", type=int, default=1000)
@@ -294,8 +300,11 @@ def main():
         return
 
     samplers, nfes, step_mults = grid_from_args(a)
-    ckpts = {"vanilla": a.vanilla_ckpt, "anm": a.anm_ckpt}
-    cells = [(ct, s, n, m) for ct in ["vanilla", "anm"]
+    # Arm list: vanilla (unless skipped for a dose sibling) + the anm arm under
+    # its tag. anm_tag lets lambda=0.1 / lambda=0.3 dose arms coexist in one CSV.
+    arm_types = ([] if a.skip_vanilla else ["vanilla"]) + [a.anm_tag]
+    ckpts = {"vanilla": a.vanilla_ckpt, a.anm_tag: a.anm_ckpt}
+    cells = [(ct, s, n, m) for ct in arm_types
              for s in samplers for n in nfes for m in step_mults]
 
     # validate checkpoints exist

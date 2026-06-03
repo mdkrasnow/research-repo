@@ -22,6 +22,22 @@ v10 = PGD hard-example mining on EqM regression target. Single-objective, no dis
 - **Exp 1 — NFE/sampler robustness** (`experiments/exp1_sampler_robustness/`; findings `documentation/exp1-sampler-robustness-findings.md`) — RUNNING: Smoke A+B PASS. Full 5k run 17828606 died 58/80 (SIGPIPE, debugging.md); 57 cells recovered. **Interim (gd only): ANM wins ~2 FID ONLY in converged regime (nfe≥100), loses slightly at low-NFE → improves final quality, NOT low-NFE robustness (partial/negative for robustness hypothesis).** Merge/resume 18003763 RUNNING to finish ~23 missing cells (all anm_ngd). NEXT: full-80 AUC verdict → if holds, 50k paper-grade resume. Fixes: free-port (8aa5308), SIGPIPE-safe logging + resume-trusts-FID (c88ffbe).
 - **Exp 2 — off-trajectory field robustness — ✅ DONE 2026-06-01** (`experiments/diagnostics/offtraj_field_robustness.py`; results `documentation/exp2-offtraj-field-robustness-results.md`; data `results/diagnostics/offtraj_{random,sampler}/`; jobs 17788287+17788329 both exit 0). RESULT: ANM field-robustness mechanism CONFIRMED at IN-1K B/2 (5120 latents, paired bootstrap CI). ANM lower MSE/higher cosine at every radius (all SIG); gap widens off-traj (random dMSE −0.0164→−0.0277 r0→r0.1); **largest at real v10-mined δ (dMSE −0.0368 [CI −0.0396,−0.0340], dCos +0.00109)**. Norm-reshaping RULED OUT (norm_ratio 0.730 both); peaks mid-t~0.55–0.75, not t→1. Effect SMALL (0.2–0.4% rel) — consistent with B/2 NULL capability eval; may amplify at XL/2. PI update drafted (do-not-send) in `pi-updates.md`. Logged to `results_variants.tsv`.
 
+## Capability probes (elevate above workshop — "new feature" claims, frozen-ckpt, no retrain)
+Goal: find a categorical capability ANM gives EqM that vanilla lacks (not incremental FID). Each
+pre-registered with mechanism arg + kill rule. Arms: vanilla 31.41 / v10 λ=0.1 29.01 / v10 λ=0.3 27.09.
+- **C1 — Inference-compute scaling** (`documentation/c1-inference-compute-scaling-proposal.md`) —
+  PROPOSED. Does ANM keep improving with more solver steps where vanilla plateaus/overshoots? Reframes
+  Exp 1 data (energy `E` + `‖∇E‖` traces via get_energy). **Minimal test = re-analyze existing Exp 1
+  80-cell CSVs, ZERO new compute.** Promote if vanilla FID-vs-NFE turns up while ANM monotone, dose-ordered.
+- **C2 — Restoration / corrupted+OOD-init robustness** (`documentation/c2-restoration-init-robustness-proposal.md`) —
+  PROPOSED. Descend EqM from corrupted init; does ANM advantage GROW with corruption severity (the axis
+  the NULL B/2 inpaint eval collapsed)? Minimal test ~0.5 GPU-day (Gaussian-noise init, 3 σ, N=512).
+- **C3 — OOD detection via energy** (`documentation/c3-ood-energy-detection-proposal.md`) —
+  PROPOSED. Use scalar `E` / `‖∇E‖` as OOD score → AUROC. Discriminative metric orthogonal to FID.
+  Minimal test <0.5 GPU-day, no sampler/decode. CHEAPEST + most legible win if it holds.
+- Skeptic flag (all three): B/2 capability eval was NULL + Exp 2 effect small (0.2-0.4% rel). Capability
+  separation likely needs λ↑ and/or XL/2 scale. Minimal tests are filters; do C1 re-analysis + C3 first.
+
 ## In-flight
 - 15638767 v10 IN-1K seed-0 train (seas_gpu, RUNNING)
 - 15933157 ckpt auto-pruner (shared, RUNNING)
