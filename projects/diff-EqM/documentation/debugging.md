@@ -168,3 +168,10 @@ CLAUDE.md "gpu_requeue MIG roulette" + "Auto-pruner standing infrastructure" sec
 - Symptom: State FAILED exit 0:53, elapsed 1s, node holygpu8a22501. batch step CANCELLED, extern step COMPLETED, stdout+stderr EMPTY.
 - Diagnosis: launch/node glitch (allocation succeeded -> extern OK; batch killed instantly before any echo). Not a code/sbatch bug — harness passed exp4_smoke 17788555.
 - Action: resubmitted unchanged as 18607103 (SHA 1b915a9). remote_submit rsync failed (2FA on fresh ssh); submitted via control-socket sbatch directly.
+
+## 2026-06-03 ROOT CAUSE: exit-53/1s/empty-logs = HOME QUOTA FULL (0 bytes)
+- exp4-van-resume 17982683 & 18607103, exp3-gen 18361248, eqm-van-s2 18609082 all FAILED exit 0:53, ~1-5s, batch step CANCELLED, extern COMPLETED, stdout+stderr files NEVER CREATED.
+- df ~ = 95G/95G 0 avail; touch fails 'No space left on device'. SLURM cannot create --output log -> instant batch fail (exit 53). Matches CLAUDE.md quota-deadlock note.
+- Safe junk (~2.3G) instantly re-consumed by live writers. Real levers were other-experiment data: exp3/reference 41G, exp3/full_lambda03 24G, eqm-l-2 scaling 17G.
+- FIX (user-approved): deleted exp3/reference (41G regenerable inception/classifier stats) -> 28G free, write OK. exp3-metrics (pending) will need refs rebuilt. Resubmitted exp4 resume 18778727.
+- LESSON: exit-53 + empty logs == disk/quota, NOT node glitch. Check df ~ FIRST. Relaunch prune_all_active to prevent recurrence.
