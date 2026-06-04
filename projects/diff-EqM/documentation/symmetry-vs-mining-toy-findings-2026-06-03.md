@@ -258,6 +258,28 @@ ORACLE_LATENT M escaping identity (angle −0.4°→−5.5° at 300 steps, σ en
 **Gate:** ORACLE_LATENT must recover M_angle ≈ ±45° (or multiple) and fill held-out → recipe validated;
 THEN DISC_JOINT (unsupervised) judged. Full 3-mode parallel run in progress.
 
-(If even the hinge fails ORACLE_LATENT → the anti-identity mechanism is deeper than a gradient kink and
-needs rethinking. If ORACLE_LATENT passes but DISC_JOINT fails with good recon → back to the genuine
-latent-geometry negative, now on a validated recipe.)
+**Rung 6 RESULT (all 3 modes):** hinge INSUFFICIENT. ORACLE_LATENT M_angle 5.2°/4.7°/3.0° — still
+≈identity, recall 0, even with the perfect latent (enc→z 0.011). M jitters near identity (quick run
+−5.5° → full +3°), not escaping.
+
+**Force-balance diagnostic** (clean latent, sweep the anti-identity weight W_MOVE ∈ {0.5,2,5,10,20}):
+M_angle tops out at −12° to −24°, **never reaches ±45°**, recall ~0 at every weight. So it is **NOT a
+force-balance / weak-knob problem.**
+
+**Root cause (real finding): discrete modes are ill-posed for gradient-based symmetry discovery.**
+Stronger push moves M off identity but it STALLS partway (~−15°) and cannot reach 45°, because with
+*discrete* modes the intermediate rotations (15–44°) map samples BETWEEN modes = off-manifold = high
+closure penalty. There is an **energy barrier between identity and the true symmetry** — no continuous
+on-manifold path for gradient descent to walk M from 0°→45°. M is trapped in the identity basin.
+This (not latent geometry, not gradient-kink) is why rungs 3–6 fail.
+
+## Rung 7 (next) — continuous manifold so continuity forces the symmetry
+
+Replace the 8 discrete modes with a CONTINUOUS ring (dense angle φ ∈ [0,2π) with a held-out ARC, e.g.
+φ ∉ [φ_a, φ_b]), same nonlinear decoder, EqM in observed space. Now rotating φ stays ON the manifold
+the whole way (a circle is rotation-closed), so there is a smooth on-manifold path from identity to the
+symmetry → no barrier → M can continuously rotate to discover it; continuity across the gap forces the
+symmetry to extend into the held-out arc. Same ORACLE_LATENT control + DISC arms + hinge recipe.
+recall@heldout = fraction of generated samples whose latent angle lands in the held-out arc.
+Gate: ORACLE_LATENT must now recover a rotation + fill the arc (proving discreteness was the blocker);
+then DISC_JOINT is the real unsupervised test.
