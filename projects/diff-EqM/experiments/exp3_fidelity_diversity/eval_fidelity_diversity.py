@@ -65,20 +65,29 @@ def cached_features(gen_dir, cache_npy, device, batch_size):
     images were regenerated with a different checkpoint/sampler."""
     cache_npy = Path(cache_npy)
     meta_path = cache_npy.with_suffix(".meta.json")
+    stems_npy = cache_npy.with_suffix(".stems.npy")
     files = feat_mod._list_images(gen_dir)
-    stems = np.asarray([int(Path(f).stem) for f in files])
     prov = gen_provenance_hash(gen_dir)
-    if cache_npy.exists() and meta_path.exists():
+    if cache_npy.exists() and meta_path.exists() and stems_npy.exists():
         meta = json.loads(meta_path.read_text())
-        if meta.get("n") == len(files) and meta.get("prov") == prov:
+        if meta.get("n_files") == len(files) and meta.get("prov") == prov:
             feats = np.load(cache_npy)
-            if len(feats) == len(files):
+            stems = np.load(stems_npy)
+            if len(feats) == len(stems):
                 return feats, stems
         print(f"  [cache] invalidating {cache_npy.name} (prov/count changed)")
-    feats, _ = feat_mod.inception_features(gen_dir, device=device, batch_size=batch_size,
-                                           files=files)
+    # inception_features SKIPS unreadable images (zero-byte/corrupt PNGs), so the
+    # returned stems are the ROWS that actually have a feature -- NOT the full file
+    # listing. Pairing feats with the full listing caused a 50000-vs-49996 length
+    # mismatch (IndexError on feats[common]). Always use the extractor's own stems.
+    feats, ex_stems = feat_mod.inception_features(gen_dir, device=device,
+                                                  batch_size=batch_size, files=files)
+    stems = np.asarray([int(s) for s in ex_stems])
+    assert len(feats) == len(stems), "inception_features feats/stems length mismatch"
     np.save(cache_npy, feats)
-    meta_path.write_text(json.dumps({"n": len(files), "prov": prov}))
+    np.save(stems_npy, stems)
+    meta_path.write_text(json.dumps({"n_files": len(files), "n_feats": len(feats),
+                                     "prov": prov}))
     return feats, stems
 
 
@@ -90,8 +99,11 @@ def cached_preds(gen_dir, cache_csv, device, batch_size):
     if cache_csv.exists() and meta_path.exists():
         meta = json.loads(meta_path.read_text())
         rows = list(csv.DictReader(open(cache_csv)))
-        if meta.get("n") == len(files) and meta.get("prov") == prov \
-                and len(rows) == len(files):
+        # classifier_predictions also skips unreadable images, so the row count is
+        # n_preds (<= n_files). Validate against the stored n_preds, not n_files,
+        # else a few corrupt PNGs force a re-extract on every run.
+        if meta.get("n_files") == len(files) and meta.get("prov") == prov \
+                and len(rows) == meta.get("n_preds"):
             top1 = np.array([int(r["top1"]) for r in rows])
             top5 = np.array([[int(x) for x in r["top5"].split("|")] for r in rows])
             stems = np.array([int(r["sample_id"]) for r in rows])
@@ -107,7 +119,8 @@ def cached_preds(gen_dir, cache_csv, device, batch_size):
             w.writerow([int(stems[i]), int(p["top1"][i]),
                         "|".join(str(int(x)) for x in p["top5"][i]),
                         float(p["prob_top1"][i])])
-    meta_path.write_text(json.dumps({"n": len(files), "prov": prov}))
+    meta_path.write_text(json.dumps({"n_files": len(files), "n_preds": len(p["top1"]),
+                                     "prov": prov}))
     return {"top1": p["top1"], "top5": p["top5"], "stems": stems}
 
 
@@ -127,27 +140,43 @@ def sanity_checks(arm, feats, stems, schedule, preds):
     assert len(np.unique(stems)) == len(stems), f"[{arm}] duplicate sample ids"
 
 
-def run_arm(arm, gen_dir, ckpt, schedule, ref, device, batch_size, out, prdc_k):
+def extract_arm(arm, gen_dir, schedule, device, batch_size, out):
+    """Extract (cached) inception feats + classifier preds for one arm and align
+    them by sample id. Returns per-sample arrays; NO metrics yet, so the caller
+    can first intersect both arms to a common sample-id set (fair paired eval)."""
     feats, fstems = cached_features(gen_dir, Path(out) / f"features_{arm}.npy",
                                     device, batch_size)
     preds = cached_preds(gen_dir, Path(out) / f"classifier_{arm}.csv", device, batch_size)
     sanity_checks(arm, feats, fstems, schedule, preds)
 
     # align classifier preds to feature order by sample id. If the two
-    # extractors skipped different unreadable files, restrict to the common set
-    # rather than KeyError on a missing stem.
+    # extractors skipped different unreadable files, restrict to the set that has
+    # BOTH a feature and a prediction rather than KeyError on a missing stem.
     order = {int(s): i for i, s in enumerate(preds["stems"])}
-    common = np.array([int(s) in order for s in fstems])
-    if not common.all():
-        print(f"  [WARN {arm}] {int((~common).sum())} feature samples lack a "
+    have_pred = np.array([int(s) in order for s in fstems])
+    if not have_pred.all():
+        print(f"  [WARN {arm}] {int((~have_pred).sum())} feature samples lack a "
               f"classifier prediction; dropping them from this arm")
-        feats = feats[common]
-        fstems = fstems[common]
+        feats = feats[have_pred]
+        fstems = fstems[have_pred]
+    pi = np.array([order[int(s)] for s in fstems])
+    return {"feats": feats, "fstems": fstems,
+            "top1": preds["top1"][pi], "top5": preds["top5"][pi],
+            "prov": gen_provenance_hash(gen_dir), "gen_dir": gen_dir}
+
+
+def run_arm(arm, ex, ckpt, schedule, ref, device, batch_size, prdc_k, keep_ids):
+    # Restrict to the cross-arm common sample-id set so vanilla and anm are scored
+    # on the IDENTICAL set (a few corrupt PNGs in one arm must not change which
+    # samples the other arm is judged on). keep_ids is that intersection.
+    keep = np.array([int(s) in keep_ids for s in ex["fstems"]])
+    feats = ex["feats"][keep]
+    fstems = ex["fstems"][keep]
+    top1 = ex["top1"][keep]
+    top5 = ex["top5"][keep]
+    gen_dir = ex["gen_dir"]
     labels_full = schedule["labels"]
     gen_labels = labels_full[fstems]
-    pi = np.array([order[int(s)] for s in fstems])
-    top1 = preds["top1"][pi]
-    top5 = preds["top5"][pi]
 
     agg = M.aggregate_metrics(feats, ref["feats"], prdc_k=prdc_k)
     agg["fid_ci"] = M.bootstrap_fid(feats, ref["mu"], ref["sigma"], n_boot=100)
@@ -348,32 +377,54 @@ def main():
                 "anm": str(Path(args.gen_root) / "anm")}
     ckpts = {"vanilla": args.vanilla_ckpt, "anm": args.anm_ckpt}
 
-    arm_results = {}
+    # ---- phase 1: extract feats+preds per arm (no metrics yet) ----
+    extracts = {}
     for arm in ("vanilla", "anm"):
-        print(f"[exp3] === arm: {arm} ===")
-        arm_results[arm] = run_arm(arm, gen_dirs[arm], ckpts[arm], schedule, ref,
-                                   device, args.batch_size, out, args.prdc_k)
+        print(f"[exp3] === extract arm: {arm} ===")
+        extracts[arm] = extract_arm(arm, gen_dirs[arm], schedule, device,
+                                    args.batch_size, out)
 
-    # ---- CROSS-ARM PARITY GATE (paired comparison is invalid otherwise) ----
-    sv = set(int(s) for s in arm_results["vanilla"]["stems"])
-    sa = set(int(s) for s in arm_results["anm"]["stems"])
-    if sv != sa:
+    # ---- CROSS-ARM PARITY GATE: score both arms on the IDENTICAL sample-id set.
+    # A handful of corrupt PNGs in one arm (e.g. zero-byte from an interrupted
+    # rsync) must not change which samples the other arm is judged on, nor torpedo
+    # a 50K run. Intersect to the common ids; tolerate a tiny asymmetry, FAIL if a
+    # whole arm is genuinely deficient. ----
+    sv = set(int(s) for s in extracts["vanilla"]["fstems"])
+    sa = set(int(s) for s in extracts["anm"]["fstems"])
+    common = sv & sa
+    sym = sv ^ sa
+    N = schedule["num_samples"]
+    tol = max(50, int(0.005 * N))   # 0.5% of N or 50 samples, whichever larger
+    if len(sym) > tol:
         only_v, only_a = len(sv - sa), len(sa - sv)
         raise SystemExit(
-            f"[exp3] PARITY FAIL: vanilla has {len(sv)} samples, anm has {len(sa)}; "
-            f"{only_v} only-vanilla, {only_a} only-anm. The arms must cover the "
-            f"identical sample-id set. Regenerate the deficient arm (re-run "
-            f"generation; resume fills gaps) before computing metrics.")
-    if arm_results["vanilla"]["prov"] != "noprov" \
-            and arm_results["vanilla"]["prov"] == arm_results["anm"]["prov"]:
+            f"[exp3] PARITY FAIL: vanilla has {len(sv)} usable samples, anm has "
+            f"{len(sa)}; {only_v} only-vanilla, {only_a} only-anm, mismatch "
+            f"{len(sym)} > tol {tol}. An arm is genuinely deficient. Regenerate it "
+            f"(re-run generation; resume fills gaps) before computing metrics.")
+    if sym:
+        print(f"[exp3] WARN: {len(sym)} non-common sample ids dropped from BOTH "
+              f"arms (only-vanilla={len(sv - sa)}, only-anm={len(sa - sv)}; "
+              f"e.g. {sorted(sym)[:8]}). Scoring both arms on the common "
+              f"{len(common)} ids. Cause is usually corrupt/zero-byte PNGs.")
+    if extracts["vanilla"]["prov"] != "noprov" \
+            and extracts["vanilla"]["prov"] == extracts["anm"]["prov"]:
         raise SystemExit(
             "[exp3] PARITY FAIL: vanilla and anm share the SAME generation "
             "provenance hash -- same checkpoint+config produced both arms. "
             "One arm's gen folder is wrong.")
     if args.vanilla_ckpt and args.anm_ckpt and args.vanilla_ckpt == args.anm_ckpt:
         raise SystemExit("[exp3] PARITY FAIL: --vanilla-ckpt == --anm-ckpt.")
-    print(f"[exp3] parity OK: both arms cover {len(sv)} identical sample ids "
-          f"(prov vanilla={arm_results['vanilla']['prov']} anm={arm_results['anm']['prov']})")
+    print(f"[exp3] parity OK: both arms scored on {len(common)} identical sample "
+          f"ids (prov vanilla={extracts['vanilla']['prov']} "
+          f"anm={extracts['anm']['prov']})")
+
+    # ---- phase 2: score each arm on the common id set ----
+    arm_results = {}
+    for arm in ("vanilla", "anm"):
+        print(f"[exp3] === score arm: {arm} ===")
+        arm_results[arm] = run_arm(arm, extracts[arm], ckpts[arm], schedule, ref,
+                                   device, args.batch_size, args.prdc_k, common)
 
     # weak-class quartiles from VANILLA only
     quartile_map = M.weak_class_scores(arm_results["vanilla"]["cls_rows"],
