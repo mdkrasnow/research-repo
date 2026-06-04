@@ -593,8 +593,51 @@ dimensional (2D conflates stable≈rotation) — rung 14 (higher-dim latent, e.g
 that is NOT a rotation) is the definitive prior-budget test and the natural bridge toward a real EqM
 setting.
 
-## Open next (rung 14, candidate)
-Higher-dim latent where stable-group-action strictly contains rotation: e.g. K_LAT=3 with an SO(3)-style
-hidden symmetry, or a latent with a genuine non-rotational stable symmetry, to test whether the
-stability prior still recovers the RIGHT symmetry when "stable" and "rotation" no longer coincide. Then
-consider lifting the whole recipe (frozen anchor + stable group generator) onto a non-toy EqM setting.
+## Rung 14 — HIGHER-DIM prior-budget (`latent_symmetry_rung14_higher_dim_prior.py`) — RAN 2026-06-04
+
+K=3 cylinder latent (z=[r cosφ, r sinφ, h]; symmetry φ→φ+Δ, h UNCHANGED), so "stable" ⊋ "rotation": a
+general stable 3×3 op could mix/translate h; the correct symmetry is rotation CONFINED to the (0,1)
+plane with h preserved. Does stability-only discovery find the right one without naming plane/class?
+
+| arm | recall | %ORACLE | shift_std | passive_dh | passive_leak | det | cond | prior |
+|---|---|---|---|---|---|---|---|---|
+| ORACLE | 0.063 | 100% | — | — | — | — | — | true group |
+| GEN_SKEW_KNOWN_PLANE | 0.072 | 115% | 3.4° | 0.14 | 0.00 | 1.00 | 1.00 | plane told (upper ref) |
+| GEN_SKEW_FREE_PLANE | 0.070 | 112% | 3.3° | 0.15 | 0.04 | 1.00 | 1.00 | rotation prior, learns plane |
+| **GEN_FREE_STABLE** | **0.071** | **113%** | **3.3°** | **0.15** | **0.04** | **1.00** | **1.00** | **stability only, NO skew** |
+
+**Result: DEFINITIVE SUCCESS — the 2D-conflation caveat is dissolved.** GEN_FREE_STABLE matches ORACLE
+and both skew arms in K=3. With only "volume-preserving + well-conditioned" it discovered, unprompted:
+rotation **confined to the correct active plane** (passive_leak 0.04 ≈ 0), **h preserved** (passive_dh
+0.15 = the plane-told upper reference, just grid granularity), exact group action (det 1.00, cond 1.00,
+shift_std 3.3°), at oracle recall. It found WHICH subspace is active and left the passive dim alone —
+without being told the plane or the symmetry class. Stability ⊋ rotation here, and stability still
+recovered the right symmetry.
+
+## FINAL VERDICT — ladder rungs 1–14 (strongest form)
+
+**Unsupervised latent symmetry discovery for EqM is VIABLE and reaches ORACLE with a minimal,
+class-agnostic prior.** The recipe:
+1. **frozen data-manifold anchor** (rung 9) — fixes field co-adaptation [the key insight]
+2. **coherent operator** (rung 10) — single/structured, not free residual
+3. **group-structured generator** `M=exp(A)` (rung 12) — operator precision
+4. **stability-only regularization** det≈1 + cond→1 (rung 13–14) — NO rotation/plane/class naming
+
+With these, a discovered operator fills held-out manifold regions as well as the true group, AND
+(rung 14) discovers the correct active subspace in higher dim where stability is strictly broader than
+the true symmetry. Hard-negative mining (v10) remains dead throughout.
+
+**Claim (defensible):** *Near-oracle latent symmetry discovery does not require naming the symmetry class
+or the active subspace. A frozen manifold anchor plus a coherent, stable group-generator prior is
+enough; the symmetry (rotation, active plane, passive-dim preservation) emerges.*
+
+Scope honesty: still CPU toys (2D/3D latent, clean enc→z latent, single abelian symmetry, energy-distance
+anchor). NOT yet shown: learned (not supervised) latent, multi-parameter/non-abelian groups, and a real
+high-dim EqM/image manifold. Those are the bridge from "compelling toy result" to "method."
+
+## Open next (candidate rungs / scale)
+- rung 15: LEARNED latent (recon/contrastive enc, not enc→z) + stable generator — discovery with an
+  unsupervised latent AND class-agnostic operator jointly (the last toy idealization to remove).
+- rung 16: richer group (screw/helix = rotation+translation; or SO(3)) — non-abelian / multi-parameter.
+- SCALE: lift recipe (frozen anchor + stable group generator) onto a non-toy EqM/image setting (needs
+  cluster).

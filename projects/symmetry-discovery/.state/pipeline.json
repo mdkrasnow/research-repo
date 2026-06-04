@@ -1,11 +1,11 @@
 {
   "project": "symmetry-discovery",
   "title": "Symmetry discovery vs hard-negative mining for generative models (EqM)",
-  "phase": "DISCOVERY-VIABLE (rung12 near-oracle)",
+  "phase": "DISCOVERY-VIABLE-STRONG (rung14 class-agnostic, higher-dim)",
   "research_question": "Can a learned manifold-preserving operator, anchored to data (not the live field), discover a nonlinearly-hidden symmetry and fill held-out manifold regions? vs hard-negative mining and known-symmetry constraints.",
   "scale": "CPU toy (2D/16D rings). NOT publishable; filters/diagnostics only.",
   "ladder_status": {
-    "rungs_run": "1-13",
+    "rungs_run": "1-14",
     "rung1_arithmetic": "equivariance constraint perfect; hard-neg mining dead",
     "rung2_ring_linear": "known + discovered rotation both work (symmetry linear in observed)",
     "rung3_nonlinear_hidden_free_op": "FAIL (operator off-manifold)",
@@ -18,19 +18,21 @@
     "rung10_frozen_anchor_coherent": "PARTIAL SUCCESS (best yet): single latent matrix fixes coherence (shift_std 95->25), recovers real rotation (M_angle ~-39deg), recall floor0.002->0.025 (12x floor, ~37% of ORACLE 0.068). All 3 blockers (identity/co-adaptation/coherence) now individually fixed. Remaining gap = single-generator vs full-group COVERAGE + imperfect latent + seed variance.",
     "rung11_orbit_augmentation": "Coverage hypothesis REJECTED: orbit aug == single aug (recall 0.024 both). Gap to ORACLE is NOT coverage but operator PRECISION (discovered M is fuzzy/seed-variable rotation, shift_std 25, M_off 1.04). FINAL: discovery possible-in-principle but imprecise -> below known-symmetry quality.",
     "rung12_group_generator": "SUCCESS - near-oracle discovery. Group-structured generator M=exp(theta*A) fixes operator precision: shift_std 25->0.8(skew)/7.6(free); M_det 0.56->1.00(skew)/0.90(free); recall 0.024->0.071(SKEW = ORACLE 0.067)/0.046(FREE ~69% ORACLE). SKEW recovers exact rotation (~3deg/seed). Gap was PRECISION not impossibility.",
-    "rung13_prior_budget": "STRONG SUCCESS: GEN_FREE_STABLE (det~1 + well-conditioned, NO skew/rotation naming) = 99% ORACLE (recall 0.067, det 1.00, shift_std 0.84, angle within 2.8deg) -- MATCHES GEN_SKEW. Rotation EMERGES from stability prior; not needed to name it. Active ingredient = condition-number penalty (FREE w/o it stalls 69%). CAVEAT: 2D conflates stable~=rotation; definitive test needs higher-dim latent (rung14)."
+    "rung13_prior_budget": "STRONG SUCCESS: GEN_FREE_STABLE (det~1 + well-conditioned, NO skew/rotation naming) = 99% ORACLE (recall 0.067, det 1.00, shift_std 0.84, angle within 2.8deg) -- MATCHES GEN_SKEW. Rotation EMERGES from stability prior; not needed to name it. Active ingredient = condition-number penalty (FREE w/o it stalls 69%). CAVEAT: 2D conflates stable~=rotation; definitive test needs higher-dim latent (rung14).",
+    "rung14_higher_dim": "DEFINITIVE SUCCESS: K=3 cylinder (rot in plane, h passive, stable!=rotation). GEN_FREE_STABLE (general 3x3, det~1+cond->1, NO skew/plane) = 113% ORACLE, MATCHES both skew arms. Discovered rotation CONFINED to active plane (passive_leak 0.04~=0) + h PRESERVED (passive_dh 0.15 = plane-told ref) + exact group (det 1.00 cond 1.00). 2D-conflation caveat DISSOLVED."
   },
   "key_findings": [
-    "Hard-negative mining (v10 mechanism) installs no missing manifold structure in any rung.",
+    "Hard-negative mining (v10 mechanism) installs no manifold structure in any rung. Dead.",
     "KNOWN-symmetry constraints generalize cleanly (ORACLE).",
-    "UNSUPERVISED discovery is VIABLE: frozen anchor (co-adaptation) + coherent (rung10) + group-structured generator exp(theta*A) (precision, rung12) -> NEAR-ORACLE (SKEW recall 0.071 = ORACLE 0.067; FREE weak-prior ~69%).",
-    "4 blockers all addressed: identity / co-adaptation / coherence / precision. Gap was precision, NOT impossibility (prior rung-8 'deprioritize' read REVISED).",
+    "UNSUPERVISED latent-symmetry discovery reaches ORACLE with a CLASS-AGNOSTIC prior: frozen anchor (rung9) + coherent operator (rung10) + group generator exp(A) (rung12) + stability-only reg det~1+cond->1 (rung13-14). NO rotation/plane/class naming needed.",
+    "Rung14 (K=3, stable!=rotation): stability prior discovers the correct active subspace + preserves passive dim, at oracle level -> 2D caveat dissolved.",
+    "Open: learned (not supervised) latent, non-abelian groups, real high-dim EqM scale.",
     "Methodology: positive+negative controls in every run isolated each root cause."
   ],
   "next_action": {
-    "command": "rung14 (candidate) / non-toy test",
-    "reason": "Prior weakened to stability-only and still hit oracle, BUT 2D conflates stable~=rotation. Definitive prior-budget test needs higher-dim latent where stable strictly contains rotation.",
-    "hint": "rung14: K_LAT>=3 with SO(3)-style or genuinely non-rotational stable hidden symmetry -> does stability prior still recover the RIGHT symmetry when stable != rotation? Then lift recipe (frozen anchor + stable group generator) to a non-toy EqM setting."
+    "command": "rung15 (learned latent) / rung16 (richer group) / SCALE to real EqM",
+    "reason": "Class-agnostic discovery reaches oracle through K=3. Remaining toy idealizations: supervised enc->z latent, abelian single symmetry. Then non-toy scale.",
+    "hint": "rung15: replace enc->z supervision with LEARNED latent (recon/contrastive) + stable generator = fully unsupervised latent+operator. rung16: screw/helix or SO(3) (non-abelian/multi-param). SCALE needs cluster 2FA."
   },
   "needs_user_input": {
     "value": false,
@@ -38,6 +40,13 @@
   },
   "active_runs": [],
   "completed_runs": [
+    {
+      "run_id": "rung14_higher_dim",
+      "where": "local CPU",
+      "date": "2026-06-04",
+      "result": "DEFINITIVE SUCCESS: stability prior = oracle in K=3 (stable!=rotation), discovers active plane + preserves passive dim",
+      "results_path": "results/rung14_full.json"
+    },
     {
       "run_id": "rung13_prior_budget",
       "where": "local CPU",
@@ -104,6 +113,12 @@
       "ts": "2026-06-04",
       "action": "RUNG13_SUCCESS",
       "detail": "Prior-budget: stability-only prior (no rotation naming) reaches oracle (99%); rotation emerges. 2D-conflation caveat -> rung14 higher-dim definitive test."
+    },
+    {
+      "id": "evt-0006",
+      "ts": "2026-06-04",
+      "action": "RUNG14_SUCCESS",
+      "detail": "Class-agnostic stability prior reaches oracle in K=3 (stable!=rotation); discovers active subspace + preserves passive dim. 2D caveat dissolved. Discovery viable with minimal prior."
     }
   ],
   "provenance": {
