@@ -34,7 +34,7 @@ HELDOUT      = [2, 5]
 RADIUS       = 4.0
 SIG_LAT      = 0.08
 STEPS        = 4000
-AE_STEPS     = 2000       # autoencoder pretraining (DISC_LATENT only)
+AE_STEPS     = 3000       # autoencoder pretraining (DISC_LATENT only); recon-only converges ~0.03 rel
 BATCH        = 512
 SAMPLE_STEPS = 50
 N_SAMPLE     = 2000
@@ -162,8 +162,11 @@ def train(arm, seed, steps, ae_steps):
         with torch.no_grad():
             x = DECODE(sample_latent(2048))
             recon0 = float((T.recon(x) - x).norm(dim=1).mean() / x.norm(dim=1).mean())
+        # ---- step 2: FULLY FREEZE enc/dec; search symmetry in the fixed verified latent ----
+        for p in list(T.enc.parameters()) + list(T.dec.parameters()):
+            p.requires_grad_(False)
 
-    params = list(f.parameters()) + (list(T.parameters()) if T is not None else [])
+    params = list(f.parameters()) + ([p for p in T.parameters() if p.requires_grad] if T is not None else [])
     opt = torch.optim.Adam(params, lr=2e-3, weight_decay=wd)
 
     for _ in range(steps):
@@ -180,8 +183,7 @@ def train(arm, seed, steps, ae_steps):
             xk = x
             for _ in range(P_CYCLE): xk = T(xk)
             loss = loss + W_CYC * (xk - x).pow(2).sum(1).mean()           # finite order
-            if arm == "DISC_LATENT":
-                loss = loss + W_RECON * ((T.recon(x) - x) ** 2).mean()    # recon anchor (semi-freeze)
+            # DISC_LATENT: enc/dec frozen -> latent fixed & verified; only M + field move here.
         loss.backward(); opt.step()
     return f, T, recon0
 
@@ -245,7 +247,8 @@ def main():
         runs = [evaluate(*train(arm, s, steps, ae_steps)) for s in seeds]
         agg = {}
         for k in ("recall_heldout", "modes_covered", "mmd_energy", "T_move_ratio",
-                  "T_on_manifold", "T_mode_change", "ae_recon_rel_final", "M_offidentity", "M_order_err"):
+                  "T_on_manifold", "T_mode_change", "ae_recon_rel", "ae_recon_rel_final",
+                  "M_offidentity", "M_order_err"):
             vals = [r[k] for r in runs if k in r]
             if vals: agg[k] = sum(vals) / len(vals)
         agg["recall_sd"] = (sum((r["recall_heldout"] - agg["recall_heldout"]) ** 2 for r in runs) / len(runs)) ** 0.5
@@ -257,7 +260,7 @@ def main():
             return (fmt % agg[k]).rjust(w) if k in agg else "   -  ".rjust(w)
         print(f"{arm:12s} {agg['recall_heldout']:6.3f}±{agg['recall_sd']:.3f} {agg['modes_covered']:8.1f} "
               f"{g('T_on_manifold',w=8)} {str(agg['hits_heldout_any']):>8s} {str(agg['consistent_shift_any']):>7s} "
-              f"{g('ae_recon_rel_final')} {g('M_offidentity','%.2f',6)} {g('M_order_err','%.3f',7)}")
+              f"{g('ae_recon_rel')} {g('M_offidentity','%.2f',6)} {g('M_order_err','%.3f',7)}")
     print(f"\nideal recall@HO = {len(HELDOUT)/N_MODES:.3f}")
     print("sigma(seed0) DISC_LATENT:", results["arms"]["DISC_LATENT"].get("sigma_seed0"))
     print("sigma(seed0) DISC_NONLIN:", results["arms"]["DISC_NONLIN"].get("sigma_seed0"))
