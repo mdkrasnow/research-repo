@@ -82,3 +82,59 @@ are high-dim and may not be a low-dim linear group in any cheap feature space. T
 on the operator-family choice (Stage 1). If no low-dim stable generator captures a useful image symmetry,
 the honest fallback is KNOWN-symmetry augmentation (flips/crops), which the toys already say is the safe
 lever. v12 is a research bet, not a sure thing — frame it as such.
+
+---
+# IMPLEMENTATION (2026-06-04) — built + locally smoked
+
+## File/function map (discovered)
+- EqM field training: `dganm_variants/_common.py::train_loop` (loop) + `eqm_loss` (pixel-space
+  field-matching loss) + `eqm_ct` (c(γ) schedule). Backbone `build_unet`/`UNetWrapper` (middle_block
+  feature hook). FID via `evaluate_fid.py`. CIFAR loader (already does RandomHorizontalFlip).
+- v10 mining plugs in: `dganm_variants/v10_hard_example.py::step_fn` (PGA δ on base loss).
+- Known aug plugs in: NEW `dganm_variants/vK_known_aug.py::step_fn` (`L += λ·eqm_loss(model, T_known(x))`).
+- Stable-generator aug plugs in: NEW `dganm_variants/v12_stable_generator_aug.py` — `train()` discovers
+  a frozen operator BEFORE `train_loop`, `step_fn` augments `L += λ·eqm_loss(model, affine_warp(x,M).detach())`.
+- Operator discovery: NEW `dganm_variants/_stable_operator.py::discover_stable_affine` — frozen
+  RandomConvAnchor (non-co-adapting features) + energy-distance + move + stability(det~1,cond→1); operator
+  = `M=exp(A)` (2x2) applied as a spatial affine warp. NOT live-EqM closure.
+
+## Representation space chosen
+Operator acts as a low-dim IMAGE group action (spatial affine via affine_grid/grid_sample), because
+`eqm_loss` needs an image and there is no feature→image decoder. Frozen anchor lives in a frozen
+random-conv FEATURE space (cheap, no external weights; Inception reserved for FID). This is the
+"lowest-dim, safest" photometric/affine option from the original plan.
+
+## Local CPU smoke (real CIFAR; `experiments/smoke_v12_bridge.py`) — PASS
+- Operator discovery on real CIFAR (250-step smoke): angle −9.8°, cond 1.02 (≈isometric), off_identity
+  0.30, anchor loss drops (T(real) stays near data-manifold features). det 0.74 (not yet ~1 — 250-step
+  smoke; tightens at full 600 steps — verify on cluster).
+- affine_warp sane; v12 + vK step_fn compute base+aug and backprop on a tiny stand-in model.
+- NOTE: `feature_shift_consistency` is NOT a meaningful coherence metric for a GLOBAL affine (coherence
+  is guaranteed by the single shared M; the metric measures content-dependent feature directions). Trust
+  det/cond/off_identity/anchor-loss + the v12 vs v12_random contrast instead.
+
+## Arms + exact run (cluster; one sbatch per config via existing variant_pilot.sbatch)
+configs in `projects/diff-EqM/configs/variants/bridge/`:
+  bridge_v00_base.json (BASE) · bridge_v10_hardneg.json (HARDNEG, neg) ·
+  bridge_vK_known.json (KNOWN_AUG, positive control) · bridge_v12_discovered.json (TREATMENT) ·
+  bridge_v12_random.json (negative control: undiscovered random operator)
+All 40-epoch, final FID 5000 samples (cheap first pass), same backbone/budget (controlled).
+
+Submit (after 2FA, from repo root), e.g.:
+  root="$(cd "$(dirname scripts/cluster/remote_submit.sh)/../.." && pwd)"
+  CONFIG_PATH=projects/diff-EqM/configs/variants/bridge/bridge_v12_discovered.json \
+    bash scripts/cluster/remote_submit.sh "$root/projects/diff-EqM/slurm/jobs/variant_pilot.sbatch" diff-EqM
+  # repeat for the other 4 configs (CONFIG_PATH env per submit). gpu partition (mining/aug fit; >=40G safe).
+
+## Interpretation rule for the result
+- Positive control gate: KNOWN_AUG must move FID vs BASE (else harness can't use aug → stop).
+- Treatment: v12_discovered FID < v10_hardneg AND ≤ KNOWN_AUG → recipe beats mining, approaches known.
+- v12_discovered vs v12_random: discovered must beat random (else the operator isn't doing real work).
+- Trust operator_diag.json (det/cond/off_identity/anchor) — not FID alone (toy coverage/coherence lesson).
+
+## STOP — needs human: cluster 2FA
+Local session cannot submit (SSH control master expired; interactive 2FA). Required human action:
+  ! scripts/cluster/ssh_bootstrap.sh
+Then either you submit the 5 configs above, or I submit once the session is live. Also confirm the
+operator-family prior (spatial-affine) is acceptable as the first image instantiation (research-prior
+decision); alternatives = photometric (RGB 3x3) or feature-space operator with a learned decoder.
