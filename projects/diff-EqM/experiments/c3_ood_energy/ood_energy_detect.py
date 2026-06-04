@@ -151,9 +151,10 @@ def field_score(model, x, y, *, want_energy):
 # --------------------------------------------------------------------------- #
 # OOD constructors (latent space, dependency-free)
 # --------------------------------------------------------------------------- #
-def make_ood(kind, x_in, y_in, gen):
+def make_ood(kind, x_in, y_in, gen, gen_cpu):
     """x_in: (N,C,h,w) in-dist latents; y_in: (N,) true labels.
-    Returns (x_ood, y_ood)."""
+    Returns (x_ood, y_ood). gen: device generator (randn/rand/randint on-device);
+    gen_cpu: CPU generator for randperm (which only accepts a CPU generator)."""
     N = x_in.shape[0]
     norms = x_in.reshape(N, -1).norm(dim=1, keepdim=True)  # (N,1)
     if kind == "gaussian":
@@ -178,7 +179,7 @@ def make_ood(kind, x_in, y_in, gen):
         for i in range(0, h, bs):
             for j in range(0, h, bs):
                 blocks.append((i, j))
-        perm = torch.randperm(len(blocks), generator=gen)
+        perm = torch.randperm(len(blocks), generator=gen_cpu)  # randperm: CPU gen only
         out = x.clone()
         for dst, src in enumerate(perm.tolist()):
             di, dj = blocks[dst]; si, sj = blocks[src]
@@ -226,6 +227,7 @@ def main():
     device = torch.device(args.device if torch.cuda.is_available() else "cpu")
     torch.manual_seed(args.seed)
     gen = torch.Generator(device=device).manual_seed(args.seed)
+    gen_cpu = torch.Generator().manual_seed(args.seed)  # for randperm (CPU-only)
 
     arms = []
     for tok in args.checkpoints.split(","):
@@ -276,7 +278,7 @@ def main():
         raw.setdefault(name, {})["in_dist"] = s_in
         # ood scores
         for kind in ood_types:
-            x_ood, y_ood = make_ood(kind, x_in, y_in, gen)
+            x_ood, y_ood = make_ood(kind, x_in, y_in, gen, gen_cpu)
             s_ood = []
             for s in range(0, len(x_ood), args.batch_size):
                 rms, _ = field_score(model, x_ood[s:s+args.batch_size],

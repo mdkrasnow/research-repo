@@ -98,10 +98,11 @@ python projects/diff-EqM/experiments/c3_ood_energy/ood_energy_detect.py \
     --seed "$SEED" \
     --output-dir "$ABS_OUT" \
     ${EXTRA_ARGS:-} \
-    2>&1 | tee c3.log
+    2>&1 | tee "$ABS_OUT/run.log"
 C3_EXIT=${PIPESTATUS[0]}
 
-cp c3.log "$REPO_ROOT/projects/diff-EqM/slurm/logs/c3_ood_${SLURM_JOB_ID}.log" 2>/dev/null || true
+# Persist the run log to slurm/logs (ABS_OUT is on home -> survives /tmp wipe).
+cp "$ABS_OUT/run.log" "$REPO_ROOT/projects/diff-EqM/slurm/logs/c3_ood_${SLURM_JOB_ID}.log" 2>/dev/null || true
 cp "$ABS_OUT/auroc.csv" "$REPO_ROOT/projects/diff-EqM/documentation/c3_data_auroc_${SLURM_JOB_ID}.csv" 2>/dev/null || true
 cp "$ABS_OUT/verdict.json" "$REPO_ROOT/projects/diff-EqM/documentation/c3_data_verdict_${SLURM_JOB_ID}.json" 2>/dev/null || true
 echo "=== C3 exit code: $C3_EXIT, time: $(date) ===" >&2
