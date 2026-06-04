@@ -165,11 +165,69 @@ off-manifold); cyclic + bounded-move were added as evidence-based fixes — and 
 strikes on observed-space free-operator discovery. Per kill rule, do not retune this form again;
 change the mechanism (enc-linear-dec) for the next rung.
 
-## Suggested next step (rung 4)
+## Rung 4 — latent-coordinate symmetry `T=dec(M·enc(x))` (`latent_symmetry_rung4.py`) — RAN 2026-06-03
 
-**enc → linear → dec operator.** `T_ψ(x) = D_φ(M_ψ · E_φ(x))`, with `M_ψ` a small learned linear
-(or orthogonal) matrix in a learned latent, `E_φ/D_φ` a tiny autoencoder trained jointly (reconstruct
-observed data). The symmetry is forced to be *linear in the discovered latent* — exactly the thesis
-that a hidden symmetry is simple in the right coordinates. Same arms/metrics; the question is whether
-DISC now reaches ORACLE. Guards: AE reconstruction loss (latent must stay faithful), `M≠I` barrier,
-finite-order `M^P≈I`. Still 2D-latent / D=16 / CPU-seconds.
+**Thesis under test:** the symmetry is not discoverable as a free observed-space operator (rung 3),
+but may become a simple LINEAR operator in *learned latent coordinates*. Same world/data/split/
+metrics/seeds as rung 3; only new arm DISC_LATENT = `dec(M·enc(x))`, `M` one global learned 2×2.
+Discovery loss recipe held FIXED vs rung-3 DISC_NONLIN (closure-aug + bounded-move + cyclic `T^P≈I`)
+so any difference is due to PARAMETRIZATION. AE-first protocol; `M` = one global matrix (anti-
+memorization); held-out never in training.
+
+**Process note (a real methodology bug, caught + fixed):** first run used *semi-freeze* (recon
+anchor during the joint phase). The symmetry terms overpowered the anchor and CORRUPTED the AE:
+recon rel 0.03 (alone) → 0.44 (after joint). That run was INCONCLUSIVE (failed its own precondition:
+good recon during symmetry search), cluster job 18986548 marked invalid. Fix = FULLY freeze enc/dec
+after a verified-good pretrain (recon-only converges to ~0.030 rel at K=2), then search `M` + field in
+the fixed latent. (Lesson logged: verify the AE reconstructs BEFORE judging the symmetry; a corrupted
+AE masquerades as a thesis negative.)
+
+**Corrected run (frozen AE, local CPU; cluster cross-device confirm pending 2FA re-auth):**
+
+| arm | recall@HO | modes/8 | T_on_man | AE_rel | ‖M−I‖ | ‖M⁸−I‖ | role/result |
+|---|---|---|---|---|---|---|---|
+| BASE | 0.000 | 6 | — | — | — | — | floor |
+| ORACLE | 0.179 | 8 | — | — | — | — | **positive control ✓** |
+| DISC_LINEAR | 0.000 | 6 | 0.00 | — | — | — | negative control ✓ |
+| DISC_NONLIN | 0.000 | 6 | 0.08 | — | — | — | rung-3 free op, fails ✓ |
+| DISC_LATENT | 0.000 | 6 | 1.00 | **0.034** | **0.01** | 0.074 | **FAILS — M→identity** |
+
+**Verdict: rung 4 FAILS — and it is a GENUINE negative (recon good, not an AE failure).** DISC_LATENT
+recon is verified-good (0.034) yet `M` collapses to identity (‖M−I‖=0.01) → T≈recon≈x → on-manifold
+but inert → recall 0.
+
+**Root cause, rigorously confirmed (latent-geometry diagnostic):** encode the 8 mode centers into the
+frozen recon latent — it is a **distorted loop, NOT a circle**: latent radii 2.57–9.40 (a circle would
+be constant), angular gaps {49,69,25,49,57,39,51,21}° (not 45°). The 45° rotation is therefore
+**nonlinear in the reconstruction-faithful latent**; no single linear `M` preserves that distorted
+loop, so `M→I` is the correct optimum. **Reconstruction alone does not shape latent geometry to
+linearize the symmetry** — it yields an arbitrary nonlinear reparametrization of the manifold.
+
+**Kill rule fires:** "DISC_LATENT = BASE while AE recon good → stop this mechanism, rethink." Stop the
+recon-frozen-latent + linear-M mechanism.
+
+## Ladder status after rung 4
+
+| rung | mechanism | result |
+|---|---|---|
+| 1 arithmetic | equivariance constraint vs hard-neg | constraint perfect; hard-neg dead |
+| 2 ring (linear-in-obs symmetry) | known + discovered rotation | works; discovery ties known |
+| 3 nonlinear-hidden, free obs-space op | residual MLP `T` | FAILS (off-manifold) |
+| 4 nonlinear-hidden, enc-linear-dec, **recon-frozen** latent | `dec(M·enc)` | FAILS (recon latent ≠ linearizing latent; M→I) |
+
+Consistent theme: **discovery works iff the operator family is expressible in the coordinates you
+search.** Rung 2 worked because the ring symmetry IS linear in observed 2D. Rungs 3–4 fail because the
+symmetry is nonlinear in both observed space and the recon latent, and neither a free observed MLP nor
+a linear-map-in-recon-latent reaches a coordinate system where it is simple.
+
+## Rung 5 fork (DECISION NEEDED — see below)
+
+The recon latent doesn't linearize the symmetry. To get a linearizing latent the latent must be shaped
+BY the symmetry, which is chicken-and-egg. Candidate mechanisms (pick ONE — do not stack):
+- **5A — joint latent + M + field with an ENFORCED recon floor** (alternating recon/symmetry updates,
+  so the latent can bend to linearize the symmetry without the rung-4-semi-freeze corruption).
+- **5B — structured nonlinear operator in latent** (continuous Lie-generator / flow `exp(tξ)` instead
+  of a single matrix) — operator family richer than one linear map but still low-dim/reusable.
+- **5C — equivariance-shaped representation** (contrastive/temporal objective that places
+  symmetry-related points on a linear orbit) — but needs a source of symmetry-related pairs, which is
+  the thing being discovered (weakest without extra signal).
