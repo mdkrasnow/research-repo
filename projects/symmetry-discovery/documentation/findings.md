@@ -491,3 +491,28 @@ new mechanism; deliberately NOT chased here (diminishing returns, rabbit-hole ri
 **For diff-EqM / v10:** prefer injecting KNOWN image symmetries (crops/flips/color) as equivariance/
 augmentation over more hard-negative mining. Do not build unsupervised symmetry discovery into the
 paper's critical path.
+
+## INTERPRETATION REVISION (2026-06-04) — the prior "deprioritize / mostly failed" read was too harsh
+
+The ladder does NOT rule out near-oracle latent symmetry discovery. It rules out the NAIVE forms:
+discovery through live EqM field-closure (co-adaptation) and free-form/incoherent operators. Once
+discovery is (a) anchored to a FROZEN manifold reference and (b) constrained to a COHERENT operator
+family, the model BEGINS TO RECOVER A REAL SYMMETRY (rung 10: M≈−39°, recall 12× floor, ~35% ORACLE).
+That is a positive signal, not a dead mechanism.
+
+The remaining gap to oracle is **operator PRECISION and representation geometry, NOT theoretical
+impossibility.** Rung 11 ruled out coverage (orbit aug ≡ single). The open hypothesis: the discovered
+operator is too imprecise/fuzzy (angle ≈ right but not exact; powers compound the error). The next test
+is a more precise, group-structured operator parameterization — NOT more priors handing over the answer.
+
+Revised stance: unsupervised latent-symmetry discovery is an ACTIVE, promising direction; pursue
+operator precision before judging it. (rung 12 below.)
+
+## Rung 12 — group-structured generator (`latent_symmetry_rung12_group_generator.py`) — IN PROGRESS
+
+Replace the free latent matrix M with `M = matrix_exp(θ·A)` (a smooth group-like action; generator A and
+step θ learned, direction NOT specified). Tests whether group structure tightens the operator from
+≈−39° toward oracle-like −45° and raises recall toward ORACLE. Same frozen anchor; same controls.
+Arms: BASE / ORACLE / FROZEN_LATENT_MATRIX (rung-10 baseline) / FROZEN_LATENT_GEN_SKEW (A skew →
+rotation family, strong prior) / FROZEN_LATENT_GEN_FREE (A general + det≈1/orthogonality reg, weak
+prior — tests whether precision needs the strong prior or emerges).
