@@ -1508,27 +1508,29 @@
       "run_id": "exp3_full_gen_anm_lambda03",
       "job_id": "18776254",
       "partition": "seas_gpu",
-      "status": "pending",
+      "status": "failed",
       "description": "Exp3 FULL gen anm 50K, v10 lambda=0.3 (recursive resolve -> .../checkpoints/final.pt), 66f23f6 instrumented. Same schedule as vanilla (done). v2 18361248 failed.",
       "submitted_at": "2026-06-03",
       "git_sha": "66f23f6",
       "sbatch_path": "projects/diff-EqM/slurm/jobs/exp3_generate.sbatch",
       "expected_runtime": "~1h",
       "phase": "exp3-fidelity-diversity",
-      "gate": "FULL: 50K PNGs + provenance"
+      "gate": "FULL: 50K PNGs + provenance",
+      "error": "exit-53 home quota full (95G/95G, 0 avail); same root cause as 7973aaa"
     },
     {
       "run_id": "exp3_full_metrics",
       "job_id": "18776255",
       "partition": "seas_gpu",
-      "status": "pending",
+      "status": "cancelled",
       "description": "Exp3 FULL metrics 50K: FID/KID/PRDC/per-class/classifier-hist + bootstrap CIs + parity gate + verdict (no-diversity-tax). dep afterok:18776254 (vanilla 50K already done). THE REAL RESULT vs smoke plumbing.",
       "submitted_at": "2026-06-03",
       "git_sha": "66f23f6",
       "sbatch_path": "projects/diff-EqM/slurm/jobs/exp3_metrics.sbatch",
       "expected_runtime": "~1h",
       "phase": "exp3-fidelity-diversity",
-      "gate": "FULL: success/strong/failure/ambiguous on no-diversity-tax"
+      "gate": "FULL: success/strong/failure/ambiguous on no-diversity-tax",
+      "error": "dependency 18776254 failed (quota)"
     },
     {
       "run_id": "exp3_smoke_reference",
@@ -2019,6 +2021,45 @@
       "expected_runtime": "until phase-2+lambda10 done",
       "phase": "infra",
       "gate": "n/a"
+    },
+    {
+      "run_id": "exp3_full_reference_1k_v2",
+      "job_id": "18964347",
+      "partition": "seas_gpu",
+      "status": "pending",
+      "description": "Exp3 rebuild reference cache (deleted in 7973aaa 27G-free); 1000-class inception+resnet50 hist on holylabs",
+      "submitted_at": "2026-06-04",
+      "git_sha": "31836c3",
+      "sbatch_path": "projects/diff-EqM/slurm/jobs/exp3_reference_features.sbatch",
+      "expected_runtime": "2-4h",
+      "phase": "1a",
+      "gate": "exp3 no-diversity-tax verdict"
+    },
+    {
+      "run_id": "exp3_full_gen_anm_lambda03_v2",
+      "job_id": "18964349",
+      "partition": "seas_gpu",
+      "status": "pending",
+      "description": "Exp3 anm gen 50K v10 lambda=0.3; resubmit after quota fix (exp3 moved to holylabs via symlink)",
+      "submitted_at": "2026-06-04",
+      "git_sha": "31836c3",
+      "sbatch_path": "projects/diff-EqM/slurm/jobs/exp3_generate.sbatch",
+      "expected_runtime": "1h",
+      "phase": "1a",
+      "gate": "exp3 no-diversity-tax verdict"
+    },
+    {
+      "run_id": "exp3_full_metrics_v2",
+      "job_id": "18964351",
+      "partition": "seas_gpu",
+      "status": "pending",
+      "description": "Exp3 metrics+verdict (FID/KID/PRDC/per-class/clf-hist) vanilla vs anm l03; dep afterok:18964347:18964349",
+      "submitted_at": "2026-06-04",
+      "git_sha": "31836c3",
+      "sbatch_path": "projects/diff-EqM/slurm/jobs/exp3_metrics.sbatch",
+      "expected_runtime": "1h",
+      "phase": "1a",
+      "gate": "exp3 no-diversity-tax verdict"
     }
   ],
   "phase_0_progress": {
