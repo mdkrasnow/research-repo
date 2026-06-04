@@ -38,18 +38,25 @@ REF_DIR_REL="${REF_DIR_REL:-projects/diff-EqM/results/exp3/reference}"
 VANILLA_CKPT="${VANILLA_CKPT:-}"
 ANM_CKPT="${ANM_CKPT:-}"
 PRDC_K="${PRDC_K:-5}"
+# OUT_DIR_REL lets metrics WRITE outputs to a different filesystem than it READS
+# gen/reference from. Needed when the gen PNGs live on a quota-capped fileset
+# (holylabs group quota): point OUT_DIR_REL at home so the small CSV/npy/plots
+# outputs always have room even when the read-side fs is over quota. Reads
+# (gen PNGs, reference) never consume quota. Defaults to RUN_DIR_REL (in-place).
+OUT_DIR_REL="${OUT_DIR_REL:-$RUN_DIR_REL}"
 
 RUN_DIR="$REPO_ROOT/$RUN_DIR_REL"
+OUT_DIR="$REPO_ROOT/$OUT_DIR_REL"; mkdir -p "$OUT_DIR"
 cd "$WORK_DIR"
 python projects/diff-EqM/experiments/exp3_fidelity_diversity/eval_fidelity_diversity.py \
     --gen-root "$RUN_DIR/gen" \
     --schedule "$RUN_DIR/schedule.json" \
     --reference-dir "$REPO_ROOT/$REF_DIR_REL" \
-    --out "$RUN_DIR" \
+    --out "$OUT_DIR" \
     --vanilla-ckpt "$VANILLA_CKPT" --anm-ckpt "$ANM_CKPT" \
     --sampler gd --nfe 250 --step-size 0.003 --cfg-scale 1.0 \
     --prdc-k "$PRDC_K" 2>&1 | tee metrics.log
 
 cp metrics.log "$REPO_ROOT/projects/diff-EqM/slurm/logs/exp3-metrics_${SLURM_JOB_ID}.log" 2>/dev/null || true
-echo "=== exp3-metrics done -> $RUN_DIR_REL ==="
+echo "=== exp3-metrics done; read $RUN_DIR_REL -> wrote $OUT_DIR_REL ==="
 rm -rf "$WORK_DIR"
