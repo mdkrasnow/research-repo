@@ -223,11 +223,43 @@
     "sbatch": "projects/diff-EqM/slurm/jobs/variant_pilot.sbatch"
   },
   "needs_user_input": {
-    "value": true,
-    "prompt": "SSH socket dropped again (network/login-node, not timeout). C1 jobs (l01 18949428, l03 18952135) STILL RUNNING on cluster, unaffected. To resume monitoring/fetch, re-run: !scripts/cluster/ssh_bootstrap.sh . Then I poll to completion + run C1 verdict + C2 decision. C3 already DONE (negative/kill).",
-    "set_at": "2026-06-04"
+    "value": false
   },
   "completed_runs": [
+    {
+      "run_id": "c1_ext_l03",
+      "job_id": "18952135",
+      "partition": "gpu_requeue",
+      "status": "failed",
+      "description": "C1 dose arm l03: v10 lambda=0.3 only (skip-vanilla; vanilla from l01 job). gpu_requeue (gpu_test QOS submit-limit). Single-GPU MIG-safe. --resume on preempt.",
+      "submitted_at": "2026-06-03",
+      "git_sha": "6ae5980",
+      "sbatch_path": "projects/diff-EqM/slurm/jobs/c1_ext_l03_requeue.sbatch",
+      "expected_runtime": "~3-4h",
+      "phase": "capability-probe",
+      "gate": "C1 dose-ordering control",
+      "previous_job_id": "18949163 (FAILED 1:05 node/prolog fault, pre-pip, no logs)",
+      "exit_code": 1,
+      "final_metric": "FAILED home-full Errno28 @9:11h but anm_l03 grid COMPLETE (6 cells). gd 41.25/41.73/45.27, ngd 41.11/41.57/45.10.",
+      "verdict": "C1 NEGATIVE/KILL: no high-NFE crossover, ANM degrades MORE with NFE, higher residual. Scaling capability refuted. See c1-inference-scaling-findings-EXTENSION.md"
+    },
+    {
+      "run_id": "c1_ext_l01",
+      "job_id": "18949428",
+      "partition": "gpu_test",
+      "status": "failed",
+      "description": "C1 inference-compute scaling extension, dose arm l01: vanilla + v10 lambda=0.1. nfe{250,500,1000} step1.0 gd+ngd 5K. Tests vanilla turn-up vs ANM monotone in untested high-NFE regime + residual descent.",
+      "submitted_at": "2026-06-03",
+      "git_sha": "6ae5980",
+      "sbatch_path": "projects/diff-EqM/slurm/jobs/c1_ext_l01.sbatch",
+      "expected_runtime": "~6-8h",
+      "phase": "capability-probe",
+      "gate": "C1: vanilla FID turns up >=0.5 past min while ANM monotone, dose-ordered + lower residual",
+      "previous_job_id": "18949120 (FAILED 28s, transient node/prolog fault, no logs created)",
+      "exit_code": 1,
+      "final_metric": "FAILED home-full Errno28 @7:35h; captured vanilla gd nfe250/500/1000 (FID 45.71/45.73/47.88). anm_l01 arm never ran (crashed). Partial but decisive.",
+      "verdict": "C1 NEGATIVE/KILL: no high-NFE crossover, ANM degrades MORE with NFE, higher residual. Scaling capability refuted. See c1-inference-scaling-findings-EXTENSION.md"
+    },
     {
       "run_id": "latent_sym_rung4",
       "job_id": "18986548",
@@ -1388,34 +1420,6 @@
   ],
   "active_runs": [
     {
-      "run_id": "c1_ext_l01",
-      "job_id": "18949428",
-      "partition": "gpu_test",
-      "status": "pending",
-      "description": "C1 inference-compute scaling extension, dose arm l01: vanilla + v10 lambda=0.1. nfe{250,500,1000} step1.0 gd+ngd 5K. Tests vanilla turn-up vs ANM monotone in untested high-NFE regime + residual descent.",
-      "submitted_at": "2026-06-03",
-      "git_sha": "6ae5980",
-      "sbatch_path": "projects/diff-EqM/slurm/jobs/c1_ext_l01.sbatch",
-      "expected_runtime": "~6-8h",
-      "phase": "capability-probe",
-      "gate": "C1: vanilla FID turns up >=0.5 past min while ANM monotone, dose-ordered + lower residual",
-      "previous_job_id": "18949120 (FAILED 28s, transient node/prolog fault, no logs created)"
-    },
-    {
-      "run_id": "c1_ext_l03",
-      "job_id": "18952135",
-      "partition": "gpu_requeue",
-      "status": "pending",
-      "description": "C1 dose arm l03: v10 lambda=0.3 only (skip-vanilla; vanilla from l01 job). gpu_requeue (gpu_test QOS submit-limit). Single-GPU MIG-safe. --resume on preempt.",
-      "submitted_at": "2026-06-03",
-      "git_sha": "6ae5980",
-      "sbatch_path": "projects/diff-EqM/slurm/jobs/c1_ext_l03_requeue.sbatch",
-      "expected_runtime": "~3-4h",
-      "phase": "capability-probe",
-      "gate": "C1 dose-ordering control",
-      "previous_job_id": "18949163 (FAILED 1:05 node/prolog fault, pre-pip, no logs)"
-    },
-    {
       "run_id": "v10_b2_lambda10_seed0_bracket",
       "job_id": "17915173",
       "partition": "gpu",
@@ -2167,5 +2171,11 @@
     "lit_review_done_17_papers": true,
     "active_runs_count": 2,
     "ready_for_phase_1b": "On smoke (13848066) PASS, run: bash projects/diff-EqM/experiments/cafm_eqm/submit_phase_1b.sh"
+  },
+  "capability_probes_verdict": {
+    "C1_inference_scaling": "NEGATIVE/KILL",
+    "C3_ood_energy": "NEGATIVE/KILL",
+    "C2_restoration": "NOT_LAUNCHED (gate unmet: both C1+C3 negative)",
+    "conclusion": "No capability probe cleared. Differentiation rests on uniform FID gain + Exp-2 field-robustness mechanism (workshop-tier). Mechanism unifying both negatives: v10 off-manifold field-robustness raises near-data field-norm + lowers far-off-manifold -> worse OOD novelty (C3) + no lower-energy equilibrium/refinement (C1)."
   }
 }
