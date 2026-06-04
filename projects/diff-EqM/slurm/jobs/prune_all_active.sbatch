@@ -24,7 +24,7 @@ echo "=== prune-all started $(date) ===" >&2
 
 while true; do
     # Check if any relevant jobs still running/pending
-    ACTIVE=$(squeue -u "$USER_TAG" -h -o '%j' 2>/dev/null | grep -cE 'eqm-1k|eqm-imagenet|prune-v10' || true)
+    ACTIVE=$(squeue -u "$USER_TAG" -h -o '%j' 2>/dev/null | grep -cE 'eqm-1k|eqm-imagenet|prune-v10|eqm-v10|eqm-van|eqm-ab' || true)
     if [ "$ACTIVE" -eq 0 ]; then
         echo "=== No active jobs, exiting $(date) ===" >&2
         exit 0
@@ -44,8 +44,10 @@ while true; do
     # Rsync temp file cleanup across all run dirs (catches preempt-orphaned partials)
     find "$RESULTS_ROOT" -name '.*.pt.*' -type f -delete 2>/dev/null || true
 
-    # Full run dirs: keep anchors + latest 2
-    for d in $RESULTS_ROOT/imagenet1k_80ep_*/000-*/checkpoints; do
+    # Full run dirs: keep anchors + latest 2.
+    # Glob *80ep* catches BOTH imagenet1k_80ep_* AND vanilla_b2_in1k_80ep_* (Phase-2
+    # vanilla dirs were missed by the old imagenet1k_80ep_* glob -> unpruned 34G leak).
+    for d in $RESULTS_ROOT/*80ep*/000-*/checkpoints; do
         [ -d "$d" ] || continue
         cd "$d"
         ls *.pt 2>/dev/null | sort > /tmp/prune_all_$$.txt

@@ -1380,7 +1380,7 @@
       "run_id": "v10_b2_lambda10_seed0_bracket",
       "job_id": "17915173",
       "partition": "gpu",
-      "status": "running",
+      "status": "failed",
       "description": "lambda SWEEP bracketing point: v10 B/2 80ep IN-1K seed0 GAMMA=1.0 (vs measured 0.1->FID29.01, 0.3->27.09, both still descending). Brackets the FID(lambda) minimum. ckpt-every-5000 retained -> early-step FID(~65K anchor)+final FID = first (early,final) pair for multi-fidelity rank-correlation (free check was impossible: 0.1/0.3 intermediate ckpts pruned, FID never logged mid-train).",
       "submitted_at": "2026-06-01",
       "git_sha": "d96aeb89b862719834d11e9e49d56e142dbfb94e",
@@ -1390,7 +1390,10 @@
       "gate": "lambda dose-response: is FID(1.0) < FID(0.3)=27.09 (optimum further right) or > (0.3 near-optimal)? Determines Phase-2 recipe lambda* + whether multi-fidelity screening is viable for Phase-3 scaling.",
       "node": "holygpu8a22401",
       "started_at": "2026-06-02",
-      "smoke_probe": "step1200 healthy: gamma=1.0 applied (Loss=Base+1.0*Aux), aux/base 1.02 stable non-saturating, base loss descending, no collapse"
+      "smoke_probe": "step1200 healthy: gamma=1.0 applied (Loss=Base+1.0*Aux), aux/base 1.02 stable non-saturating, base loss descending, no collapse",
+      "error": "home-quota deadlock: home 100%% full ~10:00, stdout/rsync write-blocked, train hung ~13h at step ~35000 (last good ckpt 0035000.pt). SLURM showed RUNNING but zero compute progress. Root: auto-pruner not running.",
+      "final_metric": "n/a (deadlock before completion)",
+      "last_good_ckpt": "0035000.pt"
     },
     {
       "run_id": "exp3_full_reference_1k",
@@ -1970,6 +1973,47 @@
       "expected_runtime": "~6h",
       "phase": "2",
       "gate": "exp4 step-matched fair pairing (vanilla@405K vs v10@405K)"
+    },
+    {
+      "run_id": "v10_b2_lambda10_seed0_bracket_resume",
+      "job_id": "18949715",
+      "partition": "gpu",
+      "status": "pending",
+      "description": "RESUME of 17915173 from 35K ckpt: v10 EqM-B/2 seed0 80ep gamma=1.0 lambda-bracket point. Resubmit after home-quota deadlock recovery (pruner now running).",
+      "submitted_at": "2026-06-03",
+      "git_sha": "d96aeb89b862719834d11e9e49d56e142dbfb94e",
+      "sbatch_path": "projects/diff-EqM/slurm/jobs/imagenet1k_v10_scaling.sbatch",
+      "resume_ckpt": "0035000.pt",
+      "expected_runtime": "~30h",
+      "phase": "5-ablation",
+      "gate": "lambda bracket: FID(1.0) vs 27.09(l03)"
+    },
+    {
+      "run_id": "prune_all_active_recovery",
+      "job_id": "18949333",
+      "partition": "shared",
+      "status": "cancelled",
+      "description": "Standing auto-pruner relaunch after home-quota deadlock filled home. Keeps anchors{5000,65000}+latest-2 per imagenet1k_80ep dir, deletes rsync temps globally. Auto-exits when no eqm-1k jobs.",
+      "submitted_at": "2026-06-03",
+      "git_sha": "d96aeb89b862719834d11e9e49d56e142dbfb94e",
+      "sbatch_path": "projects/diff-EqM/slurm/jobs/prune_all_active.sbatch",
+      "expected_runtime": "until lambda10 done",
+      "phase": "infra",
+      "gate": "n/a",
+      "note": "replaced by 18950091 (patched glob *80ep* to cover vanilla_b2 dirs + broader keep-alive grep)"
+    },
+    {
+      "run_id": "prune_all_active_recovery_v2",
+      "job_id": "18950091",
+      "partition": "shared",
+      "status": "running",
+      "description": "Patched pruner: glob *80ep* (covers vanilla_b2_in1k_80ep_* that old glob missed -> 34G leak) + keep-alive grep includes eqm-v10/eqm-van/eqm-ab.",
+      "submitted_at": "2026-06-03",
+      "git_sha": "pending-commit",
+      "sbatch_path": "projects/diff-EqM/slurm/jobs/prune_all_active.sbatch",
+      "expected_runtime": "until phase-2+lambda10 done",
+      "phase": "infra",
+      "gate": "n/a"
     }
   ],
   "phase_0_progress": {
