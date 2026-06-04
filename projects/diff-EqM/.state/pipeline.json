@@ -1218,6 +1218,23 @@
       "gate": "exp4 step-matched fair pairing (vanilla@405K vs v10@405K)",
       "exit_code": "0:53",
       "error": "HOME QUOTA FULL (0 bytes). exit-53/1s/empty-logs = SLURM cannot create --output file. Affected all my jobs (exp3-gen, scaling too). Root cause not node glitch. Freed 27G by deleting exp3/reference (41G regenerable). Resubmitted 18778727."
+    },
+    {
+      "submitted_at": "2026-06-01T00:00:00Z",
+      "git_sha": "997b7d85f95b4826b62fad28eb76e13cb59378f6",
+      "partition": "seas_gpu",
+      "status": "failed",
+      "expected_runtime": "~41h (48h wall)",
+      "phase": "2-v10-multiseed",
+      "sbatch_path": "projects/diff-EqM/slurm/jobs/imagenet1k_80ep_v10.sbatch",
+      "gate": "Phase 2: 3-seed Welch t p<0.05 AND mean >=1 FID gain, v10 lambda=0.3 vs vanilla",
+      "run_id": "phase2_vanilla_seed1",
+      "job_id": "18776220",
+      "description": "vanilla B/2 seed1 (MINING=none, robust sync sbatch; prior 16594167 FAILED). Welch t denominator.",
+      "previous_job_id": "17954841(WEDGED home-quota-deadlock, cancelled) 18609081(re-wedged: SLURM stdout->full home)",
+      "persistent_results": "/n/holylabs/ydu_lab/Lab/mkrasnow_eqm/vanilla_b2_seed1",
+      "note": "logs+ckpts BOTH on holylabs (home stdout was the wedge)",
+      "error": "trained to step 400k exit 0 but ckpt LOST: rsync -a chown-failed silently on setgid holylabs dir -> 0 synced; node reallocated, /tmp gone"
     }
   ],
   "archived_autoresearch_hp": {
@@ -1984,11 +2001,11 @@
       "sbatch_path": "projects/diff-EqM/slurm/jobs/imagenet1k_80ep_v10.sbatch",
       "gate": "Phase 2: 3-seed Welch t p<0.05 AND mean >=1 FID gain, v10 lambda=0.3 vs vanilla",
       "run_id": "phase2_vanilla_seed1",
-      "job_id": "18776220",
+      "job_id": "19051147",
       "description": "vanilla B/2 seed1 (MINING=none, robust sync sbatch; prior 16594167 FAILED). Welch t denominator.",
-      "previous_job_id": "17954841(WEDGED home-quota-deadlock, cancelled) 18609081(re-wedged: SLURM stdout->full home)",
+      "previous_job_id": "18776220(LOST)",
       "persistent_results": "/n/holylabs/ydu_lab/Lab/mkrasnow_eqm/vanilla_b2_seed1",
-      "note": "logs+ckpts BOTH on holylabs (home stdout was the wedge)"
+      "note": "RESUBMIT after van-s1 loss; persist->home, fixed self-pruning sbatch, logs->holylabs"
     },
     {
       "submitted_at": "2026-06-01T00:00:00Z",
@@ -2193,5 +2210,9 @@
     "C3_ood_energy": "NEGATIVE/KILL",
     "C2_restoration": "NOT_LAUNCHED (gate unmet: both C1+C3 negative)",
     "conclusion": "No capability probe cleared. Differentiation rests on uniform FID gain + Exp-2 field-robustness mechanism (workshop-tier). Mechanism unifying both negatives: v10 off-manifold field-robustness raises near-data field-norm + lowers far-off-manifold -> worse OOD novelty (C3) + no lower-energy equilibrium/refinement (C1)."
+  },
+  "storage_incident": {
+    "date": "2026-06-04",
+    "summary": "rsync -a chown-fail on setgid holylabs synced 0 ckpts for 26h. van-s1(18776220) lost (step 400k exit 0). Fixed sbatch rsync -rtL + self-prune latest-3. Rescued v10-s1(260k)+van-s2(155k)->holylabs, v10-s2(265k)->home. Background rescue loop pulls 3 running jobs /tmp->home until done. Home pruned 90->58G (my stale partials only). van-s1 resubmit 19051147."
   }
 }
