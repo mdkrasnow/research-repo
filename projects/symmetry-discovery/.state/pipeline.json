@@ -1,7 +1,7 @@
 {
   "project": "symmetry-discovery",
   "title": "Symmetry discovery vs hard-negative mining for generative models (EqM)",
-  "phase": "EQM-BRIDGE-PROXY-NEGATIVE (feature-space mechanism fails; do not extend CIFAR/FID)",
+  "phase": "EQM-BRIDGE: architecture solved, TARGETING open (do not scale FID)",
   "research_question": "Can a learned manifold-preserving operator, anchored to data (not the live field), discover a nonlinearly-hidden symmetry and fill held-out manifold regions? vs hard-negative mining and known-symmetry constraints.",
   "scale": "CPU toy (2D/16D rings). NOT publishable; filters/diagnostics only.",
   "ladder_status": {
@@ -22,7 +22,8 @@
     "rung14_higher_dim": "DEFINITIVE SUCCESS: K=3 cylinder (rot in plane, h passive, stable!=rotation). GEN_FREE_STABLE (general 3x3, det~1+cond->1, NO skew/plane) = 113% ORACLE, MATCHES both skew arms. Discovered rotation CONFINED to active plane (passive_leak 0.04~=0) + h PRESERVED (passive_dh 0.15 = plane-told ref) + exact group (det 1.00 cond 1.00). 2D-conflation caveat DISSOLVED.",
     "rung15_learned_latent": "PARTIAL: learned/recon latent reaches 89-97% recall BUT via COVERAGE not coherent symmetry (shift_std 34-69 vs supervised 3.4; passive_dh 0.96 vs 0.15 -> doesn't preserve true h). Stable on-manifold reshuffle covers 2D cylinder incl arc -> fills via coverage. recall is coverage-confounded; operator-quality metrics honest. Coherent discovery needs structure-ALIGNED coords; recon-only (0.196) faithful but not aligned. Open: symmetry-aware unsupervised latent (deferred, new mechanism).",
     "rung16_screw": "INCONCLUSIVE (2 attempts, stop-rule). v1 C=0.4 confounded (helix~circle, rotation suffices, ISOMETRY 95%); v2 C=1.5 messy (ORACLE fills only 25% ideal, operators off-manifold T_onman 0.2-0.65, incoherent, recall COVERAGE-confounded: ISOMETRY htrans~0 yet 79%). Non-rotation discovery UNRESOLVED; screw toy ill-posed. No claim recipe handles non-rotation.",
-    "eqm_bridge_feature_proxy": "Fast CIFAR feature-space proxy (frozen random-conv+PCA32, rotation gap). KNOWN_AUG closes gap (0.18<<base 1.07, gate OK); RANDOM fails (off-manifold); DISCOVERED stable-generator = stable(det1,cond1.1)+beats-random BUT ~= BASE on held-out gap (1.19) -> anchor-matching doesn't target held-out (rung9/15 confound; frozen feature space not symmetry-aligned). Mechanism FAILS in CIFAR feature space as-is."
+    "eqm_bridge_feature_proxy": "Fast CIFAR feature-space proxy (frozen random-conv+PCA32, rotation gap). KNOWN_AUG closes gap (0.18<<base 1.07, gate OK); RANDOM fails (off-manifold); DISCOVERED stable-generator = stable(det1,cond1.1)+beats-random BUT ~= BASE on held-out gap (1.19) -> anchor-matching doesn't target held-out (rung9/15 confound; frozen feature space not symmetry-aligned). Mechanism FAILS in CIFAR feature space as-is.",
+    "eqm_bridge_spatial_proxy": "Architecture-correct proxy: SPATIAL affine operator M=exp(A) via grid_sample learns a CLEAN coherent rotation (det/cond 1.00) -- architecture critique VALIDATED (flat-PCA dense-M was wrong arch, ~=base). BUT targeting open: discovered op learns WRONG-direction rotation (-23deg vs one-sided held band +15-25) -> gap worse. Anchor-matching is direction-agnostic; residual-anchor also fails. Toy rungs worked b/c held-out symmetric under group; one-sided held-out needs directional signal anchor-matching lacks. KNOWN-aug works (gate). Do NOT scale FID."
   },
   "key_findings": [
     "Hard-negative/v10 mining installs no manifold structure. Dead.",
@@ -33,9 +34,9 @@
     "EqM bridge plan written (v12 frozen stable-generator aug, middle-block feature anchor); real validation needs cluster (2FA)."
   ],
   "next_action": {
-    "command": "HUMAN/RESEARCH decision: fix feature-space mechanism before more EqM GPU",
-    "reason": "Fast proxy shows discovered stable-generator doesn't beat base in CIFAR feature space (anchor-matching != targeting held-out symmetry; feature space not symmetry-aligned). Per goal, do not extend CIFAR/FID for v12.",
-    "hint": "Options: (a) symmetry-ALIGNED feature space (contrastive/equivariant encoder) so a linear M captures the transform (rung15 lesson); (b) operator/anchor that targets held-out-implied symmetry not full distribution; (c) accept known-symmetry augmentation as the lever (KNOWN closes gap; loader already flips). CIFAR/FID jobs finishing for record only."
+    "command": "RESEARCH decision: targeting objective vs known-aug lever",
+    "reason": "Operator architecture solved (spatial Lie op = clean rotation). Remaining gap = OBJECTIVE can't target asymmetric held-out without directional signal. Not an architecture/GPU problem.",
+    "hint": "Options: (a) directional/targeting signal that breaks symmetry without held-out labels (hard, maybe weak supervision); (b) KNOWN-symmetry augmentation as the paper lever (validated, gate passes, loader flips); (c) restrict discovery claims to symmetric-held-out settings. Recommend (b) for paper critical path + (a) as research extension. Do not scale CIFAR/FID for discovered op until targeting solved."
   },
   "needs_user_input": {
     "value": false,
@@ -160,6 +161,12 @@
       "ts": "2026-06-04",
       "action": "BRIDGE_PROXY_NEGATIVE",
       "detail": "Fast feature-proxy: discovered stable-generator stable+beats-random but ~=base on held-out gap; mechanism fails in CIFAR feature space (not symmetry-aligned). Do not extend FID. Proxy saved hours."
+    },
+    {
+      "id": "evt-0011",
+      "ts": "2026-06-04",
+      "action": "SPATIAL_PROXY",
+      "detail": "Architecture fixed (spatial op = coherent rotation) but targeting open (anchor-matching direction-agnostic; one-sided held-out unreachable). Do not scale FID; known-aug is the lever."
     }
   ],
   "provenance": {
