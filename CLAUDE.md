@@ -196,6 +196,31 @@ When stopped → write short postmortem before proposing next variant.
 
 **Prove the experiment deserves to exist before writing code.**
 
+### Positive and negative controls (mandatory)
+
+Every experiment testing whether a mechanism works MUST ship with both controls in the same run.
+A treatment number alone is uninterpretable — you cannot tell "mechanism works" from "task is
+trivial" or "harness is broken" without the controls bracketing it.
+
+- **Positive control (upper bound):** an arm GIVEN the answer / true mechanism (e.g. oracle symmetry,
+  known label, ground-truth operator). Confirms the metric can move and the target is achievable in
+  this setup. If the positive control fails, the harness/metric is broken — fix that before reading
+  the treatment.
+- **Negative control (floor / null):** an arm that SHOULD fail (e.g. vanilla baseline, random/linear
+  operator where a nonlinear one is needed, shuffled labels). Confirms the metric isn't trivially
+  satisfied and that any treatment gain is real, not leakage or a too-easy task.
+- Read the treatment ONLY in the band between the two controls. Treatment ≈ negative → mechanism
+  dead. Treatment ≈ positive → mechanism works. Treatment outside the band (above positive / below
+  negative) → bug, leak, or metric artifact — debug before believing it.
+
+Live example: latent-symmetry rung (`experiments/symmetry_toys/latent_symmetry.py`) — ORACLE
+(positive: given true latent rotation) + DISC_LINEAR (negative: linear op can't fit a nonlinear
+hidden symmetry) bracket DISC_NONLIN (treatment). Without ORACLE a zero DISC result could mean
+"gap unfillable"; without DISC_LINEAR a nonzero result could mean "task trivial." Both needed.
+
+This composes with the smoke-time sample probe and diagnostics rules above: controls tell you the
+RESULT is real; smoke tells you the CODE is real. Run both.
+
 ---
 
 ## Gating discipline (the agentic guardrail)

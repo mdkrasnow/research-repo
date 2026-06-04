@@ -134,9 +134,42 @@ plan without a Variant Proposal + PI check.
 - Smoke-level: ≤3 seeds, no FID, no high-dim confirmation. Per CIFAR/sanity rules, this is a filter,
   not a result.
 
-## Suggested next step (not yet started)
+## Rung 3 — latent symmetry hidden by a nonlinear decoder (`latent_symmetry.py`) — RAN 2026-06-03
 
-A toy where the symmetry is *unknown in class* (not just unknown angle) — learn a general
-transformation operator `T_ψ` (small net / Lie-group parametrization) instead of a single rotation
-angle — and measure whether discovery still ties "known" when the operator family is not handed over.
-That is the closest cheap proxy to the IN-1K discovery problem.
+**Setup:** latent 8-mode ring (45° symmetry) → frozen random nonlinear decoder `g: R²→R¹⁶` →
+observed data where the symmetry is the nonlinear warp `g∘R∘g⁻¹` (not a named linear op). Train EqM
+in observed space; hold out modes {2,5}. Operator `T_ψ` learned in observed space (residual MLP);
+discovery recipe = closure-aug + bounded-move target + cyclic `T^P≈id` (P=8).
+Run on cluster job 18980880 (gpu_requeue, **CUDA**) and locally (CPU) — results match.
+
+| arm | recall@HO | modes/8 | T_on_manifold | role | result |
+|---|---|---|---|---|---|
+| BASE | 0.000 | 6 | — | negative/floor | empty (expected) |
+| ORACLE | 0.164 | 8 | — | **positive control** | fills gaps → harness valid, gap fillable |
+| DISC_LINEAR | 0.000 | 6 | 0.00 | **negative control** | linear op can't stay on nonlinear manifold |
+| DISC_NONLIN | 0.000 | 6 | 0.14 | **treatment** | **FAILS** — recall 0, mostly off-manifold, σ scattered |
+
+**Verdict: rung 3 FAILED.** Treatment ≈ negative control. ORACLE confirms it is not a harness/metric
+problem — the gap is fillable. A **free observed-space operator `T_ψ` cannot discover the
+nonlinearly-hidden symmetry**: nothing pins `T(x)` onto the *data* manifold (closure-aug is too weak —
+the field just fits whatever T emits), so T drifts off-manifold; cyclic `T^P=id` is satisfiable by
+near-identity scattered maps.
+
+**Lesson (rhymes with the arithmetic rung):** the structural prior dismissed as overengineering —
+**enc → linear op → dec** (autoencode to a latent where the symmetry is linear) — is likely the
+load-bearing piece for nonlinearly-hidden symmetries. Free-form discovery in observed space is not
+enough.
+
+**Process note:** the 2-term recipe (aug + 1/d² barrier) failed local smoke first (T flew
+off-manifold); cyclic + bounded-move were added as evidence-based fixes — and STILL failed. Two
+strikes on observed-space free-operator discovery. Per kill rule, do not retune this form again;
+change the mechanism (enc-linear-dec) for the next rung.
+
+## Suggested next step (rung 4)
+
+**enc → linear → dec operator.** `T_ψ(x) = D_φ(M_ψ · E_φ(x))`, with `M_ψ` a small learned linear
+(or orthogonal) matrix in a learned latent, `E_φ/D_φ` a tiny autoencoder trained jointly (reconstruct
+observed data). The symmetry is forced to be *linear in the discovered latent* — exactly the thesis
+that a hidden symmetry is simple in the right coordinates. Same arms/metrics; the question is whether
+DISC now reaches ORACLE. Guards: AE reconstruction loss (latent must stay faithful), `M≠I` barrier,
+finite-order `M^P≈I`. Still 2D-latent / D=16 / CPU-seconds.
