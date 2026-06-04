@@ -223,10 +223,7 @@
     "sbatch": "projects/diff-EqM/slurm/jobs/variant_pilot.sbatch"
   },
   "needs_user_input": {
-    "value": true,
-    "prompt": "Cluster SSH ControlMaster is DOWN (Permission denied keyboard-interactive; 2FA needed). C1-extension + C3 GPU jobs are code-complete, committed (d270fe7), pushed. To submit+monitor, establish the session by running interactively in this chat: !scripts/cluster/ssh_bootstrap.sh  (complete login+2FA when prompted). Then I will reconcile active_runs vs squeue, submit c1_ext_scaling (ARM_MODE=l01 + l03) and c3_ood_energy to gpu_test, and poll to completion.",
-    "blocking_goal": "C1+C3 parallel then C2-if-positive",
-    "set_at": "2026-06-03"
+    "value": false
   },
   "completed_runs": [
     {
@@ -1339,6 +1336,45 @@
     }
   ],
   "active_runs": [
+    {
+      "run_id": "c3_ood_energy",
+      "job_id": "18949014",
+      "partition": "gpu_test",
+      "status": "pending",
+      "description": "C3 OOD detection via field-residual ||f(x,y)||. 3 arms (vanilla/v10 l0.1/l0.3) x 4 dependency-free OOD sets -> AUROC vs vanilla, dose-ordered. Forward-only, no sampler.",
+      "submitted_at": "2026-06-03",
+      "git_sha": "6ae5980",
+      "sbatch_path": "projects/diff-EqM/slurm/jobs/c3_ood_energy.sbatch",
+      "expected_runtime": "~1-2h",
+      "phase": "capability-probe",
+      "gate": "C3: v10 AUROC > vanilla on >=2 OOD sets, dose-ordered"
+    },
+    {
+      "run_id": "c1_ext_l01",
+      "job_id": "18949120",
+      "partition": "gpu_test",
+      "status": "pending",
+      "description": "C1 inference-compute scaling extension, dose arm l01: vanilla + v10 lambda=0.1. nfe{250,500,1000} step1.0 gd+ngd 5K. Tests vanilla turn-up vs ANM monotone in untested high-NFE regime + residual descent.",
+      "submitted_at": "2026-06-03",
+      "git_sha": "6ae5980",
+      "sbatch_path": "projects/diff-EqM/slurm/jobs/c1_ext_l01.sbatch",
+      "expected_runtime": "~6-8h",
+      "phase": "capability-probe",
+      "gate": "C1: vanilla FID turns up >=0.5 past min while ANM monotone, dose-ordered + lower residual"
+    },
+    {
+      "run_id": "c1_ext_l03",
+      "job_id": "18949163",
+      "partition": "gpu_requeue",
+      "status": "pending",
+      "description": "C1 dose arm l03: v10 lambda=0.3 only (skip-vanilla; vanilla from l01 job). gpu_requeue (gpu_test QOS submit-limit). Single-GPU MIG-safe. --resume on preempt.",
+      "submitted_at": "2026-06-03",
+      "git_sha": "6ae5980",
+      "sbatch_path": "projects/diff-EqM/slurm/jobs/c1_ext_l03_requeue.sbatch",
+      "expected_runtime": "~3-4h",
+      "phase": "capability-probe",
+      "gate": "C1 dose-ordering control"
+    },
     {
       "run_id": "v10_b2_lambda10_seed0_bracket",
       "job_id": "17915173",
