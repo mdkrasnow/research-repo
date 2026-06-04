@@ -412,3 +412,40 @@ mining dead everywhere · symmetry constraints work when KNOWN · unsupervised d
 3-layer stack, now mostly diagnosed: (1) identity attractor, (2) field co-adaptation [FIXED by frozen
 anchor, rung 9], (3) operator-coherence under distributional anchoring [OPEN]. Frozen anchor is real
 progress; coherence is the remaining gap.
+
+## Rung 10 — frozen anchor + COHERENT operator (`latent_symmetry_rung10.py`) — RAN 2026-06-04
+
+One mechanism change from rung 9: make the operator coherent BY CONSTRUCTION — a single latent matrix
+`T(x)=dec(M·enc(x))`, `M` 2×2 applied to every point (one consistent shift) — instead of a free
+residual MLP. Trained against the same frozen energy-distance anchor, frozen, then EqM augmentation.
+
+| arm | recall_arc | T_onman | shift_std | M_angle | read |
+|---|---|---|---|---|---|
+| ORACLE (full group) | 0.068 | — | — | — | positive control |
+| BASE | 0.002 | — | — | — | floor |
+| FROZEN_RESIDUAL (rung 9) | 0.009 | 0.70 | 95° | — | incoherent shuffle |
+| **FROZEN_LATENT_CLEAN** | **0.025±0.034** | 0.71 | **25°** | **−38.8°** | coherent; recovers ~rotation |
+| FROZEN_LATENT_DISC | 0.013 | 0.42 | 25° | −24.3° | coherent, weaker (learned dec) |
+
+**Result: PARTIAL SUCCESS — best discovery result of the ladder.** The single-matrix operator fixed
+coherence (shift_std 95°→25°) and **recovered a real rotation (M_angle ≈ −39°)**. Recall climbed
+floor(0.002) → residual(0.009) → coherent(0.025) — 12× floor — so with all three blockers addressed
+(identity-exclusion via move + frozen anchor for co-adaptation + single-matrix for coherence),
+discovery DOES transfer real supervision into the held-out arc.
+
+**Not full ORACLE parity** (0.025 vs 0.068, variance ±0.034): (a) a SINGLE learned rotation covers only
+the slice of the arc it maps to, whereas ORACLE used the full random-rotation group; (b) the latent is
+only approximately clean (noisy ring → M-rotation maps with spread, shift_std 25 not ~0); (c)
+seed-variable. The DISC (fully unsupervised, learned dec) variant is coherent but weaker than CLEAN.
+
+**Net:** the 3-layer blocker is resolved in principle — coherence was the last missing piece.
+Unsupervised-ish discovery works partially. Closing the gap to ORACLE is now a COVERAGE problem (one
+generator vs the full group), not a discovery problem.
+
+## Ladder status (rungs 1–10)
+mining dead · constraints work when KNOWN · unsupervised discovery: 3 blockers (identity / co-adaptation
+/ coherence) each diagnosed and individually fixed (rung 8 → move/identity-exclusion, rung 9 → frozen
+anchor, rung 10 → single-matrix coherence); result = PARTIAL discovery (recall 12× floor, real rotation
+recovered, ~37% of ORACLE). Remaining gap = single-element vs full-group coverage + imperfect latent.
+Candidate rung 11: augment with the OPERATOR ORBIT {M, M², …, Mᴾ} (approximate the group from the one
+discovered generator) to cover the full arc → should approach ORACLE.
