@@ -220,14 +220,44 @@ search.** Rung 2 worked because the ring symmetry IS linear in observed 2D. Rung
 symmetry is nonlinear in both observed space and the recon latent, and neither a free observed MLP nor
 a linear-map-in-recon-latent reaches a coordinate system where it is simple.
 
-## Rung 5 fork (DECISION NEEDED — see below)
+## Rung 5 — shape the latent + the decisive ORACLE_LATENT control (`latent_symmetry_rung5.py`) — RAN 2026-06-04
 
-The recon latent doesn't linearize the symmetry. To get a linearizing latent the latent must be shaped
-BY the symmetry, which is chicken-and-egg. Candidate mechanisms (pick ONE — do not stack):
-- **5A — joint latent + M + field with an ENFORCED recon floor** (alternating recon/symmetry updates,
-  so the latent can bend to linearize the symmetry without the rung-4-semi-freeze corruption).
-- **5B — structured nonlinear operator in latent** (continuous Lie-generator / flow `exp(tξ)` instead
-  of a single matrix) — operator family richer than one linear map but still low-dim/reusable.
-- **5C — equivariance-shaped representation** (contrastive/temporal objective that places
-  symmetry-related points on a linear orbit) — but needs a source of symmetry-related pairs, which is
-  the thing being discovered (weakest without extra signal).
+Pursued 5A (shape latent by symmetry: DISC_JOINT, modes scratch/warm/alt) BUT added the single most
+informative control: **ORACLE_LATENT** = encoder SUPERVISED to the true latent z (clean circle),
+frozen, dec = true world decoder, then run the exact discovery recipe to learn M. Asks: *given a
+perfect clean latent, does the recipe even discover the 45° rotation?*
+
+Result (all 3 joint-modes, consistent):
+
+| arm | recall@HO | enc→z err | ‖M−I‖ | M_angle | result |
+|---|---|---|---|---|---|
+| ORACLE (pos ctrl) | 0.178 | — | — | — | fills ✓ |
+| **ORACLE_LATENT** | **0.000** | **0.011** (perfect latent) | 0.09 | **≈ −0.5°** | **M → identity** |
+| DISC_JOINT (scratch/warm/alt) | 0.000 | — | scattered | scattered | fails (recon 0.4–0.7) |
+
+**This reframes rungs 3–5.** Even with a PERFECT clean-circle latent (enc→z 0.011), the recipe leaves
+M at the identity (angle ≈0, recall 0). So the blocker is **NOT (only) latent geometry — the discovery
+RECIPE is broken.**
+
+**Root cause:** the anti-identity term was `(move − target)²`. Its gradient **vanishes at the identity**
+(squared → flat at move=0), so M cannot escape identity; and the closure term actively pulls M back
+toward identity (moving lands on uncovered held-out → high closure). Chicken-egg lock in the
+*optimizer*: M won't move until the field covers held-out; field won't cover until M moves. Rung 2
+(which worked) effectively avoided this via an explicit identity-barrier with nonzero gradient at 0; I
+regressed when I switched to bounded-move in rungs 4–5.
+
+**Methodological win:** the ORACLE_LATENT control is what isolated this — without it, rung-4's failure
+looked like a latent-geometry/thesis negative; with it, the true culprit (recipe) is exposed. Positive
+controls earn their cost (the CLAUDE.md rule, again).
+
+## Rung 6 — recipe fix: hinge anti-identity (`latent_symmetry_rung6.py`) — RUNNING 2026-06-04
+
+One change: replace `(move−target)²` with `relu(target−move)` (linear hinge → constant nonzero push
+off identity until move≥target), bolder M init. Everything else identical. Quick smoke already shows
+ORACLE_LATENT M escaping identity (angle −0.4°→−5.5° at 300 steps, σ entering a held-out mode).
+**Gate:** ORACLE_LATENT must recover M_angle ≈ ±45° (or multiple) and fill held-out → recipe validated;
+THEN DISC_JOINT (unsupervised) judged. Full 3-mode parallel run in progress.
+
+(If even the hinge fails ORACLE_LATENT → the anti-identity mechanism is deeper than a gradient kink and
+needs rethinking. If ORACLE_LATENT passes but DISC_JOINT fails with good recon → back to the genuine
+latent-geometry negative, now on a validated recipe.)
