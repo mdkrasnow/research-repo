@@ -72,9 +72,13 @@ mkdir -p "$PERSISTENT_RESULTS"
 
 sync_checkpoints() {
     if [ -d "$WORK_DIR/$RESULTS_DIR" ]; then
-        rsync -a --include='*/' --include='*.pt' --exclude='*' \
-            "$WORK_DIR/$RESULTS_DIR/" "$PERSISTENT_RESULTS/" 2>/dev/null || true
-        echo "=== Synced checkpoints to persistent storage at $(date) ===" >&2
+        # -rtL (no -o/-g/-p): holylabs is a setgid root:ydu_lab dir; -a's chown/
+        # chgrp fails there and rsync copies NOTHING (silent w/ 2>/dev/null). Use
+        # -rtL so writes succeed regardless of dest ownership.
+        rsync -rtL --include='*/' --include='*.pt' --exclude='*' \
+            "$WORK_DIR/$RESULTS_DIR/" "$PERSISTENT_RESULTS/" || \
+        echo "=== rsync sync FAILED at $(date) ===" >&2
+        echo "=== Synced checkpoints ($(ls "$PERSISTENT_RESULTS"/*/checkpoints/*.pt 2>/dev/null | wc -l) pt) at $(date) ===" >&2
     fi
 }
 (
