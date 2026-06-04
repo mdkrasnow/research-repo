@@ -663,10 +663,47 @@ recon-corruption/leak, so NOT a hard failure — but coherent discovery needs st
 to the symmetry (symmetry-aware/contrastive representation) — circular without a pair signal. Parked;
 rung 16 uses the clean supervised latent to isolate the group-complexity axis instead.
 
-## Open next
-- rung 16: richer group (screw/helix = rotation+translation), CLEAN supervised latent — tests whether
-  the stable-generator recipe handles a COUPLED (non-pure-rotation) symmetry. [NEXT]
-- learned-latent coherence: symmetry-aligned unsupervised representation (deferred — new mechanism).
-- SCALE: EqM bridge — new variant `v12` (frozen stable-generator aug) in `dganm_variants/`; operator in
-  middle-block feature space (UNetWrapper exposes it), frozen feature anchor; compare base/v10/known-aug/
-  discovered-aug. Needs cluster (2FA).
+## Rung 16 — screw/helix (non-rotation symmetry) (`latent_symmetry_rung16_screw.py`) — RAN 2026-06-04 — INCONCLUSIVE (2 attempts)
+
+Helix z(φ)=[R cosφ, R sinφ, C·φ]; symmetry = screw (rotation in (x,y) coupled with h-translation, h-trans
+per rad = C). Homogeneous-coord affine operator M=exp(A). Arms: SKEW_SCREW (known screw, strong ref) /
+VOLONLY (det≈1, translation free → can screw) / ISOMETRY (det≈1+cond→1+NO translation → rotation-only).
+
+- **v1, C=0.4 (gentle):** CONFOUNDED. Helix ≈ circle, so rotation-only ISOMETRY hit 95% ORACLE
+  (htrans≈0) — the screw's translation wasn't actually required. Did not test non-rotation.
+- **v2, C=1.5 (steep):** MESSY/inconclusive. ORACLE fills only 25% of ideal (steep helix is hard for the
+  EqM harness itself). ALL discovery operators go OFF-manifold (T_onman 0.22–0.65) and INCOHERENT
+  (dphi_sd ~3.5). ISOMETRY (htrans≈0.004, rotation-only) still scores 79% — i.e. **recall is
+  COVERAGE-confounded** (off-manifold operator spreads samples that happen to cover the arc), the same
+  illusion as rung 15. SKEW_SCREW recovers the translation (htrans 1.51) but only 44% recall.
+
+**Verdict: non-rotation (screw) discovery is UNRESOLVED in this toy.** Two attempts, two different
+confounds; per the stop-rule (twice-failed mechanism → stop retuning), the screw toy is abandoned as
+ill-posed (gentle→rotation suffices; steep→harness can't fill + coverage-confound). Needs a better-posed
+non-rotation testbed, not more helix-tuning. NO claim that the recipe handles non-rotation symmetries.
+
+## KEY CROSS-CUTTING LESSON — recall is coverage-confounded; trust operator-quality metrics
+Rungs 15 and 16 both show HIGH held-out recall with operators that are off-manifold and/or incoherent
+(shift_std/dphi_std large, passive leak high). A stable on-manifold-ish reshuffle fills held-out regions
+by COVERAGE without being the true symmetry. **Held-out recall alone over-states success.** The honest
+signals are operator quality: on-manifold rate, shift coherence (low std), structure preservation
+(passive_dh), and recovering the correct generator (angle/htrans). The clean rungs (12–14) pass BOTH
+recall AND operator-quality; rungs 15–16 pass recall but FAIL operator-quality.
+
+## HONEST SCOPE CORRECTION (supersedes the rung-14 high-water claim)
+Validated (recall AND coherent operator): the recipe — frozen anchor + coherent group generator +
+stability reg — achieves near-oracle COHERENT symmetry discovery for **rotation/isometric symmetries in
+a clean (supervised/structure-aligned) latent**, including higher-dim with correct active-subspace
+selection (rung 14). OUTSIDE that regime it degrades to coverage-recall WITHOUT coherent symmetry:
+- learned (unaligned) latent (rung 15): coverage-recall, incoherent operator.
+- non-isometric / screw symmetry (rung 16): inconclusive; toy ill-posed.
+So the defensible claim is narrower than rung 14 alone suggested. Two open problems gate generality:
+(1) a symmetry-ALIGNED unsupervised latent, (2) a clean non-rotation testbed + prior.
+
+## STATUS: toy ladder paused at a natural stop
+Stop conditions met: rung 16 twice-inconclusive (stop retuning); remaining toy gaps need NEW mechanisms
+(symmetry-aligned latent) or better testbeds, not tuning; the EqM bridge plan is written and real
+validation needs the cluster (2FA = human action). See `eqm-bridge-plan.md`.
+
+Next human action: `! scripts/cluster/ssh_bootstrap.sh` (2FA) to enable the EqM bridge (`v12`) test, OR
+decide to pursue a toy sub-problem (symmetry-aligned latent / better non-rotation testbed) first.
