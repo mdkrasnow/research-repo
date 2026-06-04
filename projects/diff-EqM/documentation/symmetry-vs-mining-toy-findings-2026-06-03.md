@@ -283,3 +283,37 @@ symmetry to extend into the held-out arc. Same ORACLE_LATENT control + DISC arms
 recall@heldout = fraction of generated samples whose latent angle lands in the held-out arc.
 Gate: ORACLE_LATENT must now recover a rotation + fill the arc (proving discreteness was the blocker);
 then DISC_JOINT is the real unsupervised test.
+
+**Rung 7 RESULT (continuous, scratch full):** continuity did NOT fix it.
+
+| arm | recall_arc | bins/36 | onman_gen | ‖M−I‖ | M_angle | note |
+|---|---|---|---|---|---|---|
+| BASE | 0.002 | 32 | 0.98 | — | — | floor; field models continuous ring well |
+| ORACLE (random SO(2) aug) | 0.063 | 36 | 0.98 | — | — | positive control: arc fillable ✓ |
+| DISC_LINEAR | 0.002 | 32 | 0.48 | — | — | neg control ✓ |
+| **ORACLE_LATENT** | **0.001** | 32 | 0.98 | **0.01** | **−0.0°** | **M → identity AGAIN** (clean latent, enc→z 0.022) |
+| DISC_JOINT | 0.001 | 32 | 0.57 | 1.26 | 64° | recon 0.43, fails |
+
+Continuity removed the closure barrier (all rotations are on-manifold), but a NEW identity-attractor
+took over: the cyclic `M^P≈I` term pulls M to the **nearest finite-order matrix = identity**. The
+attractor moved (discrete→closure-barrier; continuous→cyclic-pull) but the destination is the same.
+
+## SYNTHESIS — identity is a universal attractor for unsupervised symmetry discovery
+
+Across rungs 5–7, on discrete AND continuous manifolds, with clean (ORACLE_LATENT) AND learned latents,
+under multiple anti-identity mechanisms (squared-move, hinge-move, 20× push, cyclic), the learned
+operator **collapses to the identity**. Reason: the identity is a *valid symmetry* — it satisfies every
+structural constraint we can write without naming the group (on-manifold, finite-order, reconstruction).
+The only term opposing it ("must move") is a soft penalty that either has vanishing gradient at I, gets
+trapped behind an off-manifold barrier, or is overpowered by a finite-order term that itself prefers I.
+
+Positive controls bound this cleanly: ORACLE (given the true group) fills the gap; ORACLE_LATENT (clean
+latent, but discover the operator) does NOT. So the blocker is the **discovery objective**, not the
+latent, the manifold continuity, or the harness.
+
+**Conclusion (answers the original question + the prior-budget question):** you cannot discover a
+nontrivial symmetry "for free." Some structural prior that *excludes the identity* (normalize the
+generator, or restrict to a nontrivial group class) appears necessary — soft penalties don't suffice.
+This is the empirical answer to "how much prior is cheating": *enough to exclude the identity is not
+optional.* Rung 8 tests the minimal such prior (constrain ‖M−I‖ to a fixed nonzero size, direction
+free — excludes identity WITHOUT asserting "it's a rotation").
