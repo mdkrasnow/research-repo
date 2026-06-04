@@ -47,7 +47,7 @@ class Tiny(nn.Module):
 import dganm_variants.v12_stable_generator_aug as v12
 import dganm_variants.vK_known_aug as vK
 from dganm_variants._common import TrainArgs
-v12._FROZEN["M"] = M; v12._FROZEN["lam"] = 0.3
+v12._FROZEN["A"] = torch.tensor(diag["A_gen"], device=DEV); v12._FROZEN["lam"] = 0.3; v12._FROZEN["aug_mode"] = "orbit"
 th=math.radians(15.0); vK._K["M"]=torch.tensor([[math.cos(th),-math.sin(th)],[math.sin(th),math.cos(th)]]); vK._K["lam"]=0.3; vK._K["mode"]="rotate"
 args = TrainArgs(output_dir="/tmp/v12_smoke", variant="v12", train_eps=1e-3, a=0.8, gain=4.0)
 m = Tiny().to(DEV); opt = torch.optim.Adam(m.parameters(), lr=1e-3)

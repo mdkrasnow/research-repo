@@ -31,12 +31,24 @@ _FROZEN: dict = {}
 
 def step_fn(model, x1, step, device, args: TrainArgs):
     base = eqm_loss(model, x1, device, eps=args.train_eps, a=args.a, gain=args.gain)
-    M = _FROZEN.get("M")
+    A = _FROZEN.get("A")
     lam = _FROZEN.get("lam", 0.3)
-    if M is None or lam <= 0:
+    if A is None or lam <= 0:
         return base, {"base": base.item(), "aug": 0.0, "ratio": 0.0}
+    # GROUP/orbit augmentation: sample t~U(-1,1), M_t = exp(t*A). A learned generator defines a one-parameter
+    # GROUP, not one oriented map; augmenting with the whole orbit is the principled use (a continuous
+    # symmetry family), and avoids baking in an arbitrary single orientation. (proxy-validated 2026-06-04)
+    aug_mode = _FROZEN.get("aug_mode", "orbit")
     with torch.no_grad():
-        x_aug = affine_warp(x1, M.to(device))
+        A = A.to(device)
+        if aug_mode == "single":
+            t = 1.0
+        elif aug_mode == "bidir":
+            t = 1.0 if (torch.rand((), device=device) < 0.5) else -1.0
+        else:  # orbit
+            t = (torch.rand((), device=device) * 2.0 - 1.0).item()
+        M_t = torch.matrix_exp(t * A)
+        x_aug = affine_warp(x1, M_t)
     aug = eqm_loss(model, x_aug.detach(), device, eps=args.train_eps, a=args.a, gain=args.gain)
     total = base + lam * aug
     return total, {"base": base.item(), "aug": aug.item(),
@@ -50,10 +62,10 @@ def train(args: TrainArgs) -> float:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     if mode == "identity":
-        M = torch.eye(2, device=device); diag = {"mode": "identity"}
+        A_gen = torch.zeros(2, 2, device=device); diag = {"mode": "identity"}
     elif mode == "random":
         torch.manual_seed(args.seed + 777)
-        A = 0.4 * torch.randn(2, 2, device=device); M = torch.matrix_exp(A)
+        A_gen = 0.4 * torch.randn(2, 2, device=device); M = torch.matrix_exp(A_gen)
         diag = {"mode": "random", "angle_deg": float(torch.atan2(M[1, 0], M[0, 0]) * 180 / math.pi),
                 "det": float(torch.det(M))}
     else:  # discovered
@@ -73,8 +85,9 @@ def train(args: TrainArgs) -> float:
             lam_cond=e.get("lam_cond", 1.0), ref_deg=e.get("ref_deg", 15.0),
             init_seed=args.seed)
         diag["mode"] = "discovered"
+        A_gen = torch.tensor(diag["A_gen"], device=device)
 
-    _FROZEN["M"] = M.detach(); _FROZEN["lam"] = lam
+    _FROZEN["A"] = A_gen.detach(); _FROZEN["lam"] = lam; _FROZEN["aug_mode"] = e.get("aug_mode", "orbit")
     out = Path(args.output_dir); out.mkdir(parents=True, exist_ok=True)
     (out / "operator_diag.json").write_text(json.dumps(diag, indent=2))
     print(f"[v12] operator discovered (mode={mode}) lam_aug={lam}: "

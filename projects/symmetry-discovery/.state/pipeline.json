@@ -1,7 +1,7 @@
 {
   "project": "symmetry-discovery",
   "title": "Symmetry discovery vs hard-negative mining for generative models (EqM)",
-  "phase": "EQM-BRIDGE: architecture solved, TARGETING open (do not scale FID)",
+  "phase": "EQM-BRIDGE: proxy PASSES (mixture-anchor + grad-flow). v12 updated to orbit aug. Next: one LONG (not 40ep) CIFAR/FID run.",
   "research_question": "Can a learned manifold-preserving operator, anchored to data (not the live field), discover a nonlinearly-hidden symmetry and fill held-out manifold regions? vs hard-negative mining and known-symmetry constraints.",
   "scale": "CPU toy (2D/16D rings). NOT publishable; filters/diagnostics only.",
   "ladder_status": {
@@ -23,7 +23,8 @@
     "rung15_learned_latent": "PARTIAL: learned/recon latent reaches 89-97% recall BUT via COVERAGE not coherent symmetry (shift_std 34-69 vs supervised 3.4; passive_dh 0.96 vs 0.15 -> doesn't preserve true h). Stable on-manifold reshuffle covers 2D cylinder incl arc -> fills via coverage. recall is coverage-confounded; operator-quality metrics honest. Coherent discovery needs structure-ALIGNED coords; recon-only (0.196) faithful but not aligned. Open: symmetry-aware unsupervised latent (deferred, new mechanism).",
     "rung16_screw": "INCONCLUSIVE (2 attempts, stop-rule). v1 C=0.4 confounded (helix~circle, rotation suffices, ISOMETRY 95%); v2 C=1.5 messy (ORACLE fills only 25% ideal, operators off-manifold T_onman 0.2-0.65, incoherent, recall COVERAGE-confounded: ISOMETRY htrans~0 yet 79%). Non-rotation discovery UNRESOLVED; screw toy ill-posed. No claim recipe handles non-rotation.",
     "eqm_bridge_feature_proxy": "Fast CIFAR feature-space proxy (frozen random-conv+PCA32, rotation gap). KNOWN_AUG closes gap (0.18<<base 1.07, gate OK); RANDOM fails (off-manifold); DISCOVERED stable-generator = stable(det1,cond1.1)+beats-random BUT ~= BASE on held-out gap (1.19) -> anchor-matching doesn't target held-out (rung9/15 confound; frozen feature space not symmetry-aligned). Mechanism FAILS in CIFAR feature space as-is.",
-    "eqm_bridge_spatial_proxy": "Architecture-correct proxy: SPATIAL affine operator M=exp(A) via grid_sample learns a CLEAN coherent rotation (det/cond 1.00) -- architecture critique VALIDATED (flat-PCA dense-M was wrong arch, ~=base). BUT targeting open: discovered op learns WRONG-direction rotation (-23deg vs one-sided held band +15-25) -> gap worse. Anchor-matching is direction-agnostic; residual-anchor also fails. Toy rungs worked b/c held-out symmetric under group; one-sided held-out needs directional signal anchor-matching lacks. KNOWN-aug works (gate). Do NOT scale FID."
+    "eqm_bridge_spatial_proxy": "SUPERSEDED by _v2 below. (Original claimed 'targeting open / anchor direction-agnostic / wrong -23deg direction' -- that was a BUG ARTIFACT: the @no_grad encoder blocked the anchor gradient to A, so the operator was driven only by move+stability and its sign was the init seed; and move_target=20deg leaked the held-band magnitude.)",
+    "eqm_bridge_spatial_proxy_v2": "CORRECTED (2026-06-04, results_spatial_proxy_v2.json): fixed grad-flowing frozen encoder + non-leaking move HINGE[5,45deg] + MIXTURE-anchor objective ((1-pi)real + pi*T(real) ~= real). RESULT PASSES: MIXTURE_SINGLE gap_HO 0.305 (angle +29.5, det0.99 cond1.13) << base 1.065, ~near KNOWN 0.182, beats random 1.41. T-only undershoots (+4.9deg, sits at move floor: visible mass dominates anchor so small rotation already matches bulk); mixture decouples bulk-coverage from gap-fill -> discovers correct direction+magnitude UNSUPERVISED (held band enters only as unlabeled anchor mass). Once grad flows, direction is DETERMINED (inverse worse) -> 'gauge' reading was itself a symptom of the no-grad bug. Anchor-matching is NOT direction-agnostic; the mass-mismatched T-only objective was. Controls clean (random/random_bidir/PCA_linear ~= base). Architecture critique still valid. Mechanism now warrants a LONG CIFAR/FID run (40ep was noise-limited)."
   },
   "key_findings": [
     "Hard-negative/v10 mining installs no manifold structure. Dead.",
@@ -34,9 +35,9 @@
     "EqM bridge plan written (v12 frozen stable-generator aug, middle-block feature anchor); real validation needs cluster (2FA)."
   ],
   "next_action": {
-    "command": "RESEARCH decision: targeting objective vs known-aug lever",
-    "reason": "Operator architecture solved (spatial Lie op = clean rotation). Remaining gap = OBJECTIVE can't target asymmetric held-out without directional signal. Not an architecture/GPU problem.",
-    "hint": "Options: (a) directional/targeting signal that breaks symmetry without held-out labels (hard, maybe weak supervision); (b) KNOWN-symmetry augmentation as the paper lever (validated, gate passes, loader flips); (c) restrict discovery claims to symmetric-held-out settings. Recommend (b) for paper critical path + (a) as research extension. Do not scale CIFAR/FID for discovered op until targeting solved."
+    "command": "Submit ONE long CIFAR/FID v12 run (corrected: mixture-anchor discovery + orbit aug) when cluster reachable",
+    "reason": "Fast proxy now PASSES honestly (mixture-anchor objective discovers gap-filling operator unsupervised, 0.305 << base 1.065, controls clean). Two prior 'negatives' were bugs (no-grad encoder + leaked move). v12 code updated + CPU-smoked. The 40ep FID was noise-limited, so the confirming run must be long enough to resolve the ~10-FID KNOWN_AUG lever.",
+    "hint": "Needs cluster 2FA (scripts/cluster/ssh_bootstrap.sh). Arms: v00 BASE, vK KNOWN (positive), v12 discovered orbit (treatment), v12 random (negative). Trust operator_diag.json (det/cond/shift) over FID-recall per rung-15 coverage confound. KNOWN-aug remains the safe paper lever if FID disagrees with proxy."
   },
   "needs_user_input": {
     "value": false,

@@ -215,3 +215,65 @@ OBJECTIVE/targeting. Options: (a) a targeting signal that breaks direction symme
 labels (hard / may require weak supervision); (b) accept KNOWN-symmetry augmentation (works, gate passes,
 loader already flips) as the lever for the paper; (c) restrict claims to symmetric-held-out settings.
 KNOWN-aug remains the safe, validated path.
+
+---
+# CORRECTION (2026-06-04, same day) — the "TARGETING is open" conclusion above was a BUG ARTIFACT.
+
+Two load-bearing bugs in `feature_gap_proxy_spatial_operator.py` (and in the real
+`diff-EqM/.../_stable_operator.py`) invalidated the spatial-proxy interpretation directly above:
+
+1. **No-grad encoder blocked discovery.** `FrozenConv.forward` / `RandomConvAnchor.features` were
+   `@torch.no_grad`. For the SPATIAL arms the operator is applied in IMAGE space, then features are read
+   through that no-grad encoder -> the anchor/energy-distance term contributed **ZERO gradient to A**.
+   The operator was driven ONLY by the move + stability terms. Verified by autograd: the anchor term
+   `does not require grad`. So "discovery" never happened; the learned rotation's MAGNITUDE came from the
+   move target and its DIRECTION (±23.7°) was the random init seed. "Wrong direction" and
+   "direction-agnostic" were symptoms of this bug, not a property of anchor-matching.
+
+2. **Move-target leaked the held-band magnitude.** `move_target` = pixel-distance of a 20° rotation =
+   the CENTER of the held band [15,20,25]. That handed the operator its magnitude (CLAUDE.md: "do not
+   force the move magnitude to the held-out angle").
+
+**Fixes:** (a) grad-flowing frozen encoder (`feat_grad`/`features_grad`: params frozen, no `no_grad`, so
+gradient flows to the input); (b) generic non-leaking move HINGE [5°,45°] (non-collapse + non-blowup
+only, NOT a target at the held center); (c) **MIXTURE-anchor objective**: match
+`(1-π)·P_real + π·T(P_real)` to fresh real features (mass-correct), not `T(P_real)` alone.
+
+**Corrected proxy result (grad-flowing, de-leaked; quick & full agree):**
+
+| arm | gap_HO | angle | det | cond | read |
+|---|---|---|---|---|---|
+| BASE | 1.065 | — | — | — | floor |
+| KNOWN_AUG | 0.182 | — | — | — | positive control ✓ |
+| SPATIAL_RANDOM / _BIDIR | 1.12 / 1.41 | — | — | — | negative controls ≈ base ✓ |
+| PCA_LINEAR_DISCOVERED | 1.119 | — | 0.95 | 1.16 | wrong arch ≈ base ✓ |
+| SPATIAL_DISCOVERED_FORWARD (T-only) | 0.897 | +4.9 | 1.01 | 1.07 | correct DIRECTION now; **undershoots** magnitude (sits at move floor) |
+| SPATIAL_DISCOVERED_INVERSE | 1.444 | -4.7 | — | — | worse — direction is now DETERMINED (gauge ambiguity gone) |
+| **MIXTURE_SINGLE** | **0.305** | **+29.5** | 0.99 | 1.13 | **best**; correct direction AND magnitude; near KNOWN; beats base 3.5× & random |
+
+**Corrected conclusions:**
+1. ARCHITECTURE: validated (unchanged) — spatial affine exp(A) represents the rotation cleanly.
+2. The earlier "gauge flip fixes it" reading was ALSO an artifact: once the anchor gradient actually
+   trains A, the **direction is determined** (INVERSE is genuinely worse), so gauge/orbit arms are moot
+   for a one-sided gap.
+3. **The real positive result is the MIXTURE-anchor objective.** T-only `ed(T(vis),anchor_full)` is
+   minimized by staying near identity (visible mass dominates the anchor -> a small rotation already
+   matches the bulk -> undershoots, +4.9°). The mixture lets `(1-π)·vis` cover the bulk, freeing
+   `T(vis)` to GO FILL the missing held region -> +29.5°, gap 0.305. **This DISCOVERS the gap-filling
+   direction+magnitude unsupervised** (no held-out labels; the held band enters only as unlabeled mass
+   in the frozen anchor). Anchor-matching is NOT inherently direction-agnostic — the mass-mismatched
+   T-only objective was.
+4. Toy rungs 12-14 reconciliation: those used T-only and still worked because their held-out was
+   SYMMETRIC under the group; the mixture objective is what generalizes T-only to ONE-SIDED gaps.
+
+**Real v12 updated to match the validated recipe:** `_stable_operator.py` now uses grad-flowing
+features + mixture-anchor + non-leaking move hinge and returns the generator `A`; `v12_stable_generator_aug.py`
+augments EqM with the GROUP exp(t·A), t~U(-1,1) (knob `aug_mode` = orbit|single|bidir). CPU smoke passes
+(discovery anchor 9.85→3.70; orbit aug fires, ratio ~0.88).
+
+**Decision:** mechanism now PASSES the fast proxy honestly (best discovered 0.305 < base 1.065, < random
+1.41, controls clean). Per the success path this WARRANTS one small EqM/CIFAR run with the corrected v12
+(orbit aug) — but the prior 40ep FID was noise-limited, so any FID run must be long enough to resolve the
+KNOWN_AUG≈10-FID lever (≥ the epochs where vanilla FID stabilizes). NOTE: feature_shift_consistency is low
+(~0.01) in the real-CIFAR smoke — expected (a spatial rotation is NOT a global feature-space translation),
+but watch operator-quality diagnostics over recall per the rung-15 coverage confound.

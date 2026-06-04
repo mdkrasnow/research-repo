@@ -50,6 +50,12 @@ class RandomConvAnchor(nn.Module):
         f = self.net(x)
         return f.flatten(1)
 
+    def features_grad(self, x):
+        # params are frozen (requires_grad_(False)); WITHOUT no_grad so gradient FLOWS to the input x.
+        # Required for operator discovery: with @no_grad the anchor term contributes ZERO gradient to A,
+        # so the operator was driven only by move+stability (sign/angle = init seed). (bug fixed 2026-06-04)
+        return self.net(x).flatten(1)
+
 
 def _energy_distance(a, b):
     return 2 * torch.cdist(a, b).mean() - torch.cdist(a, a).mean() - torch.cdist(b, b).mean()
@@ -57,36 +63,56 @@ def _energy_distance(a, b):
 
 def discover_stable_affine(real_batch_fn, device, *, steps=600, batch=128, lr=2e-3,
                            lam_move=0.5, lam_det=1.0, lam_cond=1.0, ref_deg=15.0,
-                           anchor_seed=12345, init_seed=0):
+                           anchor_seed=12345, init_seed=0, mix_pi=0.5):
     """Discover a frozen stable affine operator against a frozen random-conv anchor.
 
     real_batch_fn(n) -> [n,3,H,W] real image batch (values in model's range). Returns (M_frozen, diag).
+
+    Objective = MIXTURE-anchor (proxy-validated 2026-06-04): augmentation forms a MIXTURE
+    (1-pi)*P_real + pi*T(P_real), not a replacement, so we pull that mixture's anchor features toward
+    the real distribution rather than pulling T(real) alone. This is direction-sensitive without labels
+    (fixes the sign-gauge ambiguity of the old T-only objective). diag["A_gen"] is returned so the EqM
+    step can augment with the whole one-parameter GROUP exp(t*A), t~U(-1,1), not one arbitrary orientation.
     """
     torch.manual_seed(init_seed)
     anchor = RandomConvAnchor(seed=anchor_seed).to(device).eval()
     A = torch.nn.Parameter((0.05 * torch.randn(2, 2, device=device)))
     opt = torch.optim.Adam([A], lr=lr)
 
-    # reference move = mean pixel distance of a ref_deg rotation (sets the non-identity target scale)
+    # NON-LEAKING move band: hinge on pixel-distance in [floor(=5deg), cap(=45deg)] rotations -- non-collapse
+    # + non-blowup only. NOT a hard target at ref_deg (that would hand the operator its magnitude). The
+    # anchor term (now grad-flowing) must find the actual angle/direction. Scale-free (normalized by floor).
     with torch.no_grad():
-        xr0 = real_batch_fn(min(batch, 64)).to(device)
-        th = math.radians(ref_deg); Rref = torch.tensor([[math.cos(th), -math.sin(th)],
-                                                          [math.sin(th), math.cos(th)]], device=device)
-        target_move = (affine_warp(xr0, Rref) - xr0).flatten(1).norm(dim=1).mean()
-        af0 = anchor.features(xr0); af1 = anchor.features(real_batch_fn(min(batch, 64)).to(device))
+        def _rot_move(deg):
+            th = math.radians(deg); R = torch.tensor([[math.cos(th), -math.sin(th)],
+                                                      [math.sin(th), math.cos(th)]], device=device)
+            xr0 = real_batch_fn(min(batch, 64)).to(device)
+            return (affine_warp(xr0, R) - xr0).flatten(1).norm(dim=1).mean()
+        move_floor = _rot_move(5.0); move_cap = _rot_move(45.0); target_move = _rot_move(ref_deg)  # report-only
+        af0 = anchor.features(real_batch_fn(min(batch, 64)).to(device))
+        af1 = anchor.features(real_batch_fn(min(batch, 64)).to(device))
         anchor0 = float(_energy_distance(af0, af1))   # baseline anchor distance (real vs real)
+
+    def move_pen(mv):
+        return torch.relu((move_floor - mv) / move_floor) ** 2 + torch.relu((mv - move_cap) / move_floor) ** 2
 
     diag_hist = []
     for s in range(steps):
         xr = real_batch_fn(batch).to(device)
         M = torch.matrix_exp(A)
         Tx = affine_warp(xr, M)
-        fT = anchor.features(Tx); fR = anchor.features(real_batch_fn(batch).to(device))
-        anchor_loss = _energy_distance(fT, fR)
+        # MIXTURE-anchor: match (1-pi)*real_feats + pi*T_feats to fresh real feats (mass-correct, direction-sensitive)
+        fR = anchor.features(real_batch_fn(batch).to(device))                 # eval-side anchor (no grad ok)
+        f_vis = anchor.features(xr); fT = anchor.features_grad(Tx)            # fT GRAD-flowing -> trains A
+        n_aug = max(1, int(mix_pi * batch)); n_vis = max(0, batch - n_aug)
+        iv = torch.randperm(f_vis.size(0), device=device)[:min(n_vis, f_vis.size(0))]
+        ia = torch.randperm(fT.size(0), device=device)[:min(n_aug, fT.size(0))]
+        f_mix = torch.cat([f_vis[iv], fT[ia]], 0)
+        anchor_loss = _energy_distance(f_mix, fR)
         move = (Tx - xr).flatten(1).norm(dim=1).mean()
         det = torch.det(M); sv = torch.linalg.svdvals(M)
         cond = (sv.max() / sv.min().clamp_min(1e-6) - 1.0) ** 2
-        loss = (anchor_loss + lam_move * (move - target_move) ** 2
+        loss = (anchor_loss + lam_move * move_pen(move)
                 + lam_det * (torch.log(det.abs() + 1e-8)) ** 2 + lam_cond * cond)
         opt.zero_grad(); loss.backward(); opt.step()
         if s % 100 == 0 or s == steps - 1:
@@ -103,6 +129,7 @@ def discover_stable_affine(real_batch_fn, device, *, steps=600, batch=128, lr=2e
         shift_consistency = float((dF @ dF.mean(0, keepdim=True).T).mean())
         diag = {
             "M": M.tolist(),
+            "A_gen": A.detach().tolist(),   # generator: EqM aug uses exp(t*A), t~U(-1,1) (the GROUP)
             "angle_deg": float(torch.atan2(M[1, 0], M[0, 0]) * 180 / math.pi),
             "det": float(torch.det(M)),
             "cond": float(sv.max() / sv.min().clamp_min(1e-6)),
