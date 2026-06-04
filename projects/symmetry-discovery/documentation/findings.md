@@ -508,11 +508,57 @@ is a more precise, group-structured operator parameterization — NOT more prior
 Revised stance: unsupervised latent-symmetry discovery is an ACTIVE, promising direction; pursue
 operator precision before judging it. (rung 12 below.)
 
-## Rung 12 — group-structured generator (`latent_symmetry_rung12_group_generator.py`) — IN PROGRESS
+## Rung 12 — group-structured generator (`latent_symmetry_rung12_group_generator.py`) — RAN 2026-06-04
 
-Replace the free latent matrix M with `M = matrix_exp(θ·A)` (a smooth group-like action; generator A and
-step θ learned, direction NOT specified). Tests whether group structure tightens the operator from
-≈−39° toward oracle-like −45° and raises recall toward ORACLE. Same frozen anchor; same controls.
-Arms: BASE / ORACLE / FROZEN_LATENT_MATRIX (rung-10 baseline) / FROZEN_LATENT_GEN_SKEW (A skew →
-rotation family, strong prior) / FROZEN_LATENT_GEN_FREE (A general + det≈1/orthogonality reg, weak
-prior — tests whether precision needs the strong prior or emerges).
+Replace the free latent matrix M with `M = matrix_exp(θ·A)` (smooth group-like action; generator A and
+step θ learned, direction NOT specified). Same frozen anchor; clean latent (enc→z, isolates precision).
+
+| arm | recall_arc | T_onman | shift_std | M_det | angle_err(45°) | read |
+|---|---|---|---|---|---|---|
+| ORACLE | 0.067 | — | — | — | — | positive control |
+| BASE | 0.003 | — | — | — | — | floor |
+| FROZEN_LATENT_MATRIX | 0.024±0.032 | 0.71 | 25.3° | 0.56 | 6.2° | rung-10 baseline (fuzzy, not a rotation) |
+| **FROZEN_LATENT_GEN_SKEW** | **0.071±0.006** | **1.00** | **0.8°** | **1.00** | **2.8°** | **= ORACLE; exact rotation** |
+| FROZEN_LATENT_GEN_FREE | 0.046±0.025 | 0.93 | 7.6° | 0.90 | 3.7° | weak prior; ~69% ORACLE |
+
+**Result: SUCCESS — precision hypothesis CONFIRMED; near-oracle discovery achieved.** Group structure
+fixed operator precision across the board: shift_std 25°→0.8°(skew)/7.6°(free); M_det 0.56(not a
+rotation)→1.00(skew)/0.90(free); recall 0.024→0.071(skew, = ORACLE 0.067)/0.046(free).
+
+- **SKEW (group-action/rotation-family prior) reaches ORACLE parity** (0.071 vs 0.067, tight ±0.006),
+  recovering an exact rotation to within ~3°/seed (per-seed |angle|≈45; signs vary = ±45°, both valid
+  symmetry directions — the seed-averaged M_angle 14° is sign-cancellation, not imprecision).
+- **FREE (weak prior: general matrix + det≈1/orthogonality reg) gets ~69% of ORACLE** (0.046, 2× the
+  matrix baseline) — precision PARTIALLY EMERGES without being told "rotation," though not to full oracle
+  and with higher variance.
+
+**The gap was operator PRECISION, not impossibility.** Anchored (rung 9) + coherent (rung 10) +
+group-structured (rung 12) discovery achieves near-oracle unsupervised-ish latent symmetry discovery.
+
+## REVISED FINAL VERDICT — ladder rungs 1–12
+
+Unsupervised latent symmetry discovery for EqM is **VIABLE**, not dead. Four blockers, all now addressed:
+1. identity attractor → identity-exclusion / move (rung 8)
+2. field co-adaptation → **frozen data anchor** (rung 9) [key insight]
+3. operator incoherence → single/coherent operator (rung 10)
+4. operator imprecision → **group-structured generator `exp(θA)`** (rung 12) [closes to ORACLE]
+
+With all four addressed, a discovered operator fills the held-out region **as well as the true group**
+(SKEW = ORACLE). The minimal honest prior is "smooth compact group action"; the rotation-family form
+(skew) reaches oracle, the weak general+reg form reaches ~69% (precision partially emerges).
+
+**Bottom line (rungs 1–12):**
+- Hard-negative mining (v10): installs no manifold structure. Dead.
+- KNOWN-symmetry constraint: clean (ORACLE).
+- **UNSUPERVISED discovery: NEAR-ORACLE achievable** with frozen anchor + coherent group-structured
+  operator. Open: shrink the prior (free generator from 69% → oracle), learned (not supervised) latent,
+  multi-parameter / non-abelian groups, higher-dim manifolds.
+
+**For diff-EqM / v10:** known-symmetry injection remains the safe near-term lever; BUT unsupervised
+group-generator discovery is now a credible research direction worth a real (not toy) test — it is NOT
+ruled out, contrary to the rung-8 read.
+
+## Open next (rung 13, candidate)
+Close the FREE (weak-prior) gap to oracle without the rotation form: stronger group regularization
+(Lie-algebra structure, learned θ schedule), and/or a LEARNED latent (recon/contrastive) instead of
+enc→z supervision, to test discovery with minimal prior + unsupervised latent jointly.

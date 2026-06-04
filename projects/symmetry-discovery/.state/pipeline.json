@@ -1,11 +1,11 @@
 {
   "project": "symmetry-discovery",
   "title": "Symmetry discovery vs hard-negative mining for generative models (EqM)",
-  "phase": "LADDER-CONCLUDED",
+  "phase": "DISCOVERY-VIABLE (rung12 near-oracle)",
   "research_question": "Can a learned manifold-preserving operator, anchored to data (not the live field), discover a nonlinearly-hidden symmetry and fill held-out manifold regions? vs hard-negative mining and known-symmetry constraints.",
   "scale": "CPU toy (2D/16D rings). NOT publishable; filters/diagnostics only.",
   "ladder_status": {
-    "rungs_run": "1-11",
+    "rungs_run": "1-12",
     "rung1_arithmetic": "equivariance constraint perfect; hard-neg mining dead",
     "rung2_ring_linear": "known + discovered rotation both work (symmetry linear in observed)",
     "rung3_nonlinear_hidden_free_op": "FAIL (operator off-manifold)",
@@ -16,18 +16,20 @@
     "rung8_identity_exclusion": "FAIL (M drifts to non-symmetry; closure can't anchor)",
     "rung9_frozen_anchor": "PARTIAL: frozen anchor FIXES field co-adaptation (T_onman 0.00->0.70) but distributional anchor under-constrains operator -> random on-manifold shuffle (shift_std ~95deg), arc not filled. FROZEN~=VISIBLE (no symmetry learned).",
     "rung10_frozen_anchor_coherent": "PARTIAL SUCCESS (best yet): single latent matrix fixes coherence (shift_std 95->25), recovers real rotation (M_angle ~-39deg), recall floor0.002->0.025 (12x floor, ~37% of ORACLE 0.068). All 3 blockers (identity/co-adaptation/coherence) now individually fixed. Remaining gap = single-generator vs full-group COVERAGE + imperfect latent + seed variance.",
-    "rung11_orbit_augmentation": "Coverage hypothesis REJECTED: orbit aug == single aug (recall 0.024 both). Gap to ORACLE is NOT coverage but operator PRECISION (discovered M is fuzzy/seed-variable rotation, shift_std 25, M_off 1.04). FINAL: discovery possible-in-principle but imprecise -> below known-symmetry quality."
+    "rung11_orbit_augmentation": "Coverage hypothesis REJECTED: orbit aug == single aug (recall 0.024 both). Gap to ORACLE is NOT coverage but operator PRECISION (discovered M is fuzzy/seed-variable rotation, shift_std 25, M_off 1.04). FINAL: discovery possible-in-principle but imprecise -> below known-symmetry quality.",
+    "rung12_group_generator": "SUCCESS - near-oracle discovery. Group-structured generator M=exp(theta*A) fixes operator precision: shift_std 25->0.8(skew)/7.6(free); M_det 0.56->1.00(skew)/0.90(free); recall 0.024->0.071(SKEW = ORACLE 0.067)/0.046(FREE ~69% ORACLE). SKEW recovers exact rotation (~3deg/seed). Gap was PRECISION not impossibility."
   },
   "key_findings": [
     "Hard-negative mining (v10 mechanism) installs no missing manifold structure in any rung.",
-    "Symmetry constraints generalize ONLY when the symmetry/group is known.",
-    "Unsupervised discovery blocked by: (1) identity attractor, (2) field co-adaptation [FIXED rung9 frozen anchor], (3) operator coherence under distributional anchoring [OPEN].",
-    "Methodology: positive+negative controls in every run isolated each root cause (ORACLE/ORACLE_LATENT/FIELD_CLOSURE/VISIBLE_ANCHOR)."
+    "KNOWN-symmetry constraints generalize cleanly (ORACLE).",
+    "UNSUPERVISED discovery is VIABLE: frozen anchor (co-adaptation) + coherent (rung10) + group-structured generator exp(theta*A) (precision, rung12) -> NEAR-ORACLE (SKEW recall 0.071 = ORACLE 0.067; FREE weak-prior ~69%).",
+    "4 blockers all addressed: identity / co-adaptation / coherence / precision. Gap was precision, NOT impossibility (prior rung-8 'deprioritize' read REVISED).",
+    "Methodology: positive+negative controls in every run isolated each root cause."
   ],
   "next_action": {
-    "command": "CONCLUDE / report to PI",
-    "reason": "Ladder answered the question across 11 rungs. 4 blockers (identity/co-adaptation/coherence/precision); first 3 fixed, precision open but only incremental tuning remains.",
-    "hint": "Open lever (NOT chased, rabbit-hole risk): operator precision via orthogonality reg on M / tighter latent / sharper anchor. Bottom line: mining dead, KNOWN symmetry best, unsupervised discovery partial+imprecise. For diff-EqM: inject known symmetries, don't build unsupervised discovery into paper critical path."
+    "command": "rung13 (candidate) / scale test",
+    "reason": "Discovery viable near-oracle with group generator. Open: shrink prior (FREE->oracle), learned latent, richer groups, real-scale test.",
+    "hint": "rung13: close FREE weak-prior gap (Lie-algebra reg, learned theta schedule) and/or LEARNED latent (recon/contrastive) instead of enc->z supervision -> minimal-prior unsupervised discovery. Then consider a non-toy EqM test."
   },
   "needs_user_input": {
     "value": false,
@@ -35,6 +37,13 @@
   },
   "active_runs": [],
   "completed_runs": [
+    {
+      "run_id": "rung12_group_generator",
+      "where": "local CPU",
+      "date": "2026-06-04",
+      "result": "SUCCESS near-oracle (SKEW=ORACLE, FREE ~69%)",
+      "results_path": "results/rung12_full.json"
+    },
     {
       "run_id": "rung11_orbit_aug",
       "where": "local CPU",
@@ -75,6 +84,12 @@
       "ts": "2026-06-04",
       "action": "RUNG11_CONCLUDE",
       "detail": "Orbit aug rejected coverage hypothesis; gap is operator precision. Ladder concluded: discovery partial+imprecise, known-symmetry remains best lever."
+    },
+    {
+      "id": "evt-0004",
+      "ts": "2026-06-04",
+      "action": "RUNG12_SUCCESS",
+      "detail": "Group-structured generator achieves near-oracle latent symmetry discovery; precision was the gap. Verdict revised: discovery VIABLE."
     }
   ],
   "provenance": {
