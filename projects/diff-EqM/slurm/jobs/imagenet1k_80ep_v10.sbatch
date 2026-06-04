@@ -78,6 +78,11 @@ sync_checkpoints() {
         rsync -rtL --include='*/' --include='*.pt' --exclude='*' \
             "$WORK_DIR/$RESULTS_DIR/" "$PERSISTENT_RESULTS/" || \
         echo "=== rsync sync FAILED at $(date) ===" >&2
+        # Bound persistent storage: keep only latest 3 ckpts (home/holylabs quotas
+        # are tight; an unpruned 80ep run = ~160G of ckpts).
+        for cd in "$PERSISTENT_RESULTS"/*/checkpoints; do
+            [ -d "$cd" ] && ls -v "$cd"/*.pt 2>/dev/null | head -n -3 | xargs -r rm -f
+        done
         echo "=== Synced checkpoints ($(ls "$PERSISTENT_RESULTS"/*/checkpoints/*.pt 2>/dev/null | wc -l) pt) at $(date) ===" >&2
     fi
 }
