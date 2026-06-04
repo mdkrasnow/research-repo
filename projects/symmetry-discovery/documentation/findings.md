@@ -558,7 +558,43 @@ With all four addressed, a discovered operator fills the held-out region **as we
 group-generator discovery is now a credible research direction worth a real (not toy) test — it is NOT
 ruled out, contrary to the rung-8 read.
 
-## Open next (rung 13, candidate)
-Close the FREE (weak-prior) gap to oracle without the rotation form: stronger group regularization
-(Lie-algebra structure, learned θ schedule), and/or a LEARNED latent (recon/contrastive) instead of
-enc→z supervision, to test discovery with minimal prior + unsupervised latent jointly.
+## Rung 13 — PRIOR-BUDGET test (`latent_symmetry_rung13_prior_budget.py`) — RAN 2026-06-04
+
+Can we weaken the prior from "it is a rotation" to "it is a stable smooth group action" and keep
+near-oracle? GEN_FREE_STABLE = `M=exp(A)` + det≈1 (volume) + well-conditioned (cond→1), NO skew param,
+NO direct isometry term — rotation must EMERGE.
+
+| arm | recall_arc | %ORACLE | shift_std | M_det | angle_err | prior |
+|---|---|---|---|---|---|---|
+| ORACLE | 0.067 | 100% | — | — | — | true group |
+| GEN_SKEW | 0.070±0.005 | 104% | 0.8° | 1.00 | 2.8° | rotation hardcoded |
+| GEN_FREE | 0.047±0.026 | 69% | 7.6° | 0.90 | 3.7° | det + weak ortho |
+| **GEN_FREE_STABLE** | **0.067±0.003** | **99%** | **0.8°** | **1.00** | **2.8°** | det + well-conditioned (NO skew) |
+
+**Result: STRONG SUCCESS — the rotation prior is NOT required.** GEN_FREE_STABLE matches GEN_SKEW and
+ORACLE (99%, exact rotation: det 1.00, shift_std 0.84°, angle within 2.8°, tight ±0.003) WITHOUT naming
+rotation — only "volume-preserving + well-conditioned" (a stability prior). Rotation EMERGED. The
+well-conditioned term is the active ingredient: FREE (det + weak isometry, no condition penalty) stalls
+at 69%; adding cond→1 → 99%.
+
+**Prior-budget answer:** "operator is a rotation, learn the angle" can be weakened to "operator is a
+smooth, stable, volume-preserving group action" with NO loss — rotation comes from stability + the
+frozen anchor, not from specification.
+
+**Honest caveat — 2D conflation:** in 2D, det=1 + cond=1 ⇒ orthogonal ⇒ rotation, so "stable" and
+"rotation" nearly coincide here. The result is clean within the toy but does NOT yet prove stable-prior
+discovery in the regime where stable ⊋ rotation. Definitive test = higher-dim latent (rung 14).
+
+## VERDICT after rung 13
+Unsupervised latent-symmetry discovery is VIABLE and reaches ORACLE with a MINIMAL prior: frozen data
+anchor (rung 9) + coherent operator (rung 10) + group-structured generator (rung 12) + stability-only
+regularization (rung 13, no rotation naming). Strong story for the toy. The remaining honesty gap is
+dimensional (2D conflates stable≈rotation) — rung 14 (higher-dim latent, e.g. SO(3) or a stable shear
+that is NOT a rotation) is the definitive prior-budget test and the natural bridge toward a real EqM
+setting.
+
+## Open next (rung 14, candidate)
+Higher-dim latent where stable-group-action strictly contains rotation: e.g. K_LAT=3 with an SO(3)-style
+hidden symmetry, or a latent with a genuine non-rotational stable symmetry, to test whether the
+stability prior still recovers the RIGHT symmetry when "stable" and "rotation" no longer coincide. Then
+consider lifting the whole recipe (frozen anchor + stable group generator) onto a non-toy EqM setting.
