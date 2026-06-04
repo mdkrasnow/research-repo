@@ -317,3 +317,60 @@ generator, or restrict to a nontrivial group class) appears necessary — soft p
 This is the empirical answer to "how much prior is cheating": *enough to exclude the identity is not
 optional.* Rung 8 tests the minimal such prior (constrain ‖M−I‖ to a fixed nonzero size, direction
 free — excludes identity WITHOUT asserting "it's a rotation").
+
+## Rung 8 — minimal identity-exclusion (`latent_symmetry_rung8.py`) — RAN 2026-06-04
+
+Hard-project M onto ‖M−I‖=1.4 each step (excludes identity, direction free); drop soft move+cyclic;
+closure-aug only.
+
+| arm | recall_arc | onman_gen | ‖M−I‖ | ‖M⁸−I‖ | M_angle | result |
+|---|---|---|---|---|---|---|
+| ORACLE (true group) | 0.066 | 0.98 | — | — | — | fills arc ✓ |
+| **ORACLE_LATENT** | **0.001** | 0.74 | 1.40 (held) | **321** | 25.6° | **FAILS — M is a non-rotation** |
+| DISC_JOINT | 0.001 | 0.48 | 1.40 | 96 | 61° | fails |
+
+Identity-exclusion did NOT rescue discovery. With identity forbidden, M drifts to an **arbitrary
+fixed-norm matrix** (‖M⁸−I‖=321 → expanding/shearing, NOT the manifold-preserving rotation) and the
+arc stays empty.
+
+**DEEPEST ROOT CAUSE (the ladder's terminal finding): closure-via-field cannot anchor the operator to
+the data manifold, because the field co-adapts.** `closure = eqm(f, T(x))` is minimized by training the
+field `f` to model wherever `T(x)` lands — NOT by forcing `T(x)` onto the true data manifold. So the
+closure objective is satisfiable by *any* operator; nothing holds T to the manifold. ORACLE works only
+because it injects the TRUE group elements (`DECODE(R_true·z)`), giving the field real on-manifold
+targets. Discovery has no such anchor: operator + field co-adapt to trivially satisfy closure.
+
+## LADDER COMPLETE — final verdict (rungs 1–8)
+
+| rung | question | result |
+|---|---|---|
+| 1 | equivariance vs hard-neg (arithmetic) | constraint perfect; **mining dead** |
+| 2 | known/discovered rotation (symmetry linear in observed) | both work; discovery ties known |
+| 3 | free observed-space operator, nonlinear-hidden symmetry | fails (off-manifold) |
+| 4 | enc-linear-dec, recon-frozen latent | fails (recon latent ≠ linearizing latent) |
+| 5 | ORACLE_LATENT control | recipe bug exposed: M→identity even with perfect latent |
+| 6 | hinge anti-identity | insufficient (M jitters near identity) |
+| 7 | continuous manifold | identity-attractor persists (cyclic pulls to I) |
+| 8 | minimal identity-exclusion | M drifts to non-symmetry; **closure can't anchor to manifold** |
+
+**Bottom line.** Hard-negative mining (v10's mechanism) installs no manifold structure in any setting.
+Symmetry **constraints** generalize **when the symmetry/group is known** (ORACLE, rung-1 equivariance,
+rung-2 known rotation). **Unsupervised discovery** of a nonlinearly-hidden symmetry, via a learned
+operator + closure/aug objective, **does not work** — two compounding obstacles: (a) identity is a
+universal attractor that prior-free constraints can't break, and (b) even with identity excluded, a
+co-adapting field cannot anchor the operator to the data manifold, so the operator drifts to a
+non-symmetry. A working formulation would need a **fixed manifold reference** (distribution-matching to
+frozen data, not field-closure) and/or a **known group class** — i.e., it cannot be fully unsupervised
+as posed.
+
+## Implication for diff-EqM / v10 (project decision — needs PI/user)
+
+- v10 = adaptive hard-negative mining. Across every toy, mining installs zero new manifold structure;
+  it can only sharpen an EXISTING boundary. This is consistent with v10's small measured effects.
+- The higher-leverage alternative (symmetry/equivariance) only pays off when the symmetry is **known
+  or cheaply specified** — NOT discovered. For IN-1K images, useful symmetries (crops, flips, color)
+  are known and could be injected as equivariance constraints/augmentation directly, skipping discovery.
+- Recommended framing for a paper: "symmetry constraints > hard-negative mining for generalization in
+  regression-target generative models, **when the symmetry is specified**" — and report unsupervised
+  discovery as an analyzed negative (identity-collapse + no manifold anchor). This is honest and still
+  publishable; do NOT claim unsupervised latent-symmetry discovery.
