@@ -138,3 +138,41 @@ Local session cannot submit (SSH control master expired; interactive 2FA). Requi
 Then either you submit the 5 configs above, or I submit once the session is live. Also confirm the
 operator-family prior (spatial-affine) is acceptable as the first image instantiation (research-prior
 decision); alternatives = photometric (RGB 3x3) or feature-space operator with a learned decoder.
+
+---
+# FAST FEATURE-SPACE PROXY (2026-06-04) — result: NEGATIVE (do not extend CIFAR/FID for v12 yet)
+
+Why: the 40ep CIFAR-FID bridge was too slow/noisy (BASE FID 228, KNOWN_AUG moved only ~10, v10 lowest,
+v12_random≈KNOWN → noise-limited single-seed). Built a seconds-scale feature-space proxy instead.
+
+Proxy: `projects/symmetry-discovery/experiments/feature_gap_proxy_eqm_bridge.py`. Real CIFAR → FROZEN
+random-conv encoder → PCA k=32. Known transform = rotation; visible angles exclude a held-out band
+{+15,+20,+25}°; anchor = features over ALL angles (unlabeled). Operator M=exp(A) in PCA space, learned
+vs frozen anchor (energy distance) + stability(det~1,cond→1) + move. Metric = energy-distance(arm
+features, held-out features); operator diagnostics mandatory.
+
+| arm | gap_to_heldout | det | cond | move | read |
+|---|---|---|---|---|---|
+| BASE_FEATURE | 1.065 | — | — | — | baseline gap |
+| KNOWN_AUG_FEATURE | 0.182 | — | — | — | positive control ✓ (gate passes) |
+| RANDOM_STABLE_FEATURE | 4.826 | 0.24 | 5.05 | 86.5 | negative control ✓ (off-manifold, fails) |
+| DISCOVERED_STABLE_FEATURE | 1.187 | 1.01 | 1.14 | 14.4 | ✗ ≈ BASE; beats random; STABLE diagnostics |
+
+**Verdict: harness VALID (KNOWN 0.18 ≪ BASE 1.07; RANDOM fails), but the DISCOVERED stable-generator
+does NOT close the held-out gap (1.19 ≈ BASE 1.07 ≪ KNOWN 0.18).** It produces a valid stable
+on-distribution operator (det≈1, cond≈1, non-identity, gap-to-anchor 0.41, beats random) — but
+anchor-matching the FULL feature distribution does not TARGET the held-out band. This is the rung-9/15
+confound in CIFAR feature space: a single linear M in a frozen-random-conv+PCA space cannot capture the
+rotation's nonlinear feature shift; matching the overall distribution ≠ reaching held-out angles.
+(Robust across quick/full: discovered −base = +0.07 / −0.12 → ≈0 within noise.)
+
+**Decision (per goal):** mechanism FAILS in real CIFAR feature space as-is → DO NOT launch longer
+CIFAR/FID for the discovered operator. The feature-space recipe needs a fix first: either (a) a
+SYMMETRY-ALIGNED feature space (frozen random conv + PCA is not aligned to rotation — same lesson as
+rung 15), or (b) an operator/anchor that targets the held-out-implied symmetry rather than the full
+distribution. Known-symmetry augmentation remains the safe lever (KNOWN closes the gap; loader already
+does flips).
+
+Running CIFAR/FID jobs (v00 228.75, v10 205.50, vK 218.84, v12_random 217.91, v12_discovered pending):
+let finish + record for completeness, but they are NOT the inner loop and the proxy supersedes them for
+the mechanism question.
