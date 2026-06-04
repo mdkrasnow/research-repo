@@ -176,3 +176,42 @@ does flips).
 Running CIFAR/FID jobs (v00 228.75, v10 205.50, vK 218.84, v12_random 217.91, v12_discovered pending):
 let finish + record for completeness, but they are NOT the inner loop and the proxy supersedes them for
 the mechanism question.
+
+---
+# ARCHITECTURE-CORRECT PROXY (2026-06-04) — spatial Lie-generator. Architecture fixed; TARGETING is the open problem.
+
+`projects/symmetry-discovery/experiments/feature_gap_proxy_spatial_operator.py`. Operator = spatial
+affine M=exp(A) (2x2) via grid_sample on IMAGES (= v12's actual operator), discovered vs frozen feature
+anchor, evaluated in a COMMON PCA32(frozen-conv) space. Flat-PCA dense-M kept as negative-arch baseline.
+
+| arm | gap_heldout | gap_anchor | angle | det | cond | read |
+|---|---|---|---|---|---|---|
+| BASE | 1.065 | — | — | — | — | floor |
+| KNOWN_AUG | 0.182 | — | — | — | — | positive control ✓ (gate) |
+| PCA_LINEAR_DISCOVERED (old arch) | 1.119 | 0.40 | — | 0.95 | 1.16 | ≈base (wrong arch, as expected) |
+| SPATIAL_RANDOM | 1.120 | 0.56 | 1.1 | 1.47 | 1.10 | negative control |
+| SPATIAL_DISCOVERED | 2.893 | 1.42 | -23.7 | 1.00 | 1.00 | CLEAN rotation but WRONG direction |
+| SPATIAL_DISCOVERED_RESIDUAL | 3.307 | 1.88 | -23.3 | 1.00 | 1.00 | residual-anchor didn't fix targeting |
+
+**Conclusion (two separated findings):**
+1. ARCHITECTURE CRITIQUE VALIDATED: the spatial operator learns a COHERENT clean rotation (det 1.00,
+   cond 1.00) — the flat-PCA dense-M (≈base, incoherent) was indeed the wrong architecture. Right
+   operator family works.
+2. TARGETING IS THE OPEN PROBLEM (not architecture): SPATIAL_DISCOVERED learned the WRONG-DIRECTION
+   rotation (-23.7°) vs the one-sided held band (+15..25°), so gap WORSENED. Anchor-distribution-matching
+   is DIRECTION-AGNOSTIC: a roughly symmetric full-anchor + move + stability is satisfied by ±rotation,
+   so the objective cannot aim at an asymmetric held-out region. Residual-anchor (far-from-visible
+   weighting) also failed.
+
+**Deep insight (reconciles with the toy ladder):** rungs 12-14 succeeded partly because the held-out
+modes were SYMMETRIC under the group (either rotation direction fills them), so anchor-matching sufficed.
+Here the held-out band is ONE-SIDED -> a specific direction/magnitude is required, which a
+distribution-matching objective with NO held-out signal cannot determine. Discovery via frozen-anchor
+matching works only when the held-out support is reachable symmetrically; it is not a general
+held-out-targeting mechanism.
+
+**Decision:** still DO NOT scale to CIFAR/FID. Architecture is solved; the remaining gap is the
+OBJECTIVE/targeting. Options: (a) a targeting signal that breaks direction symmetry without held-out
+labels (hard / may require weak supervision); (b) accept KNOWN-symmetry augmentation (works, gate passes,
+loader already flips) as the lever for the paper; (c) restrict claims to symmetric-held-out settings.
+KNOWN-aug remains the safe, validated path.
