@@ -24,7 +24,7 @@ Pre-register:
 import argparse, json, math, os
 import torch, torch.nn as nn
 
-D=16; KZ=3; RAD=4.0; CHELIX=0.4; PHI_MAX=4*math.pi; SIG=0.08
+D=16; KZ=3; RAD=4.0; CHELIX=1.5; PHI_MAX=4*math.pi; SIG=0.08   # steep helix: rotation-only leaves manifold (C=0.4 made it ~circle -> confounded rung16-v1)
 GAP_LO=2.5; GAP_HI=3.5                                  # held-out phi-arc (radians)
 T_STEPS=3000; AE_STEPS=3000; EQM_STEPS=4000; BATCH=512; SAMPLE_STEPS=50; N_SAMPLE=3000; SEEDS=[0,1,2]
 ALPHA_AUG=1.0; LAM_MOVE=0.5; LAM_DET=1.0; LAM_COND=1.0; LAM_TRANS=1.0; DEC_SEED=1234; TARGET_DPHI=1.0
