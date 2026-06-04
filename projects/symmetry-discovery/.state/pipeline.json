@@ -1,0 +1,42 @@
+{
+  "project": "symmetry-discovery",
+  "title": "Symmetry discovery vs hard-negative mining for generative models (EqM)",
+  "phase": "EXPLORATORY-TOY-LADDER",
+  "research_question": "Can a learned manifold-preserving operator, anchored to data (not the live field), discover a nonlinearly-hidden symmetry and fill held-out manifold regions? vs hard-negative mining and known-symmetry constraints.",
+  "scale": "CPU toy (2D/16D rings). NOT publishable; filters/diagnostics only.",
+  "ladder_status": {
+    "rungs_run": "1-9",
+    "rung1_arithmetic": "equivariance constraint perfect; hard-neg mining dead",
+    "rung2_ring_linear": "known + discovered rotation both work (symmetry linear in observed)",
+    "rung3_nonlinear_hidden_free_op": "FAIL (operator off-manifold)",
+    "rung4_enc_linear_dec_recon_frozen": "FAIL (recon latent distorted, not linearizing)",
+    "rung5_oracle_latent_control": "recipe collapses M->identity even with perfect latent (recipe bug exposed)",
+    "rung6_hinge_anti_identity": "FAIL (insufficient; M jitters near identity)",
+    "rung7_continuous_manifold": "FAIL (cyclic term pulls M->identity)",
+    "rung8_identity_exclusion": "FAIL (M drifts to non-symmetry; closure can't anchor)",
+    "rung9_frozen_anchor": "PARTIAL: frozen anchor FIXES field co-adaptation (T_onman 0.00->0.70) but distributional anchor under-constrains operator -> random on-manifold shuffle (shift_std ~95deg), arc not filled. FROZEN~=VISIBLE (no symmetry learned)."
+  },
+  "key_findings": [
+    "Hard-negative mining (v10 mechanism) installs no missing manifold structure in any rung.",
+    "Symmetry constraints generalize ONLY when the symmetry/group is known.",
+    "Unsupervised discovery blocked by: (1) identity attractor, (2) field co-adaptation [FIXED rung9 frozen anchor], (3) operator coherence under distributional anchoring [OPEN].",
+    "Methodology: positive+negative controls in every run isolated each root cause (ORACLE/ORACLE_LATENT/FIELD_CLOSURE/VISIBLE_ANCHOR)."
+  ],
+  "next_action": {
+    "command": "rung10 (NOT yet run; needs user go-ahead)",
+    "reason": "Frozen anchor is necessary but not sufficient; operator coherence is the open gap.",
+    "hint": "One mechanism: frozen anchor + coherence constraint -- parametrize T as a single Lie-generator flow exp(t*xi), OR penalize shift-inconsistency (var of induced delta-phi), so only coherent flows survive distribution-preservation. Do NOT stack multiple fixes."
+  },
+  "needs_user_input": { "value": false, "prompt": "" },
+  "active_runs": [],
+  "completed_runs": [
+    {"run_id": "rung9_frozen_anchor", "where": "local CPU", "date": "2026-06-04", "result": "PARTIAL (co-adaptation fixed, coherence missing)", "results_path": "results/rung9_full.json"}
+  ],
+  "events": [
+    {"id": "evt-0001", "ts": "2026-06-04", "action": "INIT", "detail": "Project created from diff-EqM symmetry-toys investigation (rungs 1-9). Houses ladder scripts, findings, control methodology."}
+  ],
+  "provenance": {
+    "origin": "projects/diff-EqM/experiments/symmetry_toys/ + documentation/symmetry-vs-mining-toy-findings-2026-06-03.md",
+    "informs": "diff-EqM v10 direction (prefer known-symmetry constraints over hard-negative mining)"
+  }
+}
