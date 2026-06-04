@@ -5,7 +5,7 @@
   "research_question": "Can a learned manifold-preserving operator, anchored to data (not the live field), discover a nonlinearly-hidden symmetry and fill held-out manifold regions? vs hard-negative mining and known-symmetry constraints.",
   "scale": "CPU toy (2D/16D rings). NOT publishable; filters/diagnostics only.",
   "ladder_status": {
-    "rungs_run": "1-14",
+    "rungs_run": "1-15",
     "rung1_arithmetic": "equivariance constraint perfect; hard-neg mining dead",
     "rung2_ring_linear": "known + discovered rotation both work (symmetry linear in observed)",
     "rung3_nonlinear_hidden_free_op": "FAIL (operator off-manifold)",
@@ -19,7 +19,8 @@
     "rung11_orbit_augmentation": "Coverage hypothesis REJECTED: orbit aug == single aug (recall 0.024 both). Gap to ORACLE is NOT coverage but operator PRECISION (discovered M is fuzzy/seed-variable rotation, shift_std 25, M_off 1.04). FINAL: discovery possible-in-principle but imprecise -> below known-symmetry quality.",
     "rung12_group_generator": "SUCCESS - near-oracle discovery. Group-structured generator M=exp(theta*A) fixes operator precision: shift_std 25->0.8(skew)/7.6(free); M_det 0.56->1.00(skew)/0.90(free); recall 0.024->0.071(SKEW = ORACLE 0.067)/0.046(FREE ~69% ORACLE). SKEW recovers exact rotation (~3deg/seed). Gap was PRECISION not impossibility.",
     "rung13_prior_budget": "STRONG SUCCESS: GEN_FREE_STABLE (det~1 + well-conditioned, NO skew/rotation naming) = 99% ORACLE (recall 0.067, det 1.00, shift_std 0.84, angle within 2.8deg) -- MATCHES GEN_SKEW. Rotation EMERGES from stability prior; not needed to name it. Active ingredient = condition-number penalty (FREE w/o it stalls 69%). CAVEAT: 2D conflates stable~=rotation; definitive test needs higher-dim latent (rung14).",
-    "rung14_higher_dim": "DEFINITIVE SUCCESS: K=3 cylinder (rot in plane, h passive, stable!=rotation). GEN_FREE_STABLE (general 3x3, det~1+cond->1, NO skew/plane) = 113% ORACLE, MATCHES both skew arms. Discovered rotation CONFINED to active plane (passive_leak 0.04~=0) + h PRESERVED (passive_dh 0.15 = plane-told ref) + exact group (det 1.00 cond 1.00). 2D-conflation caveat DISSOLVED."
+    "rung14_higher_dim": "DEFINITIVE SUCCESS: K=3 cylinder (rot in plane, h passive, stable!=rotation). GEN_FREE_STABLE (general 3x3, det~1+cond->1, NO skew/plane) = 113% ORACLE, MATCHES both skew arms. Discovered rotation CONFINED to active plane (passive_leak 0.04~=0) + h PRESERVED (passive_dh 0.15 = plane-told ref) + exact group (det 1.00 cond 1.00). 2D-conflation caveat DISSOLVED.",
+    "rung15_learned_latent": "PARTIAL: learned/recon latent reaches 89-97% recall BUT via COVERAGE not coherent symmetry (shift_std 34-69 vs supervised 3.4; passive_dh 0.96 vs 0.15 -> doesn't preserve true h). Stable on-manifold reshuffle covers 2D cylinder incl arc -> fills via coverage. recall is coverage-confounded; operator-quality metrics honest. Coherent discovery needs structure-ALIGNED coords; recon-only (0.196) faithful but not aligned. Open: symmetry-aware unsupervised latent (deferred, new mechanism)."
   },
   "key_findings": [
     "Hard-negative mining (v10 mechanism) installs no manifold structure in any rung. Dead.",
@@ -30,9 +31,9 @@
     "Methodology: positive+negative controls in every run isolated each root cause."
   ],
   "next_action": {
-    "command": "rung15 (learned latent) / rung16 (richer group) / SCALE to real EqM",
-    "reason": "Class-agnostic discovery reaches oracle through K=3. Remaining toy idealizations: supervised enc->z latent, abelian single symmetry. Then non-toy scale.",
-    "hint": "rung15: replace enc->z supervision with LEARNED latent (recon/contrastive) + stable generator = fully unsupervised latent+operator. rung16: screw/helix or SO(3) (non-abelian/multi-param). SCALE needs cluster 2FA."
+    "command": "rung16 screw/helix (clean latent)",
+    "reason": "learned-latent coherence deferred (new mechanism); isolate group-complexity axis with clean latent.",
+    "hint": "rung16: screw/helix z(phi)=[r cosphi, r sinphi, c phi], symmetry phi->phi+d & height->height+c*d (rotation+translation coupled). Arms BASE/ORACLE/GEN_FREE_STABLE (+strong ref). Stable generator must learn coupled motion. Then EqM bridge v12."
   },
   "needs_user_input": {
     "value": false,
@@ -40,6 +41,13 @@
   },
   "active_runs": [],
   "completed_runs": [
+    {
+      "run_id": "rung15_learned_latent",
+      "where": "local CPU",
+      "date": "2026-06-04",
+      "result": "PARTIAL: recall transfers via coverage, coherent symmetry needs aligned coords",
+      "results_path": "results/rung15_full.json"
+    },
     {
       "run_id": "rung14_higher_dim",
       "where": "local CPU",
@@ -119,6 +127,12 @@
       "ts": "2026-06-04",
       "action": "RUNG14_SUCCESS",
       "detail": "Class-agnostic stability prior reaches oracle in K=3 (stable!=rotation); discovers active subspace + preserves passive dim. 2D caveat dissolved. Discovery viable with minimal prior."
+    },
+    {
+      "id": "evt-0007",
+      "ts": "2026-06-04",
+      "action": "RUNG15_PARTIAL",
+      "detail": "Learned latent: recall via coverage, not coherent symmetry. Coherent discovery needs structure-aligned coords. Deferred learned-latent coherence; proceeding to rung16 richer group with clean latent."
     }
   ],
   "provenance": {

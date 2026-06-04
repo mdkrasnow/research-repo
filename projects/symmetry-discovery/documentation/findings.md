@@ -635,9 +635,38 @@ Scope honesty: still CPU toys (2D/3D latent, clean enc→z latent, single abelia
 anchor). NOT yet shown: learned (not supervised) latent, multi-parameter/non-abelian groups, and a real
 high-dim EqM/image manifold. Those are the bridge from "compelling toy result" to "method."
 
-## Open next (candidate rungs / scale)
-- rung 15: LEARNED latent (recon/contrastive enc, not enc→z) + stable generator — discovery with an
-  unsupervised latent AND class-agnostic operator jointly (the last toy idealization to remove).
-- rung 16: richer group (screw/helix = rotation+translation; or SO(3)) — non-abelian / multi-parameter.
-- SCALE: lift recipe (frozen anchor + stable group generator) onto a non-toy EqM/image setting (needs
-  cluster).
+## Rung 15 — LEARNED latent (`latent_symmetry_rung15_learned_latent.py`) — RAN 2026-06-04
+
+Remove the supervised enc→z idealization. Same K=3 world + stable generator; vary ONLY the latent.
+
+| arm | recall | %ORACLE | shift_std | passive_dh | det | cond | recon | read |
+|---|---|---|---|---|---|---|---|---|
+| ORACLE | 0.062 | 100% | — | — | — | — | — | positive control |
+| SUPERVISED_LATENT | 0.072 | 117% | **3.4°** | **0.15** | 1.00 | 1.00 | 0.063 | coherent symmetry ✓ |
+| RECON_LATENT_FROZEN | 0.055 | 89% | 33.7° | 0.96 | 0.97 | 1.06 | 0.196 | high recall, INCOHERENT |
+| LEARNED_LATENT | 0.060 | 97% | 69.3° | 0.96 | 1.00 | 1.01 | 0.196 | high recall, INCOHERENT |
+
+**Result: PARTIAL — recall transfers via COVERAGE, coherent symmetry does NOT.** Learned/recon latents
+reach 89–97% recall, but operator-quality metrics expose it: shift_std 34–69° (vs supervised 3.4°) and
+passive_dh 0.96 (does NOT preserve true h, vs supervised 0.15). A stable on-manifold reshuffle (det≈1,
+cond≈1) lands points across the whole 2D cylinder incl. the held-out arc → fills it by COVERAGE, not by
+recovering the clean symmetry (same mechanism as rung 9, now succeeding-at-fill because K=3 manifold is
+2D). **recall alone is a coverage-confounded metric; the operator-quality metrics are the honest signal.**
+
+Diagnosis: the learned latent's axes are not aligned to the true (φ,h) structure, so a stable operator
+there does not respect true h (passive leak) and shifts incoherently. Recon-only coordinates (recon
+0.196, mediocre) are faithful-enough to autoencode but NOT aligned-enough for a COHERENT symmetry
+operator. Echoes rung 4 (recon latent ≠ symmetry-linearizing latent). Not a floor-failure and no
+recon-corruption/leak, so NOT a hard failure — but coherent discovery needs structure-aligned coords.
+
+**Open sub-problem (deferred, needs a NEW mechanism, not tuning):** an unsupervised latent that ALIGNS
+to the symmetry (symmetry-aware/contrastive representation) — circular without a pair signal. Parked;
+rung 16 uses the clean supervised latent to isolate the group-complexity axis instead.
+
+## Open next
+- rung 16: richer group (screw/helix = rotation+translation), CLEAN supervised latent — tests whether
+  the stable-generator recipe handles a COUPLED (non-pure-rotation) symmetry. [NEXT]
+- learned-latent coherence: symmetry-aligned unsupervised representation (deferred — new mechanism).
+- SCALE: EqM bridge — new variant `v12` (frozen stable-generator aug) in `dganm_variants/`; operator in
+  middle-block feature space (UNetWrapper exposes it), frozen feature anchor; compare base/v10/known-aug/
+  discovered-aug. Needs cluster (2FA).
