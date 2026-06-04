@@ -1,7 +1,7 @@
 {
   "project": "symmetry-discovery",
   "title": "Symmetry discovery vs hard-negative mining for generative models (EqM)",
-  "phase": "EQM-BRIDGE-IMPLEMENTED (needs cluster 2FA to run)",
+  "phase": "EQM-BRIDGE-PROXY-NEGATIVE (feature-space mechanism fails; do not extend CIFAR/FID)",
   "research_question": "Can a learned manifold-preserving operator, anchored to data (not the live field), discover a nonlinearly-hidden symmetry and fill held-out manifold regions? vs hard-negative mining and known-symmetry constraints.",
   "scale": "CPU toy (2D/16D rings). NOT publishable; filters/diagnostics only.",
   "ladder_status": {
@@ -21,7 +21,8 @@
     "rung13_prior_budget": "STRONG SUCCESS: GEN_FREE_STABLE (det~1 + well-conditioned, NO skew/rotation naming) = 99% ORACLE (recall 0.067, det 1.00, shift_std 0.84, angle within 2.8deg) -- MATCHES GEN_SKEW. Rotation EMERGES from stability prior; not needed to name it. Active ingredient = condition-number penalty (FREE w/o it stalls 69%). CAVEAT: 2D conflates stable~=rotation; definitive test needs higher-dim latent (rung14).",
     "rung14_higher_dim": "DEFINITIVE SUCCESS: K=3 cylinder (rot in plane, h passive, stable!=rotation). GEN_FREE_STABLE (general 3x3, det~1+cond->1, NO skew/plane) = 113% ORACLE, MATCHES both skew arms. Discovered rotation CONFINED to active plane (passive_leak 0.04~=0) + h PRESERVED (passive_dh 0.15 = plane-told ref) + exact group (det 1.00 cond 1.00). 2D-conflation caveat DISSOLVED.",
     "rung15_learned_latent": "PARTIAL: learned/recon latent reaches 89-97% recall BUT via COVERAGE not coherent symmetry (shift_std 34-69 vs supervised 3.4; passive_dh 0.96 vs 0.15 -> doesn't preserve true h). Stable on-manifold reshuffle covers 2D cylinder incl arc -> fills via coverage. recall is coverage-confounded; operator-quality metrics honest. Coherent discovery needs structure-ALIGNED coords; recon-only (0.196) faithful but not aligned. Open: symmetry-aware unsupervised latent (deferred, new mechanism).",
-    "rung16_screw": "INCONCLUSIVE (2 attempts, stop-rule). v1 C=0.4 confounded (helix~circle, rotation suffices, ISOMETRY 95%); v2 C=1.5 messy (ORACLE fills only 25% ideal, operators off-manifold T_onman 0.2-0.65, incoherent, recall COVERAGE-confounded: ISOMETRY htrans~0 yet 79%). Non-rotation discovery UNRESOLVED; screw toy ill-posed. No claim recipe handles non-rotation."
+    "rung16_screw": "INCONCLUSIVE (2 attempts, stop-rule). v1 C=0.4 confounded (helix~circle, rotation suffices, ISOMETRY 95%); v2 C=1.5 messy (ORACLE fills only 25% ideal, operators off-manifold T_onman 0.2-0.65, incoherent, recall COVERAGE-confounded: ISOMETRY htrans~0 yet 79%). Non-rotation discovery UNRESOLVED; screw toy ill-posed. No claim recipe handles non-rotation.",
+    "eqm_bridge_feature_proxy": "Fast CIFAR feature-space proxy (frozen random-conv+PCA32, rotation gap). KNOWN_AUG closes gap (0.18<<base 1.07, gate OK); RANDOM fails (off-manifold); DISCOVERED stable-generator = stable(det1,cond1.1)+beats-random BUT ~= BASE on held-out gap (1.19) -> anchor-matching doesn't target held-out (rung9/15 confound; frozen feature space not symmetry-aligned). Mechanism FAILS in CIFAR feature space as-is."
   },
   "key_findings": [
     "Hard-negative/v10 mining installs no manifold structure. Dead.",
@@ -32,9 +33,9 @@
     "EqM bridge plan written (v12 frozen stable-generator aug, middle-block feature anchor); real validation needs cluster (2FA)."
   ],
   "next_action": {
-    "command": "HUMAN: cluster 2FA, then submit 5 bridge configs",
-    "reason": "EqM bridge v12 implemented + locally smoked on real CIFAR (PASS). Full UNet training + FID needs GPU/cluster; SSH session needs interactive 2FA.",
-    "hint": "Run `! scripts/cluster/ssh_bootstrap.sh` (2FA). Then submit configs in projects/diff-EqM/configs/variants/bridge/ via variant_pilot.sbatch (CONFIG_PATH env per arm): v00_base/v10_hardneg/vK_known/v12_discovered/v12_random. Interpret per eqm-bridge-plan.md (KNOWN_AUG must move FID; v12_discovered < v10 and <= KNOWN; v12_discovered > v12_random; trust operator_diag.json over FID)."
+    "command": "HUMAN/RESEARCH decision: fix feature-space mechanism before more EqM GPU",
+    "reason": "Fast proxy shows discovered stable-generator doesn't beat base in CIFAR feature space (anchor-matching != targeting held-out symmetry; feature space not symmetry-aligned). Per goal, do not extend CIFAR/FID for v12.",
+    "hint": "Options: (a) symmetry-ALIGNED feature space (contrastive/equivariant encoder) so a linear M captures the transform (rung15 lesson); (b) operator/anchor that targets held-out-implied symmetry not full distribution; (c) accept known-symmetry augmentation as the lever (KNOWN closes gap; loader already flips). CIFAR/FID jobs finishing for record only."
   },
   "needs_user_input": {
     "value": false,
@@ -153,6 +154,12 @@
       "ts": "2026-06-04",
       "action": "EQM_BRIDGE_BUILT",
       "detail": "v12 frozen-anchor stable-generator aug implemented (_stable_operator/v12/vK + 5 configs); local CPU smoke on real CIFAR PASS; full run blocked on cluster 2FA."
+    },
+    {
+      "id": "evt-0010",
+      "ts": "2026-06-04",
+      "action": "BRIDGE_PROXY_NEGATIVE",
+      "detail": "Fast feature-proxy: discovered stable-generator stable+beats-random but ~=base on held-out gap; mechanism fails in CIFAR feature space (not symmetry-aligned). Do not extend FID. Proxy saved hours."
     }
   ],
   "provenance": {
