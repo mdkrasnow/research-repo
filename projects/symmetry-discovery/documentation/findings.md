@@ -449,3 +449,45 @@ anchor, rung 10 → single-matrix coherence); result = PARTIAL discovery (recall
 recovered, ~37% of ORACLE). Remaining gap = single-element vs full-group coverage + imperfect latent.
 Candidate rung 11: augment with the OPERATOR ORBIT {M, M², …, Mᴾ} (approximate the group from the one
 discovered generator) to cover the full arc → should approach ORACLE.
+
+## Rung 11 — orbit augmentation (`latent_symmetry_rung11.py`) — RAN 2026-06-04
+
+Augment EqM with the orbit {M¹..Mᴾ⁻¹} of the single discovered generator (approximate the group).
+
+| arm | recall_arc | bins/36 | M_angle | read |
+|---|---|---|---|---|
+| ORACLE | 0.068 | 36 | — | positive control |
+| FROZEN_LATENT_SINGLE | 0.024±0.033 | 33.3 | −38.6° | rung-10 single aug |
+| FROZEN_LATENT_ORBIT | 0.024±0.032 | 33.0 | −38.6° | **identical to SINGLE — orbit adds nothing** |
+| FROZEN_LATENT_DISC_ORBIT | 0.019±0.013 | 29.3 | −24.1° | unsupervised, weaker |
+
+**Result: coverage hypothesis REJECTED.** Orbit aug ≡ single aug (0.024). The gap to ORACLE is NOT
+coverage — both cover ~33 bins; they differ only in arc *mass*. The residual gap is **operator
+PRECISION**: the discovered M is an approximate, seed-variable rotation (shift_std 25°≠0, M_off 1.04,
+variance ±0.033); Mᵏ compounds the imperfection so the orbit doesn't tile cleanly, and T transfers
+supervision into the gap *fuzzily* where ORACLE's exact rotations deliver clean mass.
+
+## FINAL VERDICT — ladder rungs 1–11
+
+The discovery question is answered. **Unsupervised symmetry discovery for EqM is possible IN PRINCIPLE
+but IMPRECISE in practice.** Four blockers, each diagnosed by a control and individually fixed:
+1. identity attractor → identity-exclusion / move term (rung 8)
+2. field co-adaptation → frozen data anchor (rung 9) [the key insight]
+3. operator incoherence → single latent matrix (rung 10)
+4. operator imprecision → OPEN (rung 11: not coverage; the discovered rotation is fuzzy/seed-variable)
+
+Result: discovery recovers a real rotation and fills the held-out arc to ~35% of ORACLE (12× floor),
+but does NOT reach known-symmetry quality. The remaining lever is operator PRECISION (tighter latent,
+orthogonality regularization on M, a sharper anchor than energy-distance) — incremental tuning, not a
+new mechanism; deliberately NOT chased here (diminishing returns, rabbit-hole risk).
+
+**Bottom line (stable across 11 rungs):**
+- Hard-negative mining (v10 mechanism): installs NO manifold structure. Dead.
+- KNOWN-symmetry constraint/augmentation: clean generalization (ORACLE, equivariance). Best lever.
+- UNSUPERVISED discovery: works partially (frozen anchor + coherent single matrix), but imprecise →
+  below known-symmetry quality. Publishable as an analyzed positive-partial + negative, NOT as a
+  working unsupervised method.
+
+**For diff-EqM / v10:** prefer injecting KNOWN image symmetries (crops/flips/color) as equivariance/
+augmentation over more hard-negative mining. Do not build unsupervised symmetry discovery into the
+paper's critical path.
