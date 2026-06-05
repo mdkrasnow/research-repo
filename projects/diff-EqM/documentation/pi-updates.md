@@ -321,3 +321,36 @@ small effect size is worth foregrounding vs relegating to appendix.
 
 **Artifacts**: `documentation/exp2-offtraj-field-robustness-results.md`;
 `results/diagnostics/offtraj_{random,sampler}/`; jobs 17788287 + 17788329 (both exit 0).
+
+---
+
+## PI update — Exp 3: Fidelity-Diversity & Mode Coverage (2026-06-05)
+
+**Trigger**: paper-comparable IN-1K result + pre-registered "no diversity tax" question answered.
+
+**One-line**: At IN-1K-256 (EqM-B/2, 80ep), ANM's FID gain is **not** bought with diversity — recall holds flat, coverage and density rise, and weak classes improve more than the mean. Verdict: **strong_success**.
+
+**Setup (parity-controlled)**: vanilla EqM vs ANM EqM (v10, λ=0.3), identical sampler/NFE/step/EMA/CFG/VAE/labels/seeds (shared schedule hash `83a8ede763e1b318`), fixed seeded ImageNet-train reference, pytorch_fid InceptionV3 features, PRDC (Naeem 2020, vendored). Both arms scored on the **same 49996 sample ids** (4 zero-byte vanilla PNGs from an interrupted file move were dropped from both arms; immaterial at 50K).
+
+**Results**:
+
+| metric | vanilla | ANM (λ0.3) | Δ |
+|---|---|---|---|
+| FID ↓ | 31.27 | **26.88** | −4.38 (95% CIs disjoint: 31.64–32.28 vs 27.27–27.85) |
+| KID ↓ | 0.0316 | 0.0259 | −0.0057 |
+| precision ↑ | 0.581 | 0.604 | +0.023 |
+| recall ↑ | 0.7185 | 0.7193 | +0.0008 (flat — **no diversity loss**) |
+| density ↑ | 0.433 | 0.477 | +0.044 |
+| coverage ↑ | 0.443 | 0.515 | **+0.072 (mode coverage)** |
+| bottom-quartile (weak-class) FID ↓ | 62.80 | 57.19 | −5.61 (weak classes gain MORE) |
+| classifier TV→requested ↓ | 0.181 | 0.162 | better class balance |
+| conditional top-1 ↑ | 0.433 | 0.483 | +0.050 (more on-class) |
+| frac classes ANM better (feature dist) | — | 0.913 | 91% of classes improve |
+
+**Interpretation for the paper**: This closes the obvious reviewer attack on the FID claim ("you just sharpened samples"). Recall is the diversity axis and it is flat; coverage/density (mode coverage + local density) both improve; the gain is broad (91% of classes) and *largest on the weak classes* the mining is meant to help. Pairs cleanly with Exp 1 (sampler/NFE robustness) and Exp 2 (off-trajectory field robustness). The three together: ANM improves quality, is robust to sampler budget, and the mechanism (off-traj field accuracy) is measurable.
+
+**Caveat**: single seed at B/2. Phase 2 multi-seed (3-seed Welch t, p<0.05, ≥1 FID gain) still required before the claim is paper-final. This is the per-seed evidence the no-diversity-tax story rests on.
+
+**Decisions needed from PI**: None blocking. Confirm whether to foreground coverage (+0.072) and weak-class bottom-quartile (−5.61) as the headline "no diversity tax" evidence in the workshop draft.
+
+**Artifacts**: `results/exp3_metrics_out/{aggregate_metrics.json,aggregate_metrics.csv,class_metrics.csv,delta_class_metrics.csv,classifier_histogram.csv,plots/,README.md}`; gen on holylabs `mkrasnow_eqm/exp3/`; jobs 18964347 (ref) + 18964349 (anm gen) + 19120911 (metrics, exit 0).
