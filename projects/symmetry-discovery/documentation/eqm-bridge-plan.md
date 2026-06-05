@@ -310,3 +310,26 @@ CIFAR EqM, so a multi-seed treatment can't rescue it. The discovery method remai
 ladder + feature proxy, but it needs a setting where the discovered symmetry is genuinely useful to the
 generative target (CIFAR rotation is not). Matches earlier note: "v12 mechanism fails on real CIFAR;
 CIFAR/FID noise-limited; do not extend CIFAR/FID for v12." Known-symmetry aug is NOT a working lever here.
+
+---
+# v13: ARCHITECTURE-CORRECT BRIDGE (2026-06-05) — v12 killed the rotation arch, NOT the bridge.
+
+**v12 rotation-like bridge result (context, NOT a bridge kill):**
+150ep CIFAR FID: v00_base 14.31, v12_random 13.63, v12_discovered 14.41, vK_known_ROTATION 14.82.
+- v12 rotation-like discovered operator: no benefit.
+- random affine: slight win (generic regularization).
+- known ROTATION: harmful.
+- **Reason: rotation is not a useful CIFAR augmentation.** The operator family (single global 2x2
+  rotation/scale/shear, NO translation/crop) AND the positive control (known rotation) were both
+  MISMATCHED to CIFAR. CIFAR benefits from crop/translation/flip/color nuisance transforms.
+- **Therefore: do NOT kill the bridge.** Kill only the v12 rotation architecture. vK_known_ROTATION
+  failing does NOT mean known augmentation failed — rotation was the wrong known control.
+
+**v13 plan:** SE(2)-style homogeneous affine generator (3x3, includes TRANSLATION/crop/scale).
+A = 3x3 (top 2 rows learned, bottom row 0), M = matrix_exp(A) acts on homogeneous image coords ->
+can express translation + small crop/zoom/scale/shear/rotation. Same corrected discovery recipe:
+frozen GRAD-FLOWING anchor, MIXTURE objective ((1-pi)P_real + pi*T(P_real) ~= P_anchor), broad
+NON-LEAKING move hinge, stability reg (det~1, cond ctrl, translation bounded), no live-EqM closure.
+Positive control fixed: KNOWN_TRANSLATE_CROP (random crop pad4 / translate +-2..4px) must beat BASE
+(loader already does hflip -> KNOWN_FLIP saturated). KNOWN_ROTATION kept as a wrong-transform control.
+Gate order: fast SE2 proxy (inject translation gap) -> v13 EqM smoke -> full FID only if both pass.
