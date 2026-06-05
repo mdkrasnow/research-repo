@@ -1,0 +1,118 @@
+{
+  "project": "sia-lever",
+  "title": "SIA-W+H lever attribution — when harness vs weight update",
+  "phase": "PHASE_4_BLOCKED_GPU",
+  "rigor_pass_result": "PASS (paper-level). Phase 1: 15 seeds + Welch t (shortcut_sens d=16.3 p=1.6e-16; composition d=2.58; identity d=2.17; inverse d=1.32), gate 15/15. Metric suite upgraded: equivariance proxy -> group-axiom identity/inverse errors. Phase 3: 10 seeds/30 ep, selector regret 0.014 (acc 0.97), lowest at EVERY W_COST incl 0.00 (sweep), Wilcoxon p=0.013; measurement separated from W_COST scoring. Leak sweep: shortcut-cheat adversarial (only alpha=1.0); H->W group-repair holds all alpha. Wording fixed (preserve/repair). Provenance + writeup docs added.",
+  "phase_0_result": "PASS — prediction-only learner exploits shortcut (clean_mse~0, neg_control low, composition_err~5.6). Shortcut win real.",
+  "phase_1_result": "PASS 5/5 seeds — W-only keeps shortcut_win; H->W -> clean_win (neg_control 0.23->1.06, composition 5.6->0.002, shortcut_sens 1.07->0.002). Table+plot in results/.",
+  "phase_2_result": "PASS — subagent authored structural verifier from weak harness + trace. cheater flagged 5/5, honest 0/5. Diff: figures/harness_update.diff.",
+  "phase_3_result": "PASS — 3 real failure modes (shortcut_leak->H_THEN_W, model_prior_gap->W, bad_verifier->H). Oracle-sandwich selector regret 0.046 vs alternating 0.116, H_only 0.235, W_only 0.438 (3 seeds, real reruns, no transition table). Table+plot in results/.",
+  "phase_4_blocker": "Gemma LoRA weight-update needs GPU (hackathon). Local Gemma LLM-selector needs ollama model pull — paused; user rejected pull. Rule selector already proves the claim. AWAITING: GPU access or user go-ahead to pull a local model.",
+  "publication_goal": "Hackathon demo (one-day). Research-track angle: lever attribution in self-improving agents.",
+  "core_claim": "Weight-only updates can reinforce shortcut-cheating; harness-first-then-weight (H->W) fixes it. Proven once, measured, on a 2D rotation + shortcut-channel toy.",
+  "anti_goals": [
+    "No synthetic traces.",
+    "No hardcoded TRANSITION_EFFECTS oracle table (circular).",
+    "No Gemma LoRA as load-bearing dependency.",
+    "No 200-episode benchmark before the single real loop is measured."
+  ],
+  "phases": {
+    "PHASE_0": "Toy + measurement. Real shortcut-win confirmed (low clean_mse + low neg_control_mse).",
+    "PHASE_1": "Four-stage episode: prediction-only -> W-only -> H update -> H->W. Measured deltas. THE WIN.",
+    "PHASE_2": "Agentic H: Claude Code patches verifier from failed trace (real diff).",
+    "PHASE_3": "Lever selector over 2-3 REAL failure modes, regret by real reruns.",
+    "PHASE_4": "Gemma garnish (selector/explainer/LoRA). Droppable, never load-bearing."
+  },
+  "exit_gates": {
+    "PHASE_0": "prediction-only model: low clean_mse AND low neg_control_mse (shortcut win is real).",
+    "PHASE_1": "stage-4 neg_control_mse > stage-2 neg_control_mse, real reruns. If only this lands, project is a win.",
+    "PHASE_2": "visible agent-produced verifier diff + detection works on patched harness.",
+    "PHASE_3": "rule-selector beats H-only and W-only on >=3 real episodes, measured regret.",
+    "PHASE_4": "optional"
+  },
+  "next_action": {
+    "command": "Phase 4 (optional garnish) OR package demo",
+    "reason": "Phases 0-3 done + measured. Phase 4 blocked on GPU (Gemma LoRA) / user decision (local Gemma pull). Core claim fully proven without it.",
+    "hint": "Demo path: python experiments/run_seeds.py (Phase 0/1 win), python harness/verifier.py (Phase 2 agentic-H), python experiments/phase3.py (Phase 3 selector). All CPU, ~2-3 min total."
+  },
+  "needs_user_input_phase4": { "value": true, "prompt": "Phase 4 (Gemma) needs either GPU for LoRA weight-update, or approval to pull a local ollama Gemma for an LLM-selector garnish. Core result complete without it — proceed with Phase 4, or stop here?" },
+  "execution": "local CPU only. Tiny MLP, seconds per train. No SLURM, no GPU, no cluster.",
+  "needs_user_input": { "value": false, "prompt": "" },
+  "active_runs": [],
+  "completed_runs": [
+    {
+      "run_id": "phase1_5seed_episode",
+      "type": "local_cpu",
+      "status": "completed",
+      "result": "5/5 gate pass. W-only keeps shortcut_win; H->W -> clean_win.",
+      "artifacts": ["results/episode_table.md", "results/episode_plot.png", "results/episode_seeds_20260605T024025Z.json"],
+      "steps_per_stage": 2000,
+      "ts": "2026-06-05T02:40:25Z"
+    },
+    {
+      "run_id": "phase3_lever_attribution",
+      "type": "local_cpu",
+      "status": "completed_superseded",
+      "result": "selector regret 0.046 vs alternating 0.116, H_only 0.235, W_only 0.438. Lever acc 0.89.",
+      "config": "3 seeds, 800 steps/train, W_COST=0.05 (superseded by rigor pass)",
+      "ts": "2026-06-05T02:51:16Z"
+    },
+    {
+      "run_id": "phase1_15seed_rigor",
+      "type": "local_cpu",
+      "status": "completed",
+      "result": "gate 15/15. Welch t W-only vs H->W: shortcut_sens p=1.6e-16 d=16.3; composition p=5.7e-6 d=2.58; identity d=2.17; inverse d=1.32.",
+      "artifacts": ["results/episode_table.md", "results/episode_plot.png", "results/episode_seeds_20260605T030843Z.json"],
+      "config": "15 seeds, 2000 steps/stage, group-axiom metrics",
+      "ts": "2026-06-05T03:08:43Z"
+    },
+    {
+      "run_id": "phase3_10seed_wcost_sweep",
+      "type": "local_cpu",
+      "status": "completed",
+      "result": "selector regret 0.014 acc 0.97 (29/30); lowest at every W_COST incl 0.00 (0.019); Wilcoxon vs alternating p=0.013.",
+      "artifacts": ["results/phase3_table.md", "results/phase3_plot.png", "results/phase3_detail_20260605T035733Z.json"],
+      "config": "10 seeds, 800 steps, W_COST sweep {0,0.01,0.03,0.05,0.10}, measurement separated from scoring",
+      "ts": "2026-06-05T03:57:33Z"
+    },
+    {
+      "run_id": "leak_strength_sweep",
+      "type": "local_cpu",
+      "status": "completed",
+      "result": "shortcut-cheat only at alpha=1.0 (adversarial); H->W group-repair (composition ~0.002) holds at every alpha.",
+      "artifacts": ["results/leak_sweep_table.md", "results/leak_sweep_plot.png", "results/leak_sweep_20260605T040013Z.json"],
+      "config": "5 seeds, 1500 steps, alpha in {1.0,0.75,0.5,0.25,0.0}",
+      "ts": "2026-06-05T04:00:13Z"
+    }
+  ],
+  "events": [
+    {
+      "id": "evt-0001",
+      "ts": "2026-06-05T02:32:02Z",
+      "action": "INIT",
+      "detail": "Project created via /make-project. Phenomenon-first scope locked after critique of LeverBench-first plan (circular oracle, synthetic traces).",
+      "git_sha": "d9b59f4"
+    },
+    {
+      "id": "evt-0002",
+      "ts": "2026-06-05T02:40:25Z",
+      "action": "PHASE_0_1_PASS",
+      "detail": "Toy built + strengthened (full-vector shortcut leak). 4-stage episode, 5 seeds: gate 5/5. Phenomenon measured. Table+plot saved.",
+      "git_sha": "d9b59f4"
+    },
+    {
+      "id": "evt-0003",
+      "ts": "2026-06-05T02:51:00Z",
+      "action": "PHASE_2_3_PASS",
+      "detail": "Phase 2: subagent authored structural verifier (figures/harness_update.diff). Phase 3: oracle-sandwich selector regret 0.046 beats fixed policies on 3 real failure modes. Phase 4 blocked on GPU/user.",
+      "git_sha": "d9b59f4"
+    },
+    {
+      "id": "evt-0004",
+      "ts": "2026-06-05T04:05:00Z",
+      "action": "RIGOR_PASS",
+      "detail": "Paper-level rigor: group-axiom metrics, 15-seed Phase 1 + Welch t, 10-seed Phase 3 + W_COST sweep (selector wins at cost 0.00 too) + Wilcoxon, leak-strength sweep (honest two-finding), provenance + writeup. Wording corrected to preserve/repair.",
+      "git_sha": "d9b59f4"
+    }
+  ]
+}
