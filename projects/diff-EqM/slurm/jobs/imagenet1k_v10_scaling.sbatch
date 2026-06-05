@@ -59,7 +59,9 @@ pip install timm diffusers accelerate scipy torchvision 2>&1 | tail -10
 IMAGENET_PATH="/n/holylabs/ydu_lab/Lab/raywang4/imagenet/train"
 RESULTS_DIR="projects/diff-EqM/results/imagenet1k_${EPOCHS}ep_${RESULTS_TAG}"
 REPO_ROOT="/n/home03/mkrasnow/research-repo"
-PERSISTENT_RESULTS="$REPO_ROOT/$RESULTS_DIR"
+# home (/n/home03) is 95G and wedges trains via quota deadlock; allow override to
+# holylabs scratch (1.5PB). 2026-06-05: added after a home-full deadlock wedged trains.
+PERSISTENT_RESULTS="${PERSISTENT_RESULTS:-$REPO_ROOT/$RESULTS_DIR}"
 
 if [ ! -d "$IMAGENET_PATH" ]; then
     echo "ERROR: ImageNet-1K data not found at $IMAGENET_PATH" >&2
