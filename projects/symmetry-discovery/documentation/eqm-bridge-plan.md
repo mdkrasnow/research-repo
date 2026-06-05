@@ -277,3 +277,36 @@ augments EqM with the GROUP exp(t·A), t~U(-1,1) (knob `aug_mode` = orbit|single
 KNOWN_AUG≈10-FID lever (≥ the epochs where vanilla FID stabilizes). NOTE: feature_shift_consistency is low
 (~0.01) in the real-CIFAR smoke — expected (a spatial rotation is NOT a global feature-space translation),
 but watch operator-quality diagnostics over recall per the rung-15 coverage confound.
+
+---
+# CIFAR-FID BRIDGE RESULT (2026-06-05) — NEGATIVE. Proxy did NOT predict FID; rotation isn't a useful CIFAR symmetry.
+
+150ep CIFAR, 1 seed, FID(5000), corrected v12 (mixture-anchor discovery + grad-flow + orbit aug):
+
+| arm | FID | vs base | role |
+|---|---|---|---|
+| v00 BASE | 14.31 | — | floor (matches prior harness v00 14.17 -> harness OK) |
+| v12_random | 13.63 | -0.68 | negative control — BEAT everything |
+| v12_discovered_orbit | 14.41 | +0.10 | TREATMENT — ~=base, NO benefit |
+| vK_known (rotate15) | 14.82 | +0.51 | positive control — WORSE than base, FAILED |
+
+**Verdict: bridge NEGATIVE.** Ordering random > base > discovered > known is wrong for the mechanism.
+Two decisive reads:
+1. **Positive control FAILED**: known rotation aug did not beat base (14.82 > 14.31). By the project's
+   own control rule, a failed positive control means the treatment is uninterpretable as a mechanism win
+   — BUT here it is interpretable: rotation is NOT a useful symmetry of CIFAR (objects have canonical
+   orientation), so augmenting with rotations (known OR discovered) trains on unnatural off-distribution
+   images and does not help FID. v12_random (small random affine) won only as a weak generic regularizer.
+2. **Proxy/FID DISAGREE on the same lever.** The fast proxy's positive control (KNOWN rotation) strongly
+   beat base (0.18 vs 1.07) because the proxy INJECTED rotation as ground-truth and measured held-out
+   rotation recovery. FID measures full-distribution generation, where rotation aug is useless/harmful.
+   So the proxy validated the discovery MECHANISM (recovering an injected symmetry) but the injected
+   symmetry itself is not FID-relevant for CIFAR. The proxy is NOT a valid predictor of FID benefit when
+   the target symmetry is not actually exploitable by the generative task.
+
+**Decision (per CLAUDE.md stop-conditions + prior memory):** kill the v12 discovery->CIFAR-FID bridge.
+Do NOT run more seeds — the positive-control failure shows the lever (rotation aug) itself doesn't help
+CIFAR EqM, so a multi-seed treatment can't rescue it. The discovery method remains validated in the toy
+ladder + feature proxy, but it needs a setting where the discovered symmetry is genuinely useful to the
+generative target (CIFAR rotation is not). Matches earlier note: "v12 mechanism fails on real CIFAR;
+CIFAR/FID noise-limited; do not extend CIFAR/FID for v12." Known-symmetry aug is NOT a working lever here.
