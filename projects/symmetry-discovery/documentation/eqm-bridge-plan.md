@@ -333,3 +333,44 @@ NON-LEAKING move hinge, stability reg (det~1, cond ctrl, translation bounded), n
 Positive control fixed: KNOWN_TRANSLATE_CROP (random crop pad4 / translate +-2..4px) must beat BASE
 (loader already does hflip -> KNOWN_FLIP saturated). KNOWN_ROTATION kept as a wrong-transform control.
 Gate order: fast SE2 proxy (inject translation gap) -> v13 EqM smoke -> full FID only if both pass.
+
+---
+# v13 SE2 BRIDGE — PRE-REGISTERED DECISION MATRIX (written 2026-06-05, BEFORE FIDs land)
+
+Arms (all 150ep CIFAR, same harness/seed0):
+  v00_base 14.31 (reused floor) | vK_rotation 14.82 (reused wrong-transform ctrl)
+  v10_hardneg 19405301 (mining competitor) | vK_translate_crop 19404840 (POSITIVE control)
+  v13_discovered_se2 19404844 (TREATMENT) | v13_random_se2 19404851 (negative control)
+
+Main question: does v13_discovered_se2 beat base, random SE2, AND v10 mining, while
+vK_translate_crop validates the harness (beats base)?
+
+Read controls FIRST, then treatment, in this order:
+
+A. HARNESS FAIL — vK_translate_crop NOT < v00_base.
+   -> Do NOT interpret v13. The CIFAR aug lever failed (or 150ep/1seed noise too large). Stop, do not
+      scale. (Mirror of the v12 rotation positive-control failure, now for translation.)
+
+B. GENERIC REGULARIZATION — v13_random_se2 < v13_discovered_se2.
+   -> Gain is generic affine/crop regularization, NOT discovery. Discovery direction not the source.
+      Discovery mechanism not supported even if v13_disc < base.
+
+C. DISCOVERY WORKS, NOT > v10 — v13_discovered < base AND < random, but v10_hardneg < v13_discovered.
+   -> Discovery transfers to EqM, but v10 mining remains the stronger practical lever. Report as
+      competitive-not-superior; mining stays the recommended mechanism.
+
+D. STRONG BRIDGE WIN — v13_discovered < base AND < random AND < v10, with sane operator diagnostics
+   (translation-leaning, det~1, cond bounded, anchor improved, non-identity).
+   -> Frozen-anchor stable-generator discovery is a REAL EqM mechanism that beats mining. Worth
+      capability probes (bridge_capability_eval.py) + multi-seed replication + (only then) IN-1K.
+
+E. KNOWN AUG WINS, v13 DOESN'T — vK_translate_crop < base but v13_discovered NOT < base.
+   -> Operator FAMILY (translation/crop) is useful, but discovery is not learning the useful augmentation
+      well enough. Debug discovery objective/operator before any scale; known-aug is the lever meanwhile.
+
+F. WITHIN NOISE — controls do not separate (e.g. translate_crop ~= base ~= random ~= disc within ~0.5 FID).
+   -> Inconclusive. Need multi-seed before any claim. Do not over-read a single-seed ordering.
+
+Interpretation discipline: read A (harness) before anything; then B (generic vs discovered); then C/D
+(vs v10); E/F as fallbacks. Trust operator_diag.json (det/cond/tx/anchor) over FID alone per the rung-15
+coverage/coherence confound. collect_bridge_results.py auto-emits this read once FIDs are present.
