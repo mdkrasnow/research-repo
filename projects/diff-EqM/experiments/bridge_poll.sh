@@ -9,7 +9,7 @@ set -uo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 SSH="$ROOT/scripts/cluster/ssh.sh"
 RR=/n/home03/mkrasnow/research-repo
-LOGS=$RR/projects/diff-EqM/slurm/logs
+LOGS=$RR/slurm/logs                                   # variant_pilot #SBATCH output is submit-dir-relative
 RES=$RR/projects/diff-EqM/results
 
 BRIDGE="19404840 19404844 19404851 19405301"          # vK_tc, v13_disc, v13_rand, v10

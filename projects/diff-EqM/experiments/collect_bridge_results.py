@@ -13,7 +13,7 @@ import argparse, glob, json, os, re, subprocess
 
 RR = "/n/home03/mkrasnow/research-repo"
 RESULTS = f"{RR}/projects/diff-EqM/results"
-LOGS = f"{RR}/projects/diff-EqM/slurm/logs"
+LOGS = f"{RR}/slurm/logs"   # variant_pilot #SBATCH --output is submit-dir-relative -> $RR/slurm/logs
 
 # (arm, variant_name, job_id, role, reused_fid)
 ARMS = [
