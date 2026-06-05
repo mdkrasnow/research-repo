@@ -202,3 +202,12 @@ dirs, 180s cycle; retired the 2 lenient prune-all jobs. Restarted 3 bridge arms 
 **Lessons:** (1) "RUNNING" in squeue != alive — verify by stdout mtime / latest-ckpt mtime.
 (2) Any IN-1K train MUST set PERSISTENT_RESULTS=holylabs. (3) The bridge submissions worsened but
 did not cause the fill; the gate was already wedged ~10am.
+
+## 2026-06-05 — Phase 2 multiseed catastrophe (storage + rescue-policy)
+3 of 4 Phase-2 trains CANCELLED near-completion (~step 380k) and lost. Chain:
+1. holylabs redirect used `rsync -a` → chown fails on setgid root:ydu_lab dir → 0 ckpts synced for 26h (silent, `2>/dev/null`). van-s1-orig (18776220) finished exit 0 but ckpt never persisted → LOST.
+2. home (95G) + holylabs ydu_lab group-quota both full → no clean persistent target.
+3. RESCUE MISTAKE: ran a loop ssh-ing into compute nodes every 30min to pull /tmp ckpts. FASRC prohibits compute-node ssh → almost certainly triggered admin cancellation of 18776202/19/21 (`CANCELLED+`).
+Survivor: vanilla seed1 (19051147), self-persisting to home via fixed sbatch.
+FIXES: sbatch sync `rsync -rtL` (no -a) + self-prune latest-3 + surfaces failures.
+LESSONS: (a) never `rsync -a` to setgid group dirs; (b) NEVER ssh compute nodes for file rescue; (c) trains must write ckpts DIRECTLY to a roomy quota-sorted persistent path, not /tmp+rsync; (d) verify ckpts actually land on disk within first sync interval, don't trust "Synced" echoes.
