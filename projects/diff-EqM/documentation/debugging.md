@@ -211,3 +211,27 @@ did not cause the fill; the gate was already wedged ~10am.
 Survivor: vanilla seed1 (19051147), self-persisting to home via fixed sbatch.
 FIXES: sbatch sync `rsync -rtL` (no -a) + self-prune latest-3 + surfaces failures.
 LESSONS: (a) never `rsync -a` to setgid group dirs; (b) NEVER ssh compute nodes for file rescue; (c) trains must write ckpts DIRECTLY to a roomy quota-sorted persistent path, not /tmp+rsync; (d) verify ckpts actually land on disk within first sync interval, don't trust "Synced" echoes.
+
+## 2026-06-05 — Exp 3 metrics: 5-deep failure cascade before clean run (job 19120911 exit 0)
+
+Getting the Exp 3 verdict required clearing five stacked failures. Four were infra/storage; one was a real code bug. Logged so future eval runs avoid the same traps.
+
+1. **anm gen 18776254 → exit-53 (home quota deadlock).** home03 was 95G/95G (0 avail). Same root cause as commit 7973aaa. SLURM stdout pipe blocks when home is full → job dies ~4s. FIX: moved the 24G exp3 run dir (50K vanilla PNGs) home→holylabs via `rsync -a --remove-source-files`, then symlinked `results/exp3` → `/n/holylabs/ydu_lab/Lab/mkrasnow_eqm/exp3`. All exp3 REPO_ROOT-relative paths now resolve to holylabs transparently.
+
+2. **reference cache missing.** It had been deleted in the earlier 27G home-free (7973aaa). Metrics needs it. FIX: rebuilt via 18964347 (1000-class inception + per-class stats + resnet50 hist), exit 0.
+
+3. **anm gen 18964349 → exit 1, but 50000 PNGs present (cosmetic).** `tee: 'standard output': No space left on device` — home refilled mid-run (other-session trains dumping ckpts) and the SLURM stdout/tee pipe (on home) hit ENOSPC AFTER all image data was already written to holylabs. Data complete (provenance hash cd83c41c090a69db, schedule 83a8ede763e1b318 == vanilla; 0 errors in actual generation). No ERROR_rank file because the failure was the shell pipe, not Python. LESSON: a gen "FAILED" with full PNG count = check the log for ENOSPC on the *log pipe*, not a data failure.
+
+4. **metrics 19048900 → exit 1 (holylabs GROUP quota EDQUOT).** `mkdir: Disk quota exceeded` on holylabs even though `df` shows 1.5P free and inodes 1% — FAS sets a per-lab (ydu_lab) block quota invisible to `df`/`df -i`. The 24G move + 50K anm PNGs tipped the group over. FIX: added `OUT_DIR_REL` to `exp3_metrics.sbatch` so metrics READS gen+reference from holylabs (reads ignore quota) but WRITES its ~1.5GB outputs to home (12G free). LESSON: on holylabs, "df has space" ≠ "you can write" — the binding limit is the group quota, not the filesystem.
+
+5. **metrics 19048900 ALSO had a real code bug: feats/stems misalignment IndexError.** After the read/write split, the same job crashed in `run_arm`: `feats[common]` "size of axis is 49996 but size of corresponding boolean axis is 50000". ROOT CAUSE: `inception_features`/`classifier_predictions` SILENTLY SKIP unreadable images (try/except continue), so they returned 49996 feature rows — but `cached_features` paired those rows with the FULL 50000-file stem listing. 4 zero-byte vanilla PNGs (002189, 003069, 003178, 003180) had been truncated by the rsync move in step 1. FIX (commit abe9dbf):
+   - `cached_features`/`cached_preds` now build the stem array from the EXTRACTOR's own returned stems (the rows that actually have a feature/pred), persist a `.stems.npy` sidecar, and cache-validate on `n_files`+`prov`.
+   - Split `run_arm` into `extract_arm` (per-arm feats+preds) then `run_arm` (metrics); `main` intersects both arms to the COMMON readable sample-id set and scores both on it. Preserves the identical-sample-set guarantee, tolerates ≤0.5%/50 corrupt-PNG asymmetry, FAILs if a whole arm is genuinely deficient.
+   - Both arms scored on 49996 identical ids; 4 corrupt PNGs immaterial at 50K.
+
+**Lessons (general):**
+- (a) Any IN-1K eval that writes large outputs must target a quota-sorted path; home (95G hard) and holylabs (group quota) both bite. Split read-fs from write-fs when the read side is huge.
+- (b) Feature extractors that skip-on-error MUST return which items succeeded; never pair extractor output with the pre-extraction file list by position.
+- (c) `df` lies about writability on group-quota'd lustre/NFS exports — EDQUOT can fire with petabytes "free".
+- (d) A gen job FAILED with full sample count is usually a log-pipe ENOSPC, not a data loss — verify PNG count + provenance before regenerating.
+- (e) rsync moves can truncate a handful of files; make downstream eval robust to a few corrupt samples (score-on-common-set) rather than hard-failing a 50K run.

@@ -1,5 +1,11 @@
 # Experiment 3 — Fidelity-Diversity & Mode Coverage
 
+> **✅ DONE 2026-06-05 — VERDICT: STRONG_SUCCESS (no diversity tax).**
+> ANM l03 FID 26.88 vs vanilla 31.27 (−4.38, disjoint 95% CIs) on 49996 identical ids.
+> **recall FLAT 0.7185→0.7193** (diversity preserved), coverage +0.072, density +0.044,
+> weak-class bottom-quartile FID −5.61, 91% classes improve. Caveat: single seed.
+> Full writeup: `documentation/exp3-fidelity-diversity-results.md`. Data: `results/exp3_metrics_out/`.
+
 Does ANM's FID gain (IN-1K-256, EqM-B/2, 80ep: vanilla **31.41** → ANM λ=0.3 **27.09**)
 **preserve or improve diversity / class coverage / mode coverage**, or does ANM
 merely sharpen samples while dropping modes? **FID alone is not the answer.**
