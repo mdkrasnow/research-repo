@@ -175,3 +175,30 @@ CLAUDE.md "gpu_requeue MIG roulette" + "Auto-pruner standing infrastructure" sec
 - Safe junk (~2.3G) instantly re-consumed by live writers. Real levers were other-experiment data: exp3/reference 41G, exp3/full_lambda03 24G, eqm-l-2 scaling 17G.
 - FIX (user-approved): deleted exp3/reference (41G regenerable inception/classifier stats) -> 28G free, write OK. exp3-metrics (pending) will need refs rebuilt. Resubmitted exp4 resume 18778727.
 - LESSON: exit-53 + empty logs == disk/quota, NOT node glitch. Check df ~ FIRST. Relaunch prune_all_active to prevent recurrence.
+
+## 2026-06-04 — home03 100% quota deadlock wedged v10 gate ~12h (INCIDENT)
+
+**Symptom:** v10 3-seed gate (eqm-v10-l03-s1 18776202, s2 18776219), vanilla-s2 (18776221),
+and lambda10 scale (18949715) all RUNNING in squeue but FROZEN — stdout stale 740-1238min,
+no checkpoint written in 5-8h. Discovered while submitting/polling the CIFAR symmetry-bridge arms.
+
+**Root cause:** `/n/home03` is 95G hard cap. These IN-1K jobs were submitted WITHOUT the
+`PERSISTENT_RESULTS` override, so 2GB checkpoints (every 5000 steps) defaulted to home
+(`imagenet1k_80ep_v10.sbatch` lines 66-69). Home hit 100% ~10:05 → checkpoint/stdout writes
+returned ENOSPC → tee/pipe deadlock → trains halted but stayed in RUNNING (burning 4×A100 each,
+~12h wasted). Freeing space does NOT revive an already-deadlocked job.
+
+**Durable fix (already in the sbatch, just unused):** resume with
+`PERSISTENT_RESULTS=/n/holylabs/ydu_lab/Lab/mkrasnow_eqm/<dir>` (holylabs scratch = 1.5PB).
+IN-1K checkpoints must NEVER default to home. RESUME_CKPT=<dir>/000-*/checkpoints/<latest>.pt.
+
+**Actions taken (per user):** killed the 4 wedged IN-1K jobs (ckpts PRESERVED on home:
+l03-s1 0315000, l03-s2 0310000, van-s2 0210000, lambda10 0110000) to stop GPU waste; user to
+resume the gate on holylabs. Freed 27G (deleted superseded 40ep bridge dirs + 3 stale _rescued
+dirs whose canonical equivalents were ahead). Deployed aggressive standing pruner
+(prune_aggressive.sbatch, job 19240382): keep {65000 anchor}+latest2 on *80ep* dirs, prune bridge
+dirs, 180s cycle; retired the 2 lenient prune-all jobs. Restarted 3 bridge arms fresh on gpu.
+
+**Lessons:** (1) "RUNNING" in squeue != alive — verify by stdout mtime / latest-ckpt mtime.
+(2) Any IN-1K train MUST set PERSISTENT_RESULTS=holylabs. (3) The bridge submissions worsened but
+did not cause the fill; the gate was already wedged ~10am.
