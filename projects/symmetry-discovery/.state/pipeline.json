@@ -1,7 +1,7 @@
 {
   "project": "symmetry-discovery",
   "title": "Symmetry discovery vs hard-negative mining for generative models (EqM)",
-  "phase": "v14 CPU ladder DONE \u2014 v14 NOT authorized (discovered distribution == random; nothing to discover for known/generic CIFAR translation). Bridge concluded.",
+  "phase": "v14 BEAT-CROP policy ladder DONE \u2014 NOT authorized for FID (policy ties crop, doesn't beat it; utility faint edge over random/entropy, none over crop). EqM bridge CONCLUDED.",
   "research_question": "Can a learned manifold-preserving operator, anchored to data (not the live field), discover a nonlinearly-hidden symmetry and fill held-out manifold regions? vs hard-negative mining and known-symmetry constraints.",
   "scale": "CPU toy (2D/16D rings). NOT publishable; filters/diagnostics only.",
   "ladder_status": {
@@ -25,7 +25,8 @@
     "eqm_bridge_feature_proxy": "Fast CIFAR feature-space proxy (frozen random-conv+PCA32, rotation gap). KNOWN_AUG closes gap (0.18<<base 1.07, gate OK); RANDOM fails (off-manifold); DISCOVERED stable-generator = stable(det1,cond1.1)+beats-random BUT ~= BASE on held-out gap (1.19) -> anchor-matching doesn't target held-out (rung9/15 confound; frozen feature space not symmetry-aligned). Mechanism FAILS in CIFAR feature space as-is.",
     "eqm_bridge_spatial_proxy": "SUPERSEDED by _v2 below. (Original claimed 'targeting open / anchor direction-agnostic / wrong -23deg direction' -- that was a BUG ARTIFACT: the @no_grad encoder blocked the anchor gradient to A, so the operator was driven only by move+stability and its sign was the init seed; and move_target=20deg leaked the held-band magnitude.)",
     "eqm_bridge_spatial_proxy_v2": "CORRECTED (2026-06-04, results_spatial_proxy_v2.json): fixed grad-flowing frozen encoder + non-leaking move HINGE[5,45deg] + MIXTURE-anchor objective ((1-pi)real + pi*T(real) ~= real). RESULT PASSES: MIXTURE_SINGLE gap_HO 0.305 (angle +29.5, det0.99 cond1.13) << base 1.065, ~near KNOWN 0.182, beats random 1.41. T-only undershoots (+4.9deg, sits at move floor: visible mass dominates anchor so small rotation already matches bulk); mixture decouples bulk-coverage from gap-fill -> discovers correct direction+magnitude UNSUPERVISED (held band enters only as unlabeled anchor mass). Once grad flows, direction is DETERMINED (inverse worse) -> 'gauge' reading was itself a symptom of the no-grad bug. Anchor-matching is NOT direction-agnostic; the mass-mismatched T-only objective was. Controls clean (random/random_bidir/PCA_linear ~= base). Architecture critique still valid. Mechanism now warrants a LONG CIFAR/FID run (40ep was noise-limited).",
-    "v14_distribution_ladder": "A,B,C PASS (distribution covers 2D region single can't); D DECISIVE NEG (disc dist ~= random dist on classifier robustness, 3 seeds); E inconclusive (no signal). v14 NOT authorized: for known/generic CIFAR symmetry discovery adds nothing over random crop."
+    "v14_distribution_ladder": "A,B,C PASS (distribution covers 2D region single can't); D DECISIVE NEG (disc dist ~= random dist on classifier robustness, 3 seeds); E inconclusive (no signal). v14 NOT authorized: for known/generic CIFAR symmetry discovery adds nothing over random crop.",
+    "v14_beatcrop_policy_ladder": "A,B PASS (policy: high-rank 2D on-manifold bounded, 2D-cov entropy floor needed, beats single/random in coverage). C (utility vs crop, 3 seeds): policy TIES crop (transl\u00b16 0.382 vs 0.377 within noise) + beats random, NOT a beat; utility faint edge over entropy/random none over crop. D EqM-lite INCONCLUSIVE (no signal). NOT authorized: no headroom over near-optimal crop for known/generic symmetry."
   },
   "key_findings": [
     "Hard-negative/v10 mining installs no manifold structure. Dead.",
@@ -36,13 +37,13 @@
     "EqM bridge plan written (v12 frozen stable-generator aug, middle-block feature anchor); real validation needs cluster (2FA)."
   ],
   "next_action": {
-    "command": "Await direction; bridge concluded (v12 rotation / v13 single / v14 distribution all non-superior vs known crop)",
-    "reason": "v14 ladder: discovery mechanism works (A-C) but discovered distribution == random distribution in value (D). Nothing to discover for known/generic translation on CIFAR.",
-    "hint": "Discovery only earns its keep for UNKNOWN/non-generic symmetries (toy ladder). Still pending: update v10_hardneg bridge FID (job 19405301) when done."
+    "command": "Await direction \u2014 EqM bridge concluded (v12 rotation / v13 single / v14 distribution / v14-policy all tie-or-lose vs known crop)",
+    "reason": "v14 beat-crop ladder: policy mechanism works (A,B) but ties crop and does not beat it (C); EqM-lite inconclusive (D). For known/generic CIFAR translation there is no headroom over crop.",
+    "hint": "Discovery only earns value for UNKNOWN/non-generic symmetries (toy ladder). Pending: update v10_hardneg bridge FID (job 19405301)."
   },
   "needs_user_input": {
     "value": true,
-    "prompt": "v14 ladder complete: NOT authorized for CIFAR/FID. Distribution mechanism fixes v13 under-diversity (rungs A-C) but discovered distribution == random distribution on downstream robustness (rung D, 3 seeds) -> for known/generic CIFAR translation, discovery adds nothing over random crop. Bridge direction concluded. Awaiting next direction. (v10 bridge FID still to be filled in.)"
+    "prompt": "v14 beat-crop ladder complete: NOT authorized for FID. Policy mechanism works (A,B high-rank diverse on-manifold) and ties crop + beats random (C) but does NOT beat crop; utility term adds only faint edge over random/entropy, none over crop; EqM-lite inconclusive (D). For known/generic CIFAR translation there is no headroom over near-optimal crop. EqM bridge direction concluded. Awaiting next direction. (v10 bridge FID still to fill in.)"
   },
   "active_runs": [],
   "completed_runs": [

@@ -463,3 +463,34 @@ Synthesis (v12->v13->v14):
      the useful aug is just random crop (known control provides it and wins). Frozen-anchor discovery only
      earns its keep when the useful symmetry is UNKNOWN + NON-generic; CIFAR translation is known+generic, so
      nothing to discover. Bridge CONCLUDED. (Discovery still validated in the toy ladder for hidden symmetries.)
+
+---
+# v14 (BEAT-CROP) POLICY LADDER (2026-06-05) — VERDICT: NOT authorized. Policy TIES crop, doesn't beat it.
+
+Goal: learn an augmentation POLICY qθ(T) (anchor+entropy+utility) that BEATS known crop, not imitates it.
+Policy = qθ over 2-gen SE(2) Lie basis, M=exp(z1*A1+z2*A2), z~N(0,diag(σ^2)).
+
+Rung A (policy safety): PASS — anchor grad to full policy (A1,A2,logsig)=40.6, encoder frozen, no-grad=0,
+  broad hinge learns w/o leak.
+Rung B (policy support): PASS — ANCHOR_ENTROPY (with 2D induced-covariance floor) cover 0.25 beats single
+  3.66/random 0.62/base 1.43, HIGH-RANK 2D (erat 0.29), bounded. Ablation: anchor-only anisotropic
+  (erat 0.13) -> the 2D-cov entropy floor is needed for genuine 2D support.
+Rung C (utility vs crop, classifier broad-±6 robustness, 3 seeds): does NOT beat crop.
+  transl±6: base 0.370, KNOWN_CROP 0.377, random_policy 0.371, anchor_only 0.371, anchor_entropy 0.380,
+  anchor+entropy+UTILITY 0.382. Utility policy is top numerically + beats random, but TIES crop within
+  noise (0.382 vs 0.377; crop std 0.018 >> 0.005 margin). Utility = faint edge over entropy/random, NONE
+  over crop. (crop itself only +0.007 over base here — weak proxy signal.)
+Rung D (EqM-lite policy): INCONCLUSIVE — known gap 0.0018 within noise (velocity field eps-x is locally
+  translation-robust -> proxy can't distinguish augs; full run would be same, not run).
+
+VERDICT: v14 (beat-crop) NOT AUTHORIZED for CIFAR/FID. The policy MECHANISM works (A,B: valid diverse,
+high-rank, on-manifold, bounded policy; beats single+random in coverage) and the trained policy MATCHES
+crop + beats random on downstream robustness (C) — but does NOT BEAT crop, and the utility term adds only
+a faint edge over entropy/random (none over crop). EqM-lite inconclusive.
+
+WHAT BLOCKED IT: no headroom over crop. For a KNOWN, GENERIC nuisance symmetry (translation/crop) on CIFAR,
+crop is already near-optimal; a learned policy at best ties it. Per stop-conditions ("cannot beat known-crop
+gap" + "next work is tuning not mechanism"), STOP. Do NOT build v14_stable_aug_policy.py, do NOT run FID.
+Consistent with the whole v12->v13->v14 arc: discovery (single/distribution/policy) ties crop, never beats
+it, because there is nothing to discover for a known generic symmetry. Discovery's value is for UNKNOWN /
+non-generic symmetries (the toy ladder). EqM bridge direction CONCLUDED.

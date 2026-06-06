@@ -62,3 +62,12 @@ equals a RANDOM one in value (D). For known/generic CIFAR nuisance symmetries (t
 nothing to discover — the useful aug is just random crop. Do NOT build v14 production or run FID.
 Files: v14_ladder_anchor_grad_test.py, v14_ladder_move_leakage_test.py, feature_gap_proxy_cifar_se2_distribution.py,
 aug_training_proxy_cifar.py, eqm_lite_aug_proxy.py, _se2_discovery.py.
+
+## v14 (beat-crop) policy ladder (2026-06-05) — VERDICT: NOT authorized for FID
+A (policy safety) PASS; B (policy support) PASS — anchor+entropy(2D-cov floor) high-rank 2D, beats
+single/random, bounded; ablation shows the 2D floor is needed. C (utility vs crop, 3 seeds) — discovered
+anchor+entropy+utility policy TIES crop (transl±6 0.382 vs 0.377, within crop noise 0.018) + beats random,
+but does NOT beat crop; utility = faint edge over entropy/random, none over crop. D (EqM-lite) INCONCLUSIVE
+(no signal). Blocked by: no headroom over near-optimal crop for a known/generic symmetry. Mechanism works;
+value-over-crop does not materialize. Files: v14_policy_safety_tests.py, feature_gap_proxy_cifar_policy.py,
+aug_policy_training_proxy_cifar.py, eqm_lite_policy_proxy.py, discover_policy in _se2_discovery.py.
