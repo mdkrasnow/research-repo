@@ -1,7 +1,7 @@
 {
   "project": "diff-EqM",
   "title": "Differential-Geometry-Guided Adversarial Negative Mining for EqM (DG-ANM)",
-  "phase": "V10-ONLY-IN1K-PHASE-2-MULTISEED-RUNNING",
+  "phase": "v13 SE2 bridge DONE (right family/wrong paradigm: known crop -1.72 wins; discovered~=random). v10 pending. NEXT: new CPU test ladder.",
   "stage_b_in1k_baseline": {
     "verified_at": "2026-05-13",
     "result": {
@@ -115,23 +115,9 @@
     ]
   },
   "next_action": {
-    "command": "Wait for v10 IN-1K seed-0 job 15638767 to complete (currently step ~285K of 380K, ETA ~10h). On COMPLETED: bash projects/diff-EqM/experiments/cafm_eqm/submit_v10_phase1_fid.sh (auto-resolves latest ckpt, runs 50K-sample FID for Phase 1 gate FID <= 30.41). If PASS: bash projects/diff-EqM/experiments/cafm_eqm/submit_v10_phase2_seeds.sh (seeds 1+2 for Phase 2 Welch t test). If FAIL: 1 retune of lambda in {0.03, 0.3, 1.0} per CLAUDE.md, then kill direction.",
-    "reason": "Plan locked 2026-05-19 in documentation/summer-2026-plan.md. Broad framing approved (EqM-first, flow-matching transfer Phase 4). Venues: NeurIPS 2026 workshop (Aug 29) + ICLR 2027 (~Oct 1). Differentiation memo locked vs DAT (Wu 2025, 2510.13872) and AEBM-Diff (Geng 2024, 2403.01666). v10 mechanism-aligned per CLAUDE.md.",
-    "phase_0_tasks": [
-      "v02 IN-1K cancellation postmortem",
-      "v10 code + configs + sbatch",
-      "v10 CIFAR sanity (1 seed 150ep)",
-      "v11 fallback sketch (in case v10 fails Phase 1 gate)",
-      "Weekly arxiv sweep log started"
-    ],
-    "phase_1_gate": "v10 IN-1K-256 EqM-B/2 80ep seed 0 FID <= 30.41 (vs trusted vanilla 31.41). Otherwise 1 retune of lambda then kill.",
-    "spec": "projects/diff-EqM/documentation/phase-0-spec.md",
-    "budget": "<=50 GPU-h (smoke only)",
-    "execution_order": "0.1 + 0.4 + 0.5 parallel (no compute) -> 0.2 -> 0.3 (compute, ~8h)",
-    "window": "remaining Phase 0 + Phase 1a: 2026-05-19 to 2026-06-23",
-    "lit_review": "leads phase; synthesis informs v10 code + v11 sketch + framing",
-    "branch": "B-Both",
-    "needs_user": "Yes \u2014 cluster SSH credentials need refresh for v02 postmortem and Phase 0.C.2 smoke. Local code work can proceed without."
+    "command": "Build next CPU test ladder (spec from user)",
+    "reason": "v13 bridge logged: discovery-as-frozen-single-operator does not transfer to generation (needs aug diversity). Moving on.",
+    "hint": "UPDATE v10_hardneg (19405301) final FID into results_variants.tsv + eqm-bridge-plan.md when it completes (~ep120 at last poll). Then proceed with the new ladder."
   },
   "autoresearch_variants": {
     "active": true,
@@ -223,8 +209,8 @@
     "sbatch": "projects/diff-EqM/slurm/jobs/variant_pilot.sbatch"
   },
   "needs_user_input": {
-    "value": false,
-    "prompt": ""
+    "value": true,
+    "prompt": "v13 bridge logged (known crop 12.59 wins, discovered 14.02~=random 14.08~=base 14.31 \u2014 frozen single-op lacks diversity). Awaiting spec for the next CPU test ladder. v10 competitor FID still to be filled in (job 19405301)."
   },
   "completed_runs": [
     {
@@ -1594,7 +1580,7 @@
     },
     {
       "partition": "gpu",
-      "status": "pending",
+      "status": "completed",
       "submitted_at": "2026-06-05",
       "git_sha": "b51ffb4",
       "sbatch_path": "projects/diff-EqM/slurm/jobs/variant_pilot.sbatch",
@@ -1603,11 +1589,12 @@
       "gate": "v13 SE2 bridge: KNOWN_TRANSLATE_CROP(pos) vs v13_discovered(treatment) vs v13_random(neg); reuse v00 14.31 + vK_rotation 14.82",
       "run_id": "bridge150_v13_random_se2",
       "job_id": "19404851",
-      "description": "v13 bridge NEGATIVE control: random SE2 affine aug 150ep"
+      "description": "v13 bridge NEGATIVE control: random SE2 affine aug 150ep",
+      "final_metric": "CIFAR FID(5k) 14.0759 \u2014 random SE2 neg ctrl -0.23"
     },
     {
       "partition": "gpu",
-      "status": "pending",
+      "status": "completed",
       "submitted_at": "2026-06-05",
       "git_sha": "b51ffb4",
       "sbatch_path": "projects/diff-EqM/slurm/jobs/variant_pilot.sbatch",
@@ -1616,11 +1603,12 @@
       "gate": "v13 SE2 bridge: KNOWN_TRANSLATE_CROP(pos) vs v13_discovered(treatment) vs v13_random(neg); reuse v00 14.31 + vK_rotation 14.82",
       "run_id": "bridge150_v13_discovered_se2",
       "job_id": "19404844",
-      "description": "v13 bridge TREATMENT: SE2 discovered translation op (mixture-anchor) + orbit aug 150ep"
+      "description": "v13 bridge TREATMENT: SE2 discovered translation op (mixture-anchor) + orbit aug 150ep",
+      "final_metric": "CIFAR FID(5k) 14.0207 \u2014 TREATMENT ~=random ~=base (-0.29); discovery NOT the source; frozen single-op lacks crop diversity, shift_consistency~0"
     },
     {
       "partition": "gpu",
-      "status": "pending",
+      "status": "completed",
       "submitted_at": "2026-06-05",
       "git_sha": "b51ffb4",
       "sbatch_path": "projects/diff-EqM/slurm/jobs/variant_pilot.sbatch",
@@ -1629,7 +1617,8 @@
       "gate": "v13 SE2 bridge: KNOWN_TRANSLATE_CROP(pos) vs v13_discovered(treatment) vs v13_random(neg); reuse v00 14.31 + vK_rotation 14.82",
       "run_id": "bridge150_vK_translate_crop",
       "job_id": "19404840",
-      "description": "v13 bridge POSITIVE control: known random-crop(pad4) aug 150ep (must beat base 14.31)"
+      "description": "v13 bridge POSITIVE control: known random-crop(pad4) aug 150ep (must beat base 14.31)",
+      "final_metric": "CIFAR FID(5k) 12.5938 \u2014 POS_CTRL WIN -1.72 vs base; translation lever valid"
     },
     {
       "run_id": "v10_b2_lambda10_seed0_bracket_resume",

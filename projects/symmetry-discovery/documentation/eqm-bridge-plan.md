@@ -374,3 +374,44 @@ F. WITHIN NOISE — controls do not separate (e.g. translate_crop ~= base ~= ran
 Interpretation discipline: read A (harness) before anything; then B (generic vs discovered); then C/D
 (vs v10); E/F as fallbacks. Trust operator_diag.json (det/cond/tx/anchor) over FID alone per the rung-15
 coverage/coherence confound. collect_bridge_results.py auto-emits this read once FIDs are present.
+
+---
+# v13 SE2 BRIDGE — RESULT (2026-06-05, 150ep CIFAR, 1 seed). KEY: right family, wrong paradigm.
+
+| arm | role | final FID(5k) | vs base |
+|---|---|---|---|
+| vK_translate_crop | POSITIVE control | **12.59** | **−1.72** |
+| v13_discovered_se2 | treatment | 14.02 | −0.29 |
+| v13_random_se2 | negative control | 14.08 | −0.23 |
+| v00_base (reused) | floor | 14.31 | — |
+| vK_rotation (reused) | wrong-transform ctrl | 14.82 | +0.51 |
+| v10_hardneg | mining competitor | **PENDING** (update later) | — |
+
+Decision read (v10 pending, single seed): A. HARNESS VALID ✓✓ (translate_crop 12.59 ≪ base 14.31 —
+architecture critique CONFIRMED: a CIFAR-appropriate known aug is a strong lever, where rotation hurt).
+B-leaning: v13_discovered ≈ v13_random ≈ base (disc−random = −0.06, disc−base = −0.29, both within
+single-seed noise) → the gain is NOT from discovery.
+
+**Failure-mode narrative (operator diagnostics are EXCELLENT — failure is the paradigm, not the operator):**
+v13_discovered op = clean ~2px diagonal translation: tx−2.11 ty−1.98, det0.976 cond1.009 sv[0.992,0.983]
+lin_off0.019, anchor 6.29→3.67 (halved), aug ratio 0.88 stable all 150ep. By every STATIC metric the
+discovery succeeded. But:
+1. Crop aug's value is DIVERSITY — a different 2D shift every step (pad4 → 81 crops). The frozen operator
+   gives ONE direction; orbit exp(tA),t~U(−1,1) is a 1-PARAMETER sliver along the single (−2,−2) diagonal.
+   Low-diversity → can't supply what makes crop work.
+2. feature_shift_consistency ≈ 0.009 (≈0): translating different images moves their features in different
+   directions (translation is not a global feature shift through a conv encoder). The op matches the anchor
+   DISTRIBUTION without a COHERENT transform the generator can exploit — the rung-15 coverage/coherence
+   confound resurfacing.
+3. Proxy passed but FID didn't because the proxy scored "fill a STATIC held-out band" (a point-operator
+   distribution-MATCH) while FID needs generative COVERAGE of the full nuisance distribution (a MEASURE of
+   transforms, not one). The proxy structurally couldn't see this.
+
+**v13 ≠ v12:** v12 = wrong family (rotation, known ctrl also failed). v13 = RIGHT family (translation,
+known crop wins big) but WRONG PARADIGM (freeze one point-operator vs sample a diverse aug distribution).
+A single frozen translation ≈ generic random affine in value.
+
+**Implied fix (NOT pursued now):** discover an aug DISTRIBUTION/subgroup and sample it densely per-step —
+but that converges toward "just do random crop," questioning whether discovery adds value over the known
+aug for CIFAR. **Verdict: bridge does not beat known crop; discovery formulation (frozen single operator)
+does not transfer to generation.** Moving on. v10 competitor number to be filled in.
