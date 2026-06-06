@@ -44,3 +44,21 @@ new variant `v12_stable_generator_aug` discovering a frozen stable operator vs a
 compared against v00/v10/known-aug on CIFAR FID.
 **Next human action:** `! scripts/cluster/ssh_bootstrap.sh` (2FA) to enable the EqM bridge, OR choose a
 toy sub-problem (symmetry-aligned unsupervised latent / better non-rotation testbed).
+
+## v14 CPU ladder (2026-06-05) — VERDICT: v14 NOT authorized for CIFAR/FID
+Tested whether discovering an augmentation DISTRIBUTION (vs v13's single frozen operator) adds value.
+- Rung A (anchor-grad gate): PASS — anchor grad to operator 924.7, encoder frozen, no-grad path=0.
+- Rung B (move/leakage): PASS — broad hinge anchor-driven, no leak; single-op UNDERDETERMINED on
+  translation-spread anchor (motivates distribution).
+- Rung C (single vs distribution, translation-space coverage): PASS — single op CANNOT cover a 2D crop
+  region (cover 5.19 vs base 1.40); discovered DISTRIBUTION covers it (0.32 vs oracle 0.017), high-rank
+  2D support (eig_ratio 0.39) emerges without entropy floor.
+- Rung D (aug-training, small CNN, 3 seeds): DECISIVE NEGATIVE — translated-val acc: base 0.391,
+  known_crop 0.431, single 0.377 (v13 single HURTS), random_dist 0.421, disc_dist 0.420. Discovered
+  distribution ~= random distribution; closes 72% of gap, crushes single, but adds NOTHING over random.
+- Rung E (EqM-lite): INCONCLUSIVE (no signal; translated-field gap 0.0014 within noise).
+CONCLUSION: the distribution mechanism fixes v13's under-diversity (A-C) but the DISCOVERED distribution
+equals a RANDOM one in value (D). For known/generic CIFAR nuisance symmetries (translation/crop) there is
+nothing to discover — the useful aug is just random crop. Do NOT build v14 production or run FID.
+Files: v14_ladder_anchor_grad_test.py, v14_ladder_move_leakage_test.py, feature_gap_proxy_cifar_se2_distribution.py,
+aug_training_proxy_cifar.py, eqm_lite_aug_proxy.py, _se2_discovery.py.

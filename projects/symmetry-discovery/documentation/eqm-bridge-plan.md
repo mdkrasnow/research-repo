@@ -415,3 +415,51 @@ A single frozen translation ≈ generic random affine in value.
 but that converges toward "just do random crop," questioning whether discovery adds value over the known
 aug for CIFAR. **Verdict: bridge does not beat known crop; discovery formulation (frozen single operator)
 does not transfer to generation.** Moving on. v10 competitor number to be filled in.
+
+---
+# v14 CPU LADDER (2026-06-05) — does discovering an aug DISTRIBUTION (vs v13's single op) add value?
+
+Hypothesis: v13 failed because a single frozen operator lacks the per-step DIVERSITY that makes crop aug
+work. v14 should discover a translation DISTRIBUTION/subgroup. Ladder (CPU, controls each rung):
+
+Rung A — anchor-gradient gate: PASS. Frozen encoder 6/6 params frozen; anchor energy-dist grad to operator
+  A = 924.7 (nonzero); @no_grad path grad = 0 (v12 bug reproduced as neg ctrl); params unchanged after steps.
+
+Rung B — move/leakage gate: PASS. Broad move hinge learns from anchor (gap 0.51<base 0.86), no leak;
+  leaked-target is invalid by construction. KEY FINDING: on a translation-SPREAD anchor the single-operator
+  objective is UNDERDETERMINED (no-guard drifts; anchor can't pin one op) -> motivates a distribution.
+
+Rung C — single vs distribution (translation-space coverage, frozen-conv discovery): PASS.
+  A single op CANNOT cover a 2D crop region (cover_ed 5.19 vs base 1.40); discovered DISTRIBUTION + 2gen
+  cover it (0.32 vs oracle 0.017) with genuine high-rank 2D support (eig_ratio 0.39, NOT a diagonal line),
+  emerging WITHOUT an entropy floor. (Feature-space ED hit a noise floor with coarse stride-8 conv ->
+  switched eval to translation space + fine stride-2 encoder; mechanism, not metric, is the point.)
+
+Rung D — augmentation-training proxy (small CNN, 3 seeds), translated-val accuracy:
+  base 0.391, known_crop 0.431, single 0.377 (v13 single HURTS), random_dist 0.421, disc_dist 0.420.
+  Discovered distribution closes 72% of the known-crop gap and CRUSHES single — but disc_dist ~= random_dist
+  (0.420 vs 0.421, within 3-seed noise). => the robustness gain comes from HAVING a 2D spread, NOT from the
+  discovered shape. Stop-condition "discovered does not beat random" TRIGGERED at D.
+
+Rung E — EqM-lite aug proxy: INCONCLUSIVE (no signal). Quick run: all arms' translated-field loss ~0.45,
+  known-base gap 0.0014 (within noise) -> the EqM-lite velocity field (eps-x, local) is inherently fairly
+  translation-robust, so augmentation barely moves the translated-field loss at CPU budget. Full 3-seed run
+  killed (>25min for a provably-inconclusive result; signal-guard would flag it). Not decision-relevant.
+
+## VERDICT: v14 NOT AUTHORIZED for CIFAR/FID.
+
+Ladder: A,B,C PASS (distribution mechanism WORKS — fixes v13 single-op under-diversity: a single op can't
+cover a 2D crop region, a discovered distribution can, high-rank 2D support emerges from the anchor).
+D DECISIVE NEGATIVE: discovered distribution ~= random distribution on real downstream robustness (3 seeds;
+closes 72% of known-crop gap, crushes single, but adds NOTHING over random). E inconclusive.
+Per pre-registered stop-condition ("discovered does not beat random") -> STOP; do NOT build
+v14_stable_se2_distribution_aug; do NOT run CIFAR/FID.
+
+Synthesis (v12->v13->v14):
+  v12: WRONG family (rotation) — not a useful CIFAR symmetry (known-rotation hurt FID).
+  v13: RIGHT family (translation) WRONG paradigm (single frozen op) — under-diversity; ~=base/random FID.
+  v14: RIGHT family + distribution — FIXES under-diversity (A-C) BUT discovered distribution == random in value (D).
+  => For KNOWN, GENERIC nuisance symmetries on CIFAR (translation/crop) unsupervised DISCOVERY is superfluous:
+     the useful aug is just random crop (known control provides it and wins). Frozen-anchor discovery only
+     earns its keep when the useful symmetry is UNKNOWN + NON-generic; CIFAR translation is known+generic, so
+     nothing to discover. Bridge CONCLUDED. (Discovery still validated in the toy ladder for hidden symmetries.)
