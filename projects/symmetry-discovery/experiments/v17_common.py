@@ -87,6 +87,15 @@ def make_arm(name, bundle, scorer=None, discover_kw=None, seed=0):
     kw = dict(discover_kw or {})
     kw.update(cfg)
     diag = P.discover(pol, bundle["vis"], scorer, seed=seed, **kw)
+    if name in ("LEARNED_SINGLE_POLICY", "DISCOVERED_SINGLE"):
+        # collapse to the single best discovered morphism (tests "one morphism is insufficient for multi")
+        with torch.no_grad():
+            top = int(pol.logits.argmax())
+            new = torch.full_like(pol.logits, -1e9)
+            new[top] = 0.0
+            pol.logits.copy_(new)
+        if diag is not None:
+            diag["collapsed_to"] = pol.families[top]
     return pol, diag
 
 

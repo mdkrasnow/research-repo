@@ -96,13 +96,22 @@ def heldout_coverage(policy, visible_z, heldout_z, hidden_factors, n_reach=4000,
     reach = visible_z[base_idx].clone() + mag.unsqueeze(1) * T[fam_idx]
     fdims = list(hidden_factors)
     if not fdims:
-        return {"heldout_coverage": 0.0, "reachable_spread": 0.0}
-    R = reach[:, fdims]
-    Hd = heldout_z[:, fdims]
-    d = torch.cdist(Hd, R)
-    covered = (d.min(1).values < tol).float().mean()
-    spread = R.std(0).mean()
-    return {"heldout_coverage": float(covered), "reachable_spread": float(spread)}
+        return {"heldout_coverage": 0.0, "heldout_coverage_joint": 0.0, "reachable_spread": 0.0}
+    # PER-FACTOR coverage (primary): for each hidden factor, fraction of its heldout band within tol of a
+    # reachable value. Averaged over hidden factors. This is the "discovers each morphism" claim and
+    # separates multi (reaches all factors) from single (reaches one) -- joint coverage is an unreasonable
+    # bar (needs all factors hit simultaneously by composed single-factor moves).
+    per = []
+    for f in fdims:
+        d1 = (heldout_z[:, f].unsqueeze(1) - reach[:, f].unsqueeze(0)).abs()
+        per.append(float((d1.min(1).values < tol).float().mean()))
+    cov_pf = sum(per) / len(per)
+    # joint coverage (secondary, strict)
+    d = torch.cdist(heldout_z[:, fdims], reach[:, fdims])
+    joint = float((d.min(1).values < tol).float().mean())
+    return {"heldout_coverage": cov_pf, "heldout_coverage_joint": joint,
+            "per_factor_coverage": {G.LAT_NAMES[f]: per[i] for i, f in enumerate(fdims)},
+            "reachable_spread": float(reach[:, fdims].std(0).mean())}
 
 
 @torch.no_grad()

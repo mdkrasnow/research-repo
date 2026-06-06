@@ -101,22 +101,29 @@ def collect_phase1():
         cov_nd = armagg("LEARNED_MULTI_NO_DIVERSITY", "coverage", "heldout_coverage")
         val_l = armagg(learned, "collapse_validity", "validity_rate")
         val_rd = armagg("RANDOM_WITH_DECOYS", "collapse_validity", "validity_rate")
+        val_na = armagg("LEARNED_MULTI_NO_ANCHOR", "collapse_validity", "validity_rate")
         is_multi = "multi" in task
         impossible = "impossible" in task
-        # gates — honest discriminators. (coverage saturates on single-factor tasks; it separates
-        # multi-vs-single on multi tasks. The defensible discovery claims are: finds the RIGHT family,
-        # AVOIDS decoys, stays VALID without being told the valid set, and ABLATIONS degrade.)
+        is_decoy = "decoy" in task
+        # Honest, universal discovery criteria: (1) recovers TRUE families, (2) AVOIDS decoys,
+        # (3) stays VALID without being told the valid set, (4) the ANCHOR matters -> NO_ANCHOR ablation
+        # loses validity (anchor's job is on-manifold/decoy-avoidance, NOT coverage: per-factor coverage
+        # can stay high under brute spreading, but invalidly). Multi adds: multi>single coverage.
+        anchor_matters = val_na < val_l - 0.05
+        valid_beats_decoyarm = val_l > val_rd + 0.05
         if impossible:
-            passed = cov_l < 0.15  # must NOT hallucinate coverage of an unreachable factor
+            passed = cov_l < 0.15
             note = "no-hallucination (cov<0.15)"
+        elif is_decoy:
+            passed = (recall_l >= 0.5 and decoy_l < 0.10 and valid_beats_decoyarm and anchor_matters)
+            note = "decoy_pressure: recall>=.5, STRONG decoy-avoid(<.10), valid>decoy-arm, NO_ANCHOR validity worse"
         elif is_multi:
-            passed = (recall_l >= 0.66 and decoy_l < 0.34 and cov_l >= cov_s - 1e-3
-                      and val_l > val_rd + 0.05 and decoy_na > decoy_l)
-            note = "multi: recall>=.66, low-decoy, cov>=single, valid>decoy-arm, NO_ANCHOR worse"
+            passed = (recall_l >= 0.66 and decoy_l < 0.34 and cov_l > cov_s + 0.05
+                      and valid_beats_decoyarm and anchor_matters)
+            note = "multi: recall>=.66, low-decoy, cov>single, valid>decoy-arm, NO_ANCHOR validity worse"
         else:
-            passed = (truse_l > decoy_l and decoy_l < 0.34 and cov_l >= cov_rv - 1e-3
-                      and val_l > val_rd + 0.05)
-            note = "single: true>decoy usage, low-decoy, cov>=rand, valid>decoy-arm"
+            passed = (truse_l > decoy_l and decoy_l < 0.34 and valid_beats_decoyarm and anchor_matters)
+            note = "single: true>decoy usage, low-decoy, valid>decoy-arm, NO_ANCHOR validity worse"
         tasks_verdict[task] = bool(passed)
         lines.append(
             "\n### %s (true=%s) — %s\n" % (task, true_f, "PASS" if passed else "FAIL"))
