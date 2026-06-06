@@ -71,3 +71,27 @@ but does NOT beat crop; utility = faint edge over entropy/random, none over crop
 (no signal). Blocked by: no headroom over near-optimal crop for a known/generic symmetry. Mechanism works;
 value-over-crop does not materialize. Files: v14_policy_safety_tests.py, feature_gap_proxy_cifar_policy.py,
 aug_policy_training_proxy_cifar.py, eqm_lite_policy_proxy.py, discover_policy in _se2_discovery.py.
+
+## v15 (model-aware SAFE-ADVERSARIAL aug) ladder (2026-06-05) — VERDICT: NOT authorized for FID; STRONGER negative
+Reframing (user): stop imitating crop; learn a SAFE-HARD policy that targets the current model's weaknesses
+(anchor=safety, scorer-loss=hardness/utility, conditionality=per-image adaptivity). The one lever v14 never
+tested: adversarial utility + qθ(T|φ(x)).
+- Rung 1 (KNOWN ceiling, 3 seeds): crop_pad4 = 0.409 (tstd 0.001) is the clear ceiling; crop_pad6/transl_scale/
+  transl_flip all ≤ it. "Beat crop_pad4" is the VALID target (moderate aug matches the ±6 test nuisance best).
+- Rung 2 (frozen-scorer hardness gate): PASS — safe-hard makes augs HARDER on a frozen scorer (l3.0 CE 1.82 vs
+  crop 1.70) while staying MORE on-manifold than crop (anchor ED 2.95 < 3.26) and 2D. **But this PASS was a
+  false positive for downstream value (see Rung 3).**
+- Rung 3 (TRAIN with global safe-hard, 3 seeds): NO BEAT at every lam — l1.5 0.397, l3.0 0.385, both < crop
+  0.409; MONOTONE: more adversarial pressure → worse (l3.0 even < random 0.393). Frozen-scorer hardness ≠
+  training value; the policy over-augments off the useful regime.
+- Rung 4 (CONDITIONAL qθ(T|φ(x)), 3 seeds): NO BEAT, worse — conditional 0.362–0.363 ≪ crop 0.409 (≈ base
+  transl±6) and crushes CLEAN acc (0.38 vs base 0.47) at lam {0.5,1.5}. Per-image mu_std real (3.4–8.1 px in x)
+  so the policy IS image-dependent — but the adaptivity ACTIVELY HURTS (adversarial-degenerate shifts).
+CONCLUSION: model-aware safe-adversarial augmentation does not just fail to beat crop — being clever (hard /
+conditional) is WORSE than uniform crop. Mechanism reason: adversarial-vs-frozen-scorer finds the scorer's
+blind spots, not generalizing transforms; the anchor keeps images realistic but the chosen SHIFTS are
+adversarial-degenerate → train/test mismatch. CIFAR translation is genuinely uniform/isotropic ⇒ crop ≈ Bayes
+-optimal ⇒ nothing to discover and cleverness backfires. This is the strongest confirmation of the whole-arc
+thesis: discovery/adaptivity earns value ONLY for UNKNOWN, non-generic structure (toy ladder rungs 12–14), not
+for a known generic nuisance. Do NOT run FID. Files: v15_rung1_known_ceiling.py, v15_rung2_safe_hard.py,
+v15_rung3_train_safe_hard.py, v15_rung4_conditional.py (discover_conditional/CondPolicy), results_v15_rung*.json.

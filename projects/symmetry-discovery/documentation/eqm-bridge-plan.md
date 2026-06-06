@@ -494,3 +494,40 @@ gap" + "next work is tuning not mechanism"), STOP. Do NOT build v14_stable_aug_p
 Consistent with the whole v12->v13->v14 arc: discovery (single/distribution/policy) ties crop, never beats
 it, because there is nothing to discover for a known generic symmetry. Discovery's value is for UNKNOWN /
 non-generic symmetries (the toy ladder). EqM bridge direction CONCLUDED.
+
+---
+# v15 (MODEL-AWARE SAFE-ADVERSARIAL) LADDER (2026-06-05) — VERDICT: NOT authorized. STRONGER negative: cleverness is WORSE than crop.
+
+Reframing (user): stop imitating crop; use crop as the baseline to BEAT. Learn a SAFE-HARD policy that
+targets the CURRENT MODEL's weaknesses. Anchor = safety (on-manifold), scorer-loss = utility (hardness),
+conditionality = per-image adaptivity. The two levers v14 never tested: a real adversarial utility, and
+qθ(T|φ(x)) (image-dependent policy). Crop is uniform per image; a conditional policy could in principle
+shift each image differently.
+
+Rung 1 (KNOWN ceiling, 3 seeds): crop_pad4 = 0.409 (tstd 0.001) is the clear ceiling; crop_pad6 0.405,
+  transl_scale 0.406 (noisy tstd .029), transl_flip 0.398, all ≤ crop_pad4. Moderate aug matches the ±6
+  test nuisance best. "Beat crop_pad4" is the VALID target (the quick 1-seed reframe to transl_scale was noise).
+Rung 2 (frozen-scorer hardness gate): PASS — safe-hard makes augs HARDER on a frozen scorer (l3.0 CE 1.82
+  vs crop 1.70) while staying MORE on-manifold than crop (anchor ED 2.95 < crop 3.26) and 2D (eig2>0.5).
+  *** This PASS was a FALSE POSITIVE for downstream value (see Rung 3). ***
+Rung 3 (TRAIN with global safe-hard, 3 seeds): NO BEAT at every lam. transl±6: crop 0.409, safe_hard
+  l1.5 0.397, l3.0 0.385 (< random 0.393!). MONOTONE: more adversarial pressure -> worse. Frozen-scorer
+  hardness ≠ training value; the policy over-augments off the useful regime.
+Rung 4 (CONDITIONAL qθ(T|φ(x)), 3 seeds): WORSE. conditional 0.362-0.363 ≪ crop 0.409 (≈ base transl±6
+  0.362) and CRUSHES clean acc (0.38 vs base 0.47), at lam {0.5, 1.5}. Per-image mu_std real (3.4-8.1 px in
+  x) -> the policy IS image-dependent, but the adaptivity ACTIVELY HURTS (adversarial-degenerate shifts).
+
+VERDICT: v15 NOT AUTHORIZED for CIFAR/FID. Model-aware safe-adversarial augmentation does not merely fail
+to beat crop — being clever (hard / conditional) is WORSE than uniform crop. MECHANISM REASON:
+adversarial-vs-a-frozen-scorer maximizes the scorer's loss, which finds the scorer's blind spots, not
+transformations that generalize; the anchor keeps images realistic but the chosen SHIFTS are
+adversarial-degenerate, creating train/test mismatch. CIFAR translation is genuinely uniform & isotropic,
+so random crop is ~Bayes-optimal and there is no per-image "right shift" to discover; cleverness backfires.
+
+This is the strongest confirmation of the whole-arc thesis (v12 rotation / v13 single / v14 distribution /
+v14-policy / v15 safe-adversarial): augmentation discovery earns value ONLY for an UNKNOWN, NON-GENERIC
+symmetry (toy ladder rungs 12-14), never for a known generic nuisance. To make discovery matter on real
+data, the testbed itself must contain a non-generic symmetry crop cannot capture (e.g. a learned-latent
+rotation or a domain-specific equivariance) — not CIFAR translation. EqM bridge direction CONCLUDED across
+all variants. Files: experiments/v15_rung1_known_ceiling.py, v15_rung2_safe_hard.py,
+v15_rung3_train_safe_hard.py, v15_rung4_conditional.py (CondPolicy/discover_conditional); results_v15_rung*.json.
