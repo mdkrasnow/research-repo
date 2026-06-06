@@ -1,7 +1,7 @@
 {
   "project": "diff-EqM",
   "title": "Differential-Geometry-Guided Adversarial Negative Mining for EqM (DG-ANM)",
-  "phase": "v13 SE2 bridge DONE (right family/wrong paradigm: known crop -1.72 wins; discovered~=random). v10 pending. NEXT: new CPU test ladder.",
+  "phase": "Phase2 IN-1K v10 l03: 3-seed TRAINS done (s0 home final, s1 holylabs ep79, s2 holylabs final); FID 50K submitted (19657625-627). Vanilla 3-seed BLOCKED: only seed0 trusted(31.41); seeds1,2 incomplete(ep57-59).",
   "stage_b_in1k_baseline": {
     "verified_at": "2026-05-13",
     "result": {
@@ -115,9 +115,9 @@
     ]
   },
   "next_action": {
-    "command": "Build next CPU test ladder (spec from user)",
-    "reason": "v13 bridge logged: discovery-as-frozen-single-operator does not transfer to generation (needs aug diversity). Moving on.",
-    "hint": "UPDATE v10_hardneg (19405301) final FID into results_variants.tsv + eqm-bridge-plan.md when it completes (~ep120 at last poll). Then proceed with the new ladder."
+    "command": "Poll FID jobs 19657625/626/627; when done record 3 v10 FIDs vs vanilla 31.41 baseline.",
+    "reason": "v10 IN-1K trains complete; need FID numbers for Phase2 read. Full Welch gate still needs vanilla seeds1,2 retrained to ep80.",
+    "hint": "Vanilla seed1(19051147)/seed2(19399165) FAILED final-sync, ckpts only ep57-59. Resume both to ep80 for clean 3-seed Welch. v10 vs single trusted vanilla seed0 gives directional read meanwhile."
   },
   "autoresearch_variants": {
     "active": true,
@@ -1566,17 +1566,57 @@
   ],
   "active_runs": [
     {
+      "partition": "seas_gpu",
+      "status": "running",
+      "submitted_at": "2026-06-06",
+      "git_sha": "HEAD",
+      "sbatch_path": "projects/diff-EqM/slurm/jobs/imagenet1k_fid_eval.sbatch",
+      "expected_runtime": "~3-5h (50K samp + FID)",
+      "phase": "2",
+      "gate": "Phase2 IN-1K 3-seed v10 vs vanilla 31.41 (Welch p<0.05, >=1 FID gain)",
+      "run_id": "fid_v10_l03_seed0",
+      "job_id": "19657625",
+      "description": "FID 50K on v10 l03 seed0 final.pt (home). gd eta0.003 250step cfg1.0 EqM-B/2 \u2014 matches trusted baseline harness."
+    },
+    {
+      "partition": "seas_gpu",
+      "status": "pending",
+      "submitted_at": "2026-06-06",
+      "git_sha": "HEAD",
+      "sbatch_path": "projects/diff-EqM/slurm/jobs/imagenet1k_fid_eval.sbatch",
+      "expected_runtime": "~3-5h (50K samp + FID)",
+      "phase": "2",
+      "gate": "Phase2 IN-1K 3-seed v10 vs vanilla 31.41 (Welch p<0.05, >=1 FID gain)",
+      "run_id": "fid_v10_l03_seed1",
+      "job_id": "19657626",
+      "description": "FID 50K on v10 l03 seed1 0400000.pt (holylabs, ep79)."
+    },
+    {
+      "partition": "seas_gpu",
+      "status": "pending",
+      "submitted_at": "2026-06-06",
+      "git_sha": "HEAD",
+      "sbatch_path": "projects/diff-EqM/slurm/jobs/imagenet1k_fid_eval.sbatch",
+      "expected_runtime": "~3-5h (50K samp + FID)",
+      "phase": "2",
+      "gate": "Phase2 IN-1K 3-seed v10 vs vanilla 31.41 (Welch p<0.05, >=1 FID gain)",
+      "run_id": "fid_v10_l03_seed2",
+      "job_id": "19657627",
+      "description": "FID 50K on v10 l03 seed2 final.pt (holylabs)."
+    },
+    {
       "run_id": "bridge150_v10_hardneg",
       "job_id": "19405301",
       "partition": "gpu",
-      "status": "pending",
+      "status": "completed",
       "submitted_at": "2026-06-05",
       "git_sha": "a96b341",
       "sbatch_path": "projects/diff-EqM/slurm/jobs/variant_pilot.sbatch",
       "expected_runtime": "~9h (150ep CIFAR)",
       "phase": "symmetry-bridge-v13",
       "gate": "v13 bridge COMPETITOR: v10 hard-neg mining (lambda0.1) \u2014 does v13 SE2 aug beat v10 mining? (bridge core question)",
-      "description": "v10 hard-example mining 150ep, same harness/seed -> direct v13-vs-v10 comparison"
+      "description": "v10 hard-example mining 150ep, same harness/seed -> direct v13-vs-v10 comparison",
+      "final_metric": "CIFAR FID(5k) 14.0776 \u2014 v10 mining TIES random(14.08)/base(14.31); v13_discovered 14.02 ~= . Mining no edge over crop on bridge."
     },
     {
       "partition": "gpu",
@@ -1624,7 +1664,7 @@
       "run_id": "v10_b2_lambda10_seed0_bracket_resume",
       "job_id": "19399426",
       "partition": "gpu",
-      "status": "pending",
+      "status": "running",
       "description": "RESUME of 17915173 from 35K ckpt: v10 EqM-B/2 seed0 80ep gamma=1.0 lambda-bracket point. Resubmit after home-quota deadlock recovery (pruner now running). | RESUMED resumed from 0110000 on holylabs (lambda10 scale)",
       "submitted_at": "2026-06-03",
       "git_sha": "d96aeb89b862719834d11e9e49d56e142dbfb94e",
@@ -1639,7 +1679,7 @@
       "submitted_at": "2026-06-01T00:00:00Z",
       "git_sha": "997b7d85f95b4826b62fad28eb76e13cb59378f6",
       "partition": "seas_gpu",
-      "status": "pending",
+      "status": "failed",
       "expected_runtime": "~41h (48h wall)",
       "phase": "2-v10-multiseed",
       "sbatch_path": "projects/diff-EqM/slurm/jobs/imagenet1k_80ep_v10.sbatch",
@@ -1649,13 +1689,14 @@
       "description": "vanilla B/2 seed2 (prior 16594173 TIMEOUT lost work; now periodic-sync). Welch t denominator. | RESUMED resumed from 0210000 on holylabs (vanilla seed2)",
       "previous_job_id": "17954856(WEDGED home-quota-deadlock, cancelled) 18609082(re-wedged: SLURM stdout->full home)",
       "persistent_results": "holylabs scratch",
-      "note": "logs+ckpts BOTH on holylabs (home stdout was the wedge)"
+      "note": "logs+ckpts BOTH on holylabs (home stdout was the wedge)",
+      "error": "phase2 vanilla seed2: train reached step405000 Done in /tmp but final-rsync FAILED (home quota); holylabs ckpts only to 0290000 (ep57). NEEDS RETRAIN/RESUME for clean seed2."
     },
     {
       "submitted_at": "2026-06-01T00:00:00Z",
       "git_sha": "997b7d85f95b4826b62fad28eb76e13cb59378f6",
       "partition": "seas_gpu",
-      "status": "pending",
+      "status": "completed",
       "expected_runtime": "~41h (48h wall)",
       "phase": "2-v10-multiseed",
       "sbatch_path": "projects/diff-EqM/slurm/jobs/imagenet1k_80ep_v10.sbatch",
@@ -1665,13 +1706,14 @@
       "description": "v10 lambda=0.3 seed2 (Phase 2 multiseed). | RESUMED resumed from 0310000 on holylabs (gate l03 seed2)",
       "previous_job_id": "17954840(FAILED 1s node-fault) 17999404(FAILED 33s git-clone) 18125756(WEDGED home-quota-deadlock, cancelled) 18609057(re-wedged: SLURM stdout->full home)",
       "persistent_results": "holylabs scratch",
-      "note": "logs+ckpts BOTH on holylabs (home stdout was the wedge)"
+      "note": "logs+ckpts BOTH on holylabs (home stdout was the wedge)",
+      "final_metric": "train DONE step405000 (ep80) aux/base=1.031 ||\u03b4||=0.300; final.pt on holylabs. FID job 19657627."
     },
     {
       "submitted_at": "2026-06-01T00:00:00Z",
       "git_sha": "997b7d85f95b4826b62fad28eb76e13cb59378f6",
       "partition": "seas_gpu",
-      "status": "pending",
+      "status": "completed",
       "expected_runtime": "~41h (48h wall)",
       "phase": "2-v10-multiseed",
       "sbatch_path": "projects/diff-EqM/slurm/jobs/imagenet1k_80ep_v10.sbatch",
@@ -1681,7 +1723,8 @@
       "description": "v10 lambda=0.3 seed1 (Phase 2 multiseed; seed0=FID27.09). GAMMA=0.3. | RESUMED resumed from 0315000 on holylabs (gate l03 seed1)",
       "previous_job_id": "17954814 (FAILED 1s, node/prolog fault, no log) 17955341(WEDGED home-quota-deadlock, cancelled) 18609056(re-wedged: SLURM stdout->full home)",
       "persistent_results": "holylabs scratch",
-      "note": "logs+ckpts BOTH on holylabs (home stdout was the wedge)"
+      "note": "logs+ckpts BOTH on holylabs (home stdout was the wedge)",
+      "final_metric": "train DONE step405000 (ep80) aux/base=1.024 ||\u03b4||=0.300; sacct FAILED=final-rsync(home quota); ckpts on holylabs to 0400000 (final.pt missing, ep79 usable). FID job 19657626."
     },
     {
       "partition": "gpu",
@@ -2296,7 +2339,7 @@
       "submitted_at": "2026-06-01T00:00:00Z",
       "git_sha": "997b7d85f95b4826b62fad28eb76e13cb59378f6",
       "partition": "seas_gpu",
-      "status": "pending",
+      "status": "failed",
       "expected_runtime": "~41h (48h wall)",
       "phase": "2-v10-multiseed",
       "sbatch_path": "projects/diff-EqM/slurm/jobs/imagenet1k_80ep_v10.sbatch",
@@ -2306,7 +2349,8 @@
       "description": "vanilla B/2 seed1 (MINING=none, robust sync sbatch; prior 16594167 FAILED). Welch t denominator.",
       "previous_job_id": "18776220(LOST)",
       "persistent_results": "/n/holylabs/ydu_lab/Lab/mkrasnow_eqm/vanilla_b2_seed1",
-      "note": "RESUBMIT after van-s1 loss; persist->home, fixed self-pruning sbatch, logs->holylabs"
+      "note": "RESUBMIT after van-s1 loss; persist->home, fixed self-pruning sbatch, logs->holylabs",
+      "error": "phase2 vanilla seed1: sacct FAILED; holylabs/home ckpts only to 0300000 (ep59). INCOMPLETE \u2014 needs resume to ep80."
     },
     {
       "run_id": "exp4_vanilla_resume_405k_seed0",
