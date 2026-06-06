@@ -6,7 +6,7 @@ Exact commands. Everything before §5 runs on CPU and needs no endpoint.
 ```bash
 cd projects/sia-lever
 python3 -m pip install -r gpt_oss/requirements-gpu.txt   # on the GPU box
-export GPT_OSS_BASE_URL="https://api.tokenfactory.us-central1.nebius.com/v1/"   # or your vLLM URL
+export GPT_OSS_BASE_URL="https://api.tokenfactory.nebius.com/v1/"   # or your vLLM URL
 export NEBIUS_API_KEY=...          # (or GPT_OSS_API_KEY / OPENAI_API_KEY)
 export GPT_OSS_MODEL="openai/gpt-oss-120b"   # confirm exact served id via check_env
 # for local training/serving instead of a hosted endpoint:

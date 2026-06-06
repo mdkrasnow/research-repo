@@ -1,0 +1,11 @@
+rung	task	cache	model	arm	n_eval	lever_accuracy	mean_regret	max_regret	invalid_json	tiny_floor	ceiling	notes
+1	original_3mode	action_outcome_cache.jsonl	openai/gpt-oss-120b	base	9	1.000	0.000	0.000	0.000	1.00	1.00	trivial task; base solves perfectly (no headroom) — pipeline smoke
+1	original_3mode	action_outcome_cache.jsonl	unsloth/gpt-oss-120b-BF16	lora	NA	NA	NA	NA	NA	1.00	1.00	FT succeeded (193770 tok, 3 steps); serving beta-blocked; adapter saved
+2	sia_lever_hard	hard_cache.jsonl	openai/gpt-oss-120b	base	24	0.333	0.108	0.877	0.000	0.46	0.81	base BELOW tiny floor — genuine headroom; not a JSON artifact
+2	sia_lever_hard	hard_cache.jsonl	openai/gpt-oss-120b	base_vm	24	0.333	0.124	0.948	0.000	0.46	0.81	served on Nebius 1xH200 vLLM MXFP4; same-stack base (cross-checks TF base 0.333)
+2	sia_lever_hard	hard_cache.jsonl	lever_lora_3step	lora_vm	24	0.292	0.094	0.864	0.000	0.46	0.81	NEGATIVE: 3-step LoRA (3ep,bs8,packing,lr1e-5); acc -0.042 vs base, fixed 0 regressed 1; regret down but accuracy worse -> undertrained, not a win
+2	sia_lever_hard	hard_cache.jsonl	lever_lora_20ep	lora_20ep	24	0.458	0.202	0.948	0.000	0.46	0.81	DEGENERATE majority-collapse: predicts H for ALL 24 (gold H=11/24=0.458). Acc=floor BY DEFINITION, regret WORSE than base (0.161->0.202). NOT attribution. ftjob-044cd47fb30140c8bba750371262ff7c 20ep lr1e-4
+2	sia_lever_hard	hard_cache.jsonl	lever_lora_balanced_v2	lora_balanced_v2	24	0.542	0.043	NA	0.000	0.46	0.81	REAL_WIN: balanced 189ex(63/63/63)+lr3e-5. acc 0.542>base 0.333 AND >best-constant 0.458, regret CRUSHED 0.161->0.043, action_dist H_THEN_W10/H4/W10 NON-collapsed. ftjob-86ba821743d64fdeac8da782e238709e
+2	sia_lever_hard	hard_cache.jsonl	const_always_H	constant	24	0.458	NA	NA	NA	0.46	0.81	constant-policy baseline (majority); the bar a real win must exceed
+2	sia_lever_hard	hard_cache.jsonl	const_always_W	constant	24	0.208	NA	NA	NA	0.46	0.81	constant-policy baseline
+2	sia_lever_hard	hard_cache.jsonl	const_always_HTHENW	constant	24	0.333	NA	NA	NA	0.46	0.81	constant-policy baseline
