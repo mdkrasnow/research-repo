@@ -148,7 +148,7 @@ def main():
 
     A = res["arms"]; bk = A["best_known"]["robust"]; lr_ = A["learned_residual"]["robust"]; rr = A["rand_residual"]["robust"]
     noise = max(A["learned_residual"]["robust_std"], A["best_known"]["robust_std"])
-    beats_bk = lr_ > bk + noise; beats_rand = lr_ > rr + 1e-4
+    beats_bk = lr_ > bk + noise; beats_rand = lr_ > rr + max(1e-4, 0.5*noise)  # noise-aware: tie != beat
     anchor_matters = A["learned_residual"]["robust"] >= A["learned_no_anchor"]["robust"] - 1e-4
     entropy_matters = A["learned_residual"]["robust"] >= A["learned_no_entropy"]["robust"] - 1e-4
     res.update({"beats_best_known": beats_bk, "beats_random": beats_rand,
