@@ -46,7 +46,17 @@ def collect_phase0():
         files = _load("v17_calib_%s_*.json" % part)
         if not files:
             lines.append("- %s: (no results)\n" % part); verdict[part] = None; continue
-        passes = [d.get("pass") for _, d in files]
+        if part == "0B":
+            # recompute EqM-primary gate from saved arm numbers (robust to gate-definition changes)
+            passes = []
+            for _, d in files:
+                a = d["arms"]
+                ok = (a["KNOWN_ORACLE_MULTI"]["eqm_gap"] < a["BASE"]["eqm_gap"]
+                      and a["KNOWN_ORACLE_MULTI"]["eqm_gap"] < a["RANDOM_VALID"]["eqm_gap"]
+                      and a["RANDOM_VALID"]["eqm_gap"] < a["RANDOM_WITH_DECOYS"]["eqm_gap"])
+                passes.append(ok)
+        else:
+            passes = [d.get("pass") for _, d in files]
         p = all(passes)
         verdict[part] = p
         extra = ""

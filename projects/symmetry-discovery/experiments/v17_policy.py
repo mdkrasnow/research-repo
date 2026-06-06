@@ -1,21 +1,26 @@
 """v17 MorphismPolicy — qθ(family, magnitude, composition) and the unsupervised discovery objective.
 
 The policy knows the CANDIDATE primitive families (valid + decoy names) but NOT which are valid/useful for
-a task. It learns: (1) family weights, (2) per-family magnitude distribution (mean+log_std), (3) optional
-composition of depth>=2. Discovery is fully differentiable:
-  - family choice per image: Gumbel-Softmax (hard, straight-through) -> grad to logits
-  - magnitude: reparameterized tanh(mu + sigma*eps) -> grad through grid_sample to mu/sigma
-so the energy-distance anchor loss backprops to ALL parameters with no RL.
+a task. It learns: (1) family weights (logits), (2) per-family magnitude distribution (mean+log_std),
+(3) optional composition of depth>=2. Training (see `discover`) splits the two by cost:
+  - MAGNITUDES: reparameterized tanh(mu + sigma*eps); gradient of the anchor/move loss flows through
+    grid_sample to mu/sigma. Images are HARD-grouped by sampled family so only ONE grid_sample of work
+    happens per step (not K) -- the key speedup over a Gumbel-softmax-over-all-K stack.
+  - FAMILY WEIGHTS: a bandit. Per-family reward EMA = -(group anchor energy-distance) (+ a small move
+    bonus); logits are pushed toward high-reward families via L = -(softmax(logits) . reward.detach()).
+    No backprop through grid_sample for the family choice.
 
 Objective (minimize):
-    L = L_anchor + a_move*L_move + a_div*L_div + a_bound*L_bound
-  L_anchor : ED(features(T(visible)), anchor_ref)        -- stay ON the broad valid manifold
-  L_move   : hinge(margin - mean feature move)            -- must actually transform (anti-identity)
-  L_div    : -entropy(family weights)                     -- don't collapse to one family
-  L_bound  : E[pre-tanh^2] beyond a soft cap              -- bounded magnitudes
-Anchor-matching ALONE is solved by identity; L_move forces coverage; together they pick families that map
-visible -> elsewhere in the valid manifold = the hidden morphisms. Decoys raise L_anchor (off-manifold) so
-the policy is pushed off them. Ablations drop one term each (NO_ANCHOR / NO_DIVERSITY / NO_BOUNDS).
+    L = [anchor ED + a_move*move-hinge + a_bound*bound]   (-> magnitudes, reparam)
+      + [-(w . reward) + a_div*(-entropy)]                 (-> logits, bandit)
+  anchor ED : ED(features(T(visible)), anchor_ref)  -- stay ON the broad valid manifold
+  move-hinge: relu(margin - feature move)           -- must actually transform (anti-identity)
+  entropy   : -sum w log w                           -- don't collapse to one family (diversity)
+  bound     : pre-tanh^2 beyond a soft cap           -- bounded magnitudes
+Anchor-matching ALONE is solved by identity; the move term forces coverage; together they select the
+families that map visible -> elsewhere in the valid manifold = the hidden morphisms. Decoys raise ED
+(off-manifold) -> negative reward -> down-weighted. Ablations drop one term (NO_ANCHOR/NO_DIVERSITY/
+NO_BOUNDS).
 """
 import torch
 import torch.nn as nn

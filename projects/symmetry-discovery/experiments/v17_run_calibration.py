@@ -82,14 +82,20 @@ def part_0B(task, seed, quick):
     arms = ["BASE", "RANDOM_VALID", "KNOWN_ORACLE_SINGLE", "KNOWN_ORACLE_MULTI", "RANDOM_WITH_DECOYS"]
     R = {a: _payoff_eval(b, a, seed, quick) for a in arms}
     om, base, rv, rd = (R["KNOWN_ORACLE_MULTI"], R["BASE"], R["RANDOM_VALID"], R["RANDOM_WITH_DECOYS"])
+    # EqM-lite is the PRIMARY gate (it is the target analog and brackets cleanly). The shape-ID classifier
+    # is an insensitive diagnostic only: shape identity is robust to these transforms, so oracle ~= random
+    # there (it cannot see which morphism was applied). Lower eqm_gap = better (more field-robust).
     gate = {
-        "oracle_multi>base": om["heldout_acc"] > base["heldout_acc"],
-        "oracle_multi>random_valid": om["heldout_acc"] >= rv["heldout_acc"] - 1e-6,
-        "oracle_multi>random_decoy": om["heldout_acc"] > rd["heldout_acc"],
-        "eqm_oracle<base_gap": om["eqm_gap"] < base["eqm_gap"],
+        "eqm_oracle<base": om["eqm_gap"] < base["eqm_gap"],            # oracle morphisms help
+        "eqm_oracle<random_valid": om["eqm_gap"] < rv["eqm_gap"],      # specific morphisms > any valid aug
+        "eqm_valid<random_decoy": rv["eqm_gap"] < rd["eqm_gap"],       # validity matters (decoys hurt)
+        # classifier diagnostic (not gated):
+        "clf_oracle>base": om["heldout_acc"] > base["heldout_acc"],
+        "clf_oracle>random_decoy": om["heldout_acc"] > rd["heldout_acc"],
     }
     return {"part": "0B", "task": b["task"].name, "seed": seed, "arms": R, "gate": gate,
-            "pass": bool(gate["oracle_multi>base"] and gate["oracle_multi>random_decoy"])}
+            "pass": bool(gate["eqm_oracle<base"] and gate["eqm_oracle<random_valid"]
+                         and gate["eqm_valid<random_decoy"])}
 
 
 def part_0C(task, seed, quick):
