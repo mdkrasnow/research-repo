@@ -1,0 +1,22 @@
+# GPU stack for SIA-Lever-120B (gpt-oss-120b LoRA on H200).
+# Pins are minimal/loose on purpose; record the resolved versions you actually used in
+# documentation/gpu_runbook.md. If a combo conflicts, prefer the trl/peft/transformers trio that
+# your CUDA + driver supports, then relax the rest.
+
+torch>=2.4
+transformers>=4.45
+accelerate>=0.34
+datasets>=2.20
+peft>=0.13
+trl>=0.11
+bitsandbytes>=0.43        # QLoRA / 4-bit (single-GPU fallback)
+deepspeed>=0.15           # ZeRO-3 for multi-H200 bf16 LoRA
+vllm>=0.6                 # fast serving of base + adapter for rollouts
+sentencepiece
+protobuf
+scipy
+scikit-learn
+pandas
+matplotlib
+wandb
+openai>=1.40             # OpenAI-compatible client (Nebius / vLLM endpoints)

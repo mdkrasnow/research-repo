@@ -1,7 +1,17 @@
 {
   "project": "sia-lever",
   "title": "SIA-W+H lever attribution — when harness vs weight update",
-  "phase": "PHASE_4_BLOCKED_GPU",
+  "phase": "PIVOT_GPT_OSS_120B_SCAFFOLD_READY",
+  "pivot": {
+    "title": "SIA-Lever-120B: Learning When to Update Harness vs Weights",
+    "status": "scaffold complete + CPU-validated; blocked on GPU/endpoint for gpt-oss-120b base eval + LoRA.",
+    "official_sia_commit": "99db0e87cbe3a67f6fc251d33b72c88ee1edfac5",
+    "public_sia_has_W_code": false,
+    "measured_cache": "gpt_oss/data/out/action_outcome_cache.jsonl (30 episodes, 10 seeds, real reruns, sha 070907eff69113f6)",
+    "cpu_validated": ["sia_task evaluator (oracle acc 1.0 / dry-run regret 0.61)", "compare_policies (selector/oracle 1.0 acc 0 regret; W_only 0.44 regret)", "SFT 21/9, DPO 62/27, GRPO 21 datasets"],
+    "blocked_on": ["GPT_OSS_BASE_URL + NEBIUS_API_KEY (base eval)", "H200 + requirements-gpu.txt (LoRA)"],
+    "next_gpu_command": "python3 gpt_oss/check_env.py && bash scripts/run_gpu_comparison.sh"
+  },
   "rigor_pass_result": "PASS (paper-level). Phase 1: 15 seeds + Welch t (shortcut_sens d=16.3 p=1.6e-16; composition d=2.58; identity d=2.17; inverse d=1.32), gate 15/15. Metric suite upgraded: equivariance proxy -> group-axiom identity/inverse errors. Phase 3: 10 seeds/30 ep, selector regret 0.014 (acc 0.97), lowest at EVERY W_COST incl 0.00 (sweep), Wilcoxon p=0.013; measurement separated from W_COST scoring. Leak sweep: shortcut-cheat adversarial (only alpha=1.0); H->W group-repair holds all alpha. Wording fixed (preserve/repair). Provenance + writeup docs added.",
   "phase_0_result": "PASS — prediction-only learner exploits shortcut (clean_mse~0, neg_control low, composition_err~5.6). Shortcut win real.",
   "phase_1_result": "PASS 5/5 seeds — W-only keeps shortcut_win; H->W -> clean_win (neg_control 0.23->1.06, composition 5.6->0.002, shortcut_sens 1.07->0.002). Table+plot in results/.",
