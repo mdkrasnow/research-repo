@@ -28,6 +28,19 @@ State plainly what is and is not reproduced.
 - LawBench: run official SIA-H with a matched target; run W on the full split; align the evaluator
   and label set to the paper; report against 13.5 / 50.0 / 70.1 only if matched.
 - TriMul: not a ready bundled task at this commit — needs a CUDA build/timing+correctness harness.
+  **Built (2026-06-06):** `experiments/trimul_gpu.py` now provides the real op (einsum/bmm/Triton
+  kernels), CUDA-event timing (perf_counter on CPU), and a held-out correctness verifier; it is
+  GPU-ready (Triton + CUDA events auto-engage on a CUDA box) and CPU-runnable. `trimul_task.py
+  --real-latency` builds the measured lever cache from it; `sia_task_trimul/` wires it as a SIA
+  custom task; `gpt_oss/eval/compare_sia_wh_vs_lever.py` runs the head-to-head. This is the closest
+  faithful TriMul run the **public** artifacts allow — it is NOT an exact paper reproduction: the
+  paper's exact kernel inputs/sizes/tolerances and its W+H Feedback-Agent code are not public, so
+  `sia_wh_plateau` is a paper-STYLE H-vs-W scheduler, and absolute latencies/FIDs are not matched to
+  the paper. CPU-measured comparison (single run): paper-style SIA-W+H ties the oracle (acc 1.00,
+  regret 0, 72 W-calls) BECAUSE it re-measures H's outcome (a privileged real H rollout); the
+  label-free SIA-Lever rule decides from the trace alone (acc 0.75, regret 0.175, 48 W-calls — fewer
+  paid retrains). Closing the 0.75->1.00 gap is the job of the learned LoRA selector (GPU/endpoint
+  blocked). Do not quote these as paper numbers.
 - denoising: not a ready bundled task — needs the dataset + a game-resistant reconstruction metric.
 
 ## Metric honesty (SIA-Lever)

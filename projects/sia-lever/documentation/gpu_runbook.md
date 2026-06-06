@@ -85,3 +85,9 @@ python3 paper_benchmarks/lawbench/eval_lora.py --adapter adapters/gpt_oss_120b/l
 - torch: …  transformers: …  trl: …  peft: …  vllm: …  bitsandbytes: …  CUDA/driver: …
 - GPU launch used: single / multi (ZeRO-3) / QLoRA
 - gotchas: …
+
+## TriMul GPU-kernel lane (SIA-W+H vs SIA-Lever)
+- Real op + Triton/CUDA-event timing: `experiments/trimul_gpu.py` (auto-uses CUDA+Triton on a GPU).
+- One command: `bash scripts/run_trimul_gpu_comparison.sh --real-latency --reps 10`.
+- Plan + honest limits: `documentation/trimul_gpu_plan.md`, `documentation/reproduction_limits.md`.
+- Add learned column once gpt-oss rollouts exist: `--lever-rollouts 'results/gpt_oss/sft_rollouts_*.jsonl'`.
