@@ -95,3 +95,26 @@ adversarial-degenerate → train/test mismatch. CIFAR translation is genuinely u
 thesis: discovery/adaptivity earns value ONLY for UNKNOWN, non-generic structure (toy ladder rungs 12–14), not
 for a known generic nuisance. Do NOT run FID. Files: v15_rung1_known_ceiling.py, v15_rung2_safe_hard.py,
 v15_rung3_train_safe_hard.py, v15_rung4_conditional.py (discover_conditional/CondPolicy), results_v15_rung*.json.
+
+## v16 (RESIDUAL policy over best-known, VALIDATION-utility objective) ladder (2026-06-06) — VERDICT: NOT authorized for FID
+New hypothesis (user): drop frozen-scorer hardness (v15's failure). Crop is a strong BASE; a bounded RESIDUAL
+distribution stacked on best-known crop may beat it IF optimized for actual short-run VALIDATION utility
+(bilevel-lite ES), with anchor/entropy as constraints. Genuinely different objective from v14 (anchor-match)
+and v15 (hardness).
+- Exp 1 (KNOWN ceiling, 3 seeds, mixed-corruption robust val): BEST_KNOWN = crop_pad4_color (robust 0.429 >
+  crop_pad4 0.420, margin 0.009 > noise 0.006); color helps (val corruption includes brightness).
+- Exp 2 (residual policy, ES on validation utility, 3 seeds, separate test split): NO BEAT vs random.
+  base 0.391, best_known 0.4008, rand_residual 0.41458, LEARNED_residual 0.41483, no_anchor 0.416, no_entropy
+  0.413. Learned vs random Δ=0.00025 ≪ noise 0.005 → learning the residual SHAPE adds NOTHING over a random
+  mild residual. The residual CATEGORY marginally beats best_known (+0.014 ≈ noise) purely from added diversity.
+- Exp 3 (stage CURRICULUM, ES on schedule φ=(a,b), 3 seeds): NO BEAT. best_known 0.4008, static_residual 0.4148,
+  curriculum_learned 0.4132, random_curriculum 0.4148. Curriculum ≤ static = random schedule; ES drifted to a
+  mild decay (s 0.40→0.30) with zero benefit. TIMING adds nothing either.
+- Exp 4 (EqM-lite): NOT RUN — gated on Exp 2/3 passing; both no-beat → stop-rule (do not run FID).
+CONCLUSION: over a known generic base (crop+color), neither the residual's SHAPE (E2) nor its TIMING (E3)
+can be learned to beat a fixed/random mild residual; the only gain anywhere is "add a mild residual at all"
+(≈ noise), needing no learning. FOURTH consecutive negative (v14 dist==random, v15 hardness-backfires,
+v16-shape==random, v16-timing==random): a validation-utility bilevel objective also converges to random.
+Confirms the whole-arc thesis decisively — augmentation discovery has no headroom for a known generic CIFAR
+nuisance. Do NOT run FID. Files: v16_known_aug_ceiling.py, v16_residual_policy_proxy.py,
+v16_residual_curriculum_proxy.py; results_v16_exp{1,2,3}.json.

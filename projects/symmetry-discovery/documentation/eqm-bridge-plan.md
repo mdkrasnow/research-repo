@@ -531,3 +531,40 @@ data, the testbed itself must contain a non-generic symmetry crop cannot capture
 rotation or a domain-specific equivariance) — not CIFAR translation. EqM bridge direction CONCLUDED across
 all variants. Files: experiments/v15_rung1_known_ceiling.py, v15_rung2_safe_hard.py,
 v15_rung3_train_safe_hard.py, v15_rung4_conditional.py (CondPolicy/discover_conditional); results_v15_rung*.json.
+
+---
+# v16 (RESIDUAL POLICY over best-known, VALIDATION-UTILITY objective) LADDER (2026-06-06) — VERDICT: NOT authorized. Learned residual == random; timing == static.
+
+Reframing (user): stop optimizing for frozen-scorer HARDNESS (v15 backfired). Crop is a strong BASE policy;
+a bounded RESIDUAL distribution qθ stacked on BEST_KNOWN may beat it IF θ is optimized for actual short-run
+VALIDATION utility (bilevel-lite Evolution Strategies), with anchor(excess-over-base)/entropy as CONSTRAINTS,
+not as the objective. No per-image conditional (v15's degeneracy), crop used as base not rediscovered.
+
+Exp 1 (KNOWN ceiling, 3 seeds, mixed-corruption robust val = mild translate+scale+brightness): BEST_KNOWN =
+  crop_pad4_color (robust 0.429 > crop_pad4 0.420, margin 0.009 > noise 0.006). Color helps because the
+  realistic val corruption includes brightness. crop_pad4_color_cutout 0.428 close.
+Exp 2 (bounded residual policy, ES on validation utility, 3 seeds, SEPARATE test split): NO BEAT vs random.
+  Residual family tx,ty<=2px, scale 1±0.1, color OFF (best_known has it). ES utility = robust polval acc of a
+  K-step proxy trained with residual∘best_known, minus β·anchor_excess + γ·entropy, common-random-numbers.
+  Test robust: base 0.391, best_known 0.4008, rand_residual 0.41458, LEARNED 0.41483, no_anchor 0.416,
+  no_entropy 0.413. Learned vs random Δ=0.00025 << noise 0.005 -> learning the residual SHAPE adds NOTHING
+  over a random mild residual; ES grew ranges (r_tx/r_ty 1.0->1.3) but didn't beat the θ=0 init. The residual
+  CATEGORY marginally beats best_known (+0.014 ~= noise) only from added diversity (free, no learning).
+Exp 3 (stage-conditioned CURRICULUM, ES on schedule φ=(a,b), strength=sigmoid(a+b·step_frac) scaling a FIXED
+  residual, 3 seeds): NO BEAT. best_known 0.4008, static_residual 0.4148, curriculum_learned 0.4132,
+  random_curriculum 0.4148. Curriculum <= static = random schedule; ES drifted to a mild decay (s 0.40->0.30)
+  with zero benefit. Safe TIMING-only adaptivity also has no signal.
+Exp 4 (EqM-lite): NOT RUN — gated on Exp 2/3 passing; both no-beat -> stop-rule, do not run FID.
+
+VERDICT: v16 NOT AUTHORIZED for CIFAR/FID. Over a known generic base (crop+color), neither the residual's
+SHAPE (Exp 2) nor its TIMING (Exp 3) can be LEARNED to beat a fixed/random mild residual. The only gain
+anywhere is "add a mild residual at all" (~= noise), which needs no learning. This is the FOURTH consecutive
+negative across the augmentation-discovery program (v14 distribution==random, v15 hardness-backfires,
+v16-shape==random, v16-timing==random) — and crucially it falsifies the last untested objective: a
+VALIDATION-UTILITY bilevel target (not hardness, not anchor-match) ALSO converges to random. Whole-arc thesis
+now decisively confirmed: for a KNOWN, GENERIC nuisance symmetry there is no headroom for augmentation
+discovery of any flavor (anchor-match / hardness / validation-utility, single / distribution / policy /
+conditional / curriculum). Discovery earns value ONLY for an UNKNOWN, non-generic symmetry crop cannot
+capture — the testbed itself must change. EqM bridge direction CONCLUDED. Files:
+experiments/v16_known_aug_ceiling.py, v16_residual_policy_proxy.py, v16_residual_curriculum_proxy.py;
+results_v16_exp{1,2,3}.json.
