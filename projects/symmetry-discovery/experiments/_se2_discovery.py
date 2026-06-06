@@ -101,3 +101,56 @@ def discover_distribution(imgs, steps=500, lr=5e-3, seed=4):
     mean = torch.tensor([float(meanA[0,2].detach()/PXN), float(meanA[1,2].detach()/PXN)])
     std = torch.tensor([float(torch.exp(logsig[0]).detach()/PXN), float(torch.exp(logsig[1]).detach()/PXN)])
     return mean, std
+
+
+# ---- v14 (beat-crop) augmentation POLICY: qθ over a 2-gen SE(2) Lie basis ----
+_Z = None
+def _zrow(dev):
+    return torch.zeros(1, 3, device=dev)
+
+def sample_policy_M(A1, A2, logsig, dev):
+    z = torch.randn(2, device=dev) * torch.exp(logsig)
+    return torch.matrix_exp(z[0]*torch.cat([A1, _zrow(dev)]) + z[1]*torch.cat([A2, _zrow(dev)]))
+
+def policy_txty(A1, A2, logsig, n, dev):
+    """Sample n per-image (tx,ty) px draws from the policy (for augmentation)."""
+    z = torch.randn(n, 2, device=dev) * torch.exp(logsig)              # [n,2] coeffs
+    # M_i translation = (z_i1*A1 + z_i2*A2)[:, 2] to first order is not exact; use exact exp per draw is slow.
+    # Spatial translation of exp(sum z*A) for our near-pure-translation generators ~ linear in z; use the
+    # generators' translation columns directly (A*[:,2]) -> tx,ty = z1*A1[:,2:] + z2*A2[:,2:] (px via /PXN).
+    t = z[:, :1]*A1[:, 2].unsqueeze(0) + z[:, 1:2]*A2[:, 2].unsqueeze(0)   # [n,2] in normalized units
+    return t / PXN
+
+def discover_policy(imgs, steps=400, lr=5e-3, entropy=True, eig2_floor=2.0,
+                    scorer=None, labels=None, lam_util=0.0, seed=3):
+    """Learn qθ over M=exp(z1*A1+z2*A2), z~N(0,diag(exp(logsig)^2)). anchor + move hinge + stability,
+    optional 2D induced-covariance entropy floor, optional UTILITY (make augs the scorer finds hard,
+    on-manifold). Returns (A1,A2,logsig). Utility uses TRAINING labels only (no held-out)."""
+    dev, enc, P, Pg, anchor, m2, m10 = _setup(imgs)
+    torch.manual_seed(seed)
+    A1 = torch.nn.Parameter(0.02*torch.randn(2,3,device=dev)); A2 = torch.nn.Parameter(0.02*torch.randn(2,3,device=dev))
+    logsig = torch.nn.Parameter(torch.tensor([-0.7,-0.7], device=dev))
+    opt = torch.optim.Adam([A1,A2,logsig], lr=lr); n = imgs.size(0); Zr = _zrow(dev)
+    for s in range(steps):
+        idx = torch.randperm(n)[:128]; xv = imgs[idx]
+        z = torch.randn(2, device=dev)*torch.exp(logsig)
+        M = torch.matrix_exp(z[0]*torch.cat([A1,Zr])+z[1]*torch.cat([A2,Zr])); Tx = warp(xv, M); L = M[:2,:2]
+        mv = (Tx-xv).flatten(1).norm(dim=1).mean(); sv = torch.linalg.svdvals(L); det = torch.det(L)
+        fmix = torch.cat([Pg(xv).detach()[:128], Pg(Tx)[:128]], 0)
+        loss = _ed_t(fmix, anchor[torch.randperm(anchor.size(0))[:256]]) + 0.5*_move_pen(mv,m2,m10) \
+               + (torch.log(det.abs()+1e-8))**2 + (sv.max()/sv.min().clamp_min(1e-6)-1)**2
+        if entropy:
+            tt = []
+            for _ in range(20):
+                zz = torch.randn(2, device=dev)*torch.exp(logsig)
+                Mk = torch.matrix_exp(zz[0]*torch.cat([A1,Zr])+zz[1]*torch.cat([A2,Zr]))
+                tt.append(torch.stack([Mk[0,2]/PXN, Mk[1,2]/PXN]))
+            ev = torch.linalg.eigvalsh(torch.cov(torch.stack(tt,0).T)).clamp_min(0)
+            loss = loss + 0.5*torch.relu(eig2_floor - ev.min())**2
+        if scorer is not None and lam_util > 0 and labels is not None:
+            import torch.nn.functional as F
+            yb = labels[idx]
+            ce = F.cross_entropy(scorer(Tx), yb)        # make augs the scorer finds HARD (on-manifold via anchor)
+            loss = loss - lam_util*ce
+        opt.zero_grad(); loss.backward(); opt.step()
+    return A1.detach(), A2.detach(), logsig.detach()
