@@ -61,6 +61,27 @@ def main():
     with open(out, "w") as f:
         f.write("\n".join(md) + "\n")
     print("\n".join(md))
+
+    # generation curve: lever_accuracy / mean_regret vs generation (SIA-H self-improvement)
+    pts = [(i, m) for i, (_, m) in enumerate(rows) if isinstance(m, dict) and "lever_accuracy" in m]
+    if pts:
+        try:
+            import matplotlib
+            matplotlib.use("Agg")
+            import matplotlib.pyplot as plt
+            gx = [i for i, _ in pts]
+            fig, ax = plt.subplots(1, 2, figsize=(10, 4))
+            ax[0].plot(gx, [m.get("lever_accuracy", 0) for _, m in pts], marker="o", color="tab:green")
+            ax[0].set_title("lever accuracy vs generation"); ax[0].set_xlabel("generation"); ax[0].set_ylim(0, 1.05)
+            ax[1].plot(gx, [m.get("mean_regret", 0) for _, m in pts], marker="o", color="tab:red")
+            ax[1].set_title("mean regret vs generation"); ax[1].set_xlabel("generation")
+            fig.suptitle(f"Official SIA-H self-improvement — {args.run_id or 'run'}")
+            fig.tight_layout()
+            png = os.path.join(PROJ, "results", "official_sia_generation_curve.png")
+            fig.savefig(png, dpi=130); plt.close(fig)
+            print(f"saved generation curve -> {png}")
+        except Exception as e:
+            print(f"[warn] generation-curve plot failed: {e}")
     print(f"\nsaved -> {out}")
 
 

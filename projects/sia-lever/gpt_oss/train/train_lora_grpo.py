@@ -114,6 +114,11 @@ def main():
     trainer.save_model(args.out)
     tok.save_pretrained(args.out)
     write_provenance(args.out, args.base_model, args.data, cfg)
+    try:
+        from plot_trainer_log import plot_from_dir
+        plot_from_dir(args.out)
+    except Exception as e:
+        print(f"[warn] training-curve plot failed: {e}")
     print(f"adapter saved -> {args.out}")
 
 

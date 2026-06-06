@@ -21,7 +21,9 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from lever_io import (load_cache, cost_adjusted_best, regret_of_action,  # noqa: E402
-                      VALID_ACTIONS, PROJ)
+                      outcome_for_action, VALID_ACTIONS, PROJ)
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import plots  # noqa: E402
 
 
 def load_rollouts(pattern):
@@ -94,10 +96,35 @@ def main():
     outp = os.path.join(args.out, f"{args.tag}_eval.json")
     with open(outp, "w") as f:
         json.dump(res, f, indent=2)
+
+    # --- demo figures + human table + per-episode diagnostics ---
+    plots.per_mode_bar(res["per_mode_accuracy"],
+                       f"{args.tag}: per-mode lever accuracy",
+                       os.path.join(args.out, f"{args.tag}_per_mode.png"))
+    plots.action_distribution_fig(res["action_distribution"],
+                                  f"{args.tag}: action distribution",
+                                  os.path.join(args.out, f"{args.tag}_action_dist.png"))
+    n_mistakes = plots.write_diagnostics(
+        rollouts, cache,
+        os.path.join(args.out, f"{args.tag}_diagnostics.md"),
+        os.path.join(args.out, f"{args.tag}_diagnostics.jsonl"),
+        cost_adjusted_best, outcome_for_action)
+    md = [f"# {args.tag} selector eval", "",
+          f"- episodes: {res['n_examples']}",
+          f"- lever_accuracy: **{res['lever_accuracy']:.3f}**",
+          f"- mean_regret: **{res['mean_regret']:.3f}**  (max {res['max_regret']:.3f})",
+          f"- invalid_json_rate: {res['invalid_json_rate']:.3f}",
+          f"- mistakes: {n_mistakes}/{res['n_examples']}", "",
+          "| mode | accuracy |", "|---|---|"]
+    for m, a in res["per_mode_accuracy"].items():
+        md.append(f"| {m} | {a:.2f} |")
+    with open(os.path.join(args.out, f"{args.tag}_eval.md"), "w") as f:
+        f.write("\n".join(md) + "\n")
+
     print(json.dumps({k: res[k] for k in
                       ["n_examples", "lever_accuracy", "mean_regret", "max_regret",
                        "invalid_json_rate", "per_mode_accuracy"]}, indent=2))
-    print(f"saved -> {outp}")
+    print(f"saved -> {outp} + {args.tag}_eval.md + per_mode.png + action_dist.png + diagnostics.{{md,jsonl}}")
 
 
 if __name__ == "__main__":

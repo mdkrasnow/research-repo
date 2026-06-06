@@ -69,7 +69,11 @@ def main():
     ap.add_argument("--all", action="store_true", help="score on all seeds, not just eval split")
     ap.add_argument("--base-rollouts", default=None)
     ap.add_argument("--adapter-rollouts", default=None)
+    ap.add_argument("--out-dir", default=None, help="override output dir (default: results/ + plots/)")
+    ap.add_argument("--title-tag", default="", help="prefix for plot title (e.g. PREVIEW)")
     args = ap.parse_args()
+    res_dir = args.out_dir or os.path.join(PROJ, "results")
+    plot_dir = args.out_dir or os.path.join(PROJ, "plots")
 
     cache = load_cache()
     episodes = eval_episodes(cache, 0 if args.all else args.eval_seeds)
@@ -99,9 +103,9 @@ def main():
     # ---- write ----
     cols = ["policy", "lever_accuracy", "mean_regret", "max_regret", "w_calls",
             "invalid_json_rate", "n"]
-    os.makedirs(os.path.join(PROJ, "results"), exist_ok=True)
-    os.makedirs(os.path.join(PROJ, "plots"), exist_ok=True)
-    with open(os.path.join(PROJ, "results", "final_comparison.csv"), "w", newline="") as f:
+    os.makedirs(res_dir, exist_ok=True)
+    os.makedirs(plot_dir, exist_ok=True)
+    with open(os.path.join(res_dir, "final_comparison.csv"), "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=cols)
         w.writeheader()
         for p in policies:
@@ -122,28 +126,45 @@ def main():
            "- oracle_best is the unreachable ceiling (always the cost-adjusted best lever).",
            "- base_gpt_oss / gpt_oss_lora appear only when rollout files are supplied (need endpoint/GPU).",
            "- plateau_then_w is a paper-STYLE scheduler, not an exact SIA reproduction."]
-    with open(os.path.join(PROJ, "results", "final_comparison.md"), "w") as f:
+    with open(os.path.join(res_dir, "final_comparison.md"), "w") as f:
         f.write("\n".join(md) + "\n")
     print("\n".join(md))
 
-    _plot(policies, os.path.join(PROJ, "plots", "final_comparison.png"))
-    print(f"\nsaved results/final_comparison.{{csv,md}} + plots/final_comparison.png")
+    _plot(policies, os.path.join(plot_dir, "final_comparison.png"), title_tag=args.title_tag)
+    print(f"\nsaved final_comparison.{{csv,md}} + final_comparison.png -> {res_dir}")
 
 
-def _plot(policies, path):
+def _plot(policies, path, title_tag=""):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
     names = [p["policy"] for p in policies]
     regret = [p["mean_regret"] for p in policies]
     acc = [p["lever_accuracy"] for p in policies]
-    fig, ax = plt.subplots(1, 2, figsize=(12, 4.5))
-    ax[0].barh(names, regret, color="tab:red"); ax[0].set_title("Mean regret (lower=better)")
-    ax[0].invert_yaxis()
-    ax[1].barh(names, acc, color="tab:green"); ax[1].set_title("Lever accuracy (higher=better)")
-    ax[1].set_xlim(0, 1); ax[1].invert_yaxis()
-    fig.suptitle("SIA-Lever-120B: lever-attribution policy comparison (measured regret)")
-    fig.tight_layout(); fig.savefig(path, dpi=130)
+    wcalls = [p["w_calls"] / max(p["n"], 1) for p in policies]
+    # highlight our policies vs baselines vs oracles
+    def color(p):
+        if p in ("oracle_best", "oracle_sandwich_rule"):
+            return "tab:green"
+        if p in ("gpt_oss_lora", "base_gpt_oss"):
+            return "tab:purple"
+        return "tab:gray"
+    cols = [color(n) for n in names]
+
+    fig, ax = plt.subplots(1, 3, figsize=(15, 4.6))
+    for a, vals, title, xlim in [
+            (ax[0], regret, "Mean regret (lower=better)", None),
+            (ax[1], acc, "Lever accuracy (higher=better)", (0, 1.05)),
+            (ax[2], wcalls, "W-call rate (weight updates pulled)", (0, 1.05))]:
+        bars = a.barh(names, vals, color=cols)
+        a.invert_yaxis(); a.set_title(title)
+        if xlim:
+            a.set_xlim(*xlim)
+        for b, v in zip(bars, vals):
+            a.text(b.get_width(), b.get_y() + b.get_height() / 2, f" {v:.2f}", va="center", fontsize=8)
+    fig.suptitle(f"{title_tag+' ' if title_tag else ''}SIA-Lever-120B: lever-attribution policy "
+                 "comparison (measured)  [green=oracle/rule, purple=gpt-oss, gray=baseline]")
+    fig.tight_layout(); fig.savefig(path, dpi=130); plt.close(fig)
 
 
 if __name__ == "__main__":

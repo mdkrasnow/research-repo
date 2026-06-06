@@ -33,7 +33,17 @@ action-selection policy from trajectory/action/outcome triples).
 bash scripts/run_cpu_regression.sh                 # Phases 0-3 + data pipeline + policy table
 python3 gpt_oss/eval/compare_policies.py           # measured rule/fixed/paper-style policy comparison
 python3 sia_task/data/public/evaluate.py --gen-dir <dir with submission.json>
+python3 scripts/make_demo_preview.py               # render ALL gpt-oss figures now (synthetic, labeled PREVIEW)
+python3 scripts/make_demo_report.py                # assemble results/DEMO_REPORT.md (one place for the demo)
 ```
+
+### Demo figures + diagnostics
+- **`results/DEMO_REPORT.md`** — single demo deck: phenomenon → policy comparison → base-vs-LoRA →
+  training curve → LawBench. Marks real vs PREVIEW vs pending.
+- Each eval emits a figure + human `.md` + per-episode `*_diagnostics.md` (mistakes w/ raw model
+  output) + `*_per_mode.png` + `*_action_dist.png`. Adapter eval adds a base-vs-LoRA headline figure
+  and a fixed/regressed episode diff. Trainers save `training_curve.png`. SIA-H/LawBench have their
+  own curves. So any run is debuggable from the saved artifacts.
 
 ### GPU run (when H200 + endpoint available)
 ```bash

@@ -59,6 +59,7 @@ if [ -n "$ADAPTER" ]; then
   run "python3 gpt_oss/eval/eval_adapter.py --adapter-rollouts 'results/gpt_oss/sft_rollouts_*.jsonl' --base-rollouts 'results/gpt_oss/base_rollouts_*.jsonl' --tag sft"
 fi
 
-echo "=== [7/7] policy comparison + final table/plot ==="
+echo "=== [7/7] policy comparison + demo report ==="
 run "python3 gpt_oss/eval/compare_policies.py --base-rollouts 'results/gpt_oss/base_rollouts_*.jsonl' --adapter-rollouts 'results/gpt_oss/sft_rollouts_*.jsonl'"
-echo "Done. See results/final_comparison.md and plots/final_comparison.png"
+run "python3 scripts/make_demo_report.py"
+echo "Done. See results/DEMO_REPORT.md (all figures), results/final_comparison.md, plots/final_comparison.png"
