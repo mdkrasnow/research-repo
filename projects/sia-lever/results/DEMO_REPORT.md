@@ -37,9 +37,9 @@ Episodes: 9 (eval seeds, held-out). Regret = best cost-adjusted measured outcome
 
 > **PREVIEW**: synthetic base+LoRA rollouts illustrate the figures. The GPU run (`run_gpu_comparison.sh`) overwrites these with real gpt-oss-120b measurements.
 
-# Adapter eval — PREVIEW (20260606T034130Z)
+# Adapter eval — PREVIEW (20260606T034439Z)
 
-Figure: `adapter_eval_20260606T034130Z.png` (base vs +PREVIEW)
+Figure: `adapter_eval_20260606T034439Z.png` (base vs +PREVIEW)
 
 | metric | base gpt-oss | gpt-oss+LoRA | delta |
 |---|---|---|---|
@@ -61,11 +61,11 @@ vs base
   - [fixed] bad_verifier_seed_009 (bad_verifier): base=`W` lora=`H` correct=`H`
   - [regressed] model_prior_gap_seed_008 (model_prior_gap): base=`W` lora=`H` correct=`W`
 
-![Base vs +LoRA: lever accuracy ↑, mean regret ↓, invalid-JSON ↓](results/gpt_oss/preview/adapter_eval_20260606T034130Z.png)
-*Base vs +LoRA: lever accuracy ↑, mean regret ↓, invalid-JSON ↓* — `results/gpt_oss/preview/adapter_eval_20260606T034130Z.png`
+![Base vs +LoRA: lever accuracy ↑, mean regret ↓, invalid-JSON ↓](results/gpt_oss/preview/adapter_eval_20260606T034439Z.png)
+*Base vs +LoRA: lever accuracy ↑, mean regret ↓, invalid-JSON ↓* — `results/gpt_oss/preview/adapter_eval_20260606T034439Z.png`
 
-![Per-mode lever accuracy: base vs LoRA](results/gpt_oss/preview/adapter_per_mode_20260606T034130Z.png)
-*Per-mode lever accuracy: base vs LoRA* — `results/gpt_oss/preview/adapter_per_mode_20260606T034130Z.png`
+![Per-mode lever accuracy: base vs LoRA](results/gpt_oss/preview/adapter_per_mode_20260606T034439Z.png)
+*Per-mode lever accuracy: base vs LoRA* — `results/gpt_oss/preview/adapter_per_mode_20260606T034439Z.png`
 
 ## 4. LoRA training curve
 

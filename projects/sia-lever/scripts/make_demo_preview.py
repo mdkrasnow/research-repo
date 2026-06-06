@@ -64,6 +64,10 @@ def run(cmd):
 
 
 def main():
+    # start clean so the preview dir holds exactly one illustrative set (no timestamp pileup)
+    if os.path.isdir(PREVIEW):
+        for fn in os.listdir(PREVIEW):
+            os.remove(os.path.join(PREVIEW, fn))
     bp, lp = synth_rollouts()
     py = sys.executable
     run([py, "gpt_oss/eval/eval_selector.py", "--rollouts", bp, "--tag", "PREVIEW_base", "--out", PREVIEW])
