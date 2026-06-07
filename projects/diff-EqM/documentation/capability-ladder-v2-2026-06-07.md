@@ -49,10 +49,44 @@ improve feat-dist; 72.9% improve top-1.
 **Verdict: v10 preferentially fixes the model's weak regions** — the hard-example
 mining mechanism prediction, confirmed at checkpoint level.
 
-## Rung C — failed-generation rescue  [building]
-## Rung D — sampler robustness (NFE × step_mult)  [Exp 1 infra, submitting]
-## Rung E — trajectory swap (vanilla/v10 early↔late)  [building]
-## Rung F — class-guided counterfactual edit  [building]
+## Rung C — failed-generation rescue  [DONE — NULL] (job 19846918, n=64, v10 s1)
+Bad = bottom-quartile vanilla classifier conf (16/64, conf≤0.048). Branch their
+matched t=0.5 mid-latent under vanilla vs v10 continuation.
+- vanilla_cont conf 0.0344 top5 0.375 ; v10_cont conf 0.0363 top5 0.375.
+- v10 conf gain +0.0018, top5 identical. **v10 does NOT rescue failed trajectories.**
+Mechanism: trajectory is committed by the midpoint — c(γ)→0 near the manifold means
+the late field is too weak to repair structure set early, for BOTH arms.
+
+## Rung E — trajectory swap  [DONE — NULL/weak] (job 19846918)
+vanilla/v10 spliced early↔late at t∈{.25,.5,.75}, plus pure arms.
+- pure_vanilla top1 0.422 / top5 0.719 ; pure_v10 0.438 / 0.719 (+0.016 top1, exp3
+  direction but tiny at n=64; top5 flat).
+- EVERY splice config ≈ the pure arms (top5 0.703–0.719, conf 0.113–0.118).
+**v10's contribution is NOT localizable** to early global structure or late detail —
+it is diffuse and small. No timestep where swapping in v10 helps measurably.
+
+## Rung F — class-guided counterfactual edit  [DONE — INCONCLUSIVE] (job 19846918)
+Switch class A→B at t∈{.25,.5,.75}, measure target-B success + source-A retention.
+- target_B_top5 = 0.0 at EVERY switch, BOTH arms; source_A_top5 unchanged (~0.71);
+  LPIPS-to-pure-A ~1e-4 (output essentially identical to no-switch).
+**Label switch has ~no effect for either arm** → base EqM-B/2 is too weakly
+class-conditional in this GD/cfg=1.0 regime (cond-top1 only 0.43) and c(γ) decay
+kills late switches. A base-model ceiling, NOT a v10-vs-vanilla differentiator.
+Counterfactual editing not supported by either checkpoint.
+
+## Rung D — sampler robustness (NFE × step_mult)  [job 19846525 PENDING seas_gpu]
+
+## Synthesis so far
+The v10 FID gain is REAL and behavioral, but **aggregate-statistical**: better
+per-class fidelity, mode coverage, and class adherence, concentrated on HARD classes
+(A+B). It is NOT a trajectory-level capability: no failed-sample rescue (C), no
+splice-localizable contribution (E), no counterfactual steerability (F). Consistent
+with "mining sharpens the field broadly toward weak regions" rather than installing
+a new conditional/steering mechanism. D (brittleness/efficiency) still pending.
+
+Caveats: C/E/F single seed n=64, v10 seed1 (not stronger seed0, ckpt pruned). F null
+is a base-model property (uninformative), not a true negative. top5 (flat) is more
+reliable than diffuse softmax conf at these scales.
 
 (Inpainting/outpainting/translation revisited ONLY after A–F.)
 
