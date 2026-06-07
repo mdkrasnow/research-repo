@@ -310,6 +310,101 @@ def run_inpaint(model, vae, device, args):
     return metrics
 
 
+def _corrupt_pixels(imgs01, kind, device):
+    """imgs01 in [0,1] (N,3,H,W) -> corrupted [0,1]. Held-out corruption
+    families for Rung-2 transfer (NONE seen during v10 mining: v10 mines only
+    EqM-generation hard examples). Returns (corrupted01, is_spatial_clamp)."""
+    import torch.nn.functional as Fnn
+    H = imgs01.shape[-1]
+    if kind == "gray":          # colorization: drop chroma
+        lum = (0.299 * imgs01[:, 0] + 0.587 * imgs01[:, 1]
+               + 0.114 * imgs01[:, 2]).unsqueeze(1)
+        return lum.expand(-1, 3, -1, -1).contiguous(), False
+    if kind == "lowres":        # super-res: 4x down then up (bicubic)
+        lo = Fnn.interpolate(imgs01, scale_factor=0.25, mode="bicubic",
+                             align_corners=False)
+        return Fnn.interpolate(lo, size=(H, H), mode="bicubic",
+                               align_corners=False).clamp(0, 1), False
+    if kind == "blur":          # deblur: gaussian blur k=9 sigma~3
+        k = 9
+        xs = torch.arange(k, device=device, dtype=imgs01.dtype) - k // 2
+        gg = torch.exp(-(xs ** 2) / (2 * 3.0 ** 2)); gg = gg / gg.sum()
+        ker = (gg[:, None] * gg[None, :])[None, None].expand(3, 1, k, k)
+        return Fnn.conv2d(imgs01, ker, padding=k // 2, groups=3).clamp(0, 1), False
+    if kind == "crop":          # outpaint: keep center 50%, zero margins
+        return imgs01.clone(), True   # spatial clamp handled in run_restore
+    raise ValueError(f"unknown corruption {kind}")
+
+
+def run_restore(model, vae, device, args):
+    """Rung-2 held-out corruption transfer. Corrupt real val image (gray /
+    lowres / blur / crop), then zero-shot restore via the SAME GD path used
+    for FID sampling. Both vanilla and v10 use identical inference; the only
+    difference is the checkpoint -> any gap is the learned-field repair prior.
+    """
+    imgs, labels = load_val_images(args.val_path, args.num_images,
+                                   args.image_size, device, args.seed)
+    orig_px = torch.clamp(imgs * 0.5 + 0.5, 0, 1)
+    kind = args.corruption
+    corrupt_px, spatial = _corrupt_pixels(orig_px, kind, device)
+    corrupt_m11 = corrupt_px * 2 - 1
+    z_corrupt = encode(corrupt_m11, vae)
+    z0 = encode(imgs, vae)
+    g = args.restore_gamma
+    torch.manual_seed(args.seed)
+    noise = torch.randn_like(z_corrupt)
+    x_init = (1.0 - g) * z_corrupt + g * noise
+
+    clamp_fn = None
+    if spatial:    # crop/outpaint: clamp center (known) each step, RePaint-style
+        h = w = args.image_size // 8
+        h0, h1 = h // 4, h - h // 4
+        w0, w1 = w // 4, w - w // 4
+        mask = torch.zeros((imgs.shape[0], 1, h, w), device=device)
+        mask[:, :, h0:h1, w0:w1] = 1.0     # 1 = known center
+        corrupt_px = decode(mask * z0, vae)   # preview: center known, margins grey
+
+        def clamp_fn(xt, t):
+            known_at_t = (1.0 - t) * z0 + t * noise
+            return mask * known_at_t + (1.0 - mask) * xt
+
+    restored = gd_restore(model, x_init, labels, t_init=(1.0 - g),
+                          stepsize=args.stepsize, num_steps=None, device=device,
+                          clamp_fn=clamp_fn, clamp_start_frac=args.inpaint_clamp_start)
+    restored_px = decode(restored, vae)
+
+    lp = try_lpips(device)
+    metrics = {
+        "mode": "restore", "corruption": kind, "tag": args.tag,
+        "restore_gamma": g,
+        "psnr_corrupt_vs_orig": psnr(corrupt_px, orig_px),
+        "psnr_restored_vs_orig": psnr(restored_px, orig_px),
+        "lpips_corrupt_vs_orig": lpips_score(lp, corrupt_px, orig_px),
+        "lpips_restored_vs_orig": lpips_score(lp, restored_px, orig_px),
+    }
+    # semantic preservation: pretrained classifier top5 agreement with true class
+    try:
+        from torchvision.models import resnet50, ResNet50_Weights
+        clf = resnet50(weights=ResNet50_Weights.IMAGENET1K_V2).to(device).eval()
+        norm = transforms.Normalize([0.485, 0.456, 0.406],
+                                    [0.229, 0.224, 0.225])
+        with torch.no_grad():
+            top5 = clf(norm(restored_px)).topk(5, dim=1).indices.tolist()
+        metrics["clf_top5_hit"] = [int(int(labels[i]) in top5[i])
+                                   for i in range(len(top5))]
+        metrics["clf_top5_rate"] = float(np.mean(metrics["clf_top5_hit"]))
+        print(f"[restore {kind}] clf top5 rate={metrics['clf_top5_rate']:.2f}")
+    except Exception as e:
+        print(f"[warn] classifier eval skipped ({e})", file=sys.stderr)
+
+    print(f"[restore {kind}] restored PSNR={np.mean(metrics['psnr_restored_vs_orig']):.2f} "
+          f"(corrupt {np.mean(metrics['psnr_corrupt_vs_orig']):.2f})")
+    rows = [orig_px.cpu(), corrupt_px.cpu(), restored_px.cpu()]
+    save_grid(torch.cat(rows, dim=0), args.num_images,
+              Path(args.out_dir) / f"restore_{kind}_{args.tag}.png")
+    return metrics
+
+
 def run_compose(model, vae, device, args):
     # N random distinct class pairs (deterministic by seed) for a real sample
     # size, instead of a handful of hand-picked pairs.
@@ -384,7 +479,12 @@ def save_grid(tensor, ncol, path):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--mode", required=True,
-                    choices=["denoise", "inpaint", "compose"])
+                    choices=["denoise", "inpaint", "compose", "restore"])
+    ap.add_argument("--corruption", default="gray",
+                    choices=["gray", "lowres", "blur", "crop"],
+                    help="restore mode: held-out corruption family (Rung-2 transfer)")
+    ap.add_argument("--restore-gamma", type=float, default=0.5,
+                    help="restore mode: noise fraction blended into corrupted init")
     ap.add_argument("--ckpt", required=True)
     ap.add_argument("--tag", required=True, help="label for output filenames, e.g. vanilla / v10")
     ap.add_argument("--out-dir", required=True)
@@ -431,10 +531,13 @@ def main():
         metrics = run_denoise(model, vae, device, args)
     elif args.mode == "inpaint":
         metrics = run_inpaint(model, vae, device, args)
+    elif args.mode == "restore":
+        metrics = run_restore(model, vae, device, args)
     else:
         metrics = run_compose(model, vae, device, args)
 
-    mpath = Path(args.out_dir) / f"metrics_{args.mode}_{args.tag}.json"
+    suffix = f"_{args.corruption}" if args.mode == "restore" else ""
+    mpath = Path(args.out_dir) / f"metrics_{args.mode}{suffix}_{args.tag}.json"
     mpath.write_text(json.dumps(metrics, indent=2))
     print(f"[metrics] wrote {mpath}")
 
