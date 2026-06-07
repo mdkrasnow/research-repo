@@ -118,6 +118,24 @@ Supersedes the "augmentation discovery has no headroom / bridge concluded" verdi
 specific to a known generic CIFAR nuisance. It does NOT contradict them: it explains them (no headroom + no
 label-free validity signal there) and shows the complementary regime where discovery does have headroom.
 
+## 7b. Scope boundary — the CIFAR bridge (honest negative, 2026-06-07)
+
+The recipe was ported to real CIFAR EqM (`v14_multi_morphism_aug`) and run through the mandatory mechanism
+smoke. It FAILED there and was NOT submitted to GPU. The single load-bearing assumption — a label-free
+anchor that cleanly separates valid morphisms from decoys — does not survive on natural-image textures:
+
+- random-conv energy-distance anchor accepts a destructive `big_shear` (lowest score of all families);
+- a small in-domain autoencoder (recon error) accepts `crop_erase` and `color_collapse` (trivially
+  reconstructable) while correctly rejecting shear;
+- a combined max-of-both rejects the *valid* `hue` family (the AE penalizes recolored images).
+
+Each anchor leaks a different family; no single cheap label-free anchor separates valid from all decoys on
+CIFAR without per-dataset hand-tuning. Discovery on a leaking anchor concentrates on the accepted decoy
+(decoy-usage 0.96). This is the limitation predicted in §5: real image symmetries need not be separable in
+a cheap label-free feature space. The clean-manifold results (§4) are exactly the regime where the anchor
+holds; CIFAR is outside it. Detail: `v17_bridge_smoke_postmortem.md`. The fix is a natural-image-robust
+validity model (see §7), gated on the cheap per-family separability test before any GPU.
+
 ## 7. Next steps (gated)
 
 1. (done) dSprites confirmation.
