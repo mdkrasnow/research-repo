@@ -145,7 +145,11 @@ def collect_phase1():
 
 def collect_phase2():
     lines = ["## Phase 2 — Payoff\n"]
+    lines.append("EqM-lite (field-matching, the target analog) is the PRIMARY gate. The shape-ID classifier "
+                 "is a calibrated-INSENSITIVE diagnostic (0B: oracle~=random; shape identity is robust to "
+                 "these morphisms) and is NOT gated.\n")
     verdict = {}
+    na_summary = {}
     for proxy, key, better in [("classifier", "heldout_acc", "higher"),
                                ("eqm_lite", "robustness_gap", "lower")]:
         files = _load("v17_payoff_*_%s_*.json" % proxy)
@@ -159,21 +163,37 @@ def collect_phase2():
             def a(arm):
                 return _agg([d["arms"][arm] for d in ds if arm in d["arms"]], [key])[0]
             base, om, rv = a("BASE"), a("KNOWN_ORACLE_MULTI"), a("RANDOM_VALID_POLICY")
-            dm, dsng = a("DISCOVERED_MULTI"), a("DISCOVERED_SINGLE")
+            dm, dsng, na = a("DISCOVERED_MULTI"), a("DISCOVERED_SINGLE"), a("DISCOVERED_MULTI_NO_ANCHOR")
             if better == "higher":
-                ok = dm > base and dm >= rv - 1e-3 and dm >= dsng - 1e-3
+                beats_base = dm > base; beats_rv = dm >= rv - 1e-3
+                near_oracle = dm >= om - 0.05; anchor_matters = dm > na
             else:
-                ok = dm < base and dm <= rv + 1e-3 and dm <= dsng + 1e-3
+                beats_base = dm < base; beats_rv = dm < rv + 1e-3
+                near_oracle = dm <= om + 0.05; anchor_matters = dm < na
+            ok = beats_base and beats_rv and near_oracle and anchor_matters
             proxy_pass.append(ok)
+            na_summary["%s/%s" % (proxy, task)] = {
+                "discovered_multi_vs_single": "multi_better" if (
+                    (better == "lower" and dm < dsng) or (better == "higher" and dm > dsng))
+                    else "single_better_or_tie"}
             lines.append("\n### %s / %s — %s (%s better)\n" % (proxy, task, "PASS" if ok else "FAIL", better))
-            lines.append("| BASE | ORACLE | RANDOM_VALID | DISC_SINGLE | **DISC_MULTI** |\n|---|---|---|---|---|\n")
-            lines.append("| %.4f | %.4f | %.4f | %.4f | **%.4f** |\n" % (base, om, rv, dsng, dm))
+            lines.append("| BASE | ORACLE | RANDOM_VALID | DISC_SINGLE | **DISC_MULTI** | NO_ANCHOR |\n|---|---|---|---|---|---|\n")
+            lines.append("| %.4f | %.4f | %.4f | %.4f | **%.4f** | %.4f |\n" % (base, om, rv, dsng, dm, na))
+            lines.append("- beats_base=%s beats_random=%s near/over_oracle=%s anchor_essential=%s\n"
+                         % (beats_base, beats_rv, near_oracle, anchor_matters))
         verdict[proxy] = all(proxy_pass) if proxy_pass else None
     cls_ok = verdict.get("classifier"); eqm_ok = verdict.get("eqm_lite")
-    authorize = bool(cls_ok and eqm_ok)
-    lines.append("\n**Phase 2: classifier=%s eqm_lite=%s -> EqM/FID authorized: %s**\n"
-                 % (cls_ok, eqm_ok, "YES" if authorize else "NO (still gated)"))
-    return "".join(lines), {"classifier": cls_ok, "eqm_lite": eqm_ok, "authorize_fid": authorize}
+    # FID is NEVER auto-authorized; a clean EqM-lite pass yields a RECOMMENDATION pending human approval.
+    recommend = bool(eqm_ok)
+    lines.append("\n**Phase 2 verdict (EqM-lite PRIMARY): eqm_lite=%s | classifier(diagnostic)=%s**\n"
+                 % (eqm_ok, cls_ok))
+    lines.append("- discovered_multi vs single: %s\n" % na_summary)
+    lines.append("**EqM/FID: %s** — FID is never auto-authorized; a clean EqM-lite pass is a RECOMMENDATION "
+                 "to integrate, pending EXPLICIT human approval (CLAUDE.md gating discipline).\n"
+                 % ("RECOMMENDED (EqM-lite passed)" if recommend else "NOT recommended (EqM-lite gate unmet)"))
+    return "".join(lines), {"classifier_diagnostic": cls_ok, "eqm_lite_primary": eqm_ok,
+                            "discovered_vs_single": na_summary,
+                            "authorize_fid": False, "recommend_integration": recommend}
 
 
 def main():

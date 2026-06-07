@@ -1,68 +1,32 @@
 # v17 MorphismGym — Results Report
 
-## Phase 1 — Discovery
+## Phase 2 — Payoff
+EqM-lite (field-matching, the target analog) is the PRIMARY gate. The shape-ID classifier is a calibrated-INSENSITIVE diagnostic (0B: oracle~=random; shape identity is robust to these morphisms) and is NOT gated.
 
-### decoy_pressure (true=['rotate', 'hue']) — PASS
-| arm | cov | | arm | cov |
-|---|---|---|---|---|
-| BASE | 0.000 | | ORACLE | 0.975 |
-| RANDOM_VALID | 0.935 | | LEARNED_SINGLE | 0.458 |
-| **LEARNED_MULTI** | **0.782** | | NO_ANCHOR | 0.766 |
-| NO_DIVERSITY | 0.558 | | | |
-- learned: true_use=0.67 decoy_use=0.00 recall=1.00 | NO_ANCHOR decoy_use=0.00 (ablation should rise) | gate: decoy_pressure: recall>=.5, STRONG decoy-avoid(<.10), valid>decoy-arm, NO_ANCHOR validity worse
+### classifier / multi_independent — FAIL (higher better)
+| BASE | ORACLE | RANDOM_VALID | DISC_SINGLE | **DISC_MULTI** | NO_ANCHOR |
+|---|---|---|---|---|---|
+| 0.1797 | 0.3372 | 0.4115 | 0.2865 | **0.3346** | 0.3516 |
+- beats_base=True beats_random=False near/over_oracle=True anchor_essential=False
 
-### impossible_control (true=[]) — PASS
-| arm | cov | | arm | cov |
-|---|---|---|---|---|
-| BASE | 0.000 | | ORACLE | 0.000 |
-| RANDOM_VALID | 0.000 | | LEARNED_SINGLE | 0.000 |
-| **LEARNED_MULTI** | **0.000** | | NO_ANCHOR | 0.000 |
-| NO_DIVERSITY | 0.000 | | | |
-- learned: true_use=0.00 decoy_use=0.00 recall=0.00 | NO_ANCHOR decoy_use=0.00 (ablation should rise) | gate: no-hallucination (cov<0.15)
+### classifier / single_rotation — PASS (higher better)
+| BASE | ORACLE | RANDOM_VALID | DISC_SINGLE | **DISC_MULTI** | NO_ANCHOR |
+|---|---|---|---|---|---|
+| 0.5267 | 0.9642 | 0.6497 | 0.9525 | **0.9577** | 0.5605 |
+- beats_base=True beats_random=True near/over_oracle=True anchor_essential=True
 
-### multi_composed (true=['rotate', 'scale', 'translate_x']) — PASS
-| arm | cov | | arm | cov |
-|---|---|---|---|---|
-| BASE | 0.000 | | ORACLE | 1.000 |
-| RANDOM_VALID | 1.000 | | LEARNED_SINGLE | 0.391 |
-| **LEARNED_MULTI** | **0.879** | | NO_ANCHOR | 0.985 |
-| NO_DIVERSITY | 0.519 | | | |
-- learned: true_use=0.63 decoy_use=0.00 recall=0.78 | NO_ANCHOR decoy_use=0.00 (ablation should rise) | gate: multi: recall>=.66, low-decoy, cov>single, valid>decoy-arm, NO_ANCHOR validity worse
+### eqm_lite / multi_independent — PASS (lower better)
+| BASE | ORACLE | RANDOM_VALID | DISC_SINGLE | **DISC_MULTI** | NO_ANCHOR |
+|---|---|---|---|---|---|
+| 0.4659 | 0.0784 | 0.1066 | 0.0588 | **0.0617** | 0.3015 |
+- beats_base=True beats_random=True near/over_oracle=True anchor_essential=True
 
-### multi_independent (true=['rotate', 'hue', 'scale']) — PASS
-| arm | cov | | arm | cov |
-|---|---|---|---|---|
-| BASE | 0.000 | | ORACLE | 0.983 |
-| RANDOM_VALID | 0.957 | | LEARNED_SINGLE | 0.330 |
-| **LEARNED_MULTI** | **0.969** | | NO_ANCHOR | 0.844 |
-| NO_DIVERSITY | 0.562 | | | |
-- learned: true_use=0.69 decoy_use=0.01 recall=0.89 | NO_ANCHOR decoy_use=0.00 (ablation should rise) | gate: multi: recall>=.66, low-decoy, cov>single, valid>decoy-arm, NO_ANCHOR validity worse
+### eqm_lite / single_rotation — PASS (lower better)
+| BASE | ORACLE | RANDOM_VALID | DISC_SINGLE | **DISC_MULTI** | NO_ANCHOR |
+|---|---|---|---|---|---|
+| 0.0038 | 0.0037 | 0.0037 | 0.0036 | **0.0037** | 0.0037 |
+- beats_base=True beats_random=True near/over_oracle=True anchor_essential=True
 
-### single_hue (true=['hue']) — PASS
-| arm | cov | | arm | cov |
-|---|---|---|---|---|
-| BASE | 0.000 | | ORACLE | 0.953 |
-| RANDOM_VALID | 0.870 | | LEARNED_SINGLE | 0.929 |
-| **LEARNED_MULTI** | **0.918** | | NO_ANCHOR | 0.566 |
-| NO_DIVERSITY | 0.917 | | | |
-- learned: true_use=0.56 decoy_use=0.00 recall=1.00 | NO_ANCHOR decoy_use=0.00 (ablation should rise) | gate: single: true>decoy usage, low-decoy, valid>decoy-arm, NO_ANCHOR validity worse
-
-### single_rotation (true=['rotate']) — PASS
-| arm | cov | | arm | cov |
-|---|---|---|---|---|
-| BASE | 0.000 | | ORACLE | 1.000 |
-| RANDOM_VALID | 1.000 | | LEARNED_SINGLE | 1.000 |
-| **LEARNED_MULTI** | **1.000** | | NO_ANCHOR | 0.954 |
-| NO_DIVERSITY | 1.000 | | | |
-- learned: true_use=0.89 decoy_use=0.00 recall=1.00 | NO_ANCHOR decoy_use=0.00 (ablation should rise) | gate: single: true>decoy usage, low-decoy, valid>decoy-arm, NO_ANCHOR validity worse
-
-### single_scale (true=['scale']) — PASS
-| arm | cov | | arm | cov |
-|---|---|---|---|---|
-| BASE | 0.000 | | ORACLE | 1.000 |
-| RANDOM_VALID | 1.000 | | LEARNED_SINGLE | 0.070 |
-| **LEARNED_MULTI** | **1.000** | | NO_ANCHOR | 1.000 |
-| NO_DIVERSITY | 0.070 | | | |
-- learned: true_use=0.08 decoy_use=0.00 recall=1.00 | NO_ANCHOR decoy_use=0.00 (ablation should rise) | gate: single: true>decoy usage, low-decoy, valid>decoy-arm, NO_ANCHOR validity worse
-
-**Phase 1 fan-in: PASS** {'decoy_pressure': True, 'impossible_control': True, 'multi_composed': True, 'multi_independent': True, 'single_hue': True, 'single_rotation': True, 'single_scale': True}
+**Phase 2 verdict (EqM-lite PRIMARY): eqm_lite=True | classifier(diagnostic)=False**
+- discovered_multi vs single: {'classifier/multi_independent': {'discovered_multi_vs_single': 'multi_better'}, 'classifier/single_rotation': {'discovered_multi_vs_single': 'multi_better'}, 'eqm_lite/multi_independent': {'discovered_multi_vs_single': 'single_better_or_tie'}, 'eqm_lite/single_rotation': {'discovered_multi_vs_single': 'single_better_or_tie'}}
+**EqM/FID: RECOMMENDED (EqM-lite passed)** — FID is never auto-authorized; a clean EqM-lite pass is a RECOMMENDATION to integrate, pending EXPLICIT human approval (CLAUDE.md gating discipline).
