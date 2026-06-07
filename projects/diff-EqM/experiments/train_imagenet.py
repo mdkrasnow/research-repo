@@ -398,7 +398,7 @@ def _v02_cosine_contrastive_step(
 def _v10_pgd_hard_example_step(
     model_ddp, model_module, x, y, transport,
     train_eps, v10_eps_radius, v10_K, v10_lr,
-    device,
+    device, random_control=False,
 ):
     """v10 PGD hard-example mining on EqM regression target.
 
@@ -428,7 +428,11 @@ def _v10_pgd_hard_example_step(
     # project to L2 ball
     flat = delta.flatten(1).norm(dim=1, keepdim=True).view(B, 1, 1, 1)
     delta = delta * torch.clamp(v10_eps_radius / (flat + 1e-8), max=1.0)
-    for _ in range(v10_K):
+    # Random-corruption control (load-bearing ablation): skip PGD ascent, keep
+    # the norm-matched random δ. Isolates "does adversarial SELECTION matter"
+    # from "does training on equal-magnitude perturbed inputs matter".
+    inner_K = 0 if random_control else v10_K
+    for _ in range(inner_K):
         delta = delta.detach().requires_grad_(True)
         pred_neg = model_module(x_t.detach() + delta, t, y, train=False)
         loss_adv = ((pred_neg - target) ** 2).mean()
@@ -452,7 +456,8 @@ def _v10_pgd_hard_example_step(
         # call = v10_K inner grad forwards + 1 hard forward. Accumulated by the
         # caller into the checkpoint as `anm_inner_forward_count` so compute-matched
         # comparison can use exact counts instead of the ~2x FEU estimate.
-        "v10_inner_forwards": int(v10_K + 1),
+        "v10_inner_forwards": int(inner_K + 1),
+        "v10_random_control": bool(random_control),
     }
     return loss_v10, diag
 
@@ -719,6 +724,7 @@ def main(args):
                             v10_K=args.v10_K,
                             v10_lr=args.mining_lr,
                             device=device,
+                            random_control=args.v10_random_control,
                         )
                         cached_x_neg = None
                         loss = loss + args.gamma * loss_v10
@@ -1034,6 +1040,10 @@ if __name__ == "__main__":
                         help="v10: PGD inner steps (FGSM K=1 per Briglia 2025)")
     parser.add_argument("--v10-eps-radius", type=float, default=0.3,
                         help="v10: L2 ball radius for δ (CIFAR Phase 0.3 PASS regime)")
+    parser.add_argument("--v10-random-control", action="store_true",
+                        help="v10 ABLATION: skip PGD ascent, use norm-matched RANDOM δ. "
+                             "Load-bearing control — isolates adversarial selection from "
+                             "equal-magnitude perturbation training.")
 
     parse_transport_args(parser)
     args = parser.parse_args()

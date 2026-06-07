@@ -132,6 +132,12 @@ if [ "$MINING" = "v10" ]; then
     --v10-eps-radius 0.3 \
     --mining-lr 0.05 \
     --mine-every 1"
+    # V10_RANDOM=1 -> random-corruption control (load-bearing ablation): same
+    # eps-ball perturbation, NO PGD adversarial selection. Isolates mining gain.
+    if [ "${V10_RANDOM:-0}" = "1" ]; then
+        TRAIN_CMD="$TRAIN_CMD --v10-random-control"
+        echo "=== V10 RANDOM-CONTROL ablation ENABLED (no PGD ascent) ===" >&2
+    fi
 fi
 
 if [ -n "${RESUME_CKPT:-}" ] && [ -f "$RESUME_CKPT" ]; then
