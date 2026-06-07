@@ -1,7 +1,7 @@
 {
   "project": "diff-EqM",
   "title": "Differential-Geometry-Guided Adversarial Negative Mining for EqM (DG-ANM)",
-  "phase": "Phase2 IN-1K v10 l03: 3-seed TRAINS done (s0 home final, s1 holylabs ep79, s2 holylabs final); FID 50K submitted (19657625-627). Vanilla 3-seed BLOCKED: only seed0 trusted(31.41); seeds1,2 incomplete(ep57-59).",
+  "phase": "Phase1 PASS + Phase2 STRONG (single-vanilla): v10 IN-1K B/2 80ep 3-seed FID 27.58\u00b10.36 (s0 27.21,s1 27.92,s2 27.60), all < vanilla 31.41 (-3.83). Full Welch BLOCKED on vanilla seeds1,2 (incomplete ep57-59).",
   "stage_b_in1k_baseline": {
     "verified_at": "2026-05-13",
     "result": {
@@ -69,7 +69,15 @@
       ],
       "in100_vanilla_80ep_1seed_prior": 121.24,
       "in100_dganm_80ep_1seed_prior": 112.58,
-      "in100_vanilla_80ep_3seed_FID_BLOCKED": "train+sample complete; FID step failed on ref-stats schema mismatch (KeyError: mu); fixable offline"
+      "in100_vanilla_80ep_3seed_FID_BLOCKED": "train+sample complete; FID step failed on ref-stats schema mismatch (KeyError: mu); fixable offline",
+      "in1k_v10_l03_80ep_3seed_FID": [
+        27.2086,
+        27.923,
+        27.602
+      ],
+      "in1k_v10_l03_80ep_3seed_mean": 27.5779,
+      "in1k_v10_l03_80ep_3seed_sd": 0.3578,
+      "in1k_vanilla_80ep_seed0_trusted": 31.4105
     },
     "summer_plan_doc": "projects/diff-EqM/documentation/summer-2026-plan.md",
     "related_work_memo": "projects/diff-EqM/documentation/related-work-differentiation.md",
@@ -115,9 +123,9 @@
     ]
   },
   "next_action": {
-    "command": "Poll FID jobs 19657625/626/627; when done record 3 v10 FIDs vs vanilla 31.41 baseline.",
-    "reason": "v10 IN-1K trains complete; need FID numbers for Phase2 read. Full Welch gate still needs vanilla seeds1,2 retrained to ep80.",
-    "hint": "Vanilla seed1(19051147)/seed2(19399165) FAILED final-sync, ckpts only ep57-59. Resume both to ep80 for clean 3-seed Welch. v10 vs single trusted vanilla seed0 gives directional read meanwhile."
+    "command": "Resume vanilla seeds 1,2 to ep80 -> FID -> 3-seed Welch t-test for Phase2 gate.",
+    "reason": "v10 3-seed FID done (27.58 mean, -3.83 vs trusted vanilla seed0). Phase1 gate PASS (27.21<=30.41). Phase2 needs vanilla 3-seed for proper p-value.",
+    "hint": "vanilla seed1=19051147(ep59), seed2=19399165(ep57); resume both via imagenet1k_v10_scaling-style vanilla sbatch w/ RESUME_CKPT + PERSISTENT_RESULTS=holylabs."
   },
   "autoresearch_variants": {
     "active": true,
@@ -210,9 +218,51 @@
   },
   "needs_user_input": {
     "value": true,
-    "prompt": "v13 bridge logged (known crop 12.59 wins, discovered 14.02~=random 14.08~=base 14.31 \u2014 frozen single-op lacks diversity). Awaiting spec for the next CPU test ladder. v10 competitor FID still to be filled in (job 19405301)."
+    "prompt": "PI update drafted (2026-06-07 v10 IN-1K 3-seed FID 27.58 vs vanilla 31.41, Phase1 PASS). Review pi-updates.md + authorize resuming vanilla seeds 1,2 to ep80 for the Phase2 Welch gate."
   },
   "completed_runs": [
+    {
+      "partition": "seas_gpu",
+      "status": "completed",
+      "submitted_at": "2026-06-06",
+      "git_sha": "HEAD",
+      "sbatch_path": "projects/diff-EqM/slurm/jobs/imagenet1k_fid_eval.sbatch",
+      "expected_runtime": "~3-5h (50K samp + FID)",
+      "phase": "2",
+      "gate": "Phase2 IN-1K 3-seed v10 vs vanilla 31.41 (Welch p<0.05, >=1 FID gain)",
+      "run_id": "fid_v10_l03_seed2",
+      "job_id": "19681015",
+      "description": "FID 50K on v10 l03 seed2 final.pt (holylabs).",
+      "final_metric": "IN-1K FID(50K)=27.602 (gd 0.003/250/cfg1.0). vs vanilla 31.41."
+    },
+    {
+      "partition": "seas_gpu",
+      "status": "completed",
+      "submitted_at": "2026-06-06",
+      "git_sha": "HEAD",
+      "sbatch_path": "projects/diff-EqM/slurm/jobs/imagenet1k_fid_eval.sbatch",
+      "expected_runtime": "~3-5h (50K samp + FID)",
+      "phase": "2",
+      "gate": "Phase2 IN-1K 3-seed v10 vs vanilla 31.41 (Welch p<0.05, >=1 FID gain)",
+      "run_id": "fid_v10_l03_seed1",
+      "job_id": "19681008",
+      "description": "FID 50K on v10 l03 seed1 0400000.pt (holylabs, ep79).",
+      "final_metric": "IN-1K FID(50K)=27.923 (gd 0.003/250/cfg1.0). vs vanilla 31.41."
+    },
+    {
+      "partition": "seas_gpu",
+      "status": "completed",
+      "submitted_at": "2026-06-06",
+      "git_sha": "HEAD",
+      "sbatch_path": "projects/diff-EqM/slurm/jobs/imagenet1k_fid_eval.sbatch",
+      "expected_runtime": "~3-5h (50K samp + FID)",
+      "phase": "2",
+      "gate": "Phase2 IN-1K 3-seed v10 vs vanilla 31.41 (Welch p<0.05, >=1 FID gain)",
+      "run_id": "fid_v10_l03_seed0",
+      "job_id": "19680996",
+      "description": "FID 50K on v10 l03 seed0 final.pt (home). gd eta0.003 250step cfg1.0 EqM-B/2 \u2014 matches trusted baseline harness.",
+      "final_metric": "IN-1K FID(50K)=27.2086 (gd 0.003/250/cfg1.0). vs vanilla 31.41."
+    },
     {
       "partition": "gpu",
       "status": "completed",
@@ -1566,48 +1616,6 @@
   ],
   "active_runs": [
     {
-      "partition": "seas_gpu",
-      "status": "pending",
-      "submitted_at": "2026-06-06",
-      "git_sha": "HEAD",
-      "sbatch_path": "projects/diff-EqM/slurm/jobs/imagenet1k_fid_eval.sbatch",
-      "expected_runtime": "~3-5h (50K samp + FID)",
-      "phase": "2",
-      "gate": "Phase2 IN-1K 3-seed v10 vs vanilla 31.41 (Welch p<0.05, >=1 FID gain)",
-      "run_id": "fid_v10_l03_seed0",
-      "job_id": "19680996",
-      "description": "FID 50K on v10 l03 seed0 final.pt (home). gd eta0.003 250step cfg1.0 EqM-B/2 \u2014 matches trusted baseline harness.",
-      "error": "prev job (GIT_SHA=HEAD) failed: git checkout HEAD invalid on fresh clone. Resubmitted GIT_SHA=5bf37cb."
-    },
-    {
-      "partition": "seas_gpu",
-      "status": "pending",
-      "submitted_at": "2026-06-06",
-      "git_sha": "HEAD",
-      "sbatch_path": "projects/diff-EqM/slurm/jobs/imagenet1k_fid_eval.sbatch",
-      "expected_runtime": "~3-5h (50K samp + FID)",
-      "phase": "2",
-      "gate": "Phase2 IN-1K 3-seed v10 vs vanilla 31.41 (Welch p<0.05, >=1 FID gain)",
-      "run_id": "fid_v10_l03_seed1",
-      "job_id": "19681008",
-      "description": "FID 50K on v10 l03 seed1 0400000.pt (holylabs, ep79).",
-      "error": "prev job (GIT_SHA=HEAD) failed: git checkout HEAD invalid on fresh clone. Resubmitted GIT_SHA=5bf37cb."
-    },
-    {
-      "partition": "seas_gpu",
-      "status": "pending",
-      "submitted_at": "2026-06-06",
-      "git_sha": "HEAD",
-      "sbatch_path": "projects/diff-EqM/slurm/jobs/imagenet1k_fid_eval.sbatch",
-      "expected_runtime": "~3-5h (50K samp + FID)",
-      "phase": "2",
-      "gate": "Phase2 IN-1K 3-seed v10 vs vanilla 31.41 (Welch p<0.05, >=1 FID gain)",
-      "run_id": "fid_v10_l03_seed2",
-      "job_id": "19681015",
-      "description": "FID 50K on v10 l03 seed2 final.pt (holylabs).",
-      "error": "prev job (GIT_SHA=HEAD) failed: git checkout HEAD invalid on fresh clone. Resubmitted GIT_SHA=5bf37cb."
-    },
-    {
       "run_id": "bridge150_v10_hardneg",
       "job_id": "19405301",
       "partition": "gpu",
@@ -2564,5 +2572,13 @@
     "date": "2026-06-04",
     "summary": "rsync -a chown-fail on setgid holylabs synced 0 ckpts for 26h. van-s1(18776220) lost (step 400k exit 0). Fixed sbatch rsync -rtL + self-prune latest-3. Rescued v10-s1(260k)+van-s2(155k)->holylabs, v10-s2(265k)->home. Background rescue loop pulls 3 running jobs /tmp->home until done. Home pruned 90->58G (my stale partials only). van-s1 resubmit 19051147.",
     "outcome": "3 Phase-2 seeds CANCELLED near-done + lost (rescue compute-node-ssh likely flagged by admin). Only vanilla seed1 (19051147) survives. DO NOT ssh compute nodes for rescue. Future persistence must write directly to roomy quota-sorted location. Storage (home+holylabs ydu_lab quota) needs user resolution before relaunching lost seeds."
+  },
+  "gate_evaluations": {
+    "phase1_v10_in1k_seed0": {
+      "rule": "FID<=30.41",
+      "value": 27.2086,
+      "result": "PASS",
+      "date": "2026-06-07"
+    }
   }
 }

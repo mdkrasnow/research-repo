@@ -354,3 +354,24 @@ small effect size is worth foregrounding vs relegating to appendix.
 **Decisions needed from PI**: None blocking. Confirm whether to foreground coverage (+0.072) and weak-class bottom-quartile (−5.61) as the headline "no diversity tax" evidence in the workshop draft.
 
 **Artifacts**: `results/exp3_metrics_out/{aggregate_metrics.json,aggregate_metrics.csv,class_metrics.csv,delta_class_metrics.csv,classifier_histogram.csv,plots/,README.md}`; gen on holylabs `mkrasnow_eqm/exp3/`; jobs 18964347 (ref) + 18964349 (anm gen) + 19120911 (metrics, exit 0).
+
+---
+
+## 2026-06-07 — v10 IN-1K B/2 80ep: 3-seed FID confirms gain (Phase 1 PASS)
+
+**Headline**: v10 PGD hard-example mining beats vanilla EqM at paper-comparable scale across 3 seeds.
+
+**Numbers** (IN-1K-256 class-cond, EqM-B/2, 80ep, FID 50K, gd sampler eta=0.003 / 250 steps / cfg=1.0 — identical harness to the trusted vanilla baseline):
+- seed0 27.2086, seed1 27.9230, seed2 27.6020
+- **mean 27.58 ± 0.36** vs trusted vanilla seed0 **31.41** → **−3.83 FID**
+- All three seeds individually below vanilla (disjoint) — consistent with Exp3 single-seed ANM 26.88 vs 31.27.
+
+**Gates**:
+- Phase 1 (v10 IN-1K seed0 FID ≤ 30.41): **PASS** (27.21).
+- Phase 2 (3-seed Welch p<0.05, mean ≥1 FID gain): gain ≫1, but **proper p-value blocked** — vanilla seeds 1,2 trains failed final-sync (ckpts only ep57–59). Need vanilla seeds 1,2 resumed to ep80 + FID for a real t-test.
+
+**Caveat**: comparison currently v10 (n=3) vs vanilla (n=1 trusted). Strong directional but not the pre-registered Welch until vanilla 3-seed lands.
+
+**Decision needed**: authorize resume of vanilla seeds 1,2 to ep80 (2× ~12h B/2 trains) to complete the Phase 2 Welch gate.
+
+**Artifacts**: FID jobs 19680996/19681008/19681015. Ckpts: v10 l03 seed0 home final.pt; seed1/seed2 holylabs `mkrasnow_eqm/`.
