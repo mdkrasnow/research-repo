@@ -568,3 +568,29 @@ conditional / curriculum). Discovery earns value ONLY for an UNKNOWN, non-generi
 capture — the testbed itself must change. EqM bridge direction CONCLUDED. Files:
 experiments/v16_known_aug_ceiling.py, v16_residual_policy_proxy.py, v16_residual_curriculum_proxy.py;
 results_v16_exp{1,2,3}.json.
+
+---
+# v17 MorphismGym RESULT (2026-06-06) — bridge REOPENED as viable research bet
+
+The v12 CIFAR bridge above was the OLD plan. v16-distrust + the v17 pivot supersede the "bridge concluded"
+verdicts. v17 built a NEW testbed (not CIFAR/crop) and got the FIRST positive of the whole arc.
+
+Why v13-16 failed and v17 works: those used a KNOWN GENERIC nuisance (crop) where crop ~ Bayes-optimal ->
+nothing to discover, and where a label-free anchor CANNOT separate valid from invalid (everything generic).
+v17's gym has REAL HIDDEN morphisms and a manifold structure so (1) there is headroom and (2) valid
+morphisms stay on-manifold while decoys leave it -> a label-free PCA-whitened random-conv ED anchor
+separates valid/invalid at AUC 1.0.
+
+Result (see results/summary.md, results/v17_report.md):
+- discovery recovers true families, avoids decoys, stays valid (Phase 1, 7/7 tasks)
+- EqM-lite payoff: DISCOVERED_MULTI 0.062 BEATS random_valid 0.107, BEATS oracle 0.078, vs base 0.466;
+  NO_ANCHOR 0.30 (anchor essential). FIRST time discovery beats random in v13-v17.
+
+Implication for the REAL EqM bridge: the recorded bottleneck ("operator architecture done; held-out
+TARGETING without labels unsolved") is now shown SOLVABLE when the data has real hidden structure + an
+anchor exists. The v12_stable_generator_aug plan can be revisited — BUT only after:
+  (1) Phase 3 natural-ish transfer (dSprites / rotated-MNIST symbols) confirms the pattern beyond the
+      synthetic shape generator, and
+  (2) explicit human approval (FID never auto-authorized).
+Open caveats before any CIFAR/FID: EqM-LITE != real EqM; gains track heldout-shift size (single_rotation
+had none); discovered_multi ties discovered_single on payoff (one morphism saturates field-robustness).

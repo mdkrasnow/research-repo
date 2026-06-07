@@ -118,3 +118,37 @@ v16-shape==random, v16-timing==random): a validation-utility bilevel objective a
 Confirms the whole-arc thesis decisively — augmentation discovery has no headroom for a known generic CIFAR
 nuisance. Do NOT run FID. Files: v16_known_aug_ceiling.py, v16_residual_policy_proxy.py,
 v16_residual_curriculum_proxy.py; results_v16_exp{1,2,3}.json.
+
+## v17 MorphismGym — UNKNOWN image-morphism discovery (2026-06-06) — VERDICT: FIRST POSITIVE, EqM-lite PASS
+
+PIVOT (per pipeline hint (a)): the v13-16 negatives were all on CIFAR + a KNOWN GENERIC nuisance (crop/
+translation) where crop is ~Bayes-optimal so there is nothing to discover. v17 changes the TESTBED: a
+controlled rendered-shape gym (circle/square/triangle/star/ring/cross x latent factors cx,cy,rot,scale,
+hue,bright,stroke,bg) where valid morphisms are REAL but HIDDEN (visible=narrow band, anchor=broad valid
+range unlabeled, heldout=disjoint valid tail eval-only). Crucially valid morphisms keep images ON the
+rendered-shape manifold while decoys (crop-erase/big-shear/bg-shortcut/shape-warp/occlude/color-collapse)
+LEAVE it -> a LABEL-FREE anchor (PCA-whitened random-conv energy-distance + structure/chroma stats) can
+separate valid from invalid (impossible for generic CIFAR crop). NO pretrained semantics; GT latents
+eval-only. Policy qtheta(family,magnitude,composition) learns magnitudes by reparam + family weights by an
+EMA-reward bandit (grouped application).
+
+- Phase 0 (calibration) PASS: 0A gym structured (separability AUC 1.0); 0B oracle payoff -- the shape-ID
+  CLASSIFIER is insensitive (oracle~=random, shape ID robust to these morphisms) so gate switched to
+  EqM-lite which brackets cleanly x2 seeds (BASE 0.43 > RANDOM_DECOY 0.14 > RANDOM_VALID 0.11 >
+  ORACLE_MULTI 0.077); 0C all 3 anchors AUC 1.0 (ae widest, randomconv used); 0D no hallucination.
+- Phase 1 (discovery) PASS all 7 tasks: recovers true families (recall .78-1.0), avoids decoys
+  (decoy_use ~0.00), stays valid (.82-.92 vs random_decoy .50-.64), multi>single per-factor coverage,
+  NO_ANCHOR ablation degrades VALIDITY (anchor's role = on-manifold/decoy-avoid, not coverage),
+  impossible_control no hallucination.
+- Phase 2 (payoff) EqM-lite PASS: multi_independent (3 seeds) DISCOVERED_MULTI gap 0.062 BEATS random_valid
+  0.107 and BEATS oracle 0.078 vs base 0.466; NO_ANCHOR 0.30 (anchor essential). This is the FIRST time
+  discovery BEATS random in the whole v13-v17 arc. single_rotation = no payoff headroom (base gap 0.004,
+  all tie). Classifier diagnostic factor-dependent: PASS single_rotation (rotation breaks shape-ID), insens
+  multi_independent. discovered_multi TIES single on EqM-lite (one morphism saturates field-robustness).
+
+WHAT IT MEANS: targeting WITHOUT labels (the bottleneck recorded after v12-16) IS solvable when the data
+has real hidden structure + a manifold anchor exists. WHAT IT DOES NOT MEAN: synthetic gym + EqM-LITE
+proxy, NOT real EqM/FID. FID remains NEVER auto-authorized -> RECOMMEND integration pending EXPLICIT human
+approval. NEXT: Phase 3 natural-ish transfer (dSprites/rotated-symbols) before any real-EqM bridge.
+Files: v17_morphism_gym.py, v17_policy.py, v17_eval_metrics.py, v17_common.py, v17_run_{calibration,
+discovery,payoff}.py, v17_collect_results.py; results/v17_*.json, v17_report.md, v17_verdicts.json.
