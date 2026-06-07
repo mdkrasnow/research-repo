@@ -152,3 +152,19 @@ proxy, NOT real EqM/FID. FID remains NEVER auto-authorized -> RECOMMEND integrat
 approval. NEXT: Phase 3 natural-ish transfer (dSprites/rotated-symbols) before any real-EqM bridge.
 Files: v17_morphism_gym.py, v17_policy.py, v17_eval_metrics.py, v17_common.py, v17_run_{calibration,
 discovery,payoff}.py, v17_collect_results.py; results/v17_*.json, v17_report.md, v17_verdicts.json.
+
+## v17 Phase 3 — natural-ish transfer (MNIST), 2026-06-07 — PASS (3 seeds)
+
+Objects = real MNIST handwriting (colorized on 32x32); SAME morphism families, decoys, label-free anchor,
+policy, metrics applied on top. multi task (hidden rot+scale+hue). EqM-lite payoff (lower=better), 3 seeds:
+- DISCOVERED_MULTI gap 0.022-0.023 BEATS random_valid 0.080, BEATS oracle 0.049, vs base 0.117;
+  NO_ANCHOR 0.108-0.117 (~=base -> anchor essential); decoy_use 0.00 all seeds.
+The discovery pattern (discovery > random, approaches/beats oracle, anchor load-bearing) HOLDS on real
+images, not just the synthetic shape generator. Phase 0->3 ladder complete and passing.
+
+VERDICT (whole v17): unsupervised morphism discovery from data structure alone WORKS and transfers --
+FIRST positive of the v13-v17 arc. Mechanism: real hidden structure + a label-free manifold anchor that
+separates valid (on-manifold) from invalid (off-manifold) morphisms, which generic CIFAR/crop lacked.
+Bottleneck "targeting without labels" is SOLVABLE in this regime. STILL synthetic/MNIST + EqM-LITE proxy:
+FID NEVER auto-authorized -> RECOMMEND real-EqM integration pending explicit human approval + (ideally) a
+non-MNIST natural dataset (dSprites/Shapes3D) confirmation. Files: v17_transfer.py; v17_transfer_multi_seed{0,1,2}.json.
