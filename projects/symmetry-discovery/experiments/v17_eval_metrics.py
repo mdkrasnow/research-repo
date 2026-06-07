@@ -147,17 +147,37 @@ class ShapeNet(nn.Module):
         return self.f(x)
 
 
+def _aug_bank(visible, aug_fn, copies=3, seed=0):
+    """Precompute `copies` augmented views of the whole visible set ONCE (chunked). Sampling from this bank
+    each training step removes the per-step policy cost (the policy's grouped transform is ~0.9s/call).
+    `copies`>1 keeps augmentation diversity."""
+    if aug_fn is None:
+        return None
+    torch.manual_seed(seed + 3)
+    banks = []
+    for _ in range(copies):
+        outs = []
+        for i in range(0, visible.size(0), 256):
+            outs.append(aug_fn(visible[i:i + 256]))
+        banks.append(torch.cat(outs, 0))
+    return torch.cat(banks, 0)  # [copies*N, ...]
+
+
 def train_classifier(visible, vis_sid, aug_fn, steps=600, bs=128, lr=1e-3, seed=0, gen=None):
     torch.manual_seed(seed)
     net = ShapeNet()
     opt = torch.optim.Adam(net.parameters(), lr=lr)
     n = visible.size(0)
     g = torch.Generator().manual_seed(seed + 7)
+    bank = _aug_bank(visible, aug_fn, seed=seed)
+    nb = bank.size(0) if bank is not None else 0
     for _ in range(steps):
         idx = torch.randint(0, n, (bs,), generator=g)
-        xb, yb = visible[idx], vis_sid[idx]
-        if aug_fn is not None:
-            xb = aug_fn(xb)
+        if bank is not None:
+            bidx = torch.randint(0, nb, (bs,), generator=g)
+            xb = bank[bidx]; yb = vis_sid[bidx % n]
+        else:
+            xb, yb = visible[idx], vis_sid[idx]
         loss = F.cross_entropy(net(xb), yb)
         opt.zero_grad(); loss.backward(); opt.step()
     return net
@@ -197,12 +217,14 @@ def train_eqm_lite(visible, aug_fn, lam=0.5, steps=600, bs=128, lr=1e-3, seed=0)
     torch.manual_seed(seed)
     net = TinyEqM(); opt = torch.optim.Adam(net.parameters(), lr=lr)
     n = visible.size(0); g = torch.Generator().manual_seed(seed + 11)
+    bank = _aug_bank(visible, aug_fn, seed=seed)
+    nb = bank.size(0) if bank is not None else 0
     for _ in range(steps):
         idx = torch.randint(0, n, (bs,), generator=g)
         xb = visible[idx]
         loss = eqm_loss(net, xb)
-        if aug_fn is not None:
-            loss = loss + lam * eqm_loss(net, aug_fn(xb))
+        if bank is not None:
+            loss = loss + lam * eqm_loss(net, bank[torch.randint(0, nb, (bs,), generator=g)])
         opt.zero_grad(); loss.backward(); opt.step()
     return net
 
