@@ -375,3 +375,24 @@ small effect size is worth foregrounding vs relegating to appendix.
 **Decision needed**: authorize resume of vanilla seeds 1,2 to ep80 (2× ~12h B/2 trains) to complete the Phase 2 Welch gate.
 
 **Artifacts**: FID jobs 19680996/19681008/19681015. Ckpts: v10 l03 seed0 home final.pt; seed1/seed2 holylabs `mkrasnow_eqm/`.
+
+---
+## DRAFT 2026-06-07 — ANM capability-ladder NULL (do not send until reviewed)
+
+Tested whether v10 (PGD hard-example mining) unlocks downstream image operations
+(inpaint/colorize/super-res/deblur/outpaint) beyond its FID gain. Frozen-weight,
+identical-sampler, vanilla-vs-v10 checkpoint comparison.
+
+Result: NULL. Rung1 (denoise/inpaint/compose) + Rung2 (4 held-out corruptions)
+both show v10 ≈ vanilla at noise level (ΔPSNR <0.03dB, ΔLPIPS ≤0.004). The FID
+gain (27.58 vs 31.41) does not convert to conditional repair capability.
+
+Action taken: killed the capability ladder per pre-registered gate. Did NOT spend
+the 30h random-corruption control train (no signal to defend). Rungs 3-5 not run.
+Workshop story (mining = FID/generation method) unchanged and intact — we simply
+do not claim downstream-task transfer. Postmortem:
+documentation/postmortem-capability-ladder-2026-06-07.md
+
+Decision for you: (a) accept null, keep capability work shelved; or (b) authorize
+a stronger probe (3-seed + n>=256, or trained-conditional head) before final kill.
+My recommendation: (a) — denoise exact-parity is strong convergent evidence.
