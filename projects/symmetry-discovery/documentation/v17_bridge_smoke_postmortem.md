@@ -53,3 +53,27 @@ cheap label-free feature space.
 ## Status
 No active_runs added (nothing submitted). Bridge code committed for record + reproducibility of this
 postmortem. pipeline.json updated: bridge BLOCKED on mechanism (anchor transfer), not on cluster/approval.
+
+---
+## RESOLUTION (2026-06-07): detector cracked — bridge now passes the decoy-avoidance smoke
+
+Per user direction ("take a crack at the better detector first"), built a natural-image-robust label-free
+validity detector (`experiments/v17_cifar_detector.py`):
+- **robust AE**: a small autoencoder trained on CIFAR + MILD valid nuisances (flip / small affine /
+  brightness / hue). It reconstructs VALID morphisms well (low error) and destructive decoys poorly. This
+  closed the `hue` false-reject that broke the earlier plain-AE combination.
+- **combined detector** = `conv-ED` (catches crop_erase + color_collapse) + robust-AE recon (catches
+  big_shear). Static per-family separability: **sep = +0.378** — valid families all below all decoys
+  (D1 plain-AE −0.026, D2 robust-AE alone −0.018, **D3 combined +0.378**).
+
+Wired into discovery (`_multi_morphism.discover(ae=..., ae_weight=...)`): the combined penalty is a SUM, so
+the AE veto must outweigh big_shear's low conv-ED — needs `ae_weight ≈ 50`:
+- ae_weight 8 → decoy_usage 0.92 (big_shear still wins)
+- ae_weight 25 → 0.157
+- **ae_weight 50 → decoy_usage 0.079 (< 0.10 gate); no decoy in top families** (favors valid hue/bright/
+  translate).
+
+**Status:** the CIFAR bridge now PASSES its mechanism/decoy-avoidance smoke. `v14_multi_morphism_aug`
+defaults updated (use_ae=true, ae_weight=50). REMAINING gate is the human FID-approval to submit the
+150ep×4-arm CIFAR bridge (FID never auto-authorized). The mandatory ≥16-sample probe still runs as the
+short `bridge_v14_smoke` gpu_test job before the full run.

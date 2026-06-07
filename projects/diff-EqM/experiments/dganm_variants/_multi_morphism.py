@@ -124,6 +124,61 @@ def energy_distance(a, b):
     return 2 * torch.cdist(a, b).mean() - torch.cdist(a, a).mean() - torch.cdist(b, b).mean()
 
 
+class _AE(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.e = nn.Sequential(nn.Conv2d(3, 32, 4, 2, 1), nn.ReLU(), nn.Conv2d(32, 64, 4, 2, 1), nn.ReLU(),
+                               nn.Conv2d(64, 64, 4, 2, 1), nn.ReLU(), nn.Flatten(), nn.Linear(64 * 16, 64))
+        self.d = nn.Sequential(nn.Linear(64, 64 * 16), nn.ReLU(), nn.Unflatten(1, (64, 4, 4)),
+                               nn.ConvTranspose2d(64, 64, 4, 2, 1), nn.ReLU(),
+                               nn.ConvTranspose2d(64, 32, 4, 2, 1), nn.ReLU(),
+                               nn.ConvTranspose2d(32, 3, 4, 2, 1), nn.Tanh())
+
+    def forward(self, x):
+        return self.d(self.e(x))
+
+
+def _valid_nuisance_aug(x, gen):
+    """MILD valid nuisances (flip/small affine/photometric) -- the manifold the robust AE should ACCEPT.
+    Decoys (extreme shear/erase/collapse) are NOT in this set -> stay off-manifold -> high recon error."""
+    B = x.size(0)
+    flip = torch.rand(B, generator=gen) < 0.5
+    x = torch.where(flip.view(B, 1, 1, 1), torch.flip(x, dims=[3]), x)
+    ang = (torch.rand(B, generator=gen) * 2 - 1) * math.radians(15)
+    sc = torch.exp((torch.rand(B, generator=gen) * 2 - 1) * 0.15)
+    tx = (torch.rand(B, generator=gen) * 2 - 1) * 0.18
+    ty = (torch.rand(B, generator=gen) * 2 - 1) * 0.18
+    c, s = torch.cos(ang), torch.sin(ang)
+    th = torch.zeros(B, 2, 3, device=x.device)
+    th[:, 0, 0] = c / sc; th[:, 0, 1] = -s / sc; th[:, 1, 0] = s / sc; th[:, 1, 1] = c / sc
+    th[:, 0, 2] = tx; th[:, 1, 2] = ty
+    grid = F.affine_grid(th, list(x.size()), align_corners=False)
+    x = F.grid_sample(x, grid, align_corners=False, padding_mode="reflection")
+    x = m_bright(x, (torch.rand(B, generator=gen) * 2 - 1) * 0.5)
+    x = m_hue(x, (torch.rand(B, generator=gen) * 2 - 1) * 0.5)
+    return x
+
+
+def train_robust_ae(real, steps=1500, seed=0):
+    """AE trained on valid-nuisance-augmented CIFAR. Its recon error is LOW for valid morphisms (in-manifold)
+    and HIGH for destructive decoys -- complements the random-conv ED (which catches crop/collapse but
+    misses shear). Together (max-z) they separate valid from ALL decoys on CIFAR (sep>0, proxy-validated)."""
+    torch.manual_seed(seed)
+    ae = _AE().to(real.device); opt = torch.optim.Adam(ae.parameters(), 1e-3)
+    g = torch.Generator().manual_seed(seed)
+    for _ in range(steps):
+        xb = _valid_nuisance_aug(real[torch.randint(0, real.size(0), (128,), generator=g)], g)
+        loss = F.mse_loss(ae(xb), xb)
+        opt.zero_grad(); loss.backward(); opt.step()
+    for p in ae.parameters():
+        p.requires_grad_(False)
+    return ae
+
+
+def ae_recon(ae, x):
+    return ((ae(x) - x) ** 2).flatten(1).mean(1)  # [B]
+
+
 class AnchorScorer:
     def __init__(self, anchor_imgs, k_pca=48, ref_n=512, seed=777, use_stats=True, stats_weight=1.5):
         self.enc = RandomConvAnchor(seed=seed).to(anchor_imgs.device)
@@ -199,7 +254,10 @@ class MorphismPolicy(nn.Module):
 
 def discover(policy, visible, scorer, steps=400, lr=0.05, bs=128, a_move=1.0, a_div=0.3,
              a_bound=0.1, move_margin=0.6, use_anchor=True, use_diversity=True, use_bounds=True,
-             seed=0, ema=0.9):
+             seed=0, ema=0.9, ae=None, ae_weight=50.0):
+    """Optional `ae` (robust AE) adds an off-manifold recon term: combined validity = conv-ED + ae_weight*
+    recon. The conv-ED catches crop/collapse; the AE catches shear; together they reject all decoys on
+    natural CIFAR (proxy-validated, sep>0). ae_weight scales recon to conv-ED units."""
     torch.manual_seed(seed)
     opt = torch.optim.Adam([{"params": [policy.mag_mu, policy.mag_logstd], "lr": lr},
                             {"params": [policy.logits], "lr": lr * 3}])
@@ -212,20 +270,24 @@ def discover(policy, visible, scorer, steps=400, lr=0.05, bs=128, a_move=1.0, a_
             f0 = scorer.feats(xb)
         fT = scorer.feats(out, grad=True)
         ed = energy_distance(fT, scorer.ref); move = (fT - f0).norm(dim=1).mean()
+        rec_b = ae_recon(ae, out) if ae is not None else None      # [B] per-image, differentiable
         L = torch.zeros((), device=xb.device)
         if use_anchor:
             L = L + ed; d["L_anchor"] = float(ed)
+            if ae is not None:
+                L = L + ae_weight * rec_b.mean(); d["L_ae"] = float(rec_b.mean())
         L = L + a_move * F.relu(move_margin - move); d["move"] = float(move)
         if use_bounds:
             L = L + a_bound * (F.relu(pre.abs() - 2.0) ** 2).mean()
         with torch.no_grad():
-            fdet = fT.detach()
+            fdet = fT.detach(); rec_d = rec_b.detach() if rec_b is not None else None
             for j in range(K):
                 m = (fam_idx == j)
                 if m.sum() >= 8:
                     edj = float(energy_distance(fdet[m], scorer.ref)) if use_anchor else 0.0
+                    aej = float(rec_d[m].mean()) * ae_weight if (use_anchor and rec_d is not None) else 0.0
                     movej = float((fdet[m] - f0[m]).norm(dim=1).mean())
-                    rj = -edj + 0.2 * min(movej / move_margin, 2.0)
+                    rj = -(edj + aej) + 0.2 * min(movej / move_margin, 2.0)
                     reward[j] = ema * reward[j] + (1 - ema) * rj if seen[j] > 0 else rj
                     seen[j] += 1
         w = policy.family_weights(); L = L + (-(w * reward.detach()).sum())

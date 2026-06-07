@@ -79,9 +79,14 @@ def train(args: TrainArgs) -> float:
         off = (32 - cc) // 2
         visible = F.interpolate(real[:, :, off:off + cc, off:off + cc], size=32,
                                 mode="bilinear", align_corners=False)
+        # robust-AE (valid-nuisance-trained) complements the conv-ED anchor: together they reject ALL
+        # decoys on natural CIFAR (proxy-validated sep>0). Required for the bridge to pass its smoke.
+        ae = MM.train_robust_ae(real, steps=int(e.get("ae_steps", 1500)), seed=dseed) \
+            if bool(e.get("use_ae", True)) else None
         pol = MM.MorphismPolicy(MM.ALL_FAMILIES, depth=1).to(device)
         if mode == "discovered":
-            d = MM.discover(pol, visible, scorer, steps=steps, seed=dseed)
+            d = MM.discover(pol, visible, scorer, steps=steps, seed=dseed,
+                            ae=ae, ae_weight=float(e.get("ae_weight", 50.0)))
             diag.update(d)
             print(f"[v14] discovered decoy_usage={d['decoy_usage']:.3f} "
                   f"weights={ {k: round(v,3) for k,v in d['family_weights'].items()} }", flush=True)
