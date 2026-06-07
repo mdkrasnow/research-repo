@@ -22,6 +22,7 @@ import v17_common as C
 
 DEV = torch.device("cpu")
 _MNIST = None
+_DSPR = None
 
 
 def _load_mnist():
@@ -33,16 +34,35 @@ def _load_mnist():
     return _MNIST
 
 
-def _base_images(n, seed):
-    """Colorized upright centered MNIST digits on 32x32: a real-image object manifold."""
-    x, y = _load_mnist()
+def _load_dsprites():
+    global _DSPR
+    if _DSPR is None:
+        import numpy as np
+        z = np.load(os.path.expanduser("~/data/dsprites.npz"), allow_pickle=True)
+        imgs = torch.from_numpy(z["imgs"]).float()             # [737280,64,64] binary
+        lat = torch.from_numpy(z["latents_classes"])           # [N,6]: color,shape,scale,orient,posX,posY
+        _DSPR = (imgs, lat[:, 1].long())                       # label = shape id (3 classes)
+    return _DSPR
+
+
+def _base_images(n, seed, dataset="mnist"):
+    """Colorized object on 32x32 from a real/structured image source (a different generator than the
+    synthetic SDF shape gym). MNIST = handwriting; dSprites = binary geometric sprites."""
     g = torch.Generator().manual_seed(seed)
-    idx = torch.randint(0, x.size(0), (n,), generator=g)
-    dig = x[idx]                                   # [n,28,28]
-    lab = y[idx].clone()
-    canvas = torch.zeros(n, 28, 28)
-    canvas = dig
-    mask = F.pad(canvas, (2, 2, 2, 2)).unsqueeze(1)            # [n,1,32,32] intensity in [0,1]
+    if dataset == "dsprites":
+        x, y = _load_dsprites()
+        idx = torch.randint(0, x.size(0), (n,), generator=g)
+        sp = x[idx]                                            # [n,64,64]
+        lab = y[idx].clone()
+        sp = F.avg_pool2d(sp.unsqueeze(1), 2).squeeze(1)       # -> 32x32
+        mask = sp.unsqueeze(1).clamp(0, 1)
+    else:
+        x, y = _load_mnist()
+        idx = torch.randint(0, x.size(0), (n,), generator=g)
+        dig = x[idx]                                           # [n,28,28]
+        lab = y[idx].clone()
+        mask = F.pad(dig, (2, 2, 2, 2)).unsqueeze(1)           # [n,1,32,32] intensity in [0,1]
+    n = mask.size(0)
     # colorize: base hue (narrow), brightness, bg shade (these are the "default" appearance; the morphism
     # latents below move them for the regimes)
     hue = (torch.rand(n, generator=g) * 0.12)
@@ -80,12 +100,12 @@ def _apply_regime(img, hidden, regime, seed):
     return out, z
 
 
-def build_transfer_bundle(task, seed, n_vis, n_anc, n_ho):
+def build_transfer_bundle(task, seed, n_vis, n_anc, n_ho, dataset="mnist"):
     hidden = TASKS[task]
     spec = G.TaskSpec("transfer_" + task, hidden)
-    base_v, lab_v = _base_images(n_vis, seed + 1)
-    base_a, lab_a = _base_images(n_anc, seed + 2)
-    base_h, lab_h = _base_images(n_ho, seed + 3)
+    base_v, lab_v = _base_images(n_vis, seed + 1, dataset)
+    base_a, lab_a = _base_images(n_anc, seed + 2, dataset)
+    base_h, lab_h = _base_images(n_ho, seed + 3, dataset)
     vis, vz = _apply_regime(base_v, hidden, "visible", seed + 11)
     anc, az = _apply_regime(base_a, hidden, "anchor", seed + 12)
     ho, hz = _apply_regime(base_h, hidden, "heldout", seed + 13)
@@ -96,11 +116,12 @@ def build_transfer_bundle(task, seed, n_vis, n_anc, n_ho):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--task", default="multi", choices=list(TASKS))
+    ap.add_argument("--dataset", default="mnist", choices=["mnist", "dsprites"])
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--quick", action="store_true")
     a = ap.parse_args()
     n_vis, n_anc, n_ho = (768, 1024, 384) if not a.quick else (512, 512, 256)
-    b = build_transfer_bundle(a.task, a.seed, n_vis, n_anc, n_ho)
+    b = build_transfer_bundle(a.task, a.seed, n_vis, n_anc, n_ho, dataset=a.dataset)
     scorer = C.build_scorer(b, anchor_kind="randomconv")
     vref, dref = C.ref_validity(scorer, b)
     dk = dict(steps=(150 if a.quick else 250))
@@ -127,10 +148,11 @@ def main():
     gate = {"beats_base": dm < base, "beats_random": dm < rv + 1e-3,
             "near_oracle": dm <= om + 0.05, "anchor_essential": dm < na}
     passed = all(gate.values())
-    out = {"phase": "3_transfer", "dataset": "MNIST", "task": a.task, "seed": a.seed,
+    out = {"phase": "3_transfer", "dataset": a.dataset, "task": a.task, "seed": a.seed,
            "arms": res, "gate": gate, "pass": bool(passed)}
-    path = C.save_json(out, "v17_transfer_%s_seed%d.json" % (a.task, a.seed))
-    print("TRANSFER task=%s seed=%d PASS=%s" % (a.task, a.seed, passed))
+    tag = "" if a.dataset == "mnist" else "_" + a.dataset
+    path = C.save_json(out, "v17_transfer%s_%s_seed%d.json" % (tag, a.task, a.seed))
+    print("TRANSFER dataset=%s task=%s seed=%d PASS=%s" % (a.dataset, a.task, a.seed, passed))
     print("  eqm_gap: base=%.4f oracle=%.4f random=%.4f DISC=%.4f no_anchor=%.4f" % (base, om, rv, dm, na))
     if "recall" in res["DISCOVERED_MULTI"]:
         d = res["DISCOVERED_MULTI"]

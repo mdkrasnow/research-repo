@@ -168,3 +168,13 @@ separates valid (on-manifold) from invalid (off-manifold) morphisms, which gener
 Bottleneck "targeting without labels" is SOLVABLE in this regime. STILL synthetic/MNIST + EqM-LITE proxy:
 FID NEVER auto-authorized -> RECOMMEND real-EqM integration pending explicit human approval + (ideally) a
 non-MNIST natural dataset (dSprites/Shapes3D) confirmation. Files: v17_transfer.py; v17_transfer_multi_seed{0,1,2}.json.
+
+## v17 Phase 3b — dSprites confirmation (2026-06-07) — PASS (3 seeds)
+
+Second natural-ish generator (binary geometric sprites, GT shape/scale/orientation latents; distinct from
+MNIST handwriting and the SDF shape gym). multi task, EqM-lite (lower=better), 3 seeds:
+- DISCOVERED_MULTI 0.013-0.017 BEATS random 0.038-0.041, BEATS oracle 0.030-0.034, vs base 0.048-0.050;
+  NO_ANCHOR ~=base (anchor essential); decoy_use ~0.
+The discovery > random > and approaches/beats oracle pattern now holds across THREE distinct image
+distributions (synthetic SDF shapes, MNIST, dSprites), 3 seeds each. Robust positive. Files:
+v17_transfer_dsprites_multi_seed{0,1,2}.json; v17_transfer.py (--dataset mnist|dsprites).
