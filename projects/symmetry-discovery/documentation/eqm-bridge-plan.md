@@ -594,3 +594,7 @@ anchor exists. The v12_stable_generator_aug plan can be revisited — BUT only a
   (2) explicit human approval (FID never auto-authorized).
 Open caveats before any CIFAR/FID: EqM-LITE != real EqM; gains track heldout-shift size (single_rotation
 had none); discovered_multi ties discovered_single on payoff (one morphism saturates field-robustness).
+
+---
+# POINTER: v17->EqM bridge port spec (2026-06-07)
+The v12 plan above is SUPERSEDED for the operator design. See `v17_to_eqm_bridge_spec.md`: v17 (Phase 0-3, 3 datasets) validated a MULTI-family policy + PCA-whitened anchor + EMA-bandit recipe that beats the old single-operator v12/v13. Bridge ready to run on human FID-approval + diff-EqM greenlight; cluster session live.
