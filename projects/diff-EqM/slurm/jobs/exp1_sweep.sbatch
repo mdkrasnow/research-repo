@@ -91,6 +91,8 @@ ARGS=(
     --global-seed "${GLOBAL_SEED:-123}"
     --num-gpus "$NUM_GPUS"
 )
+[ -n "${NFE_LIST:-}" ]   && ARGS+=(--nfe-list "$NFE_LIST")
+[ -n "${STEP_MULTS:-}" ] && ARGS+=(--step-mults "$STEP_MULTS")
 [ -n "${SMOKE:-}" ]      && ARGS+=(--smoke "$SMOKE")
 [ "${DRY_RUN:-0}" = "1" ]   && ARGS+=(--dry-run)
 [ "${RESUME:-0}" = "1" ]    && ARGS+=(--resume)
