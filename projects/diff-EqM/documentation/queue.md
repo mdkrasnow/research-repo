@@ -7,6 +7,32 @@ Current phase: **1 — v10-only IN-1K seed 0 train RUNNING** (job 15638767 on se
 Branch B-Both retired 2026-05-23 after CAFM-EqM Phase 1b FID 341.25 catastrophe (postmortem `postmortem-cafm-eqm-2026-05-23.md`).
 v10 = PGD hard-example mining on EqM regression target. Single-objective, no discriminator, mining-based.
 
+
+## CAPABILITY LADDERS (2026-06-07/08) — what does the v10 FID gain actually buy?
+
+### Ladder v1 — KILLED (NULL). Postmortem `postmortem-capability-ladder-2026-06-07.md`.
+Zero-shot clamped restoration (denoise/inpaint/transfer gray-lowres-blur-crop): v10 ~= vanilla
+at noise level. Only falsifies NAIVE zero-shot conditional restoration. NOT "ANM learned nothing".
+
+### Ladder v2 — COMPLETE (A-F). Doc `capability-ladder-v2-2026-06-07.md`. Memory diff_eqm_capability_ladder_v2.
+Frozen ckpts, vanilla-s0 vs v10-s1 λ0.3. Verdict: v10 FID gain IS real+behavioral, BOUNDED to near-manifold quality.
+- A gain-loc (Exp3): quality+class-adherence+coverage, recall flat, 91% classes ↑. POSITIVE.
+- B hard-class: HARD ↑ 1.34x feat-dist / ~1.9x adherence vs easy. POSITIVE.
+- D sampler sweep (job 19948994, 96 cells): no collapse; converged nfe>=100 −2.5..−3.2 FID; ~2.5x sample-eff
+  (v10@nfe100 <= van@nfe250); NOT robust at starved nfe<=25. WEAK-POSITIVE.
+- C rescue / E swap / F edit: NULL (no rescue, not splice-localizable, label-switch inert both arms).
+Mechanism: PGD mining sharpens field NEAR data manifold in weak/hard-class regions. No far-from-manifold capability.
+Paper: claim quality+hard-class+sample-efficiency; DO NOT claim editing/repair/low-NFE-robustness.
+
+### Capability-ladder NEXT ACTIONS
+1. **AWAIT PI decision** (needs_user_input set; pi-updates.md 2026-06-08 draft): accept framing for workshop draft,
+   OR 3-seed-confirm A/B/D before locking claims. v10 λ0.3 seed0 ckpt was PRUNED → 3-seed would need regen/re-fetch.
+2. If accepted → fold A/B/D into workshop draft "analysis" section; cite C/E/F nulls as honest bounds.
+3. Revisit inpainting/outpainting/translation ONLY if a trained-conditional-head extension is authorized (out of current scope).
+4. No long random-control train — gated, never triggered (checkpoint signal A/B/D is eval-only).
+Infra kept: experiments/eval_trajectory.py (rescue/swap/edit), eval_capabilities.py (restore mode), exp1 sweep.
+
+
 ## Top-of-queue (Phase 1 → Phase 2)
 
 1. **WAIT** for v10 train 15638767 to complete (step ~285K of 380K at last check; ETA ~10h on seas_gpu, 48h cap). Auto-pruner 15933157 keeps quota in check.

@@ -2716,5 +2716,31 @@
   },
   "notes": [
     "2026-06-07 quota: home03 was 92% full (7.9G free) before 4-arm bridge -> deadlock risk. Freed to 23G by deleting 13 superseded CIFAR variant_* pilot dirs (FIDs in results_variants.tsv); IN-1K/stage_b baselines preserved. No standing pruner needed: variant train_loop keep-latest (fixed checkpoint.pt, no per-5K accumulation); the imagenet1k_* pruner does not cover variant_* dirs anyway."
-  ]
+  ],
+  "capability_ladder_v2": {
+    "status": "COMPLETE_A-F_2026-06-08",
+    "verdict": "v10 FID gain real+behavioral, bounded to near-manifold quality",
+    "positive": {
+      "A_gain_loc": "quality+class-adherence+coverage, recall flat, 91% classes",
+      "B_hard_class": "hard improve 1.34x featdist / ~1.9x adherence vs easy",
+      "D_sampler": "no collapse; converged nfe>=100 -2.5..-3.2 FID; ~2.5x sample-eff (v10@nfe100<=van@nfe250); not robust at starved nfe<=25"
+    },
+    "null": {
+      "C_rescue": "v10 conf +0.0018, no rescue",
+      "E_swap": "not splice-localizable",
+      "F_edit": "label-switch inert both arms (base weakly conditional)"
+    },
+    "mechanism": "PGD mining sharpens field near data manifold in weak/hard-class regions; no far-from-manifold capability",
+    "jobs": {
+      "v1_rung01": "19842241",
+      "v1_rung2": "19843548",
+      "v2_CEF": "19846918",
+      "v2_rungD": "19948994 (after 19852662 comma-bug + 19913799 exit53-quota)"
+    },
+    "docs": [
+      "documentation/capability-ladder-v2-2026-06-07.md",
+      "documentation/postmortem-capability-ladder-2026-06-07.md"
+    ],
+    "next": "AWAIT PI: accept framing OR 3-seed-confirm A/B/D (seed0 ckpt pruned)"
+  }
 }

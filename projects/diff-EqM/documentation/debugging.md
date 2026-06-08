@@ -235,3 +235,42 @@ Getting the Exp 3 verdict required clearing five stacked failures. Four were inf
 - (c) `df` lies about writability on group-quota'd lustre/NFS exports — EDQUOT can fire with petabytes "free".
 - (d) A gen job FAILED with full sample count is usually a log-pipe ENOSPC, not a data loss — verify PNG count + provenance before regenerating.
 - (e) rsync moves can truncate a handful of files; make downstream eval robust to a few corrupt samples (score-on-common-set) rather than hard-failing a 50K run.
+
+---
+## 2026-06-08 — Capability ladder v2 Rung D: 3 failed attempts before clean 96-cell run
+
+Rung D (exp1 sampler-robustness sweep, vanilla-s0 vs v10-s1 λ0.3, eval-only) failed
+3× before completing. Each a distinct, reusable root cause:
+
+1. **job 19852662 — ran only 4 cells (looked COMPLETED).** Submitted with
+   `sbatch --export=ALL,...,NFE_LIST=5,10,25,50,100,250,STEP_MULTS=0.5,1.0,1.5,2.0`.
+   **`sbatch --export` splits on EVERY comma** → `NFE_LIST` became just `5`, `STEP_MULTS`
+   just `0.5`. Driver swept 1 nfe × 1 step × gd/ngd × 2 arms = 4 cells, exited 0.
+   Symptom: results.csv had 4 rows + all FID≈362 (nfe5 = far under-converged).
+   **Fix:** NEVER pass comma-lists through `--export`. Bake them into the script/driver
+   default (changed exp1_driver `--nfe-list` default to `5,10,25,50,100,250`). Same bug
+   bit Exp 2 (`--export` comma split, see 2026-06-05). This is a STANDING gotcha.
+
+2. **job 19913799 — exit 53 in 5 s, no logs.** sbatch line `exec >> "$SYNC/job.log"`
+   couldn't write. Cause: **home03 100 % full** (95 G/95 G, 0 avail; results dir = 87 G).
+   home03 is a HARD 95 G user quota → any write (even creating the job.log dir) fails →
+   batch step CANCELLED, exit 53, within seconds. `.ba+ CANCELLED 0:53`, no .out/.err.
+   **Fix:** freed ~14 G — deleted regenerable DINO npz caches (2×2.5 G), home-duplicate
+   ckpt dirs whose persistent copies are confirmed on holylabs (`mkrasnow_eqm/...`),
+   and rsync temp junk (`.*.pt.*`). Verified holylabs copy exists BEFORE deleting each
+   home ckpt dir. exit-53 ≈ "disk/quota" — first thing to check on a sub-10 s batch fail.
+
+3. (Recovery) launched `prune_all_active.sbatch` (shared partition) — keeps anchors
+   {5000,65000}+latest-2 per `*80ep*` dir, nukes smoke ckpts + rsync temps, stays alive
+   while `eqm-1k*` jobs run. Self-heals the home-quota leak going forward.
+
+4. **job 19948994 — clean, 96 cells, 11h55m, exit 0.** Note: a background squeue-poll
+   monitor falsely reported "left queue" once mid-run (transient ssh drop → empty grep →
+   loop exited). **Guard monitors with a double-probe** (re-confirm empty squeue after a
+   short sleep) before declaring a job done.
+
+Also this session: SSH ControlMaster `kex_exchange_identification: Connection closed`
+on round-robin login node = **fail2ban/MaxStartups throttle** from a tight automated
+retry loop (our `ssh.sh` BatchMode storm + monitor loops). TCP open but sshd refuses
+handshake pre-auth, intermittently, on one of the 2 login IPs. Clears once the storm
+stops (~minutes). Don't hammer; one clean bootstrap, wait 30 s between retries.
