@@ -256,7 +256,7 @@ class MorphismPolicy(nn.Module):
 
 def discover(policy, visible, scorer, steps=400, lr=0.05, bs=128, a_move=1.0, a_div=0.3,
              a_bound=0.1, move_margin=0.6, use_anchor=True, use_diversity=True, use_bounds=True,
-             seed=0, ema=0.9, ae=None, ae_weight=50.0):
+             seed=0, ema=0.9, ae=None, ae_weight=50.0, log_every=0, gap_aware=False):
     """Optional `ae` (robust AE) adds an off-manifold recon term: combined validity = conv-ED + ae_weight*
     recon. The conv-ED catches crop/collapse; the AE catches shear; together they reject all decoys on
     natural CIFAR (proxy-validated, sep>0). ae_weight scales recon to conv-ED units."""
@@ -294,13 +294,28 @@ def discover(policy, visible, scorer, steps=400, lr=0.05, bs=128, a_move=1.0, a_
                     # moves let destructive decoys win (graying/erasing = a large move) on noisy seeds; the
                     # anti-identity pressure is already supplied by the magnitude L_move hinge. MAX (vs SUM)
                     # stops a decoy's low score on one signal from offsetting the other.
-                    rj = -max(edj, aej)
+                    # gap_aware: reward = pure ED-to-anchor (gap-closing direction). The AE veto is
+                    # DROPPED from the reward because a robust-AE trained on a nuisance set that omits a
+                    # gap-relevant family (e.g. saturate) mis-flags that family as off-manifold and the
+                    # bandit then avoids the CORRECT family (CIFAR lowcolor failure mode). ED alone is the
+                    # gap-direction signal calibration uses; decoys don't lower ED so they stay unrewarded.
+                    rj = -edj if gap_aware else -max(edj, aej)
                     reward[j] = ema * reward[j] + (1 - ema) * rj if seen[j] > 0 else rj
                     seen[j] += 1
         w = policy.family_weights(); L = L + (-(w * reward.detach()).sum())
         if use_diversity:
             L = L + a_div * (w * (w + 1e-9).log()).sum()
         opt.zero_grad(); L.backward(); opt.step()
+        if log_every and (step % log_every == 0 or step == steps - 1):
+            with torch.no_grad():
+                w = policy.family_weights()
+                ent = float(-(w * (w + 1e-9).log()).sum())
+                top = sorted(zip(policy.families, w.tolist()), key=lambda t: -t[1])[:5]
+                dec = max((float(w[i]) for i, f in enumerate(policy.families)
+                           if f in DECOY_FAMILIES), default=0.0)
+            print(f"  [{step:4d}] L={float(L):.4f} ED={d.get('L_anchor',0):.4f} "
+                  f"move={d.get('move',0):.3f} ent={ent:.3f} "
+                  f"top={[ (f, round(v,3)) for f,v in top ]} topdecoy={dec:.3f}", flush=True)
     fw = {f: float(x) for f, x in zip(policy.families, policy.family_weights())}
     eff = {f: float(policy.family_weights()[i] * policy.mag_mu[i].abs())
            for i, f in enumerate(policy.families)}
