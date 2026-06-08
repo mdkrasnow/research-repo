@@ -138,24 +138,25 @@ class _AE(nn.Module):
         return self.d(self.e(x))
 
 
-def _valid_nuisance_aug(x, gen):
+def _valid_nuisance_aug(x, gen=None):
     """MILD valid nuisances (flip/small affine/photometric) -- the manifold the robust AE should ACCEPT.
-    Decoys (extreme shear/erase/collapse) are NOT in this set -> stay off-manifold -> high recon error."""
-    B = x.size(0)
-    flip = torch.rand(B, generator=gen) < 0.5
+    Decoys (extreme shear/erase/collapse) are NOT in this set -> stay off-manifold -> high recon error.
+    Device-safe: all random tensors created on x.device (gen unused; seed via torch.manual_seed)."""
+    B = x.size(0); dev = x.device
+    flip = torch.rand(B, device=dev) < 0.5
     x = torch.where(flip.view(B, 1, 1, 1), torch.flip(x, dims=[3]), x)
-    ang = (torch.rand(B, generator=gen) * 2 - 1) * math.radians(15)
-    sc = torch.exp((torch.rand(B, generator=gen) * 2 - 1) * 0.15)
-    tx = (torch.rand(B, generator=gen) * 2 - 1) * 0.18
-    ty = (torch.rand(B, generator=gen) * 2 - 1) * 0.18
+    ang = (torch.rand(B, device=dev) * 2 - 1) * math.radians(15)
+    sc = torch.exp((torch.rand(B, device=dev) * 2 - 1) * 0.15)
+    tx = (torch.rand(B, device=dev) * 2 - 1) * 0.18
+    ty = (torch.rand(B, device=dev) * 2 - 1) * 0.18
     c, s = torch.cos(ang), torch.sin(ang)
-    th = torch.zeros(B, 2, 3, device=x.device)
+    th = torch.zeros(B, 2, 3, device=dev)
     th[:, 0, 0] = c / sc; th[:, 0, 1] = -s / sc; th[:, 1, 0] = s / sc; th[:, 1, 1] = c / sc
     th[:, 0, 2] = tx; th[:, 1, 2] = ty
     grid = F.affine_grid(th, list(x.size()), align_corners=False)
     x = F.grid_sample(x, grid, align_corners=False, padding_mode="reflection")
-    x = m_bright(x, (torch.rand(B, generator=gen) * 2 - 1) * 0.5)
-    x = m_hue(x, (torch.rand(B, generator=gen) * 2 - 1) * 0.5)
+    x = m_bright(x, (torch.rand(B, device=dev) * 2 - 1) * 0.5)
+    x = m_hue(x, (torch.rand(B, device=dev) * 2 - 1) * 0.5)
     return x
 
 
@@ -165,9 +166,10 @@ def train_robust_ae(real, steps=1500, seed=0):
     misses shear). Together (max-z) they separate valid from ALL decoys on CIFAR (sep>0, proxy-validated)."""
     torch.manual_seed(seed)
     ae = _AE().to(real.device); opt = torch.optim.Adam(ae.parameters(), 1e-3)
-    g = torch.Generator().manual_seed(seed)
+    dev = real.device
     for _ in range(steps):
-        xb = _valid_nuisance_aug(real[torch.randint(0, real.size(0), (128,), generator=g)], g)
+        idx = torch.randint(0, real.size(0), (128,), device=dev)
+        xb = _valid_nuisance_aug(real[idx], None)
         loss = F.mse_loss(ae(xb), xb)
         opt.zero_grad(); loss.backward(); opt.step()
     for p in ae.parameters():
@@ -261,11 +263,12 @@ def discover(policy, visible, scorer, steps=400, lr=0.05, bs=128, a_move=1.0, a_
     torch.manual_seed(seed)
     opt = torch.optim.Adam([{"params": [policy.mag_mu, policy.mag_logstd], "lr": lr},
                             {"params": [policy.logits], "lr": lr * 3}])
-    n = visible.size(0); g = torch.Generator().manual_seed(seed + 1)
-    K = policy.K; reward = torch.zeros(K); seen = torch.zeros(K); d = {}
+    dev = visible.device
+    n = visible.size(0)
+    K = policy.K; reward = torch.zeros(K, device=dev); seen = torch.zeros(K, device=dev); d = {}
     for step in range(steps):
-        xb = visible[torch.randint(0, n, (bs,), generator=g)]
-        out, fam_idx, pre = policy.grouped_transform(xb, gen=g)
+        xb = visible[torch.randint(0, n, (bs,), device=dev)]
+        out, fam_idx, pre = policy.grouped_transform(xb, gen=None)
         with torch.no_grad():
             f0 = scorer.feats(xb)
         fT = scorer.feats(out, grad=True)
