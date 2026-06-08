@@ -113,8 +113,9 @@ generalization to the missing-color target). `--eqm_lite` flag.
 |---|---|---|---|---|---|
 | 0 | 0.3561 | 0.3426 | 0.3431 | 0.3448 | **0.3304** |
 | 1 | 0.3589 | 0.3465 | 0.3501 | 0.3498 | **0.3357** |
+| 2 | 0.3525 | 0.3401 | 0.3418 | 0.3437 | **0.3276** |
 
-DISCOVERED is best every arm, both seeds — the ED win **transfers to a generative objective**, not just
+DISCOVERED is best every arm, all 3 seeds — the ED win **transfers to a generative objective**, not just
 the anchor metric. Margins are small (~0.025 below base, ~0.012 below oracle) but consistent. This is the
 prediction the real-EqM constructed-gap bridge (`v15_gap_morphism_aug`, desaturated-train CIFAR, FID vs
 full) is testing on the cluster.
