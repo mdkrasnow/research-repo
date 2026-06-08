@@ -103,6 +103,22 @@ single correct family beats a uniform mix that dilutes with hue/bright).
 Every seed: discovered = `saturate` (expected), decoy_usage < 2%, DISCOVERED beats BASE, RANDOM_VALID,
 RANDOM_WITH_DECOYS **and ORACLE_VALID**. Robust, not a seed artifact.
 
+## 5b. EqM-lite generative payoff (the rung to a real EqM claim)
+
+ED is an anchor metric. The next rung: train a `TinyEqM` (flow velocity-matcher) on the DESATURATED
+(visible) split with each augmentation arm, eval EqM loss on FULL CIFAR (`eqm_full`, lower = better
+generalization to the missing-color target). `--eqm_lite` flag.
+
+| seed | BASE | ORACLE_VALID | RANDOM_VALID | RANDOM_WITH_DECOYS | **DISCOVERED** |
+|---|---|---|---|---|---|
+| 0 | 0.3561 | 0.3426 | 0.3431 | 0.3448 | **0.3304** |
+| 1 | 0.3589 | 0.3465 | 0.3501 | 0.3498 | **0.3357** |
+
+DISCOVERED is best every arm, both seeds — the ED win **transfers to a generative objective**, not just
+the anchor metric. Margins are small (~0.025 below base, ~0.012 below oracle) but consistent. This is the
+prediction the real-EqM constructed-gap bridge (`v15_gap_morphism_aug`, desaturated-train CIFAR, FID vs
+full) is testing on the cluster.
+
 ## 6. Verdict
 
 **CIFAR discovery is REOPENED — on a properly-constructed visible→anchor gap, with a gap-aware reward.**
