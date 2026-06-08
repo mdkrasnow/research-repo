@@ -63,6 +63,13 @@ def m_bright(img, mag):
     return (img + mag.view(-1, 1, 1, 1) * 0.6).clamp(-1, 1)
 
 
+def m_saturate(img, mag):
+    # scale chroma about the per-pixel gray axis; mag>0 boosts saturation, <0 desaturates. The clean
+    # closer for a desaturation gap (hue rotates, bright shifts luminance; neither restores chroma).
+    gray = img.mean(1, keepdim=True)
+    return (gray + (1.0 + mag.view(-1, 1, 1, 1)) * (img - gray)).clamp(-1, 1)
+
+
 def d_crop_erase(img, mag):
     B = img.size(0); z = 2.2 + 1.5 * torch.clamp(mag, 0, 1)
     th = torch.zeros(B, 2, 3, device=img.device)
@@ -85,7 +92,7 @@ def d_color_collapse(img, mag):
 
 VALID_FAMILIES = {"translate_x": (m_translate_x, 0.30), "translate_y": (m_translate_y, 0.30),
                   "rotate": (m_rotate, 0.6), "scale": (m_scale, 0.30),
-                  "hue": (m_hue, 0.5), "bright": (m_bright, 1.0)}
+                  "hue": (m_hue, 0.5), "bright": (m_bright, 1.0), "saturate": (m_saturate, 0.8)}
 DECOY_FAMILIES = {"crop_erase": (d_crop_erase, 1.0), "big_shear": (d_big_shear, 1.0),
                   "color_collapse": (d_color_collapse, 1.0)}
 ALL_FAMILIES = list(VALID_FAMILIES) + list(DECOY_FAMILIES)
