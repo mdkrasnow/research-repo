@@ -289,8 +289,12 @@ def discover(policy, visible, scorer, steps=400, lr=0.05, bs=128, a_move=1.0, a_
                 if m.sum() >= 8:
                     edj = float(energy_distance(fdet[m], scorer.ref)) if use_anchor else 0.0
                     aej = float(rec_d[m].mean()) * ae_weight if (use_anchor and rec_d is not None) else 0.0
-                    movej = float((fdet[m] - f0[m]).norm(dim=1).mean())
-                    rj = -(edj + aej) + 0.2 * min(movej / move_margin, 2.0)
+                    # Family reward = pure ON-MANIFOLD-ness, MAX of the two validity signals (a family flagged
+                    # by EITHER conv-ED or AE-recon is rejected). NO move bonus here: rewarding big feature
+                    # moves let destructive decoys win (graying/erasing = a large move) on noisy seeds; the
+                    # anti-identity pressure is already supplied by the magnitude L_move hinge. MAX (vs SUM)
+                    # stops a decoy's low score on one signal from offsetting the other.
+                    rj = -max(edj, aej)
                     reward[j] = ema * reward[j] + (1 - ema) * rj if seen[j] > 0 else rj
                     seen[j] += 1
         w = policy.family_weights(); L = L + (-(w * reward.detach()).sum())
