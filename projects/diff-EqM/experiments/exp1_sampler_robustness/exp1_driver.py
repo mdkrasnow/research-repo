@@ -73,7 +73,7 @@ def parse_args():
     p.add_argument("--vae", default="ema")
     p.add_argument("--imagenet-ref", default="/n/holylabs/ydu_lab/Lab/raywang4/imagenet/train")
     p.add_argument("--global-seed", type=int, default=123)
-    p.add_argument("--nfe-list", default="10,25,50,100,250")
+    p.add_argument("--nfe-list", default="5,10,25,50,100,250")
     p.add_argument("--step-mults", default="0.5,1.0,1.5,2.0")
     p.add_argument("--samplers", default="gd,ngd")
     p.add_argument("--num-gpus", type=int, default=1)
