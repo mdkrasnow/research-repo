@@ -74,19 +74,57 @@ class-conditional in this GD/cfg=1.0 regime (cond-top1 only 0.43) and c(γ) deca
 kills late switches. A base-model ceiling, NOT a v10-vs-vanilla differentiator.
 Counterfactual editing not supported by either checkpoint.
 
-## Rung D — sampler robustness (NFE × step_mult)  [job 19846525 PENDING seas_gpu]
+## Rung D — sampler robustness (NFE × step_mult)  [DONE — WEAK-POSITIVE] (job 19948994)
+Full 96-cell grid: {gd,ngd} × nfe{5,10,25,50,100,250} × step_mult{0.5,1,1.5,2.0},
+vanilla-s0 vs v10-s1 λ0.3, 5K samples/cell. (3 prior attempts failed: --export
+comma-split truncated NFE list → 4 cells; then home03 100%-full exit-53; fixed both.)
 
-## Synthesis so far
-The v10 FID gain is REAL and behavioral, but **aggregate-statistical**: better
-per-class fidelity, mode coverage, and class adherence, concentrated on HARD classes
-(A+B). It is NOT a trajectory-level capability: no failed-sample rescue (C), no
-splice-localizable contribution (E), no counterfactual steerability (F). Consistent
-with "mining sharpens the field broadly toward weak regions" rather than installing
-a new conditional/steering mechanism. D (brittleness/efficiency) still pending.
+- **No collapse anywhere:** 0 nan, 0 divergence across all 96 cells, both arms.
+- **Converged regime (nfe≥100, step≥1.0):** v10 consistently −2.5 to −3.2 FID; holds
+  the edge under step-size overshoot (step_mult 2.0).
+- **Sample-efficiency (modest, real):** v10 @ nfe100 (FID 43.0–44.9) ≤ vanilla @
+  nfe250 (45.3/45.1) for BOTH gd and ngd → v10 reaches vanilla's converged quality
+  at ~2.5× fewer steps.
+- **Starved budgets (nfe≤25, or nfe50–100 @ step0.5):** v10 ≈ vanilla or marginally
+  WORSE (+0.5 to +2.6). NOT a brittleness fix; no advantage when the trajectory
+  hasn't reached the data manifold (FID 220–392, both garbage at nfe≤25).
 
-Caveats: C/E/F single seed n=64, v10 seed1 (not stronger seed0, ckpt pruned). F null
-is a base-model property (uninformative), not a true negative. top5 (flat) is more
-reliable than diffuse softmax conf at these scales.
+**Verdict: v10 is more sample-efficient and overshoot-tolerant in the near-converged
+regime, but NOT more robust at starved budgets.** The gain lives where the trajectory
+arrives at the data manifold — nothing gained far from it.
+
+## FINAL SYNTHESIS (A–F)
+The v10 FID gain (−3.83 at full budget) corresponds to a REAL behavioral change, but
+a specific and bounded one:
+
+**What changed (positive):**
+- A: gain = quality + class-adherence + mode-coverage, diversity FLAT, 91% classes.
+- B: concentrated on HARD classes (1.34× feat-dist, ~1.9× class-adherence vs easy).
+- D: ~2.5× more sample-efficient + overshoot-tolerant in the converged regime.
+
+**What did NOT change (null):**
+- C: no failed-trajectory rescue (+0.0018 conf on bad mid-states).
+- E: contribution not splice-localizable to early-structure or late-detail.
+- F: no counterfactual class-steerability (base model too weakly conditional; inert
+  both arms — uninformative, not a true negative).
+
+**Unifying mechanism:** v10 (PGD hard-example mining on the EqM target) **sharpens the
+velocity field near the data manifold**, preferentially in the model's weak (hard-class)
+regions. This buys better final-sample quality, broad per-class gains, and modest
+sample-efficiency — all "near-manifold" effects. It installs NO new far-from-manifold
+behavior: no repair of broken states (v1 null + C), no steering (F), no early-trajectory
+restructuring (E). The c(γ)→0 decay near the manifold is consistent: mining acts where
+the field is still informative, not in the near-zero-field late/edit regime.
+
+**Paper framing (unchanged, now better-evidenced):** v10 = "adaptive hard-negative
+mining that improves regression-target generative quality, concentrated on hard classes,
+with sample-efficiency gains." Do NOT claim conditional-editing / repair / robustness-
+to-low-NFE capabilities — A–F bound those out.
+
+Caveats: A/B single-seed λ0.3 seed0 (cached; ckpt since pruned); C–F single-seed n=64
+on λ0.3 seed1 (seed0 ckpt gone); D single-seed seed1. 3-seed (27.58±0.36 exists)
+would tighten but the broad per-class signal (91%/73%) and full-grid consistency make
+sign-flips unlikely.
 
 (Inpainting/outpainting/translation revisited ONLY after A–F.)
 

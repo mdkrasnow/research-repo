@@ -396,3 +396,29 @@ documentation/postmortem-capability-ladder-2026-06-07.md
 Decision for you: (a) accept null, keep capability work shelved; or (b) authorize
 a stronger probe (3-seed + n>=256, or trained-conditional head) before final kill.
 My recommendation: (a) — denoise exact-parity is strong convergent evidence.
+
+---
+## DRAFT 2026-06-08 — Capability ladder v2 COMPLETE (A-F) (review before send)
+
+Re-ran the ANM capability question with a behavioral ladder (after v1 zero-shot
+inpainting null). Frozen ckpts, vanilla vs v10 λ0.3. Verdict: the v10 FID gain IS a
+real behavioral change, but bounded to "near-manifold quality":
+
+POSITIVE — A: gain=quality+class-adherence+coverage, diversity flat, 91% classes
+improve. B: concentrated on HARD classes (1.34x feat-dist / ~1.9x class-adherence vs
+easy). D: no collapse anywhere; ~2.5x sample-efficient (v10@nfe100 <= vanilla@nfe250)
++ overshoot-tolerant in converged regime.
+
+NULL — C: no failed-trajectory rescue. E: contribution not splice-localizable. F: no
+counterfactual class-steering (base model too weakly conditional; inert both arms).
+
+Mechanism: PGD hard-example mining sharpens the field near the data manifold in weak
+(hard-class) regions. No far-from-manifold capability (no repair/steer/restructure) —
+consistent with v1 inpainting null + c(γ) decay.
+
+Paper impact: strengthens the quality+hard-class+efficiency story; bounds out
+editing/repair/low-NFE-robustness claims. No long control train spent (gated; the
+checkpoint signal that DID appear is A/B/D, all eval-only).
+
+Decision for you: accept this framing for the workshop draft, or 3-seed-confirm A/B/D
+(seed0 λ0.3 ckpt was pruned; would need re-fetch/regen) before locking claims?
