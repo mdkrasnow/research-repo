@@ -123,9 +123,9 @@
     ]
   },
   "next_action": {
-    "command": "Resume vanilla seeds 1,2 to ep80 -> FID -> 3-seed Welch t-test for Phase2 gate.",
-    "reason": "v10 3-seed FID done (27.58 mean, -3.83 vs trusted vanilla seed0). Phase1 gate PASS (27.21<=30.41). Phase2 needs vanilla 3-seed for proper p-value.",
-    "hint": "vanilla seed1=19051147(ep59), seed2=19399165(ep57); resume both via imagenet1k_v10_scaling-style vanilla sbatch w/ RESUME_CKPT + PERSISTENT_RESULTS=holylabs."
+    "command": "Poll bridge jobs 19948945-48 (v00/vK/v14disc/v14rand). On completion evaluate pre-reg gate: discovered FID < random AND <= known-aug. PASS -> consider IN-1K (human gate). FAIL -> 1 lam_aug retune then conclude.",
+    "reason": "Full 150ep CIFAR bridge submitted after smoke PASS (decoy_usage 0.041, mechanism clean).",
+    "hint": "FID is the real metric now; 2ep smoke FID 440 is not informative. Watch operator_diag decoy_usage + final FID per arm."
   },
   "autoresearch_variants": {
     "active": true,
@@ -217,8 +217,7 @@
     "sbatch": "projects/diff-EqM/slurm/jobs/variant_pilot.sbatch"
   },
   "needs_user_input": {
-    "value": true,
-    "prompt": "SSH 2FA expired. Run: ! scripts/cluster/ssh_bootstrap.sh  \u2014 then I fetch Rung D (job 19852662, sampler-robustness sweep, left queue=ran) + write final A-F synthesis. Rungs A,B (positive) + C,E,F (null) already done."
+    "value": false
   },
   "completed_runs": [
     {
@@ -1457,6 +1456,13 @@
       "status": "failed",
       "error": "OOM on gpu_test 20G (discovery models resident) + discovery picked color_collapse (SUM reward). Fixed: max-reward+no-move-bonus+restarts+free-mem, 281a02a",
       "phase": "bridge"
+    },
+    {
+      "run_id": "bridge_v14_smoke3",
+      "job_id": "19916428",
+      "status": "completed",
+      "result": "SMOKE PASS: 4 discover restarts all <0.10 (selected decoy_usage 0.041, only valid families scale/rotate/hue/translate); loss finite+decreasing, aug ratio ~0.91, FID 440 (2ep, mechanism-valid not quality), exit 0",
+      "phase": "bridge"
     }
   ],
   "archived_autoresearch_hp": {
@@ -2562,17 +2568,56 @@
       "exit_code": 0
     },
     {
-      "run_id": "bridge_v14_smoke3",
-      "job_id": "19916428",
+      "run_id": "bridge150_v00_base",
+      "job_id": "19948945",
       "partition": "gpu",
-      "status": "running",
-      "description": "v14 bridge SMOKE (max-reward+restarts+memfix) on 40G gpu",
+      "status": "pending",
+      "description": "150ep CIFAR EqM bridge arm: BASE/floor",
       "submitted_at": "2026-06-07",
       "git_sha": "281a02a",
       "sbatch_path": "projects/diff-EqM/slurm/jobs/variant_pilot.sbatch",
-      "expected_runtime": "~0.5h",
+      "expected_runtime": "~6-10h",
       "phase": "bridge",
-      "gate": "finite loss+FID+decoy_usage<0.1+samples -> full 4-arm bridge"
+      "gate": "pre-reg: discovered FID < random AND <= known-aug"
+    },
+    {
+      "run_id": "bridge150_vK_known",
+      "job_id": "19948946",
+      "partition": "gpu",
+      "status": "pending",
+      "description": "150ep CIFAR EqM bridge arm: KNOWN positive (translate_crop)",
+      "submitted_at": "2026-06-07",
+      "git_sha": "281a02a",
+      "sbatch_path": "projects/diff-EqM/slurm/jobs/variant_pilot.sbatch",
+      "expected_runtime": "~6-10h",
+      "phase": "bridge",
+      "gate": "pre-reg: discovered FID < random AND <= known-aug"
+    },
+    {
+      "run_id": "bridge150_v14_discovered",
+      "job_id": "19948947",
+      "partition": "gpu",
+      "status": "pending",
+      "description": "150ep CIFAR EqM bridge arm: TREATMENT discovered multi-morphism",
+      "submitted_at": "2026-06-07",
+      "git_sha": "281a02a",
+      "sbatch_path": "projects/diff-EqM/slurm/jobs/variant_pilot.sbatch",
+      "expected_runtime": "~6-10h",
+      "phase": "bridge",
+      "gate": "pre-reg: discovered FID < random AND <= known-aug"
+    },
+    {
+      "run_id": "bridge150_v14_random",
+      "job_id": "19948948",
+      "partition": "gpu",
+      "status": "pending",
+      "description": "150ep CIFAR EqM bridge arm: negative control (uniform families)",
+      "submitted_at": "2026-06-07",
+      "git_sha": "281a02a",
+      "sbatch_path": "projects/diff-EqM/slurm/jobs/variant_pilot.sbatch",
+      "expected_runtime": "~6-10h",
+      "phase": "bridge",
+      "gate": "pre-reg: discovered FID < random AND <= known-aug"
     }
   ],
   "phase_0_progress": {
