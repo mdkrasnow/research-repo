@@ -24,6 +24,15 @@ Frozen ckpts, vanilla-s0 vs v10-s1 λ0.3. Verdict: v10 FID gain IS real+behavior
 Mechanism: PGD mining sharpens field NEAR data manifold in weak/hard-class regions. No far-from-manifold capability.
 Paper: claim quality+hard-class+sample-efficiency; DO NOT claim editing/repair/low-NFE-robustness.
 
+### LADDER PURPOSE: ANM vs SYMMETRY-DISCOVERY benchmark (noted 2026-06-08)
+The A-F ladder is a SHARED capability benchmark. v10/ANM = baseline bar. Run the new
+symmetry-discovery method's ckpt through the SAME Rungs A-F (same frozen-ckpt protocol,
+metrics, seeds, sampler; swap ANM arm -> symmetry arm, keep vanilla-s0 control). Compare:
+(i) does symmetry beat ANM on A/B/D (quality/hard-class/sample-eff)? (ii) does it light up
+the ANM-NULL rungs C/E/F (rescue/splice-localization/counterfactual steering)? A symmetry
+method that installs FAR-FROM-MANIFOLD structure could win exactly where ANM is null.
+Reuse eval_capabilities.py + eval_trajectory.py + exp1 sweep with symmetry ckpt.
+
 ### Capability-ladder NEXT ACTIONS
 1. **AWAIT PI decision** (needs_user_input set; pi-updates.md 2026-06-08 draft): accept framing for workshop draft,
    OR 3-seed-confirm A/B/D before locking claims. v10 λ0.3 seed0 ckpt was PRUNED → 3-seed would need regen/re-fetch.

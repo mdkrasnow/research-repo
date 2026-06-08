@@ -1,5 +1,17 @@
 # Capability ladder v2 — what behavior changed? (2026-06-07)
 
+> **PURPOSE / REUSE (added 2026-06-08): this ladder is the shared CAPABILITY BENCHMARK
+> for ANM vs SYMMETRY-DISCOVERY.** The v10/ANM numbers below are the BASELINE BAR.
+> The new symmetry-discovery method (see symmetry project: morphism-gym / latent-symmetry
+> line) must be run through the SAME Rungs A–F, SAME frozen-ckpt comparison protocol,
+> SAME metrics/seeds/sampler, and compared head-to-head. Question: **does symmetry
+> discovery beat ANM on these behavioral axes** (per-class gain localization, hard-class
+> ratio, sample-efficiency D) — and/or does it light up the rungs ANM left NULL
+> (C rescue, E splice-localization, F counterfactual steering)? A symmetry method that
+> installs FAR-FROM-MANIFOLD structure could plausibly win exactly where ANM is null.
+> To compare: swap the ANM ckpt for the symmetry-method ckpt as the second arm; keep
+> vanilla-s0 as the shared control; reuse eval_capabilities.py + eval_trajectory.py + exp1.
+
 Re-opens the ANM/v10 capability question after the v1 ladder NULL. v1 only
 falsified **naive zero-shot clamped restoration** (denoise/inpaint/transfer).
 v2 asks: does the −3.83 FID gain correspond to ANY real behavioral change?
