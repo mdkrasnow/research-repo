@@ -26,7 +26,9 @@ import torch.nn.functional as F
 
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "projects" / "diff-EqM" / "experiments" / "dganm_variants"))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 import _multi_morphism as MM  # noqa: E402
+import v17_eval_metrics as EM  # noqa: E402  (TinyEqM, train_eqm_lite, eqm_field_consistency)
 
 OUT = ROOT / "projects" / "symmetry-discovery" / "results" / "cifar_gym"
 OUT.mkdir(parents=True, exist_ok=True)
@@ -200,6 +202,38 @@ def payoff_ed(name, real, visible, scorer, ae, discovered_pol, seed=0):
     return res
 
 
+def eqm_payoff(name, real, visible, discovered_pol, seed=0, steps=600):
+    """EqM-lite payoff: train TinyEqM on the VISIBLE (gap) split with each augmentation arm, eval EqM
+    velocity-matching loss on the FULL CIFAR distribution (= the held-out factor the gap removed). Lower
+    eqm_full = the augmentation taught the generative model the missing factor. This is the rung between
+    'moves an ED metric' and a real EqM/FID claim."""
+    expected = TASKS[name][1]
+    vfam, dfam = list(MM.VALID_FAMILIES), list(MM.DECOY_FAMILIES)
+
+    def uniform_pol(fams):
+        p = MM.MorphismPolicy(fams, depth=1).to(real.device)
+        with torch.no_grad():
+            p.mag_mu.fill_(0.6)
+        return p
+
+    arms = {
+        "BASE": None,
+        "ORACLE_VALID": uniform_pol(sorted(expected)),
+        "RANDOM_VALID": uniform_pol(vfam),
+        "RANDOM_WITH_DECOYS": uniform_pol(vfam + dfam),
+        "DISCOVERED": discovered_pol,
+    }
+    full = real  # anchor distribution = full CIFAR (the missing-factor target)
+    res = {}
+    for arm, pol in arms.items():
+        aug_fn = None if pol is None else (lambda x, p=pol: p.sample_transform(x))
+        net = EM.train_eqm_lite(visible, aug_fn, lam=0.5, steps=steps, seed=seed)
+        fc = EM.eqm_field_consistency(net, visible, full, draws=8)
+        res[arm] = {"eqm_visible": fc["eqm_clean"], "eqm_full": fc["eqm_heldout"],
+                    "eqm_gap": fc["eqm_gap"]}
+    return res
+
+
 # --------------------------------------------------------------------- driver
 def main():
     ap = argparse.ArgumentParser()
@@ -209,6 +243,7 @@ def main():
     ap.add_argument("--steps", type=int, default=300)
     ap.add_argument("--a_move", type=float, default=1.0)  # 0 = drop anti-identity move hinge
     ap.add_argument("--gap_aware", action="store_true")  # ED-only bandit reward (no AE veto)
+    ap.add_argument("--eqm_lite", action="store_true")  # also run EqM-lite generative payoff
     ap.add_argument("--tasks", default="")  # comma list; empty=all
     args = ap.parse_args()
 
@@ -233,6 +268,11 @@ def main():
             rec["payoff"] = pay
             print(f"  decoy_usage={d['decoy_usage']:.3f} disc_rank={rank[:4]}", flush=True)
             print(f"  payoff ED: " + ", ".join(f"{k}={v['ed']:.4f}" for k, v in pay.items()), flush=True)
+            if args.eqm_lite:
+                eqm = eqm_payoff(name, real, visible, pol, seed=args.seed)
+                rec["eqm_lite"] = eqm
+                print(f"  payoff EqM-lite (eqm_full, lower=better): "
+                      + ", ".join(f"{k}={v['eqm_full']:.4f}" for k, v in eqm.items()), flush=True)
         else:
             print("  -> calibration FAILED; skipping discovery/payoff", flush=True)
         rec["seconds"] = round(time.time() - t0, 1)
