@@ -139,13 +139,44 @@ correct morphism, avoids decoys, and beats both random and oracle on the calibra
 payoff proxy, single dataset (CIFAR), short discovery. Spatial gaps (position/no_rotation) lack payoff
 headroom in this setup; centerzoom is anchor-weak. NOT an FID claim — FID stays human-gated.
 
-## 7. Best next experiment
+## 7. Framing correction — crop/flip is a STRONG DEFAULT, not an oracle
 
-Port `gap_aware` reward into the EqM bridge variant (`v14_multi_morphism_aug.py`) on a **constructed**
-CIFAR gap (train EqM on a desaturated/narrowed visible split, anchor = full CIFAR) rather than full-vs-
-full — and test whether discovered `saturate` aug improves EqM-lite / (human-gated) FID *over* random
-and known crop **on that gap**. The whole-arc thesis predicts discovery's payoff appears only where the
-useful symmetry is *not* already known (crop) — a constructed gap is where it should win.
+Earlier wording ("crop is near-optimal, nothing left to discover") was too broad and is retracted.
+Random crop + horizontal flip are a **standard, strong, highly-tuned human CIFAR prior** — a hard
+baseline, NOT a true oracle. Failing to beat crop does NOT mean (1) crop is globally best, (2) no other
+valid aug helps, (3) discovery has no headroom, (4) learned aug should be judged ONLY against crop, or
+(5) the mechanism failed. The correct success criterion is staged:
+
+- **Minimum:** discovered beats random-valid (discovery does something real).
+- **Strong:** discovered beats base and approaches the strong human default.
+- **Major:** discovered beats the strong human default / the hand-designed lever (v10 ANM).
+- **Best publishable:** v10 ANM + discovered morphism beats v10 ANM alone (complementarity).
+
+i.e. discovery wins if it BEATS the hand-designed lever OR ADDS lift the lever lacks — not only if it
+dethrones crop on its home turf.
+
+## 8. Next experiments (two tracks)
+
+**Track A — constructed gap (this report's positive, now on real EqM):** `v15_gap_morphism_aug`
+(desaturated-train CIFAR, FID vs full), arms base/known-crop/random/discovered. Tests whether discovered
+`saturate` recovers a hidden factor where the generic default (crop) is the *wrong* tool. RUNNING on
+cluster.
+
+**Track B — full-CIFAR v10 comparison ladder (the harder, broader claim):** same base task / model /
+epochs / FID protocol / seeds as v10 ANM. Pre-registered arms:
+
+| Arm | Purpose |
+|---|---|
+| v00 / base | no-aug control |
+| v10 ANM | current strong hand-designed lever |
+| v17 random-valid | controls for "more augmentation" |
+| v17 discovered | discovery alone |
+| **v10 + v17 discovered (hybrid)** | **complementarity — likely the real win** |
+
+Existing same-harness hints (need clean same-seed rerun): crop 12.59 < v10 13.40 < v17-disc 14.21 <
+v00 14.31 < v17-rand 14.59 — discovery currently LOSES to v10, so the diagnostic (is it picking weak/
+wrong-magnitude/over-hue morphisms?) + the hybrid are the load-bearing next runs. Variant
+`v16_hybrid_mine_morph` + `documentation/v16_v10_comparison_ladder.md`.
 
 ## 8. Reproduce
 
