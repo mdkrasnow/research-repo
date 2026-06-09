@@ -38,6 +38,36 @@ a **diagnostic**: is v17 picking weak-but-valid morphisms, wrong magnitude, unde
 transforms, over-favoring hue/bright, or raising EqM loss? (Full-CIFAR v14 discovery favors
 translate/scale/hue — valid but maybe not highest-value for the generator.)
 
+## RESULTS — seed 0 (2026-06-09, 5K FID, full CIFAR, same protocol)
+
+| arm | FID (5K) | vs v10 |
+|---|---|---|
+| **hybrid (v10+disc)** | **13.15** | −0.89 |
+| v17rand | 13.39 | −0.65 |
+| v17disc | 13.47 | −0.57 |
+| v10 ANM | 14.04 | — |
+| v00 base | 14.31 | +0.27 |
+
+Staged gates: MIN (disc<random) **FAIL** (13.47>13.39); STRONG (disc<base) PASS; MAJOR (disc<v10) PASS;
+**BEST (hybrid<v10) PASS** by 0.89.
+
+**Interpretation (seed 0, single-seed — margins need 3-seed confirmation):**
+- **Discovery alone ties random** (13.47 vs 13.39). On full CIFAR (no gap) the validity reward picks
+  whatever is on-manifold; v17disc landed SPATIAL (scale 0.35 + rotate/translate, spatial_mass 0.77) =
+  crop-like, so it ≈ random-valid. Expected: no gap → nothing unique to discover.
+- **Discovery is unstable run-to-run on full CIFAR**: hybrid's policy went PHOTOMETRIC (effective saturate
+  0.35, hue 0.18) while v17disc went spatial — same config, different families. No gap to pin the policy.
+- **All morphism arms beat v10 (14.04); hybrid lowest (13.15).** BUT v10 came in 0.64 ABOVE its prior-run
+  hint (13.40) — single-seed v10 is noisy/unlucky, so "beats v10" is partly v10's seed. The 0.89
+  hybrid<v10 margin is the most robust but still single-seed.
+- Cosmetic flag: hybrid put 0.29 WEIGHT on color_collapse at ~0 magnitude (effective decoy 0.022 —
+  functionally a no-op); the "keep-lowest-effective-decoy" restart selection allows high-weight/zero-mag
+  decoys. Harmless here, worth tightening.
+
+**Verdict:** Track B is INCONCLUSIVE at single-seed (all top arms within v10's own ±0.6 seed swing). The
+hybrid-lowest + all-morphism-beats-v10 direction is promising but NOT a result without seeds. Do NOT tune
+HP on this noise. NEXT = 3-seed Welch on {v10, hybrid} (and gap15 {discovered,known} for the flagship).
+
 ## Decision rule
 - hybrid < v10 (seed 0) → promote hybrid to 3 seeds, Welch t. If holds → publishable complementarity.
 - v17 disc < v10 (seed 0) → promote v17 disc to 3 seeds.
