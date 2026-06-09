@@ -157,10 +157,21 @@ dethrones crop on its home turf.
 
 ## 8. Next experiments (two tracks)
 
-**Track A — constructed gap (this report's positive, now on real EqM):** `v15_gap_morphism_aug`
-(desaturated-train CIFAR, FID vs full), arms base/known-crop/random/discovered. Tests whether discovered
-`saturate` recovers a hidden factor where the generic default (crop) is the *wrong* tool. RUNNING on
-cluster.
+**Track A — constructed gap, REAL EqM: GATE PASS (2026-06-08).** `v15_gap_morphism_aug` (desaturated-train
+CIFAR-10, EqM UNet 150ep, FID vs full CIFAR, 5K samples, seed 0):
+
+| arm | final FID | vs base |
+|---|---|---|
+| **discovered (saturate)** | **37.16** | **−6.34** |
+| known (crop) | 40.59 | −2.91 |
+| random (uniform valid+decoy) | 42.87 | −0.64 |
+| base (no aug) | 43.50 | — |
+
+`discovered < known < random < base` — the EXACT pre-registered ordering. Discovery beats the strong human
+default (random crop) by **3.43 FID** on the constructed color gap, because crop cannot restore chroma and
+the discovered `saturate` morphism (decoy_usage ~0) can. This confirms on REAL EqM what the gym + EqM-lite
+predicted: where the useful symmetry is NOT the generic default, label-free discovery finds the right one
+and beats both random and the hand-designed default. NEXT: promote to 3 seeds (Welch t) for significance.
 
 **Track B — full-CIFAR v10 comparison ladder (the harder, broader claim):** same base task / model /
 epochs / FID protocol / seeds as v10 ANM. Pre-registered arms:
