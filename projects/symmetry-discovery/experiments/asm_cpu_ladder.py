@@ -125,7 +125,7 @@ def _arm_policy(kind, real, model, scorer, ae, seed=0, asm_mode="loss_plus_comm"
         return fn, {"selected": "random"}
     if kind == "static_gapaware":
         pol = MM.MorphismPolicy(MM.ALL_FAMILIES, depth=1).to(dev)
-        d = MM.discover(pol, _desat(real, 0.25), scorer, steps=300, seed=seed, ae=ae,
+        d = MM.discover(pol, _desat(real, 0.25), scorer, steps=120, seed=seed, ae=ae,
                         ae_weight=5.0, gap_aware=True)
         for p in pol.parameters():
             p.requires_grad_(False)
@@ -138,9 +138,9 @@ def _arm_policy(kind, real, model, scorer, ae, seed=0, asm_mode="loss_plus_comm"
     # pre-mine to find the dominant hard-valid family (for interpretable readout + a fast frozen aug)
     visible = _desat(real, 0.25)
     tally = {}
-    for s in range(6):
-        out = ASM.mine(model, visible[torch.randint(0, visible.size(0), (128,))], scorer, ae,
-                       K=40, mode=mode, seed=seed + s)
+    for s in range(3):
+        out = ASM.mine(model, visible[torch.randint(0, visible.size(0), (96,))], scorer, ae,
+                       K=24, mode=mode, seed=seed + s)
         for f in out["top_families"]:
             tally[f] = tally.get(f, 0) + 1
     sel = max(tally, key=tally.get) if tally else "saturate"
@@ -155,19 +155,19 @@ def stage_B(real, seed=0):
     visible = _desat(real, 0.25)
     full = real
     scorer = MM.AnchorScorer(real, seed=777)
-    ae = MM.train_robust_ae(real, steps=800, seed=seed)
+    ae = MM.train_robust_ae(real, steps=300, seed=seed)
     probe = tiny_eqm(seed)  # model used to score hardness for ASM arms (lightly trained below)
     # quick warm of probe on visible so hardness is meaningful (not random-net)
     opt = torch.optim.Adam(probe.parameters(), 1e-3)
-    for _ in range(300):
+    for _ in range(80):
         l, _, _ = ASM.eqm_loss_on(probe, visible[torch.randint(0, visible.size(0), (128,))])
         opt.zero_grad(); l.backward(); opt.step()
 
     arms = ["base", "random_valid", "static_gapaware", "ASM_loss", "ASM_comm", "ASM_loss_comm"]
     for arm in arms:
         fn, info = _arm_policy(arm, real, probe, scorer, ae, seed=seed)
-        net = EM.train_eqm_lite(visible, fn, lam=0.5, steps=500, seed=seed)
-        fc = EM.eqm_field_consistency(net, visible, full, draws=8)
+        net = EM.train_eqm_lite(visible, fn, lam=0.5, steps=150, seed=seed)
+        fc = EM.eqm_field_consistency(net, visible, full, draws=4)
         decoy_use = info.get("decoy_usage")
         rec["arms"][arm] = {"selected": info.get("selected"), "eqm_full": round(fc["eqm_heldout"], 5),
                             "eqm_gap": round(fc["eqm_gap"], 5),
@@ -201,7 +201,7 @@ def main():
     ap.add_argument("--seed", type=int, default=0)
     args = ap.parse_args()
     torch.manual_seed(args.seed)
-    torch.set_num_threads(4)
+    torch.set_num_threads(8)
     real = load_cifar(args.n, seed=args.seed)
     t0 = time.time()
     rec = {"A": stage_A, "B": stage_B}[args.stage](real, seed=args.seed)
