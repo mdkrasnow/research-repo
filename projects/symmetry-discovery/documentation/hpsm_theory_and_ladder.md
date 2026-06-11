@@ -52,5 +52,16 @@ Track-B ladder needs completion.
 - **Stage A: PASS → ADVANCE** (2026-06-11). 13 families ok; T*=hue valid; decoy_usage 0.0 (high penalty,
   decoys 100% rejected); v18 base+hpsm+cons all finite, grad>0, lam0⇒base; v19 base+anm+hpsm all nonzero,
   grad>0, anm0⇒hpsm.
-- Stage B: pending.
-- Stage C: pending.
+- **Stage B: payoff gate FAIL → STOP (record negative)** (2026-06-11). desat→full color gap, TinyEqM eqm_full:
+  static_gapaware 0.4114 (saturate) < HPSM_loss 0.4174 (saturate) < random 0.4189 < base 0.4227;
+  HPSM_comm/loss_comm 0.4257 (picked hue, worse).
+  - TARGETING WORKS: HPSM_loss + static both select `saturate`, decoys avoided (firewall fine, gap_reward fine).
+  - PAYOFF FAILS: HPSM_loss beats random by only 0.0016 (< 0.005 abs / 0.0042 rel gate). Per spec "selected
+    but no payoff → STOP, record negative." NOT a repair (nothing broken — targeting + firewall both work).
+  - KEY: **static gap-aware discovery CLEARS the payoff bar (+0.0075 over random); adversarial HPSM does
+    NOT.** Making the objective adversarial adds nothing over the simpler static gap-aware approach (same
+    lesson as the ASM full-CIFAR verdict). Commutator mode again mis-targets (hue not saturate) — the
+    field-commutation signal does not isolate the missing factor on a lightly-trained probe.
+  - DECISION: STOP. No Stage C/D GPU for HPSM-solo. Static gap-aware (gap15) stays the flagship; HPSM's
+    adversarial framing is not justified over it on CPU evidence. No silent HP tuning.
+- Stage C: SKIPPED (Stage B STOP — full CIFAR already known to tie random per ASM verdict; no new GPU).
