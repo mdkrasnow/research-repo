@@ -26,8 +26,12 @@ from pathlib import Path
 import torch
 import torch.nn.functional as F
 
-from ._common import TrainArgs, eqm_ct, eqm_loss, train_loop, build_cifar_loader
-from . import _multi_morphism as MM
+try:
+    from ._common import TrainArgs, eqm_ct, eqm_loss, train_loop, build_cifar_loader
+    from . import _multi_morphism as MM
+except ImportError:  # top-level import (CPU ladder)
+    from _common import TrainArgs, eqm_ct, eqm_loss, train_loop, build_cifar_loader
+    import _multi_morphism as MM
 
 _H: dict = {}
 
