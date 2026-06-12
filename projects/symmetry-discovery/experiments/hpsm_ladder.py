@@ -155,49 +155,92 @@ def _hpsm_family(model, visible, scorer, ae, mode, seed=0, rounds=3):
     return max(tally, key=tally.get), tally
 
 
+def train_eqm_arm(visible, kind, scorer, ae, spol=None, mode="loss_plus_comm", consistency=True,
+                  steps=220, bs=96, lam=0.5, lam_c=0.3, mine_every=5, K=8, seed=0):
+    """Train TinyEqM with the ACTUAL HPSM objective (the rewrite). kind:
+      base   : no aug.
+      random : ONLINE random valid (fam,mag) fresh each batch — matched aug strength to HPSM.
+      static : the learned gap-aware policy (v17/gap15 approach).
+      hpsm   : ONLINE re-mine the hardest VALID (fam,mag) against the CURRENT field every mine_every steps,
+               apply the MINED magnitude, + lam_c*commutator (teach field to ACCEPT the symmetry).
+    The earlier proxy froze HPSM to one family + random magnitude + no consistency -> not HPSM. This is."""
+    torch.manual_seed(seed)
+    net = EM.TinyEqM(); net._t_scale_999 = False
+    opt = torch.optim.Adam(net.parameters(), 1e-3)
+    n = visible.size(0); dev = visible.device; vfam = HP.VALID
+    fam_tally = {}
+    cached = None  # (fam, mag) for hpsm between re-mines
+    for step in range(steps):
+        xb = visible[torch.randint(0, n, (bs,), device=dev)]
+        base, _, _ = ASM.eqm_loss_on(net, xb)
+        loss = base
+        fam = None; magv = None
+        if kind == "random":
+            fam = vfam[int(torch.randint(0, len(vfam), (1,)))]
+            magv = float((torch.rand(1) * 2 - 1) * 0.8)
+        elif kind == "static":
+            with torch.no_grad():
+                Tx = spol.sample_transform(xb)
+        elif kind == "hpsm":
+            if cached is None or step % mine_every == 0:
+                with torch.no_grad():
+                    cached, _ = HP.mine(net, xb, scorer, ae, K=K, mode=mode, w_gap=2.0,
+                                        w_decoy=20.0, seed=seed * 1000 + step)
+            fam, magv = cached
+        if kind in ("random", "hpsm"):
+            mag = torch.full((bs,), float(magv), device=dev)
+            Tx = MM.apply_family(fam, xb, mag)
+            fam_tally[fam] = fam_tally.get(fam, 0) + 1
+        if kind != "base":
+            aug, _, _ = ASM.eqm_loss_on(net, Tx.detach())
+            loss = loss + lam * aug
+            if kind == "hpsm" and consistency:
+                loss = loss + lam_c * HP.commutator_consistency(net, xb, fam, mag)
+        opt.zero_grad(); loss.backward(); opt.step()
+    sel = max(fam_tally, key=fam_tally.get) if fam_tally else (kind if kind != "hpsm" else "saturate")
+    return net, sel, fam_tally
+
+
 def stage_B(real, seed=0):
     rec = {"stage": "B", "arms": {}}
-    dev = real.device
     visible = _desat(real, 0.25); full = real
     scorer = MM.AnchorScorer(real, seed=777); ae = MM.train_robust_ae(real, steps=300, seed=seed)
-    probe = _warm_probe(visible, 120, seed)
-    vfam = HP.VALID
-
-    def apply_fam_fn(fam):
-        return lambda x: MM.apply_family(fam, x, (torch.rand(x.size(0), device=dev) * 0.5 + 0.4))
-
-    arms = {"base": None, "random_valid": lambda x: MM.apply_family(
-        vfam[int(torch.randint(0, len(vfam), (1,)))], x, (torch.rand(x.size(0), device=dev) * 2 - 1) * 0.6)}
-    sel = {"random_valid": "random"}
-    # static gapaware (v17 discovered)
-    spol = MM.MorphismPolicy(MM.ALL_FAMILIES, depth=1).to(dev)
-    sd = MM.discover(spol, visible, scorer, steps=120, seed=seed, ae=ae, ae_weight=5.0, gap_aware=True)
+    # static gap-aware policy (the gap15 approach) — discovered once, used as a fixed aug policy.
+    spol = MM.MorphismPolicy(MM.ALL_FAMILIES, depth=1).to(real.device)
+    sd = MM.discover(spol, visible, scorer, steps=150, seed=seed, ae=ae, ae_weight=5.0, gap_aware=True)
     for p in spol.parameters():
         p.requires_grad_(False)
-    arms["static_gapaware"] = lambda x: spol.sample_transform(x)
-    sel["static_gapaware"] = max(sd["family_weights"].items(), key=lambda kv: kv[1])[0]
-    # HPSM arms
-    for arm, mode in (("HPSM_loss", "loss_only"), ("HPSM_comm", "commutator_only"),
-                      ("HPSM_loss_comm", "loss_plus_comm")):
-        fam, tally = _hpsm_family(probe, visible, scorer, ae, mode, seed=seed)
-        arms[arm] = apply_fam_fn(fam); sel[arm] = fam
+    static_sel = max(sd["family_weights"].items(), key=lambda kv: kv[1])[0]
 
-    for arm, fn in arms.items():
-        net = EM.train_eqm_lite(visible, fn, lam=0.5, steps=150, seed=seed)
-        fc = EM.eqm_field_consistency(net, visible, full, draws=4)
-        rec["arms"][arm] = {"eqm_full": round(fc["eqm_heldout"], 5), "selected": sel.get(arm),
-                            "decoy_usage": round(sd["decoy_usage"], 4) if arm == "static_gapaware" else None}
+    arms = {
+        "base": dict(kind="base"),
+        "random_valid": dict(kind="random"),
+        "static_gapaware": dict(kind="static", spol=spol),
+        "HPSM": dict(kind="hpsm", mode="loss_plus_comm", consistency=True),
+        "HPSM_noconsist": dict(kind="hpsm", mode="loss_plus_comm", consistency=False),  # ablation
+        "HPSM_lossonly": dict(kind="hpsm", mode="loss_only", consistency=True),         # ablation
+    }
+    for arm, kw in arms.items():
+        net, sel, tally = train_eqm_arm(visible, scorer=scorer, ae=ae, seed=seed, **kw)
+        fc = EM.eqm_field_consistency(net, visible, full, draws=6)
+        decoy = sum(tally.get(f, 0) for f in HP.DECOY) / max(sum(tally.values()), 1) if tally else 0.0
+        rec["arms"][arm] = {"eqm_full": round(fc["eqm_heldout"], 5),
+                            "selected": static_sel if arm == "static_gapaware" else sel,
+                            "decoy_usage": round(decoy, 4), "tally": tally}
 
     rnd = rec["arms"]["random_valid"]["eqm_full"]
-    asm_arms = ["HPSM_loss", "HPSM_comm", "HPSM_loss_comm"]
-    best_arm = min(asm_arms, key=lambda a: rec["arms"][a]["eqm_full"])
-    best = rec["arms"][best_arm]["eqm_full"]
-    sat = (rec["arms"][best_arm]["selected"] == "saturate" or sel.get("static_gapaware") == "saturate")
-    beats = (rnd - best) >= max(0.005, 0.01 * rnd)
-    rec["summary"] = {"random": rnd, "best_hpsm_arm": best_arm, "best_hpsm": best,
-                      "static_selected": sel.get("static_gapaware"), "margin": round(rnd - best, 5)}
-    rec["gate_B_pass"] = bool(sat and beats)
-    rec["decision"] = "ADVANCE" if (sat and beats) else "REPAIR"
+    hpsm = rec["arms"]["HPSM"]["eqm_full"]
+    hpsm_sel = rec["arms"]["HPSM"]["selected"]
+    hpsm_decoy = rec["arms"]["HPSM"]["decoy_usage"]
+    sat = (hpsm_sel == "saturate" or static_sel == "saturate")
+    beats = (rnd - hpsm) >= max(0.005, 0.01 * rnd)
+    rec["summary"] = {"base": rec["arms"]["base"]["eqm_full"], "random": rnd, "static": rec["arms"]["static_gapaware"]["eqm_full"],
+                      "HPSM": hpsm, "HPSM_selected": hpsm_sel, "HPSM_decoy": hpsm_decoy,
+                      "margin_hpsm_vs_random": round(rnd - hpsm, 5),
+                      "ablation_noconsist": rec["arms"]["HPSM_noconsist"]["eqm_full"],
+                      "ablation_lossonly": rec["arms"]["HPSM_lossonly"]["eqm_full"]}
+    rec["gate_B_pass"] = bool(sat and beats and hpsm_decoy < 0.05)
+    rec["decision"] = "ADVANCE" if rec["gate_B_pass"] else ("REPAIR" if not sat or hpsm_decoy >= 0.05 else "STOP")
     return rec
 
 

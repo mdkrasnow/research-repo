@@ -52,7 +52,31 @@ Track-B ladder needs completion.
 - **Stage A: PASS → ADVANCE** (2026-06-11). 13 families ok; T*=hue valid; decoy_usage 0.0 (high penalty,
   decoys 100% rejected); v18 base+hpsm+cons all finite, grad>0, lam0⇒base; v19 base+anm+hpsm all nonzero,
   grad>0, anm0⇒hpsm.
-- **Stage B: payoff gate FAIL → STOP (record negative)** (2026-06-11). desat→full color gap, TinyEqM eqm_full:
+- **Stage B (REWRITTEN, online HPSM): PASS → ADVANCE** (2026-06-11). The first attempt was MISSPECIFIED
+  (froze mining to one family + random magnitude + NO consistency term -> not HPSM). Rewrite uses ONLINE
+  per-batch mining (re-mine vs the evolving field every 5 steps), the MINED magnitude, and the commutator
+  CONSISTENCY loss (the v18 objective), vs a matched-strength random baseline (lit: AdvAA/AugMax/OHEM are
+  all online-vs-evolving-model). Result (TinyEqM eqm_full, lower=better):
+
+  | arm | eqm_full | note |
+  |---|---|---|
+  | **HPSM (online + consistency)** | **0.546** | beats random by **0.133** |
+  | HPSM_lossonly (+consistency) | 0.544 | consistency robust to mining mode |
+  | random_valid | 0.679 | |
+  | static_gapaware (gap15) | 0.682 | |
+  | **HPSM_noconsist** | **0.681** | ≈ random — WITHOUT consistency, no gain |
+  | base | 0.689 | |
+
+  GATE PASS (saturate selected by static; decoy 0; HPSM beats random by 0.133 >> 0.005). **KEY MECHANISM:
+  the win is the COMMUTATOR CONSISTENCY (equivariance) term, NOT hard-positive selection** — HPSM_noconsist
+  (hard-aug, no consistency) ties random; adding consistency drops eqm_full 20%. Training the EqM field to
+  be equivariant to valid mined symmetries (F(T(x)) ≈ J_T F(x)) substantially improves generalization to
+  the full-color held-out distribution. Refines the contribution: the lever is symmetry-EQUIVARIANCE
+  regularization of the generative field, with mining supplying which symmetry. NOT leakage (consistency on
+  desat train data; eval on full-color held-out). DECISION: ADVANCE to Stage C.
+
+- ~~Stage B (first attempt): payoff gate FAIL~~ (SUPERSEDED — misspecified proxy, see above). Original below:
+  desat→full color gap, TinyEqM eqm_full:
   static_gapaware 0.4114 (saturate) < HPSM_loss 0.4174 (saturate) < random 0.4189 < base 0.4227;
   HPSM_comm/loss_comm 0.4257 (picked hue, worse).
   - TARGETING WORKS: HPSM_loss + static both select `saturate`, decoys avoided (firewall fine, gap_reward fine).
