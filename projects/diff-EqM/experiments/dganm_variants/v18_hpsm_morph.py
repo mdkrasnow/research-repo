@@ -40,6 +40,7 @@ def _grab_real(args, n, device):
 
 
 def step_fn(model, x1, step, device, args: TrainArgs):
+    model._t_scale_999 = True  # real EqM UNet takes t in [0,999]; ensures commutator/mining scale t right
     base = eqm_loss(model, x1, device, eps=args.train_eps, a=args.a, gain=args.gain)
     lam = _H.get("lam_hpsm", 0.3); lam_c = _H.get("lam_consistency", 0.1)
     spe = _H.get("steps_per_epoch", 390); warm = _H.get("warmup_epochs", 5)

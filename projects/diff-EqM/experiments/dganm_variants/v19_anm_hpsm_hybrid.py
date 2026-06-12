@@ -59,6 +59,7 @@ def _grab_real(args, n, device):
 
 
 def step_fn(model, x1, step, device, args: TrainArgs):
+    model._t_scale_999 = True  # real EqM UNet takes t in [0,999]; ensures commutator scales t right
     B = x1.size(0)
     eps_train = args.train_eps if args.train_eps is not None else 1e-3
     a = args.a if args.a is not None else 0.8
