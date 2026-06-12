@@ -88,4 +88,21 @@ Track-B ladder needs completion.
     field-commutation signal does not isolate the missing factor on a lightly-trained probe.
   - DECISION: STOP. No Stage C/D GPU for HPSM-solo. Static gap-aware (gap15) stays the flagship; HPSM's
     adversarial framing is not justified over it on CPU evidence. No silent HP tuning.
-- Stage C: SKIPPED (Stage B STOP — full CIFAR already known to tie random per ASM verdict; no new GPU).
+- **Stage C: SOLO + HYBRID PASS → PROMOTE_TO_GPU** (2026-06-11). Full CIFAR, NO gap, online consistency
+  trainer (TinyEqM eqm_full, held split):
+
+  | arm | eqm_full | |
+  |---|---|---|
+  | **HPSM** | **0.533** | beats random by 0.106, base by 0.119 (SOLO PASS) |
+  | **v10+HPSM** | **0.551** | beats v10_lite 0.659 by 0.107 (HYBRID PASS) |
+  | random_valid | 0.640 | |
+  | base | 0.652 | |
+  | v10_lite | 0.659 | |
+  | static_v17 | 0.665 | |
+
+  **Unlike the old ASM verdict (consistency-LESS, tied random on full CIFAR), consistency-HPSM wins WITHOUT
+  a gap AND composes with v10 (hybrid<v10).** The equivariance/commutator consistency is a GENERAL inductive
+  bias for the generative field, not gap-conditional. This is the valid implementation the misspecified
+  first attempt hid. SKEPTICAL CAVEAT: TinyEqM is tiny/underfit (3 convs, 220 steps, 384 imgs) — a strong
+  regularizer helps a lot there; the real EqM-B UNet (150ep, 50k) will likely show a SMALLER effect. Single
+  seed. → GPU confirmation required before any claim. DECISION: PROMOTE_TO_GPU (Stage D).
