@@ -189,6 +189,9 @@ def train_eqm_arm(visible, kind, scorer, ae, spol=None, mode="loss_plus_comm", c
         base, _, _ = ASM.eqm_loss_on(net, xb)
         loss = base
         fam = None; magv = None
+        if kind == "general":  # GENERAL hard-positive: EqM-derived consistency, NO named symmetry
+            loss = loss + lam_c * HP.general_consistency(net, xb, t_scale999=False)
+            opt.zero_grad(); loss.backward(); opt.step(); continue
         if kind == "random":
             fam = vfam[int(torch.randint(0, len(vfam), (1,)))]
             magv = float((torch.rand(1) * 2 - 1) * 0.8)
@@ -208,7 +211,9 @@ def train_eqm_arm(visible, kind, scorer, ae, spol=None, mode="loss_plus_comm", c
         if kind != "base":
             aug, _, _ = ASM.eqm_loss_on(net, Tx.detach())
             loss = loss + lam * aug
-            if kind == "hpsm" and consistency:
+            # consistency works for any single-family arm (hpsm OR random control) — isolates whether the
+            # win is consistency-on-ANY-valid-symmetry (general equivariance reg) vs hard-MINED-symmetry.
+            if consistency and kind in ("hpsm", "random") and fam is not None:
                 loss = loss + lam_c * HP.commutator_consistency(net, xb, fam, mag)
         if mine_v10:  # v10 ANM hard-negative term (for v10_lite + hybrid arms)
             gamma = torch.rand(bs, device=dev) * 0.998 + 0.001
@@ -282,24 +287,30 @@ def stage_C(real, seed=0):
 
     arms = {
         "base": dict(kind="base"),
-        "random_valid": dict(kind="random"),
+        "random_valid": dict(kind="random", consistency=False),
+        "random+consist": dict(kind="random", consistency=True),   # control: consistency on ANY valid sym
         "static_v17": dict(kind="static", spol=spol),
-        "HPSM": dict(kind="hpsm", mode="loss_plus_comm", consistency=True),
+        "HPSM_named": dict(kind="hpsm", mode="loss_plus_comm", consistency=True),
+        "GENERAL": dict(kind="general"),                  # no named symmetry — task-agnostic
         "v10_lite": dict(kind="base", mine_v10=True),
-        "v10+HPSM": dict(kind="hpsm", mode="loss_plus_comm", consistency=True, mine_v10=True),
+        "v10+GENERAL": dict(kind="general", mine_v10=True),
     }
     for arm, kw in arms.items():
         net, sel, tally = train_eqm_arm(train, scorer=scorer, ae=ae, seed=seed, **kw)
         eqm = round(float(EM.eqm_loss(net, held, draws=6)), 5)
         rec["arms"][arm] = {"eqm_full": eqm, "selected": sel}
 
-    base = rec["arms"]["base"]["eqm_full"]; rnd = rec["arms"]["random_valid"]["eqm_full"]
-    hpsm = rec["arms"]["HPSM"]["eqm_full"]; v10 = rec["arms"]["v10_lite"]["eqm_full"]
-    hyb = rec["arms"]["v10+HPSM"]["eqm_full"]
-    solo = (hpsm < rnd) and (hpsm < base)
+    A = rec["arms"]
+    base = A["base"]["eqm_full"]; rnd = A["random_valid"]["eqm_full"]
+    named = A["HPSM_named"]["eqm_full"]; gen = A["GENERAL"]["eqm_full"]
+    v10 = A["v10_lite"]["eqm_full"]; hyb = A["v10+GENERAL"]["eqm_full"]
+    solo = (gen < rnd) and (gen < base)                 # GENERAL method is the candidate to promote
     hybrid = (v10 - hyb) >= max(0.005, 0.01 * v10)
-    rec["summary"] = {"base": base, "random": rnd, "HPSM": hpsm, "v10_lite": v10, "hybrid": hyb,
-                      "solo_margin_vs_random": round(rnd - hpsm, 5), "hybrid_margin_vs_v10": round(v10 - hyb, 5)}
+    rec["summary"] = {"base": base, "random": rnd, "HPSM_named": named, "GENERAL": gen,
+                      "v10_lite": v10, "v10+GENERAL": hyb,
+                      "general_vs_named": round(named - gen, 5),       # ~0 => general matches named
+                      "general_solo_margin_vs_random": round(rnd - gen, 5),
+                      "hybrid_margin_vs_v10": round(v10 - hyb, 5)}
     rec["gate_solo_pass"] = bool(solo); rec["gate_hybrid_pass"] = bool(hybrid)
     rec["gate_C_pass"] = bool(solo or hybrid)
     rec["decision"] = "PROMOTE_TO_GPU" if (solo or hybrid) else "STOP"

@@ -56,6 +56,53 @@ def commutator_consistency(model, x, name, mag):
     return (f_Tx - jf).pow(2).mean()
 
 
+def _rms_scale(d, rms):
+    """Scale per-sample so each element's RMS = rms (comparable to a real transform's O(0.5) pixel move),
+    NOT a tiny fixed total-norm."""
+    cur = d.flatten(1).pow(2).mean(1).sqrt().view(-1, 1, 1, 1)
+    return d / (cur + 1e-8) * rms
+
+
+def general_consistency(model, x, t_scale999=False, eps_radius=0.5, adv_steps=1, tangent=True):
+    """GENERAL hard-positive consistency — NO named symmetry, NO hand-coded J_T. Task-agnostic for any EqM.
+
+    Derived from the EqM target structure alone. EqM: F(x_t,g) -> target = (eps - x) (TinyEqM) or c(g)(x1-x0)
+    (UNet convention). Perturb the DATA x -> x+delta (keep eps): input shifts x_t -> x_t + g*delta, target
+    shifts by -delta (TinyEqM) -> so the field's RESPONSE is known exactly:
+        F(x_t + g*delta, g)  should equal  sg(F(x_t,g)) - delta.
+    This is a SELF-consistency (anchored on the model's own prediction sg(F), like the named commutator),
+    NOT supervised augmentation. delta is mined to be (a) ON-MANIFOLD (a valid POSITIVE, not v10's
+    off-manifold negative) via tangent projection orthogonal to the field, and (b) HARD (adversarially
+    scaled to maximize the consistency violation). Named symmetries are a special case (delta = T(x)-x).
+    """
+    B = x.size(0); dev = x.device
+    gamma = torch.rand(B, device=dev) * 0.998 + 0.001
+    g = gamma.view(-1, 1, 1, 1)
+    eps = torch.randn_like(x)
+    x_t = (1 - g) * eps + g * x
+    gm = (gamma * 999.0).clamp_min(0.0) if t_scale999 else gamma
+    with torch.no_grad():
+        F0 = model(x_t, gm)
+    # on-manifold tangent: project a random perturbation orthogonal to the field (off-manifold normal ~ F)
+    def _project(dd):
+        if tangent:
+            Fhat = F0 / (F0.flatten(1).norm(dim=1).view(-1, 1, 1, 1) + 1e-8)
+            dd = dd - (dd * Fhat).flatten(1).sum(1).view(-1, 1, 1, 1) * Fhat
+        return _rms_scale(dd, eps_radius)
+    d = _project(torch.randn_like(x))
+    # adversarial: step delta to MAXIMIZE the consistency violation (hard positive), staying on-manifold
+    for _ in range(adv_steps):
+        d = d.detach().requires_grad_(True)
+        F1 = model(x_t + g * d, gm)
+        viol = (F1 - F0 + d).pow(2).mean()
+        gd = torch.autograd.grad(viol, d)[0]
+        with torch.no_grad():
+            d = _project(d + 0.5 * eps_radius * gd.sign())
+    d = d.detach()
+    F1 = model(x_t + g * d, gm)          # WITH grad into model
+    return (F1 - F0.detach() + d).pow(2).mean()
+
+
 def mine(model, x, scorer, ae, families=None, K=16, mode="loss_plus_comm",
          w_hard=1.0, w_gap=2.0, w_invalid=1.0, w_decoy=10.0, w_collapse=1.0, w_entropy=0.1,
          ae_weight=5.0, move_floor=0.3, mag_scale=0.8, seed=0, topk=3):
