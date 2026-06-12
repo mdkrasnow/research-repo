@@ -155,8 +155,22 @@ def _hpsm_family(model, visible, scorer, ae, mode, seed=0, rounds=3):
     return max(tally, key=tally.get), tally
 
 
+def _mine_delta_tiny(net, x_t, gamma, target, eps_radius=0.3, lr=0.05, K=1):
+    """v10 ANM hard-negative PGA on TinyEqM (noise-space)."""
+    d = torch.zeros_like(x_t).normal_(0, eps_radius / 2)
+    n = d.flatten(1).norm(dim=1).view(-1, 1, 1, 1); d = d * (eps_radius / (n + 1e-8)).clamp(max=1.0)
+    for _ in range(K):
+        d = d.detach().requires_grad_(True)
+        loss = ((ASM.eqm_field(net, x_t + d, gamma) - target) ** 2).mean()
+        g = torch.autograd.grad(loss, d)[0]
+        with torch.no_grad():
+            d = d + lr * g.sign()
+            n = d.flatten(1).norm(dim=1).view(-1, 1, 1, 1); d = d * (eps_radius / (n + 1e-8)).clamp(max=1.0)
+    return d.detach()
+
+
 def train_eqm_arm(visible, kind, scorer, ae, spol=None, mode="loss_plus_comm", consistency=True,
-                  steps=220, bs=96, lam=0.5, lam_c=0.3, mine_every=5, K=8, seed=0):
+                  mine_v10=False, lam_v10=0.1, steps=220, bs=96, lam=0.5, lam_c=0.3, mine_every=5, K=8, seed=0):
     """Train TinyEqM with the ACTUAL HPSM objective (the rewrite). kind:
       base   : no aug.
       random : ONLINE random valid (fam,mag) fresh each batch — matched aug strength to HPSM.
@@ -196,6 +210,13 @@ def train_eqm_arm(visible, kind, scorer, ae, spol=None, mode="loss_plus_comm", c
             loss = loss + lam * aug
             if kind == "hpsm" and consistency:
                 loss = loss + lam_c * HP.commutator_consistency(net, xb, fam, mag)
+        if mine_v10:  # v10 ANM hard-negative term (for v10_lite + hybrid arms)
+            gamma = torch.rand(bs, device=dev) * 0.998 + 0.001
+            eps = torch.randn_like(xb); g = gamma.view(-1, 1, 1, 1)
+            x_t = (1 - g) * eps + g * xb; tgt = eps - xb
+            delta = _mine_delta_tiny(net, x_t, gamma, tgt)
+            lh = ((ASM.eqm_field(net, x_t + delta, gamma) - tgt) ** 2).mean()
+            loss = loss + lam_v10 * lh
         opt.zero_grad(); loss.backward(); opt.step()
     sel = max(fam_tally, key=fam_tally.get) if fam_tally else (kind if kind != "hpsm" else "saturate")
     return net, sel, fam_tally
@@ -245,10 +266,43 @@ def stage_B(real, seed=0):
 
 
 def stage_C(real, seed=0):
-    from asm_cpu_ladder import stage_C as asm_C  # reuse the validated full-CIFAR trainer/gates
-    rec = asm_C(real, seed=seed)
-    rec["stage"] = "C"
-    rec["decision"] = "PROMOTE_TO_GPU" if rec.get("gate_C_pass") else "STOP"
+    """Full CIFAR, NO gap. Tests whether the consistency (equivariance) mechanism that won Stage B also
+    helps WITHOUT a missing-factor gap. Same online trainer; visible=full train split, eval=full held."""
+    rec = {"stage": "C", "arms": {}}
+    ntr = min(real.size(0) - 128, 384)
+    train, held = real[:ntr], real[ntr:ntr + 128]
+    scorer = MM.AnchorScorer(real, seed=777); ae = MM.train_robust_ae(real, steps=300, seed=seed)
+    # static v17 full-CIFAR discovery (gap_aware=False, center-zoom visible)
+    cc = int(round(32 / 1.5)); off = (32 - cc) // 2
+    vis = F.interpolate(real[:, :, off:off + cc, off:off + cc], size=32, mode="bilinear", align_corners=False)
+    spol = MM.MorphismPolicy(MM.ALL_FAMILIES, depth=1).to(real.device)
+    MM.discover(spol, vis, scorer, steps=120, seed=seed, ae=ae, ae_weight=50.0, gap_aware=False)
+    for p in spol.parameters():
+        p.requires_grad_(False)
+
+    arms = {
+        "base": dict(kind="base"),
+        "random_valid": dict(kind="random"),
+        "static_v17": dict(kind="static", spol=spol),
+        "HPSM": dict(kind="hpsm", mode="loss_plus_comm", consistency=True),
+        "v10_lite": dict(kind="base", mine_v10=True),
+        "v10+HPSM": dict(kind="hpsm", mode="loss_plus_comm", consistency=True, mine_v10=True),
+    }
+    for arm, kw in arms.items():
+        net, sel, tally = train_eqm_arm(train, scorer=scorer, ae=ae, seed=seed, **kw)
+        eqm = round(float(EM.eqm_loss(net, held, draws=6)), 5)
+        rec["arms"][arm] = {"eqm_full": eqm, "selected": sel}
+
+    base = rec["arms"]["base"]["eqm_full"]; rnd = rec["arms"]["random_valid"]["eqm_full"]
+    hpsm = rec["arms"]["HPSM"]["eqm_full"]; v10 = rec["arms"]["v10_lite"]["eqm_full"]
+    hyb = rec["arms"]["v10+HPSM"]["eqm_full"]
+    solo = (hpsm < rnd) and (hpsm < base)
+    hybrid = (v10 - hyb) >= max(0.005, 0.01 * v10)
+    rec["summary"] = {"base": base, "random": rnd, "HPSM": hpsm, "v10_lite": v10, "hybrid": hyb,
+                      "solo_margin_vs_random": round(rnd - hpsm, 5), "hybrid_margin_vs_v10": round(v10 - hyb, 5)}
+    rec["gate_solo_pass"] = bool(solo); rec["gate_hybrid_pass"] = bool(hybrid)
+    rec["gate_C_pass"] = bool(solo or hybrid)
+    rec["decision"] = "PROMOTE_TO_GPU" if (solo or hybrid) else "STOP"
     return rec
 
 
