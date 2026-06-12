@@ -104,5 +104,24 @@ Track-B ladder needs completion.
   a gap AND composes with v10 (hybrid<v10).** The equivariance/commutator consistency is a GENERAL inductive
   bias for the generative field, not gap-conditional. This is the valid implementation the misspecified
   first attempt hid. SKEPTICAL CAVEAT: TinyEqM is tiny/underfit (3 convs, 220 steps, 384 imgs) — a strong
-  regularizer helps a lot there; the real EqM-B UNet (150ep, 50k) will likely show a SMALLER effect. Single
-  seed. → GPU confirmation required before any claim. DECISION: PROMOTE_TO_GPU (Stage D).
+  regularizer helps a lot there; the real EqM-B UNet (150ep, 50k) will likely show a SMALLER effect.
+  → GPU confirmation required. DECISION: PROMOTE_TO_GPU (Stage D).
+
+- **MECHANISM VERDICT — control + 2 seeds (2026-06-11): the lever is EQUIVARIANCE CONSISTENCY, NOT mining.**
+  Added `random+consist` control (consistency on a RANDOM valid symmetry, no mining):
+
+  | arm | seed0 | seed1 |
+  |---|---|---|
+  | HPSM (mined + consistency) | 0.533 | 0.544 |
+  | random+consist | 0.539 | 0.557 |
+  | random (no consistency) | 0.640 | 0.664 |
+  | base | 0.652 | 0.644 |
+  | v10+HPSM | 0.551 | 0.517 |
+  | v10_lite | 0.659 | 0.649 |
+
+  **`random+consist` ≈ HPSM both seeds** (gap 0.006 / 0.013). The commutator/equivariance consistency
+  delivers ~0.10–0.11 of the ~0.11 total gain over base; hard-MINING adds only a small consistent edge
+  (0.006–0.013). SOLO+HYBRID replicate. **HONEST REFRAME:** the contribution is **symmetry-EQUIVARIANCE
+  regularization for generative flows** (train F(T(x)) ≈ J_T F(x) for valid named symmetries T, even random
+  ones), NOT adversarial mining (a minor refinement). Simpler, cheaper (no miner), grounded in equivariance
+  lit. GPU ladder must include a `random+consistency` arm (≈ full HPSM at a fraction of cost).

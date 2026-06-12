@@ -43,11 +43,21 @@ def step_fn(model, x1, step, device, args: TrainArgs):
     base = eqm_loss(model, x1, device, eps=args.train_eps, a=args.a, gain=args.gain)
     lam = _H.get("lam_hpsm", 0.3); lam_c = _H.get("lam_consistency", 0.1)
     spe = _H.get("steps_per_epoch", 390); warm = _H.get("warmup_epochs", 5)
-    if lam <= 0 or step < warm * spe or _H.get("scorer") is None:
+    need_scorer = _H.get("select") != "random"
+    if lam <= 0 or step < warm * spe or (need_scorer and _H.get("scorer") is None):
         return base, {"base": base.item(), "hpsm": 0.0, "cons": 0.0, "ratio": 0.0, "decoy": 0.0}
 
     frozen = _H.get("frozen_Tstar")
-    if frozen is not None:
+    if _H.get("select") == "random":
+        # control arm: random valid symmetry + consistency (no miner). CPU ladder showed this ≈ full HPSM
+        # -> the lever is the equivariance consistency, not the hard mining. Much cheaper (no K forwards).
+        if step % _H.get("mine_every", 1) == 0:
+            vf = HP.VALID
+            fam = vf[int(torch.randint(0, len(vf), (1,)).item())]
+            magv = float((torch.rand(1).item() * 2 - 1) * 0.6)
+            _H["last_Tstar"] = (fam, magv); _H["last_decoy"] = 0.0
+        fam, magv = _H.get("last_Tstar", ("saturate", 0.6))
+    elif frozen is not None:
         fam, magv = frozen
     else:
         if step % _H.get("mine_every", 1) == 0:
@@ -87,10 +97,11 @@ def train(args: TrainArgs) -> float:
     _H["w_gap"] = float(e.get("gap_reward", 2.0))
     _H["decoy_weight"] = float(e.get("decoy_weight", 10.0))
     _H["mine_every"] = int(e.get("mine_every", 1))
+    _H["select"] = e.get("select", "mined")  # "mined" (HPSM) | "random" (random+consistency control)
     _H["steps_per_epoch"] = max(1, 50000 // args.batch_size)
     diag = {"variant": "v18_hpsm_morph", "lam_hpsm": _H["lam_hpsm"], "lam_consistency": _H["lam_consistency"],
             "hpsm_mode": _H["hpsm_mode"]}
-    if _H["lam_hpsm"] > 0:
+    if _H["lam_hpsm"] > 0 and _H["select"] != "random":
         real = _grab_real(args, int(e.get("anchor_n", 1536)), device)
         _H["scorer"] = MM.AnchorScorer(real, seed=777)
         _H["ae"] = MM.train_robust_ae(real, steps=int(e.get("ae_steps", 1500)), seed=args.seed) \
