@@ -44,9 +44,16 @@ def step_fn(model, x1, step, device, args: TrainArgs):
     base = eqm_loss(model, x1, device, eps=args.train_eps, a=args.a, gain=args.gain)
     lam = _H.get("lam_hpsm", 0.3); lam_c = _H.get("lam_consistency", 0.1)
     spe = _H.get("steps_per_epoch", 390); warm = _H.get("warmup_epochs", 5)
-    need_scorer = _H.get("select") != "random"
+    sel = _H.get("select", "mined")
+    need_scorer = sel not in ("random", "general")
     if lam <= 0 or step < warm * spe or (need_scorer and _H.get("scorer") is None):
         return base, {"base": base.item(), "hpsm": 0.0, "cons": 0.0, "ratio": 0.0, "decoy": 0.0}
+
+    if sel == "general":  # GENERAL hard-positive: EqM-native consistency, NO named symmetry, NO J_T
+        cons = HP.general_consistency(model, x1, t_scale999=True)
+        total = base + lam_c * cons
+        return total, {"base": base.item(), "hpsm": 0.0, "cons": float(cons),
+                       "ratio": float(cons) / max(base.item(), 1e-8), "decoy": 0.0}
 
     frozen = _H.get("frozen_Tstar")
     if _H.get("select") == "random":
@@ -102,7 +109,7 @@ def train(args: TrainArgs) -> float:
     _H["steps_per_epoch"] = max(1, 50000 // args.batch_size)
     diag = {"variant": "v18_hpsm_morph", "lam_hpsm": _H["lam_hpsm"], "lam_consistency": _H["lam_consistency"],
             "hpsm_mode": _H["hpsm_mode"]}
-    if _H["lam_hpsm"] > 0 and _H["select"] != "random":
+    if _H["lam_hpsm"] > 0 and _H["select"] not in ("random", "general"):
         real = _grab_real(args, int(e.get("anchor_n", 1536)), device)
         _H["scorer"] = MM.AnchorScorer(real, seed=777)
         _H["ae"] = MM.train_robust_ae(real, steps=int(e.get("ae_steps", 1500)), seed=args.seed) \

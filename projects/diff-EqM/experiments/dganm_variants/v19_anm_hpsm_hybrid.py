@@ -86,8 +86,22 @@ def step_fn(model, x1, step, device, args: TrainArgs):
         diag["anm"] = l_hard.item(); diag["anm_delta_norm"] = delta.flatten(1).norm(dim=1).mean().item()
 
     lam_h = _H.get("lam_hpsm", 0.3); lam_c = _H.get("lam_consistency", 0.1)
-    spe = _H.get("steps_per_epoch", 390)
-    if lam_h > 0 and step >= _H.get("warmup_epochs", 5) * spe and _H.get("scorer") is not None:
+    spe = _H.get("steps_per_epoch", 390); sel = _H.get("select", "mined")
+    warmed = step >= _H.get("warmup_epochs", 5) * spe
+    if lam_h > 0 and warmed and sel == "general":  # v10 + GENERAL hard-positive consistency (no naming)
+        cons = HP.general_consistency(model, x1, t_scale999=True)
+        total = total + lam_h * cons
+        diag["hpsm"] = float(cons); diag["cons"] = float(cons); diag["total"] = float(total)
+        return total, diag
+    if lam_h > 0 and warmed and sel == "random":  # v10 + random-valid + consistency control
+        vf = HP.VALID; fam = vf[int(torch.randint(0, len(vf), (1,)).item())]
+        mag = torch.full((B,), float((torch.rand(1).item() * 2 - 1) * 0.6), device=device)
+        Tx = MM.apply_family(fam, x1, mag)
+        l_hpsm = eqm_loss(model, Tx.detach(), device, eps=args.train_eps, a=args.a, gain=args.gain)
+        total = total + lam_h * l_hpsm + lam_c * HP.commutator_consistency(model, x1, fam, mag)
+        diag["hpsm"] = l_hpsm.item(); diag["hpsm_family"] = fam; diag["total"] = float(total)
+        return total, diag
+    if lam_h > 0 and warmed and _H.get("scorer") is not None:
         with torch.no_grad():
             T_star, mdiag = HP.mine(model, x1, _H["scorer"], _H["ae"], K=_H.get("hpsm_k", 8),
                                     mode=_H.get("hpsm_mode", "loss_plus_comm"),
@@ -116,11 +130,11 @@ def train(args: TrainArgs) -> float:
                "eps_radius": e.get("eps_radius", 0.3), "mining_lr": e.get("mining_lr", 0.05),
                "mining_K": int(e.get("mining_K", 1)), "hpsm_k": int(e.get("hpsm_k", 8)),
                "hpsm_mode": e.get("hpsm_mode", "loss_plus_comm"),
-               "warmup_epochs": int(e.get("warmup_epochs", 5)),
+               "warmup_epochs": int(e.get("warmup_epochs", 5)), "select": e.get("select", "mined"),
                "w_gap": float(e.get("gap_reward", 2.0)), "decoy_weight": float(e.get("decoy_weight", 10.0)),
                "steps_per_epoch": max(1, 50000 // args.batch_size)})
     diag = {"variant": "v19_anm_hpsm_hybrid", **{k: _H[k] for k in ("lam_anm", "lam_hpsm", "lam_consistency")}}
-    if _H["lam_hpsm"] > 0:
+    if _H["lam_hpsm"] > 0 and _H["select"] not in ("general", "random"):
         real = _grab_real(args, int(e.get("anchor_n", 1536)), device)
         _H["scorer"] = MM.AnchorScorer(real, seed=777)
         _H["ae"] = MM.train_robust_ae(real, steps=int(e.get("ae_steps", 1500)), seed=args.seed) \
