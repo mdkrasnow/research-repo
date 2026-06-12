@@ -161,9 +161,24 @@ no science thresholds touched):
   Stage 1 (E1.0 informs FRAMING, not machinery); log as deviation.
 
 ## E1.1 / E1.2 2D EqM toys — G2
-- Data: K = 4 Gaussian clusters in R², means at radius 1.5 (square corners),
-  σ = 0.12. Classes = cluster id. EqM field: MLP 2(+γ-feature for none —
-  noise-unconditional per paper) → 128 → 128 → 2, penultimate = 128-d act.
+
+### AMENDMENT A3 (2026-06-12, PRE-RUN — controls-rule feasibility)
+Smoke of the ORIGINAL 4-equal-mode layout: vanilla purity = 1.000 at every
+(radius, GD-steps) combination — the metric is saturated, so a positive
+control cannot move it (controls rule: fix harness before reading treatment).
+No arm comparison was run before this change. Amended population + metric:
+- Data: K = 8 Gaussian modes on the radius-1.5 circle, UNEQUAL weights
+  (0.40, 0.20, 0.15, 0.10, 0.06, 0.04, 0.03, 0.02), σ = 0.10. Measured
+  vanilla behavior (3 seeds, 4000 steps): drops the rare modes
+  (coverage 0.375) — rare-mode coverage is the live failure axis.
+- ARM B PRIMARY = weighted mode-recall distance: Σ_k w_k · min_samples
+  ||x − μ_k|| (continuous, captures dropping, no ceiling). Purity/coverage
+  descriptive. Damage arm (d) evaluated on the same primary (higher = worse).
+- ARM A primary unchanged (field MSE; measured vanilla ≈ 0.70–0.93, headroom).
+
+- Original (superseded): K = 4 clusters at square corners, σ = 0.12.
+  Classes = cluster id. EqM field: MLP 2 (noise-unconditional per paper)
+  → 128 → 128 → 2, penultimate = 128-d act (architecture unchanged by A3).
 - c(γ): EXACT get_ct port (truncated decay interp=0.8, start=1, ×4).
 - Training: γ ~ U(0,1), ε ~ N(0, I), x_γ = γx + (1−γ)ε, target (x−ε)·c(γ)
   [paper Eq. 3 with ut convention as transport.py], Adam 1e-3, 4,000 steps,

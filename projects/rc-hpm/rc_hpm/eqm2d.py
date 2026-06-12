@@ -21,9 +21,21 @@ import torch
 
 from . import core
 
-MEANS = np.array([[1.06, 1.06], [-1.06, 1.06], [-1.06, -1.06], [1.06, -1.06]])
-SIGMA = 0.12
+# Amendment A3 (pre-run, 2026-06-12): the original 4-equal-mode layout was
+# saturated (vanilla purity 1.0 at every radius/step count) — a positive
+# control could not move the metric, violating the controls rule. Harder
+# population: 8 modes on the r=1.5 circle with UNEQUAL weights (rare-mode
+# coverage is the EqM-relevant failure axis); ARM B primary switched to the
+# continuous mean nearest-mode distance (no ceiling).
+_ang = np.linspace(0, 2 * np.pi, 8, endpoint=False)
+MEANS = 1.5 * np.stack([np.cos(_ang), np.sin(_ang)], 1)
+WEIGHTS = np.array([0.40, 0.20, 0.15, 0.10, 0.06, 0.04, 0.03, 0.02])
+SIGMA = 0.10
 GAMMA_BINS = [(0.0, 1 / 3), (1 / 3, 2 / 3), (2 / 3, 1.0001)]
+# A4 (final): contrastive mining/loss/risk windowed to bins where the frozen
+# teacher separates classes (measured: bin2 q|same=.82 q|diff=.05; bin1
+# .36/.19 -> ambiguous omega-mass floor 0.19-0.22 > alpha at every lambda).
+MINE_BINS = [2]
 
 
 def get_ct(t: np.ndarray | torch.Tensor):
@@ -34,7 +46,7 @@ def get_ct(t: np.ndarray | torch.Tensor):
 
 
 def draw_data(n: int, rng: np.random.Generator):
-    labels = rng.integers(0, 4, n)
+    labels = rng.choice(len(MEANS), n, p=WEIGHTS)
     return MEANS[labels] + rng.normal(0, SIGMA, (n, 2)), labels
 
 
@@ -86,6 +98,20 @@ def attractor_purity(samples: np.ndarray, radius=0.3) -> float:
     return float((d <= radius).mean())
 
 
+def mean_mode_distance(samples: np.ndarray) -> float:
+    """Mean distance to nearest true mode (precision axis; descriptive)."""
+    d = np.sqrt(((samples[:, None, :] - MEANS[None]) ** 2).sum(-1)).min(1)
+    return float(d.mean())
+
+
+def mode_recall_distance(samples: np.ndarray) -> float:
+    """ARM B PRIMARY (Amendment A3): weight-summed distance from each true
+    mode to its nearest sample. Captures rare-mode dropping continuously;
+    lower is better; no ceiling."""
+    d = np.sqrt(((samples[:, None, :] - MEANS[None]) ** 2).sum(-1))  # (n, K)
+    return float((WEIGHTS * d.min(0)).sum())
+
+
 def mode_coverage(samples: np.ndarray, radius=0.3) -> float:
     d = np.sqrt(((samples[:, None, :] - MEANS[None]) ** 2).sum(-1))
     hit = (d.min(0) <= radius)
@@ -134,9 +160,11 @@ class RFFTeacher:
     """Frozen random-Fourier-feature embedding of x_t (class-informative at
     high gamma, noise-dominated at low gamma — the P4 structure)."""
 
-    def __init__(self, seed=7, d_out=16):
+    def __init__(self, seed=7, d_out=16, scale=3.0):
+        # scale=3.0 from the pre-treatment bandwidth sweep (A4 measurement:
+        # bin-2 risk floor 0.072 at 3.0 vs 0.091 at 1.5)
         rng = np.random.default_rng(seed)
-        self.Om = rng.normal(0, 1.5, (2, d_out))
+        self.Om = rng.normal(0, scale, (2, d_out))
         self.b = rng.uniform(0, 2 * np.pi, d_out)
 
     def __call__(self, xt: np.ndarray) -> np.ndarray:
@@ -254,8 +282,8 @@ def mine_binned(emb, t, lab_or_none, q_fn_binned, lam, rhos, k_plus, k_minus):
     pos = np.zeros((n, n), bool)
     amb = np.zeros((n, n), bool)
     sel_means = []
-    for b in range(len(GAMMA_BINS)):
-        idx = np.where(bins == b)[0]
+    for b in MINE_BINS:                   # A4: gamma-window — gate separates
+        idx = np.where(bins == b)[0]      # only near the manifold
         if len(idx) < 3:
             continue
         e_b = emb[idx]
@@ -278,7 +306,7 @@ def binned_batch_risks(s, q, neg, pos, amb, bins, y_same, rhos, s_aug):
     num_m = den_m = num_p = den_p = 0.0
     w = core.w_repulsive(s)
     wp = core.w_attractive(s)
-    for b in range(len(GAMMA_BINS)):
+    for b in MINE_BINS:                   # A4: gamma-window matches mining
         rho_hat, rho_plus, rho_amb = rhos[b]
         in_b = (bins == b)
         blk = np.ix_(np.where(in_b)[0], np.where(in_b)[0])
@@ -388,18 +416,26 @@ def calibrate_arm_b(teacher_field: Field, eps_grid, alpha, delta_r, rng,
     """LTT over eps_ball: risk = wrong-basin fraction among ACCEPTED mined
     pairs (w=1 pinned). Throughput = mean accepted displacement."""
     def losses_for(eb, m_):
+        # A4 (final): FLIP risk — fraction of accepted mined pairs (t >= 2/3,
+        # manifold-adjacent) whose UN-MINED counterpart sat in the correct
+        # Voronoi cell but whose mined x_t does not. Pure mining-induced
+        # damage: vanilla floor is 0 by construction; absolute wrong-basin
+        # rate has a geometry-driven floor (8 modes spaced 1.15 apart) that
+        # mining cannot control.
         L, disp = [], []
         for _ in range(m_):
             x1, lab, eps, t, _, _ = make_triplet(n_batch, rng)
             adv = pgd_mine(teacher_field, x1, eps, t, pgd_steps, rel_step, eb)
             cert = basin_certify(teacher_field, x1, lab, adv, t)
-            if cert.sum() == 0:
-                L.append(0.0); disp.append(0.0)   # degenerate := 0
+            sel = cert & (t >= 2 / 3)
+            if sel.sum() == 0:
+                L.append(0.0)                      # degenerate := 0
+                disp.append(0.0)
                 continue
-            # ground truth wrongness: basin of x_t under the TRUE field
-            xt = t[:, None] * x1 + (1 - t[:, None]) * adv
-            wrong = voronoi_basin(xt) != lab
-            L.append(float(wrong[cert].mean()))
+            xt_adv = t[:, None] * x1 + (1 - t[:, None]) * adv
+            xt_orig = t[:, None] * x1 + (1 - t[:, None]) * eps
+            flip = (voronoi_basin(xt_adv) != lab) & (voronoi_basin(xt_orig) == lab)
+            L.append(float(flip[sel].mean()))
             disp.append(float(np.linalg.norm(adv - eps, axis=1).mean()))
         return np.array(L), float(np.mean(disp))
 

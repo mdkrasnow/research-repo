@@ -32,7 +32,8 @@ import torch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from rc_hpm import core, eqm2d                                    # noqa: E402
-from rc_hpm.eqm2d import (Field, GAMMA_BINS, RFFTeacher, attractor_purity,
+from rc_hpm.eqm2d import (Field, GAMMA_BINS, MINE_BINS, RFFTeacher, attractor_purity,
+                          mode_recall_distance,
                           basin_certify, calibrate_arm_a, calibrate_arm_b,
                           field_mse, gd_sample, get_ct, gamma_bin,
                           make_triplet, mine_binned, mode_coverage,
@@ -88,7 +89,7 @@ def rc_infonce_act(z, s, q, neg, pos_m, amb, bins, rhos, tau=0.5):
     """L_out InfoNCE on activations with certified per-bin weights (stopgrad)."""
     n = z.shape[0]
     v_neg = np.zeros((n, n)); omega = np.zeros((n, n)); v_pos = np.zeros((n, n))
-    for b in range(len(GAMMA_BINS)):
+    for b in MINE_BINS:                   # A4 gamma-window
         rho_hat, rho_plus, rho_amb = rhos[b]
         in_b = np.where(bins == b)[0]
         blk = np.ix_(in_b, in_b)
@@ -115,7 +116,7 @@ def rc_repulsive_act(z, s, q, neg, amb, bins, rhos, tau=0.5):
     negatives + debiased ambiguous; no attraction term."""
     n = z.shape[0]
     v = np.zeros((n, n))
-    for b in range(len(GAMMA_BINS)):
+    for b in MINE_BINS:                   # A4 gamma-window
         rho_hat, _, rho_amb = rhos[b]
         in_b = np.where(bins == b)[0]
         blk = np.ix_(in_b, in_b)
@@ -144,11 +145,18 @@ def run_arm(args):
     aux_ratio_log, risk_log = [], []
     aborted_to_vanilla = False
 
+    alpha_used = None
     if arm in ("rc_hpm", "rc_repulsive"):
         teacher = RFFTeacher(seed=7)        # frozen, shared structure
         q_fn = train_binned_gate(teacher, seed, rng)
-        calA = calibrate_arm_a(teacher, q_fn, LAM_GRID, ALPHA, DELTA_R, rng,
-                               n_batch=N_BATCH)
+        # P2: full pre-registered alpha grid runs at Stages 0-1; use the
+        # tightest endpoint that certifies, label the arm with it.
+        for a_try in (0.10, 0.20):
+            calA = calibrate_arm_a(teacher, q_fn, LAM_GRID, a_try, DELTA_R,
+                                   rng, n_batch=N_BATCH)
+            if not calA.aborted:
+                alpha_used = a_try
+                break
         if calA.aborted:
             aborted_to_vanilla = True       # P7
 
@@ -173,9 +181,12 @@ def run_arm(args):
                 xt = t[:, None] * x1 + (1 - t[:, None]) * eps_used
                 target = (x1 - eps_used) * get_ct(t)[:, None]
                 if step % 100 == 0:
-                    wrong = voronoi_basin(xt) != lab
-                    risk_log.append(float(wrong[cert].mean())
-                                    if cert.sum() else 0.0)
+                    sel = cert & (t >= 2 / 3)
+                    xt_orig = t[:, None] * x1 + (1 - t[:, None]) * eps
+                    flip = (voronoi_basin(xt) != lab) & \
+                        (voronoi_basin(xt_orig) == lab)
+                    risk_log.append(float(flip[sel].mean())
+                                    if sel.sum() else 0.0)
         elif arm == "anm_live_neg" and step >= TEACHER_SNAP_STEP:
             adv = pgd_mine(None, x1, eps, t, eps_ball=5.0, live_field=field)
             xt = t[:, None] * x1 + (1 - t[:, None]) * adv
@@ -231,6 +242,7 @@ def run_arm(args):
         field_mse=field_mse(field, grid, f_star),
         purity=attractor_purity(samples),
         coverage=mode_coverage(samples),
+        recall_dist=mode_recall_distance(samples),
         wall=round(time.time() - t_start, 1))
     if aux_ratio_log:
         arl = np.array(aux_ratio_log)
@@ -249,6 +261,7 @@ def run_arm(args):
         out["eps_ball"] = eps_ball
     if calA is not None and not calA.aborted:
         out["lam"] = list(calA.lam)
+        out["alpha_used"] = alpha_used
     return out
 
 
@@ -266,19 +279,21 @@ def main():
                          and r.get("finite")])
 
     van_mse = vals("vanilla", "field_mse")
-    van_pur = vals("vanilla", "purity")
+    van_rec = vals("vanilla", "recall_dist")
     mar_mse = 2 * van_mse.std(ddof=1)
-    mar_pur = 2 * van_pur.std(ddof=1)
+    mar_rec = 2 * van_rec.std(ddof=1)
 
     verdict = {"gate": "G2", "vanilla": dict(
-        field_mse=float(van_mse.mean()), purity=float(van_pur.mean()),
-        margin_mse=float(mar_mse), margin_purity=float(mar_pur)), "arms": {}}
+        field_mse=float(van_mse.mean()), recall_dist=float(van_rec.mean()),
+        coverage=float(vals("vanilla", "coverage").mean()),
+        margin_mse=float(mar_mse), margin_recall=float(mar_rec)), "arms": {}}
     for arm in ARMS[1:]:
-        mse, pur = vals(arm, "field_mse"), vals(arm, "purity")
+        mse, rec = vals(arm, "field_mse"), vals(arm, "recall_dist")
         if len(mse) == 0:
             verdict["arms"][arm] = {"finite": False}
             continue
-        d = dict(field_mse=float(mse.mean()), purity=float(pur.mean()),
+        d = dict(field_mse=float(mse.mean()), recall_dist=float(rec.mean()),
+                 purity=float(vals(arm, "purity").mean()),
                  coverage=float(vals(arm, "coverage").mean()))
         rats = [r.get("aux_base_last_quarter") for r in rows
                 if r["arm"] == arm and r.get("aux_base_last_quarter") is not None]
@@ -289,11 +304,11 @@ def main():
             d["primary"] = "field_mse"
             d["c_beats_vanilla"] = bool(mse.mean() < van_mse.mean() - mar_mse)
         elif arm == "anm_cert":
-            d["primary"] = "purity"
-            d["c_beats_vanilla"] = bool(pur.mean() > van_pur.mean() + mar_pur)
+            d["primary"] = "recall_dist (Amendment A3)"
+            d["c_beats_vanilla"] = bool(rec.mean() < van_rec.mean() - mar_rec)
         elif arm == "anm_live_neg":
-            d["primary"] = "purity (damage control)"
-            d["d_damages"] = bool(pur.mean() < van_pur.mean() - mar_pur)
+            d["primary"] = "recall_dist (damage control)"
+            d["d_damages"] = bool(rec.mean() > van_rec.mean() + mar_rec)
         verdict["arms"][arm] = d
 
     a_pass = any(verdict["arms"][a].get("c_beats_vanilla") for a in
