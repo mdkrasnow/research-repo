@@ -61,8 +61,9 @@ def main():
     ap.add_argument("--num-classes", type=int, default=1000)
     ap.add_argument("--batches", type=int, default=40)
     ap.add_argument("--batch-size", type=int, default=32)
-    ap.add_argument("--anm-steps", type=int, default=3)
-    ap.add_argument("--anm-step-size", type=float, default=0.15)
+    ap.add_argument("--anm-steps", type=int, default=12)   # enough to reach
+    ap.add_argument("--anm-step-size", type=float, default=0.25)  # large eps_ball
+    # (3x0.15 saturated disp ~0.41 < eps_ball 0.5; 12x0.25 reaches >=1.5)
     ap.add_argument("--eps-grid", type=str, default="0.25,0.5,1.0,1.5")
     args = ap.parse_args()
 
