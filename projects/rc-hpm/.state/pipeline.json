@@ -1,7 +1,7 @@
 {
   "project": "rc-hpm",
-  "phase": "RC_ANM_CPU_COMPLETE",
-  "current_node": null,
+  "phase": "RC_ANM_STEP1_RUNNING",
+  "current_node": "rcanm_step1",
   "tree": "documentation/experiment-decision-tree.md (v2)",
   "preregistration": "documentation/preregistration.md (Amendment A1 applied pre-run)",
   "nodes": {
@@ -111,7 +111,21 @@
       "outcome": "FAIL (bal acc 0.49@1000, 0.53@2500). Toy teacher field collapsed -> basin proxy ~chance vs analytic oracle. Concept real (dose-check) but NOT CPU-instrumentable. R2': escalate to CIFAR (richer teacher)."
     }
   },
-  "active_runs": [],
+  "active_runs": [
+    {
+      "run_id": "rcanm_step1_premise",
+      "job_id": "22500353",
+      "partition": "gpu_test",
+      "status": "pending",
+      "description": "RC-ANM Step-1 premise probe: ANM endpoint mining on v10 EqM-B/2 ckpt, safety scores + gradient impact, gates S1-premise/impact -> P1/P2/P3",
+      "submitted_at": "2026-06-13",
+      "git_sha": "7a456b1 (rsynced, no-clone)",
+      "sbatch_path": "projects/rc-hpm/slurm/jobs/rcanm_step1_local.sbatch",
+      "expected_runtime": "~1h",
+      "phase": "RC-ANM-step1",
+      "gate": "S1 premise+impact"
+    }
+  ],
   "needs_user_input": {
     "value": true,
     "prompt": "RC-ANM pivot CPU-complete. Concept VALIDATED (oracle-safe beats dose-matched random: 0.877 vs 1.285) + premise VALIDATED (aggressive damages), but R2': the basin-safety functional is NOT instrumentable by a teacher proxy at 2D toy scale (collapsed field, proxy~chance vs oracle). Pre-registered next = CIFAR mini RC-ANM (vanilla / v10 fixed-ANM / RC-ANM with rn18-or-EqM-EMA teacher) where basin/field signals are rich. CIFAR/GPU needs your approval (FID never auto). Decide: (a) approve CIFAR-mini RC-ANM, (b) more CPU proxy work (note: prereg forbids fishing; would need a new functional hypothesis), (c) write up RC-ANM concept+toy as-is. See documentation/postmortem-rcanm-r4.md + pivot-rc-anm.md."
