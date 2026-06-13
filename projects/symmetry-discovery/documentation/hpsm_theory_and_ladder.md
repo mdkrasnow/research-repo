@@ -48,6 +48,38 @@ best-paper = hybrid<v10.
 the flagship; the real HPSM value is gap-conditional. Stage D launches only if C passes OR the queued
 Track-B ladder needs completion.
 
+## STAGE D (real EqM-B UNet, 150ep, 5K FID) — VERDICT: consistency does NOT transfer; proxy MISLED (2026-06-13)
+
+| arm | final FID | vs base |
+|---|---|---|
+| v10_ref (bs64, 2× steps — not comparable) | 11.54 | — |
+| randnocons (random aug, NO consistency) | **13.31** | −1.0 (mild real help) |
+| general (EqM-derived consistency, no J_T) | 14.15 | ≈ neutral |
+| v10 ANM | 14.15 | ≈ neutral |
+| v00 base | 14.31 | — |
+| **randcons (random + commutator consistency)** | **32.77** | **+18.5 — CATASTROPHIC** |
+| named / v10+hybrids | TIMEOUT (online K=8 mining too slow, 20h cap, only ep100) | — |
+
+**This INVERTS the TinyEqM proxy.** On the tiny underfit proxy, random+consistency ≈ HPSM and beat
+everything; on the real EqM-B UNet the **named commutator consistency term HURTS catastrophically**
+(randcons 32.77 vs randnocons 13.31). Honest mechanism breakdown:
+- **Named commutator `F(Tx)≈J_T F(x)` (hand-coded J_T): HARMFUL at scale** — likely the affine/color J_T
+  approximations are wrong-signed or conflict with the EqM objective, producing a large destabilizing
+  gradient the high-capacity UNet follows into a bad solution (the tiny model was too underfit to care).
+- **General consistency `F(x_t+γδ)=sg(F)−δ` (EqM-derived, NO J_T): NEUTRAL** (14.15 ≈ base) — safe but no
+  gain. The principled no-J_T formulation at least doesn't blow up.
+- **Plain random valid augmentation: the only real positive** (randnocons 13.31 < base 14.31) — but that's
+  standard augmentation, not novel.
+
+**Bottom line: the HPSM equivariance-consistency thesis FAILS at real scale.** The PRIMARY win condition
+(randcons<randnocons<base) fails hard — consistency is the WORST arm, not the lever. The TinyEqM proxy
+massively misled (the caveat "proxy may overstate" was understated — it inverted the sign). Named/hybrid
+arms timed out but are moot: their consistency term is the harmful ingredient. NOT worth re-running.
+**Lesson: validate consistency/equivariance regularizers on a REAL-capacity model before believing a tiny
+proxy — underfit proxies reward regularization that a properly-trained model is hurt by.** gap15 (static
+gap-aware discovery, +3.4 FID real EqM) remains the only real win; HPSM/ASM mining + consistency do not
+beat it.
+
 ## Results log
 - **Stage A: PASS → ADVANCE** (2026-06-11). 13 families ok; T*=hue valid; decoy_usage 0.0 (high penalty,
   decoys 100% rejected); v18 base+hpsm+cons all finite, grad>0, lam0⇒base; v19 base+anm+hpsm all nonzero,
