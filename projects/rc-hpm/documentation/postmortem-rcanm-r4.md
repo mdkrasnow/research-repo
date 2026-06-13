@@ -98,3 +98,19 @@ dose-matched oracle. Pre-registered STOP + postmortem reached; iteration-2
 spec (functional fix A + CIFAR-mini utility test B) recorded above; both
 require human go (CPU functional fix is cheap; CIFAR/GPU per CLAUDE.md needs
 approval). No improvised branch taken.
+
+## v2 RESULT — R2' (concept real, CPU proxy not instrumentable)
+Proxy-validation gate (preregistration-rc-anm-v2.md, experiments/
+rcanm_v2_validate.py): short-rollout teacher proxy vs analytic-oracle basin,
+balanced accuracy:
+  teacher@1000 steps: 0.492  (chance)
+  teacher@2500 steps: 0.529  (barely above chance)
+Both FAIL the >=0.65 bar. Even a stronger toy teacher's GD field is too
+collapsed (every point descends to a few attractors irrespective of the mined
+endpoint), so a teacher-based basin proxy cannot track the analytic oracle at
+2D toy scale. Per prereg this is **R2': the basin-safety channel EXISTS (oracle
++ dose-check prove it) but is NOT instrumentable by the CPU teacher proxy** —
+distinct from R4 (not a bug; wrong instrument). Pre-registered action: escalate
+to CIFAR mini, where the teacher (real EqM-EMA or rn18) is far richer and
+field/basin signals are meaningful. Did NOT fish for a passing proxy (prereg
+forbids). Terminal CPU state for the RC-ANM pivot.

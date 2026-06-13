@@ -1,7 +1,7 @@
 {
   "project": "rc-hpm",
-  "phase": "RC_ANM_PIVOT",
-  "current_node": "rcanm_ladder",
+  "phase": "RC_ANM_CPU_COMPLETE",
+  "current_node": null,
   "tree": "documentation/experiment-decision-tree.md (v2)",
   "preregistration": "documentation/preregistration.md (Amendment A1 applied pre-run)",
   "nodes": {
@@ -103,12 +103,18 @@
       "gate": "C1/C2/C3",
       "verdict": "results/d3_verdict.json",
       "outcome": "C2 MIDDLE: cert_random_k = cheap safe regularizer (+0.01-0.02 over no_mine, all 5 rungs); curriculum/conf_easy/mid_band underperform (no signal); utility+mechanism gates FAIL. Contrastive path fully closed."
+    },
+    "RC-ANM.v2_proxy_validation": {
+      "status": "R2 prime",
+      "gate": "proxy-oracle>=0.65",
+      "verdict": "experiments/rcanm_v2_validate.py output + postmortem-rcanm-r4.md",
+      "outcome": "FAIL (bal acc 0.49@1000, 0.53@2500). Toy teacher field collapsed -> basin proxy ~chance vs analytic oracle. Concept real (dose-check) but NOT CPU-instrumentable. R2': escalate to CIFAR (richer teacher)."
     }
   },
   "active_runs": [],
   "needs_user_input": {
-    "value": false,
-    "prompt": null
+    "value": true,
+    "prompt": "RC-ANM pivot CPU-complete. Concept VALIDATED (oracle-safe beats dose-matched random: 0.877 vs 1.285) + premise VALIDATED (aggressive damages), but R2': the basin-safety functional is NOT instrumentable by a teacher proxy at 2D toy scale (collapsed field, proxy~chance vs oracle). Pre-registered next = CIFAR mini RC-ANM (vanilla / v10 fixed-ANM / RC-ANM with rn18-or-EqM-EMA teacher) where basin/field signals are rich. CIFAR/GPU needs your approval (FID never auto). Decide: (a) approve CIFAR-mini RC-ANM, (b) more CPU proxy work (note: prereg forbids fishing; would need a new functional hypothesis), (c) write up RC-ANM concept+toy as-is. See documentation/postmortem-rcanm-r4.md + pivot-rc-anm.md."
   },
   "notes": [
     "2026-06-12: Amendment A1 (pre-run): m=250, alpha_0=0.10 primary; see deviations.md D1",
