@@ -1,7 +1,7 @@
 {
   "project": "rc-hpm",
-  "phase": "STAGE0",
-  "current_node": "E1.1+E1.2",
+  "phase": "CPU_TREE_COMPLETE",
+  "current_node": null,
   "tree": "documentation/experiment-decision-tree.md (v2)",
   "preregistration": "documentation/preregistration.md (Amendment A1 applied pre-run)",
   "nodes": {
@@ -31,26 +31,33 @@
       "outcome": "ratio 14.3x at gamma=1 (>=3 required); gamma-decay 9.4/3.9/2.0 confirms P4 structure; figure figures/e1_0_premise.png"
     },
     "E1.1": {
-      "status": "running",
-      "gate": "G2"
+      "status": "FAIL",
+      "gate": "G2",
+      "verdict": "results/e1_12_verdict.json",
+      "outcome": "oracle-null: true-label SupCon on activations does not beat vanilla field MSE (0.890 vs 0.837) -> bounds all of arm A; rc_hpm tie 0.838; postmortem documentation/postmortem-g2-eqm-bridge.md"
     },
     "E1.2": {
-      "status": "running",
-      "gate": "G2"
+      "status": "FAIL",
+      "gate": "G2",
+      "verdict": "results/e1_12_verdict.json",
+      "outcome": "anm_cert calibrated (eps_ball=0.1, flip-risk certified) but recall-dist worse-in-noise (0.999 vs 0.801, margin 0.647); damage arm also in noise; inconclusive-negative"
     },
     "E1.3": {
-      "status": "pending",
-      "gate": "G3"
+      "status": "SKIPPED",
+      "gate": "G3",
+      "verdict": "results/e1_3_verdict.json",
+      "outcome": "entry condition unmet (no G2-passing arm) \u2014 formal skip per tree"
     }
   },
   "active_runs": [],
   "needs_user_input": {
-    "value": false,
-    "prompt": null
+    "value": true,
+    "prompt": "CPU tree complete. Decide: (a) accept harm-bounding+guarantee framing -> contrastive-CL standalone track (Stage 2 CIFAR per tree, GPU), (b) redesign EqM bridge toy (oracle-null may be toy artifact - Disp Loss gains are transformer-scale), or (c) park rc-hpm. See documentation/postmortem-g2-eqm-bridge.md"
   },
   "notes": [
     "2026-06-12: Amendment A1 (pre-run): m=250, alpha_0=0.10 primary; see deviations.md D1",
     "2026-06-12: monitor/symmetry checker moved to batch-mean units (pair scores within-batch dependent); found during clean-run smoke, before any gate",
-    "2026-06-12: G1 K2-only -> paper framing narrows to harm-bounding+guarantee; gains claim killed at toy scale per criterion (e)"
+    "2026-06-12: G1 K2-only -> paper framing narrows to harm-bounding+guarantee; gains claim killed at toy scale per criterion (e)",
+    "2026-06-12: CPU portion of decision tree COMPLETE. Machinery validated (G-1, G0); harm-bounding story (G1); premise holds on CIFAR (G1.5, 14.3x); EqM bridge dead at toy scale (G2 oracle-null); E1.3 skipped. Stage 2 (GPU) NOT entered \u2014 would need new evidence per tree + human approval."
   ]
 }

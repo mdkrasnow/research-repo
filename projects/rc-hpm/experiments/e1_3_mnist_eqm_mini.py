@@ -499,14 +499,7 @@ def save_grid(samples: torch.Tensor, path: str):
 
 def main():
     t0 = time.time()
-    Xtr, Ytr, Xte, Yte = load_mnist()
-    cls, acc = train_classifier(Xtr, Ytr, Xte, Yte)
-    print("classifier ready", acc, flush=True)
-
-    with torch.no_grad():
-        ref_feats = cls.features(Xte[:2000]).numpy()
-
-    # pick arms from G2 verdict
+    # entry condition FIRST (G2-passing arm required) — before any setup
     v12 = json.load(open(os.path.join(RESULTS, "e1_12_verdict.json")))
     arms = ["vanilla"]
     if v12["summary"].get("armA_pass"):
@@ -515,9 +508,20 @@ def main():
         arms.append("anm_cert")
     if len(arms) == 1:
         print("no Stage-1 arm passed G2 — E1.3 skipped per tree")
-        json.dump(dict(gate="G3", skipped=True, reason="no arm passed G2"),
-                  open(os.path.join(RESULTS, "e1_3_verdict.json"), "w"))
+        json.dump(dict(gate="G3", skipped=True, reason="no arm passed G2",
+                       per="tree v2 E1.3 entry condition"),
+                  open(os.path.join(RESULTS, "e1_3_verdict.json"), "w"),
+                  indent=2)
         return
+
+    Xtr, Ytr, Xte, Yte = load_mnist()
+    # NOTE: if E1.3 is ever activated, SmallCNN needs a deeper conv stack —
+    # measured 0.744 test acc vs the 0.97 prereg bar with this head.
+    cls, acc = train_classifier(Xtr, Ytr, Xte, Yte)
+    print("classifier ready", acc, flush=True)
+
+    with torch.no_grad():
+        ref_feats = cls.features(Xte[:2000]).numpy()
 
     rows = []
     fid_cache = {}
