@@ -70,12 +70,13 @@ def main():
     ap.add_argument("--base-rollouts", default=None)
     ap.add_argument("--adapter-rollouts", default=None)
     ap.add_argument("--out-dir", default=None, help="override output dir (default: results/ + plots/)")
+    ap.add_argument("--cache", default=None, help="measured cache to score against (default: easy cache)")
     ap.add_argument("--title-tag", default="", help="prefix for plot title (e.g. PREVIEW)")
     args = ap.parse_args()
     res_dir = args.out_dir or os.path.join(PROJ, "results")
     plot_dir = args.out_dir or os.path.join(PROJ, "plots")
 
-    cache = load_cache()
+    cache = load_cache(args.cache)
     episodes = eval_episodes(cache, 0 if args.all else args.eval_seeds)
 
     policies = []

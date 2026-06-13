@@ -1,22 +1,22 @@
-# Phase 1 — lever episode (15 seeds, 2000 steps/stage)
+# Phase 1 — lever episode (3 seeds, 800 steps/stage)
 
 Values are mean ± 95% CI. High neg_control_mse = honest (broken-symmetry task has no real symmetry to exploit). Low neg_control + high composition/identity/inverse error = shortcut cheating.
 
 | Stage | clean_mse | neg_control_mse | shortcut_sens | comp_err | id_err | inv_err | verdicts |
 |---|---|---|---|---|---|---|---|
-| 1 pred-only (v0) | 0.003±0.004 | 0.116±0.128 | 0.975±0.039 | 5.059±1.554 | 1.713±0.483 | 3.056±1.553 | clean_win:2, shortcut_win:13 |
-| 2 W-only | 0.003±0.004 | 0.145±0.172 | 1.009±0.048 | 4.658±1.414 | 1.665±0.479 | 2.732±1.436 | clean_win:2, shortcut_win:13 |
-| 4 H->W | 0.006±0.004 | 1.067±0.014 | 0.002±0.001 | 0.001±0.000 | 0.324±0.079 | 0.309±0.075 | clean_win:15 |
+| 1 pred-only (v0) | 0.009±0.038 | 0.168±0.569 | 0.919±0.321 | 6.896±15.137 | 1.986±4.442 | 2.337±1.827 | clean_win:1, shortcut_win:2 |
+| 2 W-only | 0.008±0.036 | 0.310±1.180 | 1.056±0.188 | 6.214±11.111 | 1.900±3.998 | 1.798±1.434 | clean_win:1, shortcut_win:2 |
+| 4 H->W | 0.019±0.050 | 1.014±0.043 | 0.007±0.021 | 0.008±0.006 | 0.379±0.514 | 0.334±0.332 | clean_win:3 |
 
-**Gate (per-seed S4 neg_control > S2 neg_control): 15/15 pass**
+**Gate (per-seed S4 neg_control > S2 neg_control): 3/3 pass**
 
 ## Statistical test — W-only vs H->W (Welch t, two-sided)
 
 | metric | W-only mean | H->W mean | t | p | Cohen's d |
 |---|---|---|---|---|---|
-| composition_error | 4.658 | 0.0014 | 7.06 | 5.67e-06 | 2.58 |
-| shortcut_sensitivity | 1.009 | 0.0015 | 44.60 | 1.63e-16 | 16.29 |
-| identity_error | 1.665 | 0.3236 | 5.93 | 2.96e-05 | 2.17 |
-| inverse_error | 2.732 | 0.3093 | 3.61 | 2.79e-03 | 1.32 |
+| composition_error | 6.214 | 0.0075 | 2.40 | 1.38e-01 | 1.96 |
+| shortcut_sensitivity | 1.056 | 0.0070 | 23.86 | 1.54e-03 | 19.48 |
+| identity_error | 1.900 | 0.3790 | 1.62 | 2.42e-01 | 1.33 |
+| inverse_error | 1.798 | 0.3336 | 4.28 | 4.20e-02 | 3.50 |
 
-Interpretation: W-only PRESERVES the shortcut (structural errors stay high, verdict stays shortcut_win); H->W REPAIRS it (all structural errors collapse to ~0, neg_control becomes honest). The Welch test quantifies the W-only -> H->W gap.
+Interpretation: W-only PRESERVES the shortcut (structural errors stay high, verdict stays shortcut_win); H->W REPAIRS it (shortcut_sensitivity and composition collapse to ~0; identity/inverse drop several-fold but not to 0; neg_control becomes honest). The Welch test quantifies the W-only -> H->W gap.

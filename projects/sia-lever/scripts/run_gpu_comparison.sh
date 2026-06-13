@@ -10,10 +10,18 @@
 #   --limit <n>       cap episodes for quick runs
 #   --model <id>      served model id (endpoint mode)
 #   --base-url <url>  OpenAI-compatible endpoint
+#
+# Env:
+#   CACHE=<path>   measured cache to target (default: easy 3-mode cache).
+#                  Use CACHE=gpt_oss/data/out/hard_cache.jsonl for the task WITH headroom
+#                  (see documentation/hard_task_design.md). The original task has NO headroom
+#                  (trace_difficulty_probe.py -> tiny rule = 1.00) so a LoRA gain there is meaningless.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 DRY=0; SKIP_TRAIN=0; ADAPTER=""; LIMIT=""; MODEL="${GPT_OSS_MODEL:-gpt-oss-120b}"; BASEURL="${GPT_OSS_BASE_URL:-}"
+CACHE="${CACHE:-}"; CFLAG=""; [ -n "$CACHE" ] && CFLAG="--cache $CACHE"
+[ -n "$CACHE" ] && echo "TARGET CACHE: $CACHE" || echo "TARGET CACHE: (default easy 3-mode cache)"
 while [ $# -gt 0 ]; do
   case "$1" in
     --dry-run) DRY=1;;
@@ -34,14 +42,18 @@ echo "=== [2/7] CPU regression (phenomenon intact) ==="
 run "bash scripts/run_cpu_regression.sh >/tmp/sialever_cpu.log 2>&1 && tail -1 /tmp/sialever_cpu.log"
 
 echo "=== [3/7] build datasets from measured cache ==="
-run "python3 gpt_oss/data/build_sft_dataset.py"
-run "python3 gpt_oss/data/build_dpo_dataset.py"
-run "python3 sia_task/build_task_data.py"
+run "python3 gpt_oss/data/build_sft_dataset.py $CFLAG"
+run "python3 gpt_oss/data/build_dpo_dataset.py $CFLAG"
+run "python3 gpt_oss/data/build_grpo_prompts.py $CFLAG"
+run "python3 sia_task/build_task_data.py $CFLAG"
+
+echo "=== [3b/7] HEADROOM GATE (skip GPU if the task is trivially solvable) ==="
+run "python3 experiments/trace_difficulty_probe.py ${CACHE:+--cache $CACHE} --eval-seeds ${HEADROOM_EVAL_SEEDS:-3} | sed -n '/HEADROOM/,/====/p'"
 
 echo "=== [4/7] base gpt-oss-120b selector eval ==="
 BASE_ROLL="results/gpt_oss/base_rollouts_latest.jsonl"
-run "python3 gpt_oss/rollout/rollout_base.py --model '$MODEL' ${BASEURL:+--base-url $BASEURL} $LIMIT --tag base"
-run "python3 gpt_oss/eval/eval_selector.py --rollouts 'results/gpt_oss/base_rollouts_*.jsonl' --tag base"
+run "python3 gpt_oss/rollout/rollout_base.py --model '$MODEL' ${BASEURL:+--base-url $BASEURL} $LIMIT --tag base $CFLAG"
+run "python3 gpt_oss/eval/eval_selector.py --rollouts 'results/gpt_oss/base_rollouts_*.jsonl' --tag base $CFLAG"
 
 echo "=== [5/7] adapter (train or reuse) ==="
 if [ -n "$ADAPTER" ]; then
@@ -55,11 +67,11 @@ fi
 
 echo "=== [6/7] adapter eval ==="
 if [ -n "$ADAPTER" ]; then
-  run "python3 gpt_oss/rollout/rollout_adapter.py --adapter '$ADAPTER' --local --base-model '${GPT_OSS_MODEL_PATH:-openai/gpt-oss-120b}' $LIMIT --tag sft"
-  run "python3 gpt_oss/eval/eval_adapter.py --adapter-rollouts 'results/gpt_oss/sft_rollouts_*.jsonl' --base-rollouts 'results/gpt_oss/base_rollouts_*.jsonl' --tag sft"
+  run "python3 gpt_oss/rollout/rollout_adapter.py --adapter '$ADAPTER' --local --base-model '${GPT_OSS_MODEL_PATH:-openai/gpt-oss-120b}' $LIMIT --tag sft $CFLAG"
+  run "python3 gpt_oss/eval/eval_adapter.py --adapter-rollouts 'results/gpt_oss/sft_rollouts_*.jsonl' --base-rollouts 'results/gpt_oss/base_rollouts_*.jsonl' --tag sft $CFLAG"
 fi
 
 echo "=== [7/7] policy comparison + demo report ==="
-run "python3 gpt_oss/eval/compare_policies.py --base-rollouts 'results/gpt_oss/base_rollouts_*.jsonl' --adapter-rollouts 'results/gpt_oss/sft_rollouts_*.jsonl'"
+run "python3 gpt_oss/eval/compare_policies.py --base-rollouts 'results/gpt_oss/base_rollouts_*.jsonl' --adapter-rollouts 'results/gpt_oss/sft_rollouts_*.jsonl' $CFLAG"
 run "python3 scripts/make_demo_report.py"
 echo "Done. See results/DEMO_REPORT.md (all figures), results/final_comparison.md, plots/final_comparison.png"

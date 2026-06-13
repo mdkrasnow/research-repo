@@ -47,7 +47,9 @@ def local_generator(base_model, adapter):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--adapter", required=True, help="adapter dir (for --local) or label (for --endpoint)")
+    ap.add_argument("--adapter", default=None, help="adapter dir (for --local) or label (for --endpoint)")
+    ap.add_argument("--dry-run", action="store_true",
+                    help="skip model/endpoint; emit null actions (plumbing test, no GPU/creds)")
     ap.add_argument("--base-model", default=os.getenv("GPT_OSS_MODEL_PATH", "openai/gpt-oss-120b"))
     ap.add_argument("--endpoint", action="store_true", help="query a served base+adapter endpoint")
     ap.add_argument("--local", action="store_true", help="load base+adapter locally via PEFT")
@@ -56,14 +58,20 @@ def main():
     ap.add_argument("--eval-seeds", type=int, default=3)
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--tag", default="sft")
+    ap.add_argument("--cache", default=None, help="measured cache to roll out over (default: easy cache)")
     args = ap.parse_args()
+    if not args.dry_run and not args.adapter:
+        ap.error("--adapter is required unless --dry-run")
 
-    cache = load_cache()
+    cache = load_cache(args.cache)
     episodes = eval_episodes(cache, args.eval_seeds)
     if args.limit:
         episodes = episodes[:args.limit]
 
-    if args.local:
+    if args.dry_run:
+        def ask(msgs):
+            return None
+    elif args.local:
         gen = local_generator(args.base_model, args.adapter)
         def ask(msgs):
             return gen(msgs)

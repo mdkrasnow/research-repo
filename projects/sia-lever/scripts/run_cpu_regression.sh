@@ -13,4 +13,6 @@ echo "=== SIA-Lever-120B data pipeline (offline) ==="
 python3 gpt_oss/data/build_sft_dataset.py | tail -1
 python3 gpt_oss/data/build_dpo_dataset.py | tail -1
 python3 gpt_oss/eval/compare_policies.py | sed -n '/| Policy/,/oracle_best/p'
+echo "=== Robustness / integrity regression (evaluator, leakage, split, cache, gold) ==="
+python3 scripts/robustness_tests.py | tail -3
 echo "=== CPU REGRESSION PASS ==="

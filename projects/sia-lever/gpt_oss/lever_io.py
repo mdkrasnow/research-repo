@@ -51,16 +51,23 @@ def regret_of_action(action, reward_by_action, w_cost=DEFAULT_W_COST):
     return best_score - outcome_for_action(action, reward_by_action, w_cost)
 
 
-def load_prompts():
-    with open(os.path.join(GPT_OSS_DIR, "prompts", "lever_selector_system.md")) as f:
+def load_prompts(variant=None):
+    """variant: None/"rule" = the explicit decision-rule prompt (default). "blind" = rule-HIDDEN
+    prompt (action menu only, no decision principles) — the honest test of whether the model can
+    LEARN/REASON the attribution rather than follow a recipe handed to it. Env LEVER_PROMPT overrides.
+    """
+    variant = (variant or os.getenv("LEVER_PROMPT") or "rule").lower()
+    sysfile = ("lever_selector_system_blind.md" if variant == "blind"
+               else "lever_selector_system.md")
+    with open(os.path.join(GPT_OSS_DIR, "prompts", sysfile)) as f:
         system = f.read().strip()
     with open(os.path.join(GPT_OSS_DIR, "prompts", "lever_selector_user_template.md")) as f:
         user_tmpl = f.read().strip()
     return system, user_tmpl
 
 
-def build_messages(trace_text):
-    system, user_tmpl = load_prompts()
+def build_messages(trace_text, variant=None):
+    system, user_tmpl = load_prompts(variant)
     user = user_tmpl.replace("{trace_text}", trace_text)
     return [{"role": "system", "content": system}, {"role": "user", "content": user}]
 

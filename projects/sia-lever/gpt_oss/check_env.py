@@ -54,7 +54,8 @@ def main():
     for v in ["OPENAI_API_KEY", "NEBIUS_API_KEY", "GPT_OSS_API_KEY", "GPT_OSS_BASE_URL",
               "GPT_OSS_MODEL", "GPT_OSS_MODEL_PATH", "HF_TOKEN", "HF_HOME", "WANDB_API_KEY"]:
         val = os.getenv(v)
-        shown = "SET" if (val and "KEY" in v or "TOKEN" in v) else (val or "—")
+        is_secret = ("KEY" in v) or ("TOKEN" in v)
+        shown = ("SET" if val else "—") if is_secret else (val or "—")
         print(f"  {v:18s}: {shown}")
 
     mp = os.getenv("GPT_OSS_MODEL_PATH")

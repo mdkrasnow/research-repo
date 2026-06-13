@@ -22,7 +22,11 @@ EVAL_SEEDS = 3  # held-out eval subset the agent is scored on (highest seed indi
 
 
 def main():
-    cache = load_cache()
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--cache", default=None, help="measured cache to build the task from (default: easy)")
+    args = ap.parse_args()
+    cache = load_cache(args.cache)
     seeds = sorted({r["seed"] for r in cache})
     eval_set = set(seeds[-EVAL_SEEDS:])
 

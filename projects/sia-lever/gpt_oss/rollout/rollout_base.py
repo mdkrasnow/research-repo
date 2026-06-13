@@ -28,8 +28,9 @@ def eval_episodes(cache, eval_seeds):
     return [r for r in cache if r["seed"] in keep]
 
 
-def rollout(model=None, base_url=None, limit=None, eval_seeds=3, dry_run=False, temperature=0.0):
-    cache = load_cache()
+def rollout(model=None, base_url=None, limit=None, eval_seeds=3, dry_run=False, temperature=0.0,
+            cache_path=None):
+    cache = load_cache(cache_path)
     episodes = eval_episodes(cache, eval_seeds)
     if limit:
         episodes = episodes[:limit]
@@ -66,10 +67,11 @@ def main():
     ap.add_argument("--eval-seeds", type=int, default=3)
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--tag", default="base")
+    ap.add_argument("--cache", default=None, help="measured cache to roll out over (default: easy cache)")
     args = ap.parse_args()
 
     out = rollout(model=args.model, base_url=args.base_url, limit=args.limit,
-                  eval_seeds=args.eval_seeds, dry_run=args.dry_run)
+                  eval_seeds=args.eval_seeds, dry_run=args.dry_run, cache_path=args.cache)
     d = os.path.join(PROJ, "results", "gpt_oss")
     os.makedirs(d, exist_ok=True)
     stamp = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())

@@ -22,6 +22,27 @@ def _git_commit():
         return "(unknown)"
 
 
+_PROJ = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# The harness (H lever) and evaluator (scorer) are load-bearing for any reported metric, so their
+# exact bytes are pinned alongside the adapter. Guardrail #4: hash and log everything.
+_HARNESS_PATH = os.path.join(_PROJ, "harness", "verifier.py")
+_EVALUATOR_PATH = os.path.join(_PROJ, "sia_task", "data", "public", "evaluate.py")
+
+
+def _sha256_maybe(path):
+    return _sha256_file(path) if path and os.path.exists(path) else "(missing)"
+
+
+def _adapter_hash(out_dir):
+    """Hash the produced PEFT adapter weights so a reported result is tied to exact weights.
+    Hashes the first existing adapter weight file (safetensors/bin)."""
+    for fn in ("adapter_model.safetensors", "adapter_model.bin"):
+        p = os.path.join(out_dir, fn)
+        if os.path.exists(p):
+            return fn, _sha256_file(p)
+    return "(missing)", "(missing)"
+
+
 def gpu_info():
     info = {"n_gpu": 0, "gpus": []}
     try:
@@ -53,4 +74,23 @@ def write_provenance(out_dir, base_model, dataset_path, train_config, eval_resul
     if eval_results is not None:
         with open(os.path.join(out_dir, "eval_results.json"), "w") as f:
             json.dump(eval_results, f, indent=2)
+
+    # Consolidated provenance record: ties this adapter to the exact harness, evaluator, dataset,
+    # base model, GPU and git commit that produced it (all goal-required fields in one place).
+    adapter_file, adapter_hash = _adapter_hash(out_dir)
+    record = {
+        "base_model": str(base_model),
+        "git_commit": _git_commit(),
+        "dataset_path": dataset_path,
+        "dataset_sha256": ds_hash,
+        "harness_path": _HARNESS_PATH,
+        "harness_sha256": _sha256_maybe(_HARNESS_PATH),
+        "evaluator_path": _EVALUATOR_PATH,
+        "evaluator_sha256": _sha256_maybe(_EVALUATOR_PATH),
+        "adapter_file": adapter_file,
+        "adapter_sha256": adapter_hash,
+        "gpu_info": gpu_info(),
+    }
+    with open(os.path.join(out_dir, "provenance.json"), "w") as f:
+        json.dump(record, f, indent=2)
     return ds_hash

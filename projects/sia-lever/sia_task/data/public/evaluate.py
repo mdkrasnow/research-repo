@@ -63,11 +63,53 @@ def _find_submission(gen_dir: Path):
     return None
 
 
+def _worst_case_results(outcomes, error):
+    """Fail-soft: a malformed/unreadable submission is scored as worst-case (every episode
+    KILL -> 0.0 outcome) rather than crashing the SIA orchestrator. The error is surfaced."""
+    regrets = []
+    for oc in outcomes.values():
+        rba = oc["reward_by_action"]
+        best_score = _outcome(_cost_adjusted_best(rba), rba)
+        regrets.append(best_score - _outcome("KILL", rba))
+    n = len(outcomes)
+    return {
+        "n_examples": n,
+        "lever_accuracy": 0.0,
+        "mean_regret": sum(regrets) / len(regrets) if regrets else 0.0,
+        "max_regret": max(regrets) if regrets else 0.0,
+        "hidden_structural_score": 1.0 - (sum(regrets) / len(regrets) if regrets else 0.0),
+        "invalid_json_rate": 1.0,
+        "missing_rate": 1.0,
+        "action_distribution": {a: 0 for a in VALID_ACTIONS} | {"MISSING/INVALID": n},
+        "per_mode_accuracy": {},
+        "error": str(error),
+    }
+
+
 def evaluate(submission_path: Path) -> dict:
     submission_path = Path(submission_path)
     outcomes = _load_outcomes()
-    sub = json.loads(submission_path.read_text())
-    preds = {p["episode_id"]: p for p in sub.get("predictions", [])}
+    # Fail-soft: a target agent that writes malformed/unreadable JSON must not crash the
+    # evaluator (the SIA orchestrator contract expects a results dict). Score worst-case instead.
+    try:
+        sub = json.loads(submission_path.read_text())
+        if not isinstance(sub, dict):
+            raise ValueError("submission is not a JSON object")
+    except (json.JSONDecodeError, ValueError, OSError) as e:
+        return _worst_case_results(outcomes, f"unreadable submission: {e}")
+
+    # Detect duplicate episode_ids (silent dedupe would otherwise hide conflicting predictions).
+    raw_preds = sub.get("predictions", []) or []
+    seen_ids, dup_ids = set(), set()
+    preds = {}
+    for p in raw_preds:
+        if not isinstance(p, dict):
+            continue
+        eid = p.get("episode_id")
+        if eid in seen_ids:
+            dup_ids.add(eid)
+        seen_ids.add(eid)
+        preds.setdefault(eid, p)   # keep FIRST occurrence (deterministic), flag the dup
 
     n = len(outcomes)
     correct, invalid, missing = 0, 0, 0
@@ -109,6 +151,7 @@ def evaluate(submission_path: Path) -> dict:
         "missing_rate": missing / n if n else 0.0,
         "action_distribution": dist,
         "per_mode_accuracy": {m: v["correct"] / v["n"] for m, v in per_mode.items()},
+        "duplicate_episode_ids": sorted(dup_ids),
     }
     # goodhart_index: only meaningful if a public-vs-hidden gap is available; here we expose the
     # gap between naive "always predict-clean" (PROMOTE) regret and the chosen regret is not defined

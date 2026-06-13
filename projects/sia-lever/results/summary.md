@@ -90,6 +90,17 @@ known-good reference model (positive control), checks whether the deployed harne
 (sandwich → H if not), else mechanism-probes the model (cheat signature → H_THEN_W; honest-but-weak
 → W). Framed as a **three-mode prototype**, not a generalization benchmark.
 
+**Caveat — strongest baseline ties on regret (held-out eval, `gpt_oss/eval/compare_policies.py`).**
+The phase3 table above compares the selector only to the WEAK fixed policies (H_only/W_only/
+alternating). Against the paper-style `plateau_then_w` scheduler on the held-out eval seeds, the
+selector and the rule both reach **0 regret with identical W-call counts (6/9)** — `plateau_then_w`
+also reaches **0 regret**. The selector's measured edge over the competent baseline is therefore
+*nominal lever-accuracy* (1.00 vs 0.67), which is **outcome-neutral** here (it names `W` where
+`plateau` names the equal-reward `H_THEN_W`). Honest claim: "the selector names the minimal correct
+lever," NOT "it achieves lower regret than a competent scheduler." Task is near-deterministic from
+the trace booleans (a 3-line rule scores 9/9 on the private eval), so high accuracy is expected, not
+surprising. See `documentation/adversarial_review.md`.
+
 ## Phase 4 — Gemma garnish (BLOCKED — needs GPU / user decision)
 - LoRA weight-update on Gemma = the stretch → needs **GPU** (hackathon blocker).
 - Gemma-as-LLM-selector (inference) is doable locally but needs pulling an ollama model — paused

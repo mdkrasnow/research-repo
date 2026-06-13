@@ -124,8 +124,9 @@ def main():
     lines += ["", f"**Gate (per-seed S4 neg_control > S2 neg_control): {gate_hits}/{args.seeds} pass**"]
     lines += stat_lines
     lines += ["", "Interpretation: W-only PRESERVES the shortcut (structural errors stay high, "
-              "verdict stays shortcut_win); H->W REPAIRS it (all structural errors collapse to ~0, "
-              "neg_control becomes honest). The Welch test quantifies the W-only -> H->W gap."]
+              "verdict stays shortcut_win); H->W REPAIRS it (shortcut_sensitivity and composition "
+              "collapse to ~0; identity/inverse drop several-fold but not to 0; neg_control becomes "
+              "honest). The Welch test quantifies the W-only -> H->W gap."]
 
     md = "\n".join(lines)
     print("\n" + md)

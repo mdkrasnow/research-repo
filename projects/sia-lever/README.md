@@ -54,14 +54,28 @@ Full command list: `documentation/gpu_runbook.md`.
 
 ### Expected result shape
 Naive policies (H_only/W_only/alternating) high regret; `plateau_then_w` low regret but mis-attributes
-(~0.67 lever-acc); oracle-sandwich rule 1.00 acc / 0 regret; **gpt-oss-120b + LoRA improves over base
-gpt-oss-120b** on lever accuracy + regret + invalid-JSON. Artifacts: `results/final_comparison.{csv,md}`,
+(~0.67 lever-acc); oracle-sandwich rule 1.00 acc / 0 regret. Artifacts: `results/final_comparison.{csv,md}`,
 `plots/final_comparison.png`, `results/gpt_oss/*`.
 
+**Honest scope of the gpt-oss/LoRA lane (read before quoting it):**
+- The LoRA result is **NOT YET RUN** (GPU/endpoint blocked). Any base-vs-LoRA number is pending,
+  not measured. Do not state "LoRA improves over base" as a result.
+- On the **held-out eval set**, the strongest baseline `plateau_then_w` already reaches **0 regret
+  and the same W-call count** as the rule. The selector's only edge is *nominal* lever-accuracy
+  (1.00 vs 0.67), and that gap is **outcome-neutral** (it names `W` where `plateau` names the
+  equal-reward `H_THEN_W`). The real claim is "names the minimal correct lever," not "lower regret
+  than a competent scheduler."
+- The lever-attribution task is **near-deterministic from the trace**: the observable trace prints
+  the decisive booleans (`shortcut_cheat_signature`, `harness_accepts_known_good_model`,
+  `predicts_clean`), and a 3-line rule scores **9/9** on the private eval. So a capable LLM reading
+  the trace should already be ~100%; the gpt-oss lane tests JSON-formatting/parsing robustness, not
+  discovery of the attribution. Framed as a three-mode prototype, not a generalization benchmark.
+
 ### Honesty
-Public SIA = **harness loop only** (0 weight-update files at the pinned commit); the W lever and the
-learned selector are **ours**. We do not claim to beat the paper's benchmarks unless run on matched
-splits/budget. See `documentation/reproduction_limits.md`.
+Public SIA = **harness loop only** (0 weight-update files at the pinned commit, verified at
+`99db0e87…`); the W lever and the learned selector are **ours**. We do not claim to beat the paper's
+benchmarks unless run on matched splits/budget. See `documentation/reproduction_limits.md` and the
+adversarial audit `documentation/adversarial_review.md`.
 
 ---
 

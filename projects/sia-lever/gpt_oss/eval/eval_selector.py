@@ -84,10 +84,11 @@ def main():
     ap.add_argument("--rollouts", required=True, help="glob for rollout jsonl")
     ap.add_argument("--tag", default="base")
     ap.add_argument("--out", default=os.path.join(PROJ, "results", "gpt_oss"))
+    ap.add_argument("--cache", default=None, help="measured cache to score against (default: easy cache)")
     args = ap.parse_args()
 
     rollouts, paths = load_rollouts(args.rollouts)
-    cache = load_cache()
+    cache = load_cache(args.cache)
     res = score(rollouts, cache)
     res["rollout_files"] = paths
     res["tag"] = args.tag

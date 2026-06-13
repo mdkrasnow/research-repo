@@ -49,9 +49,10 @@ def main():
     ap.add_argument("--base-rollouts", default=None)
     ap.add_argument("--tag", default="sft")
     ap.add_argument("--out", default=None)
+    ap.add_argument("--cache", default=None, help="measured cache to score against (default: easy cache)")
     args = ap.parse_args()
 
-    cache = load_cache()
+    cache = load_cache(args.cache)
     adapter_rows, _ = load_rollouts(args.adapter_rollouts)
     adapter = score(adapter_rows, cache)
     base = None
