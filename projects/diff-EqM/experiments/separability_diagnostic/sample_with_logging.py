@@ -37,24 +37,25 @@ from pathlib import Path
 
 import numpy as np
 import torch
-from PIL import Image
 
 torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
 
-# eqm-upstream lives at projects/diff-EqM/eqm-upstream; this script sits at
-# experiments/separability_diagnostic/, so go up TWO parents to diff-EqM.
-_HERE = str(Path(__file__).resolve().parent)
-_UPSTREAM = str(Path(__file__).resolve().parents[2] / "eqm-upstream")
-for _p in (_HERE, _UPSTREAM):
-    if _p not in sys.path:
-        sys.path.insert(0, _p)
-
-from models import EqM_models            # noqa: E402  (eqm-upstream on path)
-from download import find_model          # noqa: E402
-from diffusers.models import AutoencoderKL  # noqa: E402
-
 VAE_SCALE = 0.18215
+
+
+def _load_eqm_deps():
+    """Lazy import of eqm-upstream + diffusers (heavy, GPU-side). Kept out of
+    module scope so the pure functions below are unit-testable on CPU without
+    these deps installed."""
+    _UPSTREAM = str(Path(__file__).resolve().parents[2] / "eqm-upstream")
+    for _p in (str(Path(__file__).resolve().parent), _UPSTREAM):
+        if _p not in sys.path:
+            sys.path.insert(0, _p)
+    from models import EqM_models
+    from download import find_model
+    from diffusers.models import AutoencoderKL
+    return EqM_models, find_model, AutoencoderKL
 
 
 def eqm_field(model, x, t, y):
@@ -123,6 +124,8 @@ def build_schedule(num_samples, base_seed, num_classes):
 
 
 def main(args):
+    from PIL import Image
+    EqM_models, find_model, AutoencoderKL = _load_eqm_deps()
     assert torch.cuda.is_available()
     rank = int(os.environ.get("RANK", "0"))
     world = int(os.environ.get("WORLD_SIZE", "1"))
@@ -213,8 +216,9 @@ def main(args):
 
 
 if __name__ == "__main__":
+    _EqM_models, _, _ = _load_eqm_deps()
     ap = argparse.ArgumentParser()
-    ap.add_argument("--model", default="EqM-B/2", choices=list(EqM_models.keys()))
+    ap.add_argument("--model", default="EqM-B/2", choices=list(_EqM_models.keys()))
     ap.add_argument("--ckpt", required=True)
     ap.add_argument("--folder", required=True, help="output dir for PNGs + logs/")
     ap.add_argument("--num-samples", type=int, default=3000)

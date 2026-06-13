@@ -23,23 +23,10 @@ extractor) so the feature space is identical to the project's FID.
 """
 import argparse
 import json
-import os
 import sys
 from pathlib import Path
 
 import numpy as np
-import torch
-from PIL import Image
-from torchvision import transforms
-
-_HERE = Path(__file__).resolve().parent
-_EXP3 = _HERE.parent / "exp3_fidelity_diversity"
-_UPSTREAM = _HERE.parents[1] / "eqm-upstream"
-for _p in (str(_HERE), str(_EXP3), str(_UPSTREAM)):
-    if _p not in sys.path:
-        sys.path.insert(0, _p)
-
-from features import inception_features, classifier_predictions  # noqa: E402
 
 VAE_SCALE = 0.18215
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".webp", ".JPEG"}
@@ -65,6 +52,9 @@ def list_real_images(real_dir, n, seed):
 
 def encode_latents(image_paths, device, image_size=256, batch_size=32):
     """VAE-encode real images to EqM latent space (mean * VAE_SCALE)."""
+    import torch
+    from PIL import Image
+    from torchvision import transforms
     from diffusers.models import AutoencoderKL
     vae = AutoencoderKL.from_pretrained("stabilityai/sd-vae-ft-ema").to(device).eval()
     tf = transforms.Compose([
@@ -93,6 +83,7 @@ def encode_latents(image_paths, device, image_size=256, batch_size=32):
 def knn_dist(gen_feats, real_feats, k):
     """For each gen feature, mean L2 distance to its k nearest real features.
     Chunked to bound memory."""
+    import torch
     g = torch.tensor(gen_feats, dtype=torch.float32)
     r = torch.tensor(real_feats, dtype=torch.float32)
     out = np.zeros(len(g), dtype=np.float64)
@@ -106,6 +97,15 @@ def knn_dist(gen_feats, real_feats, k):
 
 
 def main(args):
+    import torch
+    # exp3 feature extractor (trusted FID feature space) on sys.path
+    _HERE = Path(__file__).resolve().parent
+    for _p in (str(_HERE), str(_HERE.parent / "exp3_fidelity_diversity"),
+               str(_HERE.parents[1] / "eqm-upstream")):
+        if _p not in sys.path:
+            sys.path.insert(0, _p)
+    from features import inception_features, classifier_predictions
+
     device = "cuda" if torch.cuda.is_available() else "cpu"
     folder = Path(args.folder)
     gen_files = sorted([f for f in folder.iterdir() if f.suffix == ".png"])

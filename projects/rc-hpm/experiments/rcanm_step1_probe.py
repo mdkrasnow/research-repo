@@ -78,7 +78,9 @@ def main():
     ebm = getattr(cargs, "ebm", "none")
     path_type = getattr(cargs, "path_type", "Linear")
     prediction = getattr(cargs, "prediction", "velocity")
-    loss_weight = getattr(cargs, "loss_weight", "None")
+    loss_weight = getattr(cargs, "loss_weight", None)
+    if loss_weight in ("None", "none", ""):
+        loss_weight = None
     train_eps = getattr(cargs, "train_eps", 0)
     sample_eps = getattr(cargs, "sample_eps", 0)
 

@@ -70,12 +70,18 @@ def auroc(score, is_garbage):
 
 
 def within_norm_bin_auroc(score, is_garbage, norm, n_bins=5):
-    """Mean AUROC computed within quantile bins of the gradient norm -> strips
-    out any separation that is merely norm-in-disguise."""
+    """Mean AUROC within quantile bins of the gradient norm -> strips out any
+    separation that is merely norm-in-disguise.
+
+    Returns (mean_auc, n_usable_bins, n_total). n_usable_bins==0 with adequate
+    n_total means every norm-bin is single-class: the label is FULLY determined
+    by the norm in these bins, so no norm-independent signal can be established
+    (a collapse signal, NOT a sample-size problem)."""
     m = np.isfinite(score) & np.isfinite(norm)
     score, is_garbage, norm = score[m], is_garbage[m], norm[m]
-    if len(score) < 50:
-        return float("nan")
+    n_total = len(score)
+    if n_total < 50:
+        return float("nan"), 0, n_total
     edges = np.quantile(norm, np.linspace(0, 1, n_bins + 1))
     edges[-1] += 1e-6
     aucs = []
@@ -86,7 +92,7 @@ def within_norm_bin_auroc(score, is_garbage, norm, n_bins=5):
         a, _ = auroc(score[sel], is_garbage[sel])
         if np.isfinite(a):
             aucs.append(a)
-    return float(np.mean(aucs)) if aucs else float("nan")
+    return (float(np.mean(aucs)) if aucs else float("nan")), len(aucs), n_total
 
 
 def load_merged(folder):
@@ -135,15 +141,17 @@ def main(args):
         arr = subset(rows, regime, tau)
         for s in SCORES:
             raw, orient = auroc(arr[s], arr["is_garbage"])
-            binned = within_norm_bin_auroc(orient * arr[s], arr["is_garbage"],
-                                           arr["norm_at_kstar"], args.n_bins)
+            binned, n_bins_used, n_tot = within_norm_bin_auroc(
+                orient * arr[s], arr["is_garbage"], arr["norm_at_kstar"], args.n_bins)
             table.append({"regime": regime, "tau_norm": tau, "score": s,
                           "raw_auroc": raw, "within_norm_auroc": binned,
+                          "n_bins_used": n_bins_used, "n_total": n_tot,
                           "orientation": orient, "desc": SCORE_DESC[s]})
 
     with open(res / "auroc_table.csv", "w", newline="") as fh:
         w = csv.DictWriter(fh, fieldnames=["regime", "tau_norm", "score", "raw_auroc",
-                                           "within_norm_auroc", "orientation", "desc"])
+                                           "within_norm_auroc", "n_bins_used", "n_total",
+                                           "orientation", "desc"])
         w.writeheader()
         for t in table:
             w.writerow({**t, "raw_auroc": f"{t['raw_auroc']:.4f}",
@@ -214,8 +222,21 @@ def main(args):
     lines.append("")
     lines.append(f"best_independent_auroc = {best_ind:.3f}  (score {best_ind_score})")
     lines.append("")
+    # distinguish "nan because too few samples" from "nan because every norm-bin
+    # is single-class" (label fully norm-determined -> collapse, a KILL signal).
+    ind_bins_used = max(fixed[s]["n_bins_used"] for s in INDEPENDENT)
+    ind_n_total = max(fixed[s]["n_total"] for s in INDEPENDENT)
     if not np.isfinite(best_ind):
-        verdict = "INCONCLUSIVE: independent scores returned NaN (too few samples?)."
+        if ind_n_total >= 40 and ind_bins_used == 0:
+            verdict = ("KILL (norm-collapse): every gradient-norm bin is single-class, "
+                       "so the good/garbage split is FULLY determined by the norm and no "
+                       "norm-INDEPENDENT signal can be established. The spurious-minimum "
+                       "quadrant is undetectable; the 2x2 collapses to one row (norm). "
+                       "Metacognition sampler is not justified.")
+        else:
+            verdict = (f"INCONCLUSIVE: independent within-norm AUROC is NaN with only "
+                       f"n={ind_n_total} good+garbage and {ind_bins_used} usable bins. "
+                       f"Re-run with more samples (raise --num-samples / widen quantiles).")
     elif best_ind >= 0.80:
         verdict = (f"GREEN LIGHT: a norm-INDEPENDENT energy signal exists "
                    f"({best_ind_score} within-norm AUROC {best_ind:.3f} >= 0.80). "
