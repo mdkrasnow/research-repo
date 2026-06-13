@@ -39,21 +39,32 @@ def _residual(teacher: Field, x1, eps, t):
     return ((out - target) ** 2).sum(1).numpy(), xt.numpy()
 
 
+def _descend_basin(teacher, xt, steps, eta):
+    x = torch.tensor(xt, dtype=torch.float32)
+    with torch.no_grad():
+        for _ in range(steps):
+            x = x + eta * teacher(x)
+    return voronoi_basin(x.numpy())
+
+
 def safety_scores(teacher: Field, x1, lab, eps_orig, eps_adv, t,
                   descend_steps=100, eta=0.1):
     """Returns dict of arrays (per sample): r_basin (certified functional) +
-    diagnostics r_field, r_target, r_inflate, r_return."""
+    diagnostics r_field, r_target, r_inflate, r_return.
+
+    r_basin = FLIP risk (D2 lesson): mining-INDUCED basin error only —
+    1 iff the mined endpoint flows to the wrong mode AND the un-mined endpoint
+    flowed to the right one. Absolute basin rate has a teacher/geometry floor
+    (~0.6: a pure-noise endpoint has no canonical basin); flip-risk isolates
+    the damage mining adds and is ~0 for un-mined by construction.
+    """
     tt = t[:, None]
     xt_adv = tt * x1 + (1 - tt) * eps_adv
     xt_orig = tt * x1 + (1 - tt) * eps_orig
 
-    # r_basin: descend frozen teacher field from x_t_adv; wrong basin = unsafe
-    x = torch.tensor(xt_adv, dtype=torch.float32)
-    with torch.no_grad():
-        for _ in range(descend_steps):
-            x = x + eta * teacher(x)
-    attractor = voronoi_basin(x.numpy())
-    r_basin = (attractor != lab).astype(float)
+    att_adv = _descend_basin(teacher, xt_adv, descend_steps, eta)
+    att_org = _descend_basin(teacher, xt_orig, descend_steps, eta)
+    r_basin = ((att_adv != lab) & (att_org == lab)).astype(float)
 
     # r_field: teacher-field disagreement induced by mining
     with torch.no_grad():

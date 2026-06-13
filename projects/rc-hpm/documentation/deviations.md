@@ -43,3 +43,13 @@ rho_tail band regression is unconfounded by alpha. The alpha-frontier sweep
 (safety arms) separately maps the safety-supply tradeoff. This is the system
 working: the linchpin existed precisely to prevent declaring B2 on a
 throttled-supply artifact.
+
+## D6 — 2026-06-13 — RC-ANM r_basin = FLIP risk (pre-gate, mirrors D2)
+Smoke (before any gate): absolute basin-error rate of mined endpoints = 0.70,
+but the UN-MINED baseline is 0.61 — a pure-noise endpoint has no canonical
+Voronoi basin, so absolute r_basin measures teacher quality + geometry, not
+mining damage, and certifies nothing (all eps_ball -> None). Refined the
+certified functional to FLIP risk: r_basin=1 iff mined-wrong AND unmined-right
+(mining-induced damage only; ~0 for un-mined by construction). Identical to the
+D2 calibrate_arm_b flip-risk fix; the four diagnostic scores unchanged. No
+threshold touched; functional definition refined pre-gate per the same lesson.
