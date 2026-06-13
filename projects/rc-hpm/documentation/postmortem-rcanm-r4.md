@@ -72,3 +72,29 @@ Do NOT declare RC-ANM dead: unlike the contrastive arm (oracle-NULL, no
 channel), RC-ANM's oracle control WORKED (safe + better coverage). The
 channel exists; the CPU functional proxy is the gap. Per CLAUDE.md, GPU/CIFAR
 needs explicit human approval; flagged in pipeline.json.
+
+## ADDENDUM — dose-confound check (decisive): concept is REAL, not dose
+Concern: oracle_safe (42% accept) might beat the other mined arms only because
+it MINES LESS (MSE was monotone in accept fraction: 0%/42%/80%/100% ->
+0.84/0.88/2.31/2.67). Ran a dose-matched control (results via
+experiments/rcanm_dose_check.py, 5 seeds):
+
+  oracle42 (basin-safe, 42% accept):  MSE 0.877 +/- 0.115   cov 0.350 +/- 0.105
+  random42 (RANDOM,     42% accept):  MSE 1.285 +/- 0.285   cov 0.225 +/- 0.056
+
+At IDENTICAL dose, basin-safe selection beats random by ~1.4 SD on MSE and
+~1.2 SD on coverage. So WHICH endpoints you mine matters, not just how many:
+the certification TARGET (basin-safety) carries real signal. oracle_safe ~=
+vanilla (0.877 vs 0.837) while dose-matched random damages (1.285). The R4
+failure is therefore localized entirely to the IMPLEMENTED proxy (teacher-
+descent flip-risk, degenerate on the weak 1000-step teacher), NOT the concept
+and NOT a dose artifact. This is the opposite of the contrastive arm-A result
+(oracle-NULL, no channel): here the oracle WORKS. The channel exists; build a
+proxy that tracks it.
+
+## Final branch
+R4 (RC-ANM damaged despite certification) with CONCEPT VALIDATED by a
+dose-matched oracle. Pre-registered STOP + postmortem reached; iteration-2
+spec (functional fix A + CIFAR-mini utility test B) recorded above; both
+require human go (CPU functional fix is cheap; CIFAR/GPU per CLAUDE.md needs
+approval). No improvised branch taken.

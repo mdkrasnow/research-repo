@@ -47,8 +47,31 @@ def _descend_basin(teacher, xt, steps, eta):
     return voronoi_basin(x.numpy())
 
 
+# v2: short-rollout proxy basin (low descent-noise) + analytic-oracle agreement
+def proxy_basin(teacher, xt, steps=15, eta=0.1):
+    return _descend_basin(teacher, xt, steps, eta)
+
+
+def proxy_oracle_agreement(teacher, x1, lab, eps_adv, t, steps=15, eta=0.1):
+    """Balanced accuracy of the teacher proxy's accept decision
+    (proxy_basin(x_t_adv)==lab) vs the analytic oracle (voronoi_basin(
+    x_t_adv)==lab). v2 validation gate uses this BEFORE calibration."""
+    xt_adv = t[:, None] * x1 + (1 - t[:, None]) * eps_adv
+    proxy_ok = proxy_basin(teacher, xt_adv, steps, eta) == lab
+    oracle_ok = voronoi_basin(xt_adv) == lab
+    tp = (proxy_ok & oracle_ok).sum()
+    tn = (~proxy_ok & ~oracle_ok).sum()
+    p = oracle_ok.sum()
+    n = (~oracle_ok).sum()
+    sens = tp / p if p else 0.0
+    spec = tn / n if n else 0.0
+    return dict(balanced_acc=float((sens + spec) / 2),
+                agree=float((proxy_ok == oracle_ok).mean()),
+                sens=float(sens), spec=float(spec))
+
+
 def safety_scores(teacher: Field, x1, lab, eps_orig, eps_adv, t,
-                  descend_steps=100, eta=0.1):
+                  descend_steps=15, eta=0.1):
     """Returns dict of arrays (per sample): r_basin (certified functional) +
     diagnostics r_field, r_target, r_inflate, r_return.
 
