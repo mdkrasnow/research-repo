@@ -31,6 +31,7 @@ pip install -q timm diffusers accelerate scipy torchvision 2>&1 | tail -2
 
 cd /n/home03/mkrasnow/research-repo/projects/rc-hpm
 mkdir -p results slurm/logs
+export PYTHONPATH="$(pwd):${PYTHONPATH:-}"   # so `from models import` resolves
 python3 experiments/rcanm_step1_probe.py \
     --ckpt "$CKPT" --data-path "$IMAGENET_PATH" \
     --out "results/rcanm_step1_verdict.json" \
