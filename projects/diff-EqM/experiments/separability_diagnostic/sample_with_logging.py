@@ -91,17 +91,20 @@ def gd_sample_logged(model, z, y, stepsize, num_steps, sampler, mu):
             m = out
         else:
             out = eqm_field(model, xt, t, y)
-        # --- readouts at x_k (per-sample, reduce over C,H,W) ---
-        f_flat = out.flatten(1)
+        # EqM.forward calls x0.requires_grad_(True) IN PLACE on xt, so xt now
+        # carries grad even under no_grad. Detach a clean copy for the readouts
+        # and the update; `out` is already detached by eqm_field.
+        xk = xt.detach()
+        f_flat = out.flatten(1)                            # out is detached
         norm = f_flat.norm(dim=1)                          # ||f||
-        dot = (out * xt).flatten(1).sum(dim=1)             # <f, x>
+        dot = (out * xk).flatten(1).sum(dim=1)             # <f, x>
         l2 = 0.5 * (f_flat ** 2).sum(dim=1)                # 0.5||f||^2
-        x_next = xt + out * stepsize                       # PLUS sign (verified)
-        step_dot = (out * (x_next - xt)).flatten(1).sum(dim=1)  # <f, dx>
-        norms.append(norm.to("cpu", torch.float32).numpy())
-        dots.append(dot.to("cpu", torch.float32).numpy())
-        l2s.append(l2.to("cpu", torch.float32).numpy())
-        step_dots.append(step_dot.to("cpu", torch.float32).numpy())
+        x_next = xk + out * stepsize                       # PLUS sign (verified)
+        step_dot = (out * (x_next - xk)).flatten(1).sum(dim=1)  # <f, dx>
+        norms.append(norm.detach().to("cpu", torch.float32).numpy())
+        dots.append(dot.detach().to("cpu", torch.float32).numpy())
+        l2s.append(l2.detach().to("cpu", torch.float32).numpy())
+        step_dots.append(step_dot.detach().to("cpu", torch.float32).numpy())
         xt = x_next
         t = t + stepsize
     logs = {
@@ -187,8 +190,9 @@ def main(args):
         # accumulate trajectories (transpose logs to (chunk, steps))
         all_ids.extend(int(i) for i in chunk)
         all_labels.extend(int(labels[i]) for i in chunk)
-        all_x0.append(z.to("cpu", torch.float32).numpy())
-        all_xfinal.append(xt.to("cpu", torch.float32).numpy())
+        # z is poisoned in place by EqM.forward's requires_grad_(True); detach.
+        all_x0.append(z.detach().to("cpu", torch.float32).numpy())
+        all_xfinal.append(xt.detach().to("cpu", torch.float32).numpy())
         all_norm.append(logs["norm"].T)          # (chunk, steps)
         all_dot.append(logs["dot"].T)
         all_l2.append(logs["l2"].T)

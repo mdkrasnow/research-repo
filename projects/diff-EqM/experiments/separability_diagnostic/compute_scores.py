@@ -73,6 +73,30 @@ def kstar_threshold(norm_row, tau):
     return int(below[0]) if below.size else int(len(norm_row) - 1)
 
 
+def dynamics_feats(norm_row, k):
+    """Trajectory-SHAPE features from the descent path actually taken (norm over
+    steps 0..k). Distinct from endpoint scalars: tests whether the good/garbage
+    signal lives in the DYNAMICS of convergence rather than the value at the stop.
+      s6 = mean norm over the path        (AUC / total residual; magnitude -> norm-coupled)
+      s7 = log-norm decay slope           (how FAST it converged; rate, not magnitude)
+      s8 = norm oscillation               (fraction of sign-flips in step-to-step diff)
+      s9 = late-stage slope               (slope over the final quarter; flat-at-high = spurious)
+    """
+    seg = norm_row[:k + 1]
+    n = len(seg)
+    if n < 4:
+        return float("nan"), float("nan"), float("nan"), float("nan")
+    steps = np.arange(n, dtype=np.float64)
+    s6 = float(seg.mean())
+    s7 = float(np.polyfit(steps, np.log(seg + 1e-8), 1)[0])
+    d = np.diff(seg)
+    sign_flips = int(np.sum(np.sign(d[1:]) != np.sign(d[:-1]))) if len(d) > 1 else 0
+    s8 = float(sign_flips / max(1, len(d) - 1))
+    q = max(2, n // 4)
+    s9 = float(np.polyfit(steps[-q:], seg[-q:], 1)[0])
+    return s6, s7, s8, s9
+
+
 def compute_scores_for_regime(data, s4, regime, tau):
     norm, dot, l2, step_dot = data["norm"], data["dot"], data["l2"], data["step_dot"]
     N, T = norm.shape
@@ -84,6 +108,7 @@ def compute_scores_for_regime(data, s4, regime, tau):
         else:
             k = kstar_threshold(norm[n], tau)
         k5 = min(k + 1, T - 1)
+        s6, s7, s8, s9 = dynamics_feats(norm[n], k)
         rows.append({
             "sample_id": int(data["sample_id"][n]),
             "regime": regime,
@@ -93,6 +118,7 @@ def compute_scores_for_regime(data, s4, regime, tau):
             "s3": float(cum_step[n, k]),
             "s4": float(s4[n]),
             "s5": float(norm[n, k5]),
+            "s6": s6, "s7": s7, "s8": s8, "s9": s9,
             "k_star": int(k),
             "norm_at_kstar": float(norm[n, k]),
         })
@@ -120,6 +146,7 @@ def main(args):
     with open(out_csv, "w", newline="") as fh:
         w = csv.DictWriter(fh, fieldnames=["sample_id", "regime", "tau_norm",
                                            "s1", "s2", "s3", "s4", "s5",
+                                           "s6", "s7", "s8", "s9",
                                            "k_star", "norm_at_kstar"])
         w.writeheader()
         w.writerows(rows)

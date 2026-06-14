@@ -21,15 +21,22 @@ from pathlib import Path
 
 import numpy as np
 
-SCORES = ["s1", "s2", "s3", "s4", "s5"]
+SCORES = ["s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8", "s9"]
 SCORE_DESC = {
     "s1": "dot energy  -<f,x>  (de-confoundable)",
     "s2": "l2 energy  0.5||f||^2  (norm-coupled)",
     "s3": "path integral  sum<f,dx>  (de-confoundable)",
     "s4": "latent NN dist  (no f; label sanity)",
     "s5": "post-step residual ||f||  (norm-coupled)",
+    "s6": "traj mean norm  (dynamics; norm-coupled)",
+    "s7": "log-norm decay slope  (dynamics; de-confoundable)",
+    "s8": "norm oscillation  (dynamics; de-confoundable)",
+    "s9": "late-stage slope  (dynamics; de-confoundable)",
 }
-INDEPENDENT = ["s1", "s3"]   # scores that can de-confound from norm
+# scores that can carry signal NOT already in the endpoint gradient norm:
+# the two energy proxies + the three trajectory-SHAPE features.
+INDEPENDENT = ["s1", "s3", "s7", "s8", "s9"]
+MIN_FOR_BINNING = 50         # min good+garbage to attempt the matched-norm control
 
 
 def _auc(labels, score):
@@ -80,7 +87,7 @@ def within_norm_bin_auroc(score, is_garbage, norm, n_bins=5):
     m = np.isfinite(score) & np.isfinite(norm)
     score, is_garbage, norm = score[m], is_garbage[m], norm[m]
     n_total = len(score)
-    if n_total < 50:
+    if n_total < MIN_FOR_BINNING:
         return float("nan"), 0, n_total
     edges = np.quantile(norm, np.linspace(0, 1, n_bins + 1))
     edges[-1] += 1e-6
@@ -227,16 +234,20 @@ def main(args):
     ind_bins_used = max(fixed[s]["n_bins_used"] for s in INDEPENDENT)
     ind_n_total = max(fixed[s]["n_total"] for s in INDEPENDENT)
     if not np.isfinite(best_ind):
-        if ind_n_total >= 40 and ind_bins_used == 0:
-            verdict = ("KILL (norm-collapse): every gradient-norm bin is single-class, "
-                       "so the good/garbage split is FULLY determined by the norm and no "
-                       "norm-INDEPENDENT signal can be established. The spurious-minimum "
-                       "quadrant is undetectable; the 2x2 collapses to one row (norm). "
-                       "Metacognition sampler is not justified.")
+        if ind_n_total < MIN_FOR_BINNING:
+            verdict = (f"INCONCLUSIVE (too few): only n={ind_n_total} good+garbage, below "
+                       f"the {MIN_FOR_BINNING}-sample floor for the matched-norm control "
+                       f"(this is expected for a smoke). Re-run with more --num-samples for "
+                       f"a real verdict; raw AUROCs at this N are not meaningful.")
+        elif ind_bins_used == 0:
+            verdict = ("KILL (norm-collapse): with adequate samples, every gradient-norm "
+                       "bin is still single-class, so the good/garbage split is FULLY "
+                       "determined by the norm and no norm-INDEPENDENT signal can be "
+                       "established. The spurious-minimum quadrant is undetectable; the 2x2 "
+                       "collapses to one row (norm). Metacognition sampler is not justified.")
         else:
-            verdict = (f"INCONCLUSIVE: independent within-norm AUROC is NaN with only "
-                       f"n={ind_n_total} good+garbage and {ind_bins_used} usable bins. "
-                       f"Re-run with more samples (raise --num-samples / widen quantiles).")
+            verdict = (f"INCONCLUSIVE: independent within-norm AUROC is NaN despite "
+                       f"n={ind_n_total} and {ind_bins_used} usable bins (degenerate scores?).")
     elif best_ind >= 0.80:
         verdict = (f"GREEN LIGHT: a norm-INDEPENDENT energy signal exists "
                    f"({best_ind_score} within-norm AUROC {best_ind:.3f} >= 0.80). "
