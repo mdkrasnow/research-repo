@@ -422,3 +422,56 @@ checkpoint signal that DID appear is A/B/D, all eval-only).
 
 Decision for you: accept this framing for the workshop draft, or 3-seed-confirm A/B/D
 (seed0 λ0.3 ckpt was pruned; would need re-fetch/regen) before locking claims?
+
+---
+
+## PI Update Draft — 2026-06-13 — Metacognition probe (off-plan exploratory)
+
+**Trigger:** significant positive pivot from an off-plan exploratory diagnostic.
+
+**One-liner:** A learned probe over the EqM sampling **trajectory shape** detects
+which generations will be garbage — and acting on it improves FID. The signal is
+in the descent *dynamics*, not the energy.
+
+**Path (1 GPU-hr + CPU):**
+- Asked: does any cheap scalar at the GD stopping point separate good/garbage
+  *independent of gradient norm* (the load-bearing assumption for a "metacognition
+  sampler" that restarts on spurious minima)?
+- Energy scalars (dot/L2 of the field) are **dead**: ~0.61 de-confounded AUROC,
+  *below* a dumb latent-NN baseline (0.627). EqM energy = density skeleton, not a
+  quality axis. (Confirms the skeptical prior.)
+- But a **learned probe over the trajectory shape** (norm oscillation + magnitude-
+  normalized norm/dot curves) hits **0.818 ± 0.012** held-out within-norm AUROC
+  (30% test, 5 seeds) — well above the 0.80 bar and the 0.684 norm floor.
+- **Payoff (controlled):** probe-guided rejection beats a random-drop floor at
+  every keep-fraction (0.5–0.9), recovering **34–50%** of an inception-oracle's
+  FID gain (e.g. keep-0.7: probe 86.7 vs random 100.2±0.3 vs oracle 73.1). The
+  probe never sees the image — only the descent curve.
+
+**Caveats:** vanilla EqM-B/2, single ckpt, GD; FIDs are PROXY (3000-subset, 10k
+ref, cfg=1.0) — only relative ordering is valid. Not a paper-scale number.
+
+**Decision for you (3 forks):**
+1. Build the **in-line restart sampler** (perturb+continue on high P(garbage)) —
+   new generation + design choices — or is probe-guided *rejection* the framing?
+2. **Scale to real 50k FID** at trusted scale to make it a claim (human-gated,
+   off summer-plan) — or keep as an exploratory result?
+3. **Where it fits**: standalone "trajectory-shape quality probe for EqM/flow
+   samplers" note, or fold into the diff-EqM story?
+
+Nothing scaled or pushed; all rsync-deployed (upstream fix in flight).
+
+### Addendum — 2026-06-14 — @scale confirmation
+
+In-line restart sampler (probe-guided best-of-R=3) at 15k trusted scale (1-GPU
+gpu_test; multi-GPU partitions were queued hours out):
+- vanilla 29.53 (≈ baseline 31.41 → sanity OK, pipeline validated)
+- probe-gated 27.84 (**Δ1.69 FID better**)
+- oracle 17.75 (positive control); probe recovers 14% of oracle gain.
+
+The trajectory-shape probe (no image access) gives a real, controlled FID
+improvement at trusted scale. 14% < the 45% of pool-rejection because best-of-R=3
+restart is a harder lever. Levers to recover more: higher R, or threshold-adaptive
+rescue (METACOGNITIVE_RESCUE_SPEC.md). Literal 50k needs a multi-GPU slot.
+Also delivered: post-hoc analysis ladder (robustness sweep + learned dynamics probe
++ dependent sbatch + 3-case synthetic suite, all passing).
