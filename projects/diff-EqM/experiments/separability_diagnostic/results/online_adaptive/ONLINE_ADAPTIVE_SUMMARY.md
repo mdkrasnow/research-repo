@@ -36,6 +36,24 @@ probe-restart and random-restart NFE **byte-identical**; probe beats random by
 0.173 at equal compute; oracle ceiling 0.177. The orchestration + equal-NFE
 accounting are correct.
 
+## Real EqM @ 512 (RUN, GPU) — mock → real transfer ✅
+Job 22865794 (gpu_test, 1 GPU). The online sampler on the real B/2 checkpoint,
+k_dec=100, flag-frac 0.3, FID vs trusted 50k ref:
+
+| arm | role | n | FID |
+|---|---|---|---|
+| vanilla | un-adapted floor | 512 | 98.44 |
+| random-restart | NEG, compute-matched | 512 | 99.21 |
+| **probe-restart** | TREATMENT | 512 | **97.34** |
+| oracle-restart | POS ceiling | 512 | 90.50 |
+
+**probe-restart < random-restart by Δ1.87 FID at EQUAL NFE** → **WORKS**: the early
+trajectory-risk score actionably reallocates compute on real EqM, recovering 21% of
+the oracle gain. The mock result transfers to the real model. **Caveat:** at 512
+samples FID is heavily inflated (vanilla 98 ≠ the 31.41 baseline — flagged MISMATCH);
+only the RELATIVE arm ordering is valid at this N. The decisive number is the 15k/50k
+run below.
+
 ## Scale (DESIGNED, cluster-gated)
 `slurm/jobs/online_adaptive.sbatch` runs the same four arms on the EqM-B/2
 checkpoint (restart = fresh noise, same class; quality = Inception-NN-dist), FID
