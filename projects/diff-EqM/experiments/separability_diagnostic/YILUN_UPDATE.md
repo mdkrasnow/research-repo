@@ -1,0 +1,59 @@
+# Update for Yilun — EqM trajectory-metacognition
+
+**TL;DR.** Your two questions were (1) are the gains consistent, and (2) does this
+unlock capabilities like inpainting / translation / maze planning. Status: the
+*detection* result is solid and the *maze-planning* capability now has a positive,
+equal-compute result. The decisive at-scale consistency number (50k, multiple
+seeds) and the EqM-native online sampler are coded, smoke-tested, and one GPU block
+from running — I'm holding on your priority call before spending it.
+
+## What is proven
+
+- **Vanilla baseline reproduced.** Our sampler pipeline gives FID 29.53 at 15k
+  (≈ the trusted 31.41 B/2 baseline) — the FID path is trustworthy, so deltas are real.
+- **Endpoint energy fails as a quality signal.** The EqM energy scalar (−⟨f,x⟩) and
+  the path-integral reach only ~0.61 de-confounded AUROC for good-vs-garbage — a
+  dumb latent-NN baseline (0.627) beats them. EqM energy is a *density* skeleton,
+  not a *quality* axis. (This kills the original "energy marks the bad minimum" idea.)
+- **Descent *dynamics* predict failure.** A small learned probe over the descent-
+  trajectory *shape* (oscillation, log-decay slope, normalized norm/dot curves) hits
+  **0.82 held-out, de-confounded** from gradient norm — stable across 5 seeds, and
+  just as strong read at **step 100/249** as at the end (so it can act early).
+- **Acting on it improves controlled FID.** Probe-guided best-of-R=3 restart at 15k:
+  vanilla 29.53 → **probe 27.84** → oracle 17.75. Probe beats the random-keep floor,
+  inside the neg/pos control band, recovering 14% of the oracle gain.
+- **The mechanism transfers to maze planning (your suggestion).** In an energy-descent
+  path planner with real spurious minima, a dynamics-probe that branches the flagged
+  candidates reaches **0.928 valid-path-rate vs 0.794 for random branching at equal
+  compute** (hardest mazes +0.228), recovering 89% of the oracle gain. The gap grows
+  with difficulty.
+
+## What is NOT yet proven (and the exact next test)
+
+- **Consistency at the real metric.** Today's FID gains are 15k, single sampler seed.
+  `consistency.sbatch` runs vanilla/probe/oracle at **50k across 3 seeds** → a
+  mean±CI gain. *This is the number that turns "promising" into "consistent."* Coded
+  and smoke-ready; needs a 4×A100 block.
+- **Online equal-NFE sampler at scale.** The 15k result is post-hoc best-of-R. The
+  *true* metacognition sampler (restart only the high-risk slots mid-flight, equal
+  NFE vs random) is built and **mock-validated** (probe 0.212 vs random 0.385 at
+  identical NFE), but not yet run on EqM. `online_adaptive.sbatch`.
+- **Capabilities beyond maze.** Inpainting/repair and translation rungs are designed
+  and scoped but not run.
+
+## One decision I need from you
+
+The next GPU block can go to one of:
+1. **50k × 3-seed consistency** — locks the headline FID claim (lowest-risk, highest
+   paper value).
+2. **Maze planning, deeper** — scale from the toy to a harder planner / real maze
+   benchmark, since the toy already shows transfer and you flagged planning.
+3. **EqM inpainting/repair rung** — the first "unlocks a capability" result on images.
+
+My recommendation: **(1) first** (it's the claim everything else rests on), then **(2)
+maze depth** over image repair, since you suggested planning and the toy already
+gives a clean positive to build on. **Should maze planning be prioritized over image
+repair/translation for the capability story?**
+
+*(Backing detail: `RUN_INDEX.md`, `FINDINGS.md`, `CAPABILITY_LADDER_RESULTS.md`,
+`results/online_adaptive/ONLINE_ADAPTIVE_SUMMARY.md`, `PAPER_CLAIM_STATUS.md`.)*

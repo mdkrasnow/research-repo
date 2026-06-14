@@ -56,6 +56,12 @@ def main(args):
     lines += ["", "VERDICT: " + v]
     print("VERDICT: " + v, flush=True)
     (out / "GATED_FID.txt").write_text("\n".join(lines) + "\n")
+    import json
+    (out / "gated_fid.json").write_text(json.dumps(
+        {"fids": {k: round(float(fids[k]), 3) for k in fids},
+         "vanilla_minus_probe": round(float(fids["vanilla"] - fids["probe"]), 3),
+         "recovered_fraction": (None if not np.isfinite(recov) else round(float(recov), 3)),
+         "sane": bool(sane)}, indent=2))
 
 
 if __name__ == "__main__":

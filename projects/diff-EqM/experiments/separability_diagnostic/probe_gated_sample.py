@@ -130,7 +130,9 @@ def main(args):
         draw_odist = np.zeros((args.R, B), np.float64)
         for r in range(args.R):
             # restart = same target class (depends on slot only), fresh noise (varies with r)
-            gens = [torch.Generator(device=dev).manual_seed(int(i) * args.R + r) for i in chunk]
+            # seed_offset shifts ALL noise draws -> independent sampler seed for consistency runs
+            so = args.seed_offset * (args.num_slots * args.R + 7)
+            gens = [torch.Generator(device=dev).manual_seed(so + int(i) * args.R + r) for i in chunk]
             z = torch.stack([torch.randn(4, ls, ls, generator=g, device=dev) for g in gens])
             y = torch.tensor([(int(i) * 1315423911) % args.num_classes for i in chunk], device=dev)
             with torch.no_grad():
@@ -173,6 +175,8 @@ if __name__ == "__main__":
     ap.add_argument("--stepsize", type=float, default=0.003)
     ap.add_argument("--num-sampling-steps", type=int, default=250)
     ap.add_argument("--batch-size", type=int, default=64)
+    ap.add_argument("--seed-offset", type=int, default=0,
+                    help="shifts all noise seeds -> independent sampler seed (consistency runs)")
     args = ap.parse_args()
     try:
         main(args)
