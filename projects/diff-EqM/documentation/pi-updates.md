@@ -475,3 +475,34 @@ restart is a harder lever. Levers to recover more: higher R, or threshold-adapti
 rescue (METACOGNITIVE_RESCUE_SPEC.md). Literal 50k needs a multi-GPU slot.
 Also delivered: post-hoc analysis ladder (robustness sweep + learned dynamics probe
 + dependent sbatch + 3-case synthetic suite, all passing).
+
+---
+
+## 2026-06-14 — EqM trajectory-metacognition: PASS at scale (DRAFT, review before sending)
+
+**Trigger:** stage exit gate pass (Phase 1 consistency + Phase 2 online sampler), 3-seed confirmation at 50k.
+
+Two headline results, both decision-grade, both equal-NFE controlled:
+
+1. **Consistent FID gain (50k, 3 seeds).** Probe-guided best-of-R restart, where a
+   learned probe over the descent-*trajectory shape* (not energy — energy is dead)
+   picks the best of R draws: vanilla→probe = 28.20→26.21, 27.78→25.95, 27.83→26.04.
+   **Mean Δ1.87 ± 0.11 FID, 95% CI ±0.12 (excludes 0), probe<vanilla on all 3 seeds.**
+
+2. **Online metacognition sampler works (15k).** The true adaptive version — restart
+   only the probe-flagged (likely-garbage) samples mid-generation; a random-restart
+   control spends the identical NFE blindly. probe-restart 28.51 < random-restart
+   29.76 (**Δ1.24 at equal compute**), vanilla 29.55 reproduces baseline (sanity OK),
+   oracle 23.32. Recovers 19% of the oracle gain.
+
+Supporting: a maze-planning analog (CPU) shows the same mechanism transfers — risk-
+guided branching 0.928 vs random 0.794 valid-path-rate at equal compute.
+
+**Framing:** EqM's energy scalar does *not* predict sample quality (dies at ~0.61
+AUROC, below a trivial baseline); the signal lives in the *shape of the descent
+dynamics* (~0.82 de-confounded) and is actionable at inference with no retraining.
+
+**Open / needs steer:** the image-domain capability rungs (inpainting / translation)
+are designed but unrun. Should we prioritize those, or go deeper on planning (maze)?
+
+*(Detail: experiments/separability_diagnostic/{SCALE_RESULTS.md, PAPER_CLAIM_STATUS.md, YILUN_UPDATE.md, FINDINGS.md}.)*
