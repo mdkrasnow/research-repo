@@ -14,8 +14,17 @@ priority call below.
   27.83→26.04. Mean Δ1.87±0.11 FID, CI ±0.12. CONSISTENT.
 - **Online sampler (15k, equal-NFE):** vanilla 29.55 / random-restart 29.76 /
   probe-restart 28.51 / oracle 23.32. Δ1.24 over random at identical compute. WORKS.
-- **Maze planning (equal compute):** probe 0.928 vs random 0.794 valid-path-rate,
-  +0.228 at hardest tier, 89% of oracle.
+- **Maze planning — now on a REAL trained EqM (not just the toy):** a small
+  conditional EqM trained to solve grid mazes (layout→path) hits 0.99 valid in-dist,
+  0.88–0.93 OOD (4× larger). Trajectory-metacognition on it (exact BFS labels, equal
+  NFE): probe-restart > random on 2 seeds × 2 OOD tiers, Δ+0.10 to +0.22 valid-rate,
+  46–59% of oracle; harder tier → higher probe AUROC (0.76) + bigger rescue. This is
+  the EqM-native planning result you suggested. Detail: `experiments/maze_eqm/`.
+
+### Priority question — UPDATE
+Maze planning is now done on a real EqM. The remaining open capability rung is image-
+domain **inpainting / repair / translation** (designed, unrun). Worth building next,
+or is the planning + image-FID story enough for the first paper?
 
 ---
 *(Original pre-run draft below, kept for the proven/not-proven framing.)*
