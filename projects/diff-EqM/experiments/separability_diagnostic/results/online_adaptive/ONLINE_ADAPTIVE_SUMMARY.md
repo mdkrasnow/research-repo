@@ -54,6 +54,22 @@ samples FID is heavily inflated (vanilla 98 ≠ the 31.41 baseline — flagged M
 only the RELATIVE arm ordering is valid at this N. The decisive number is the 15k/50k
 run below.
 
+## Real EqM @ 15k (RUN, GPU) — sanity restored ✅✅
+Job 22975626 (gpu, 4×A100). Same arms on the real B/2 checkpoint, k_dec=100,
+flag-frac 0.3, 15k slots, FID vs trusted 50k ref:
+
+| arm | role | n | FID |
+|---|---|---|---|
+| vanilla | un-adapted | 15000 | 29.55 (**sanity OK** vs 31.41) |
+| random-restart | NEG, compute-matched | 15000 | 29.76 |
+| **probe-restart** | TREATMENT | 15000 | **28.51** |
+| oracle-restart | POS ceiling | 15000 | 23.32 |
+
+**probe-restart < random-restart by Δ1.24 FID at EQUAL NFE → WORKS**, recovering 19%
+of the oracle gain. Unlike the 512 run, vanilla here reproduces the baseline (sanity
+OK) — so this is a real, non-relative result. Online metacognition confirmed at
+scale; mock → 512 → 15k all consistent in direction and sign.
+
 ## Scale (DESIGNED, cluster-gated)
 `slurm/jobs/online_adaptive.sbatch` runs the same four arms on the EqM-B/2
 checkpoint (restart = fresh noise, same class; quality = Inception-NN-dist), FID

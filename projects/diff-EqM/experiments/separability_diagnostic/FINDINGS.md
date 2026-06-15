@@ -110,6 +110,37 @@ sampler would restart only when `P(garbage) > τ` (threshold), saving the draws 
 already-good samples — a per-sample-adaptive NFE policy, the original metacognition
 framing.
 
+### 6. DECISION-GRADE @50k, 3 seeds + online sampler @15k (2026-06-14) ✅✅
+The 15k single-seed result is now confirmed at the real metric with controls.
+
+**Consistency — 50k × 3 seeds (jobs 22931315/22931323/22931328, gpu, parallel):**
+
+| seed | vanilla | probe | oracle | Δ(van−probe) | recovered |
+|---|---|---|---|---|---|
+| 0 | 28.20 | 26.21 | 16.26 | 1.99 | 17% |
+| 1 | 27.78 | 25.95 | 16.13 | 1.83 | 16% |
+| 2 | 27.83 | 26.04 | 16.12 | 1.80 | 15% |
+
+**mean Δ1.87 ± 0.11 FID, 95% CI ±0.12 (excludes 0), probe<vanilla on ALL 3 seeds →
+CONSISTENT.** Same R×N=750 NFE per slot across arms. The "are gains consistent?"
+question (Yilun) is answered: yes, at n=50000 with a tight CI, matching 15k (Δ1.69).
+
+**Online equal-NFE adaptive sampler — 15k (job 22975626):** the *true* metacognition
+sampler (restart probe-flagged slots mid-flight, random control restarts the same
+fraction blindly, identical NFE):
+
+| arm | role | FID |
+|---|---|---|
+| vanilla | un-adapted | 29.55 (**sanity OK** vs 31.41) |
+| random-restart | NEG, compute-matched | 29.76 |
+| **probe-restart** | TREATMENT | **28.51** |
+| oracle-restart | POS ceiling | 23.32 |
+
+**probe-restart < random-restart by Δ1.24 FID at EQUAL NFE, recovering 19% → WORKS.**
+At 15k the gated-vanilla reproduces the baseline (sanity OK), so this is not a
+relative-only result. Online metacognition confirmed at scale, mock→512→15k all
+consistent.
+
 ## Next step — needs a human decision (research direction / compute)
 DONE autonomously: held-out (0.818) + ablation + payoff sweep (above). Open
 decisions (require human choice):

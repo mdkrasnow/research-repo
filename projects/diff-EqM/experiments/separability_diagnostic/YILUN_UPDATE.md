@@ -1,6 +1,26 @@
 # Update for Yilun — EqM trajectory-metacognition
 
-**TL;DR.** Your two questions were (1) are the gains consistent, and (2) does this
+**TL;DR (updated 2026-06-14 — both ran).** Your two questions: (1) are gains
+consistent — **YES**: 50k × 3 seeds, mean Δ1.87±0.11 FID, 95% CI ±0.12 excludes 0,
+probe<vanilla every seed. (2) capabilities — the EqM-native **online metacognition
+sampler works at 15k** (probe-restart 28.51 < random-restart 29.76 at equal NFE,
+vanilla sanity OK), and the **maze-planning** analog is positive at equal compute.
+Energy-as-quality is dead; descent-*dynamics* is the live signal. Headline result is
+paper-ready. Open: image-domain capability rungs (inpainting/translation) — your
+priority call below.
+
+### The numbers
+- **Consistency (50k, 3 seeds):** vanilla→probe = 28.20→26.21, 27.78→25.95,
+  27.83→26.04. Mean Δ1.87±0.11 FID, CI ±0.12. CONSISTENT.
+- **Online sampler (15k, equal-NFE):** vanilla 29.55 / random-restart 29.76 /
+  probe-restart 28.51 / oracle 23.32. Δ1.24 over random at identical compute. WORKS.
+- **Maze planning (equal compute):** probe 0.928 vs random 0.794 valid-path-rate,
+  +0.228 at hardest tier, 89% of oracle.
+
+---
+*(Original pre-run draft below, kept for the proven/not-proven framing.)*
+
+**TL;DR (original).** Your two questions were (1) are the gains consistent, and (2) does this
 unlock capabilities like inpainting / translation / maze planning. Status: the
 *detection* result is solid and the *maze-planning* capability now has a positive,
 equal-compute result. The decisive at-scale consistency number (50k, multiple
