@@ -75,14 +75,20 @@ The partial-probe study (`partial_probe.py`) shows the rescue decision can be ma
 as early as step 100/249 with no loss (de-conf AUROC 0.814 vs 0.818 at the end),
 so rescue has a real early window to act in.
 
-## B. Corruption repair / inpainting — **DESIGNED (not run)**
+## B. Inpainting — **RUN on MNIST: weak/null (scope boundary)** ⚠️
 
-Smallest credible test: take real IN-1K latents, corrupt a fixed region / add
-noise at a severity ladder, run EqM refinement to repair, and compare vanilla vs
-random-restart vs probe-restart at equal NFE. Metrics: masked-region reconstruction
-error, classifier consistency (resnet50 top-1 agreement vs clean), Inception NN
-distance, contact sheets. Gated on (a) the EqM online sampler returning WORKS at
-scale and (b) advisor priority vs maze depth (see YILUN_UPDATE.md).
+Real MNIST + standard RePaint clamp masks + classifier-consistency oracle, small
+trained EqM (`experiments/mnist_eqm/`). 3 masks × 3 seeds: probe AUROC ~0.60 (barely
+above chance), probe−random gap **+0.015±0.011** (pooled) — effectively null, far below
+maze (+0.17). Both full-field and masked-region dynamics fail.
+
+**Finding (not a tuning failure):** trajectory-metacognition keys on descent
+*instability*. Inpainting failures are *confidently wrong* — with most pixels clamped
+the EqM descends cleanly to a plausible-but-wrong digit (masked 4→9); the dynamics look
+healthy, only the identity is wrong, so the probe can't grip. The method rescues
+collapse/broken-structure failures (generation, planning), NOT confident-semantic-error
+failures (ambiguous inpainting). Detail: `mnist_eqm/MNIST_RESULTS.md`. Image-scale
+RePaint-on-IN-1K-EqM (`REPAINT_EQM_SPEC.md`, June-18 cluster) will confirm; predicted weak.
 
 ## C. Image translation / constraint satisfaction — **DESIGNED (not run)**
 

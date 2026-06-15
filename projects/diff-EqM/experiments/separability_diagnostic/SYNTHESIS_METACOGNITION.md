@@ -17,11 +17,22 @@ compute**, across image generation, planning, and inpainting, **without retraini
 | 3 | acting improves FID (consistent) | IN-1K EqM-B/2 | best-of-R restart, **50k × 3 seeds Δ1.87±0.11 FID** (CI excl 0) | SUPPORTED |
 | 4 | online equal-NFE sampler beats random | IN-1K EqM-B/2 | restart probe-flagged mid-flight: **28.51 < random 29.76 @ equal NFE** (15k) | SUPPORTED |
 | 5 | mechanism transfers — **planning** | trained maze-EqM | probe-restart > random, 5 seeds × 2 tiers, **+0.174±0.033** valid-rate (CI excl 0) | SUPPORTED |
-| 6 | mechanism transfers — **inpainting** | MNIST EqM (RePaint) | (sweep running — classifier-consistency oracle, probe-restart vs random) | RUNNING |
+| 6 | mechanism transfers — **inpainting** | MNIST EqM (RePaint) | probe ~chance (AUROC 0.60), gap +0.015±0.011 — **weak/null** | SCOPE LIMIT |
 
 The signal is the **same probe over the same descent-shape features** (oscillation, log-
 decay slope, magnitude-normalized norm/dot curves) in every testbed. Exact labels where
 available (BFS for maze, classifier for MNIST) corroborate the noisy image-FID labels.
+
+## The scope boundary (what #6 taught us — a feature, not a bug)
+Trajectory-metacognition keys on **descent INSTABILITY**. It rescues failures that *show
+up in the relaxation* — image-generation collapse, broken/disconnected maze paths (genuine
+spurious minima with disturbed descent). It does NOT rescue **confidently-wrong** failures:
+MNIST inpainting with most pixels clamped descends *cleanly* to a plausible-but-wrong digit
+(masked 4 → 9); the dynamics look healthy, only the identity is wrong, so the probe has
+nothing to grip (AUROC ~0.60, negligible gap; full & masked dynamics both fail). This is a
+real limit that sharpens the claim: **the method detects instability/collapse/broken-
+structure failures, not confident-semantic-error failures.** Predicts the image-scale
+RePaint test (June-18) stays weak for the same reason.
 
 ## What's load-bearing methodologically
 - **De-confounding from gradient/score norm** (matched-norm-bin AUROC). Without it, a
