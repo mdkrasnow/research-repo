@@ -41,8 +41,22 @@ steps); oracle is the over-budget ceiling.
 from dynamics (probe held-out AUC ≈ 1.0), far easier than EqM's 0.82. The toy is
 not evidence about detection *difficulty*; it is evidence that **acting** on a
 dynamics risk score (branch the flagged, not the random) converts a real detection
-signal into a real capability gain under a strict equal-compute control. That is
-the claim Yilun's maze question was probing, and it holds.
+signal into a real capability gain under a strict equal-compute control.
+
+### D′. SAME task on a REAL trained EqM — RUN ✅ (`experiments/maze_eqm/`)
+The toy is now superseded by a genuine **trained conditional EqM** that solves grid
+mazes (maze layout → shortest-path grid; 653K params, faithful EqM target + GD
+sampler). It solves c5 in-dist at **0.99 valid** and generalizes to 4× larger OOD
+mazes (0.88–0.93). Trajectory-metacognition on it, exact BFS labels, equal NFE:
+
+| tier | invalid | probe AUROC | vanilla | random | **probe** | oracle | Δ | %oracle |
+|---|---|---|---|---|---|---|---|---|---|
+| c7 (15²) | 0.78 | 0.76 | 0.21 | 0.22 | **0.44** | 0.59 | +0.22 | 59% |
+| c10 (21², 2 seeds) | 0.40 | 0.67–0.68 | 0.61 | 0.58–0.62 | **0.71–0.72** | 0.83 | +0.10–0.13 | 46–52% |
+
+**PROBE>RANDOM on all 3 runs.** Harder tier → higher AUROC + bigger rescue. This is
+the EqM-native planning result Yilun asked for: metacognition rescues a real trained
+EqM planner under exact-label, equal-compute controls. Detail: `maze_eqm/STEP3_RESULTS.md`.
 
 ---
 
