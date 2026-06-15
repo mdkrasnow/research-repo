@@ -31,7 +31,8 @@ def main(args):
         for seed in range(args.seeds):
             a = types.SimpleNamespace(run=args.run, root="data", n=args.n, R=args.R,
                                       mask=mask, mask_frac=frac, steps=args.steps, eta=0.02,
-                                      width=64, seed=seed, out=f"runs/mnist_sweep/{tag}_s{seed}")
+                                      width=64, seed=seed, dyn_region=args.dyn_region,
+                                      out=f"runs/mnist_sweep/{tag}_s{seed}")
             try:
                 r = MI.main(a)
             except Exception as e:
@@ -77,7 +78,8 @@ if __name__ == "__main__":
     ap.add_argument("--run", default="runs/mnist")
     ap.add_argument("--seeds", type=int, default=3)
     ap.add_argument("--R", type=int, default=4)
-    ap.add_argument("--n", type=int, default=1000)
-    ap.add_argument("--steps", type=int, default=60)
+    ap.add_argument("--n", type=int, default=400)
+    ap.add_argument("--steps", type=int, default=45)
+    ap.add_argument("--dyn-region", default="masked", choices=["masked", "full"])
     args = ap.parse_args()
     main(args)

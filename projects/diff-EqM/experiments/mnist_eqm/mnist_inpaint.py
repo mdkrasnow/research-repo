@@ -45,7 +45,9 @@ def make_masks(B, H, W, kind, frac, rng):
 
 
 @torch.no_grad()
-def repaint(model, known, mask, eta, steps, log=False):
+def repaint(model, known, mask, eta, steps, log=False, region="full"):
+    """region: 'full' = descent dynamics over the whole field (captures global
+    consistency); 'masked' = over the inpainted region only (sparse)."""
     obs = (mask < 0.5)
     xt = torch.where(obs, known, torch.randn_like(known))
     t0 = torch.zeros(known.shape[0], device=known.device)
@@ -53,7 +55,7 @@ def repaint(model, known, mask, eta, steps, log=False):
     for _ in range(steps):
         f = model(xt, t0)
         if log:
-            fm = f * mask
+            fm = f if region == "full" else f * mask
             norms.append(fm.flatten(1).norm(dim=1)); dots.append((fm * xt).flatten(1).sum(1))
         xt = xt + f * eta
         xt = torch.where(obs, known, xt)
@@ -105,7 +107,7 @@ def main(args):
     dn, dd, dv = [], [], []
     for r in range(args.R):
         torch.manual_seed(args.seed * 100 + r)
-        xt, norm, dot = repaint(model, known, mask, args.eta, args.steps, log=True)
+        xt, norm, dot = repaint(model, known, mask, args.eta, args.steps, log=True, region=args.dyn_region)
         dn.append(norm); dd.append(dot); dv.append(consistent(clf, xt, yte))
         print(f"  draw {r}: consistent={dv[-1].mean():.3f}", flush=True)
     dv = np.stack(dv)
@@ -162,6 +164,7 @@ if __name__ == "__main__":
     ap.add_argument("--eta", type=float, default=0.02)
     ap.add_argument("--width", type=int, default=64)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--dyn-region", default="full", choices=["full", "masked"])
     ap.add_argument("--out", default="")
     args = ap.parse_args()
     main(args)
