@@ -20,6 +20,16 @@ at identical NFE (R×steps).
 descent-trajectory shape predicts maze-solve failure (de-confounded AUROC 0.67–0.76),
 and probe-guided restart rescues 46–59% of the oracle gain over random restart.
 
+### Multi-seed confirmation (5 seeds × 2 tiers, `maze_sweep.py`)
+| tier | grid | invalid | probe AUROC (mean±95%CI) | probe−random gap (mean±95%CI) | all seeds + |
+|---|---|---|---|---|---|
+| c7  | 15² | 0.79 | 0.749 ± 0.015 | **+0.222 ± 0.005** | 5/5 |
+| c10 | 21² | 0.40 | 0.671 ± 0.016 | **+0.126 ± 0.022** | 5/5 |
+
+Pooled probe−random gap **+0.174 ± 0.033 over 10 runs, positive on 10/10 (CI excludes
+0) → CONSISTENT.** (A 3rd point, c10 steps=15 η=0.01, was a 100%-failure floor — no
+valid draw to rescue — excluded as degenerate, not a result.)
+
 ## Difficulty-scaling story (the headline)
 Harder regime → stronger signal AND bigger rescue:
 - c7 at 77% invalid: AUROC **0.762**, Δ **+0.216** (59% of oracle).

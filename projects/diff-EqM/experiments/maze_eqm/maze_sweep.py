@@ -19,7 +19,7 @@ CONFIGS = [
     # tier file, grid tag, steps, eta (operating points chosen for failure headroom)
     ("data/maze_c7_ood.npz", "c7", 20, 0.01),
     ("data/maze_c10_ood.npz", "c10", 25, 0.01),
-    ("data/maze_c10_ood.npz", "c10_hard", 15, 0.01),
+    ("data/maze_c10_ood.npz", "c10_mid", 15, 0.02),   # ~23% fail (valid headroom; NOT the degenerate eta=0.01 floor)
 ]
 
 
