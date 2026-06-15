@@ -145,7 +145,7 @@ def main(args):
     cond_te, tgt_te = load(args.test)
     print(f"[maze-eqm] dev={dev} train={len(cond_tr)} test={len(cond_te)} "
           f"grid={cond_tr.shape[-1]}", flush=True)
-    model = MazeEqM().to(dev)
+    model = MazeEqM(C=args.width).to(dev)
     nparam = sum(p.numel() for p in model.parameters())
     opt = torch.optim.AdamW(model.parameters(), lr=args.lr)
     cond_tr, tgt_tr = cond_tr.to(dev), tgt_tr.to(dev)
@@ -202,6 +202,7 @@ if __name__ == "__main__":
     ap.add_argument("--eval-every", type=int, default=5)
     ap.add_argument("--eval-n", type=int, default=200)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--width", type=int, default=64)
     ap.add_argument("--out", default="runs/maze_c5/model.pt")
     args = ap.parse_args()
     main(args)
