@@ -122,7 +122,7 @@
    "arxiv:2506.01158 (ICLR-2026-under-review, unknown title)"
   ]
  },
- "next_action": "ONLINE 50k 3-seed DONE: probe 26.90 < random {27.89,27.96,28.01} all draws, \u0394~1.05, oracle 21.75 -> online claim WORKS at 50k. Maze resubmitted (width-fix). Early-poll maze 23226735/755/756 init, then collect maze AUROC.",
+ "next_action": "Maze GPU train OK (0.975 in-dist) but metacog sampler budget 0.25 too weak (vanilla c10 ~0). Probe 23227889 sweeping budget to find 0.2-0.8 band, then rerun metacog 3 seeds at that point (model already saved, no retrain).",
  "autoresearch_variants": {
   "active": true,
   "metric": "cifar10_variant_fid",
@@ -2172,6 +2172,51 @@
    "gate": "online probe-restart<random-restart @equal NFE, 50k 3-seed",
    "exit_code": 0,
    "final_metric": "online50k seed2: vanilla 27.93 random 28.012 probe 26.90 oracle 21.75 -> \u03941.11 equal-NFE WORKS"
+  },
+  {
+   "run_id": "maze_gpu_s0",
+   "job_id": "23226735",
+   "partition": "gpu",
+   "status": "completed",
+   "description": "maze-EqM GPU scale-up seed0 RESUBMIT (width-fix b96eff7): w128 EqM native c7, metacog on c10 OOD",
+   "submitted_at": "2026-06-18",
+   "git_sha": "b96eff7",
+   "sbatch_path": "projects/diff-EqM/slurm/jobs/maze_gpu.sbatch",
+   "expected_runtime": "~3-4h",
+   "phase": "2",
+   "gate": "maze probe-restart>random @equal NFE, scaled EqM",
+   "exit_code": 0,
+   "final_metric": "train CONVERGED (in-dist c7 test-valid 0.975 gate PASS) BUT metacog sampler too weak (steps25/eta0.01 budget0.25) -> vanilla c10 valid ~0, oracle ~0, no invalid-band. NOT a result. Diagnosing budget."
+  },
+  {
+   "run_id": "maze_gpu_s1",
+   "job_id": "23226755",
+   "partition": "gpu",
+   "status": "completed",
+   "description": "maze-EqM GPU scale-up seed1 RESUBMIT (width-fix b96eff7): w128 EqM native c7, metacog on c10 OOD",
+   "submitted_at": "2026-06-18",
+   "git_sha": "b96eff7",
+   "sbatch_path": "projects/diff-EqM/slurm/jobs/maze_gpu.sbatch",
+   "expected_runtime": "~3-4h",
+   "phase": "2",
+   "gate": "maze probe-restart>random @equal NFE, scaled EqM",
+   "exit_code": 0,
+   "final_metric": "train CONVERGED (in-dist c7 test-valid 0.975 gate PASS) BUT metacog sampler too weak (steps25/eta0.01 budget0.25) -> vanilla c10 valid ~0, oracle ~0, no invalid-band. NOT a result. Diagnosing budget."
+  },
+  {
+   "run_id": "maze_gpu_s2",
+   "job_id": "23226756",
+   "partition": "gpu",
+   "status": "completed",
+   "description": "maze-EqM GPU scale-up seed2 RESUBMIT (width-fix b96eff7): w128 EqM native c7, metacog on c10 OOD",
+   "submitted_at": "2026-06-18",
+   "git_sha": "b96eff7",
+   "sbatch_path": "projects/diff-EqM/slurm/jobs/maze_gpu.sbatch",
+   "expected_runtime": "~3-4h",
+   "phase": "2",
+   "gate": "maze probe-restart>random @equal NFE, scaled EqM",
+   "exit_code": 0,
+   "final_metric": "train CONVERGED (in-dist c7 test-valid 0.975 gate PASS) BUT metacog sampler too weak (steps25/eta0.01 budget0.25) -> vanilla c10 valid ~0, oracle ~0, no invalid-band. NOT a result. Diagnosing budget."
   }
  ],
  "archived_autoresearch_hp": {
@@ -2390,43 +2435,17 @@
  ],
  "active_runs": [
   {
-   "run_id": "maze_gpu_s0",
-   "job_id": "23226735",
-   "partition": "gpu",
-   "status": "pending",
-   "description": "maze-EqM GPU scale-up seed0 RESUBMIT (width-fix b96eff7): w128 EqM native c7, metacog on c10 OOD",
+   "run_id": "maze_sbprobe",
+   "job_id": "23227889",
+   "partition": "gpu_test",
+   "status": "running",
+   "description": "maze sampler-budget probe on saved s0/1/2 models: sweep steps x eta, find band where vanilla c10 valid in 0.2-0.8 (so metacog has invalid-band). No retrain.",
    "submitted_at": "2026-06-18",
    "git_sha": "b96eff7",
-   "sbatch_path": "projects/diff-EqM/slurm/jobs/maze_gpu.sbatch",
-   "expected_runtime": "~3-4h",
+   "sbatch_path": "inline --wrap maze_sampler_probe.py",
+   "expected_runtime": "~10min",
    "phase": "2",
-   "gate": "maze probe-restart>random @equal NFE, scaled EqM"
-  },
-  {
-   "run_id": "maze_gpu_s1",
-   "job_id": "23226755",
-   "partition": "gpu",
-   "status": "pending",
-   "description": "maze-EqM GPU scale-up seed1 RESUBMIT (width-fix b96eff7): w128 EqM native c7, metacog on c10 OOD",
-   "submitted_at": "2026-06-18",
-   "git_sha": "b96eff7",
-   "sbatch_path": "projects/diff-EqM/slurm/jobs/maze_gpu.sbatch",
-   "expected_runtime": "~3-4h",
-   "phase": "2",
-   "gate": "maze probe-restart>random @equal NFE, scaled EqM"
-  },
-  {
-   "run_id": "maze_gpu_s2",
-   "job_id": "23226756",
-   "partition": "gpu",
-   "status": "pending",
-   "description": "maze-EqM GPU scale-up seed2 RESUBMIT (width-fix b96eff7): w128 EqM native c7, metacog on c10 OOD",
-   "submitted_at": "2026-06-18",
-   "git_sha": "b96eff7",
-   "sbatch_path": "projects/diff-EqM/slurm/jobs/maze_gpu.sbatch",
-   "expected_runtime": "~3-4h",
-   "phase": "2",
-   "gate": "maze probe-restart>random @equal NFE, scaled EqM"
+   "gate": "find workable maze sampler budget"
   }
  ],
  "phase_0_progress": {
