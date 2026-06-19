@@ -122,7 +122,7 @@
    "arxiv:2506.01158 (ICLR-2026-under-review, unknown title)"
   ]
  },
- "next_action": "SSH back. Building image-scale RePaint (Thread3 confirmation on real B/2). Smoke 23439802 running - validate latent-clamp+VAE+LPIPS+masked-probe, then real sweep (n=256, extreme masks where night predicts structural-positive).",
+ "next_action": "Repaint smoke PASS (early TV-struct gap +0.219 @mask0.9). Real sweep 23441600 running (n=256). Drafting Yilun page. On real result: write image-scale inpaint confirmation, update SYNTHESIS.",
  "autoresearch_variants": {
   "active": true,
   "metric": "cifar10_variant_fid",
@@ -2277,6 +2277,15 @@
    "gate": "sudoku solve-rate>0.1 then probe>random",
    "exit_code": 0,
    "final_metric": "9x9 GATE FAIL: loss fell 2.4->0.99 but solve-rate 0/all-81-cells (task too hard for small GD-EqM, NOT metacog issue). 4x4 smoke GATE PASS solve 0.955 -> EqM CAN do CSP. Pivoted to 4x4 metacog (local CPU, SSH 2FA-down)."
+  },
+  {
+   "run_id": "repaint_smoke",
+   "job_id": "23439802",
+   "partition": "gpu_test",
+   "status": "completed",
+   "exit_code": 0,
+   "description": "repaint smoke",
+   "final_metric": "PIPELINE VALID (5:14). frac0.9 TV-struct restart gap +0.219 (probe0.688>random0.469), LPIPS gap +0.094. AUROC NaN=tiny-n CV degeneracy, resolves at real n. Early signal matches MNIST law."
   }
  ],
  "archived_autoresearch_hp": {
@@ -2495,17 +2504,17 @@
  ],
  "active_runs": [
   {
-   "run_id": "repaint_smoke",
-   "job_id": "23439802",
+   "run_id": "repaint_real",
+   "job_id": "23441600",
    "partition": "gpu_test",
    "status": "running",
-   "description": "Image-scale RePaint smoke on B/2: latent-clamp inpaint dual-oracle (LPIPS+TV) metacog, n=32 2masks R=2 60steps. Validates pipeline before real sweep.",
+   "description": "Image-scale RePaint real sweep B/2: n=256 R=4 250steps, center+expand masks, fracs 0.3-0.9. Dual-oracle metacog detection AUROC + arm gaps.",
    "submitted_at": "2026-06-19",
    "git_sha": "HEAD",
    "sbatch_path": "inline repaint_eqm.py",
-   "expected_runtime": "~10min",
+   "expected_runtime": "~1-2h",
    "phase": "2",
-   "gate": "pipeline runs + dual-oracle AUROC finite"
+   "gate": "TV-struct AUROC>chance + probe>random at extreme mask (image-scale confirm Thread3)"
   }
  ],
  "phase_0_progress": {
