@@ -1,7 +1,7 @@
 {
  "project": "diff-EqM",
  "title": "Differential-Geometry-Guided Adversarial Negative Mining for EqM (DG-ANM)",
- "phase": "Thread3 IMAGE-SCALE CONFIRMED (Tier-1). Real-Sudoku Stage1 retry (divergence fixed). v11 proposal ready.",
+ "phase": "v11 metacog-curriculum: oracle training-as-action WORKS (+0.08), probe-selector weak on Sudoku (strong on images). Real-Sudoku arc: EqM learns(80% cell) but can't solve(board 0); mining lifts cell-acc.",
  "stage_b_in1k_baseline": {
   "verified_at": "2026-05-13",
   "result": {
@@ -122,7 +122,7 @@
    "arxiv:2506.01158 (ICLR-2026-under-review, unknown title)"
   ]
  },
- "next_action": "v11 full 4-arm running. Pure EqM-GD CANNOT solve real Sudoku (board 0, cell ~80% ceiling, loss-sampling decoupling confirmed v3). v11 tests if metacog-guided TRAINING breaks plateau where inference-restart can't.",
+ "next_action": "v11 DONE: oracle-mining breaks EqM Sudoku plateau (+0.08 cell-acc, training-as-action CONFIRMED, the missing action for deterministic failures). Probe-selector weak on Sudoku (+0.023 vs random, far<oracle) - probe's turf is images. Next (user call): v11-probe on EqM-B/2 image gen (no-label payoff where probe is strong AUROC 0.82), or retune probe selector.",
  "autoresearch_variants": {
   "active": true,
   "metric": "cifar10_variant_fid",
@@ -2338,6 +2338,19 @@
    "exit_code": 0,
    "description": "infer probe: cell-acc 0.78clamp/0.83noclamp FLAT across steps 100-1000 -> field fixed-point ceiling not sampling",
    "final_metric": "infer probe: cell-acc 0.78clamp/0.83noclamp FLAT across steps 100-1000 -> field fixed-point ceiling not sampling"
+  },
+  {
+   "run_id": "v11_curriculum_full",
+   "job_id": "23508890",
+   "partition": "gpu_test",
+   "status": "completed",
+   "description": "v11 metacog-curriculum 4-arm (uniform/random/oracle/probe) on SATNet from v2 base: probe-guided hard mining, track cell-acc. Does probe-mining hold/improve cell-acc vs uniform-degrades, ~=oracle?",
+   "submitted_at": "2026-06-19",
+   "git_sha": "HEAD",
+   "phase": "2",
+   "gate": "probe>random cell-acc AND probe~=oracle",
+   "exit_code": 0,
+   "final_metric": "ORACLE mining WORKS (cell-acc 0.760 only arm that improves, +0.080 vs random, breaks plateau -> training IS the action for deterministic failures restart cant fix). PROBE selector WEAK on sudoku (0.703, +0.023 vs random, -0.057 vs oracle). Probe home turf=images; test v11-probe there."
   }
  ],
  "archived_autoresearch_hp": {
@@ -2554,19 +2567,7 @@
    ]
   }
  ],
- "active_runs": [
-  {
-   "run_id": "v11_curriculum_full",
-   "job_id": "PENDING",
-   "partition": "gpu_test",
-   "status": "running",
-   "description": "v11 metacog-curriculum 4-arm (uniform/random/oracle/probe) on SATNet from v2 base: probe-guided hard mining, track cell-acc. Does probe-mining hold/improve cell-acc vs uniform-degrades, ~=oracle?",
-   "submitted_at": "2026-06-19",
-   "git_sha": "HEAD",
-   "phase": "2",
-   "gate": "probe>random cell-acc AND probe~=oracle"
-  }
- ],
+ "active_runs": [],
  "phase_0_progress": {
   "tasks_done": [
    "0.A.1 read slate",
