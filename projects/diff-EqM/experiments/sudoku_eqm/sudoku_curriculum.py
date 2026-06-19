@@ -146,6 +146,7 @@ if __name__ == "__main__":
     ap.add_argument("--data-dir", default="data_real/sudoku")
     ap.add_argument("--arms", nargs="+", default=["uniform", "random", "oracle", "probe"])
     ap.add_argument("--pool", type=int, default=3000)
+    ap.add_argument("--batch", type=int, default=64)
     ap.add_argument("--rounds", type=int, default=8)
     ap.add_argument("--k", type=int, default=5, help="weighted epochs per round")
     ap.add_argument("--lam", type=float, default=1.0, help="max mining upweight")
