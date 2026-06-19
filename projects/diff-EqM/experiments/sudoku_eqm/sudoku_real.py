@@ -243,9 +243,11 @@ def main(args):
     model = SudokuEqM(width=args.width, attn=not args.no_attn).to(dev)
     opt = torch.optim.AdamW(model.parameters(), lr=args.lr)
     print(f"[sudoku-real-eqm] params={sum(p.numel() for p in model.parameters())/1e6:.2f}M "
-          f"width={args.width} attn={not args.no_attn} clamp={args.clamp}", flush=True)
+          f"width={args.width} attn={not args.no_attn} clamp={args.clamp} lr={args.lr} "
+          f"clip={args.grad_clip} warmup={args.warmup}", flush=True)
 
     M = len(cond_tr); bs = args.batch; t0 = time.time()
+    step = 0
     for ep in range(args.epochs):
         perm = torch.randperm(M, device=dev); tot = 0.0; model.train()
         for i in range(0, M, bs):
@@ -253,7 +255,12 @@ def main(args):
             t = torch.rand(len(idx), device=dev)
             xt, target = eqm_target(x1_tr[idx], t)
             loss = F.mse_loss(model(xt, t, cond_tr[idx]), target)
-            opt.zero_grad(); loss.backward(); opt.step()
+            opt.zero_grad(); loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), args.grad_clip)
+            if args.warmup > 0 and step < args.warmup:           # linear LR warmup
+                for g in opt.param_groups:
+                    g["lr"] = args.lr * (step + 1) / args.warmup
+            opt.step(); step += 1
             tot += loss.item() * len(idx)
         if (ep + 1) % args.eval_every == 0 or ep == args.epochs - 1:
             model.eval()
@@ -276,7 +283,9 @@ if __name__ == "__main__":
     ap.add_argument("--data-dir", default="data_real/sudoku")
     ap.add_argument("--epochs", type=int, default=60)
     ap.add_argument("--batch", type=int, default=64)
-    ap.add_argument("--lr", type=float, default=1e-3)
+    ap.add_argument("--lr", type=float, default=2e-4)
+    ap.add_argument("--grad-clip", type=float, default=1.0)
+    ap.add_argument("--warmup", type=int, default=500)
     ap.add_argument("--width", type=int, default=384)
     ap.add_argument("--no-attn", action="store_true")
     ap.add_argument("--clamp", action="store_true", help="hard-clamp given cells each GD step")
