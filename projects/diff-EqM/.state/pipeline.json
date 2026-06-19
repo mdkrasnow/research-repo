@@ -1,7 +1,7 @@
 {
  "project": "diff-EqM",
  "title": "Differential-Geometry-Guided Adversarial Negative Mining for EqM (DG-ANM)",
- "phase": "Phase1 PASS + Phase2 STRONG (single-vanilla): v10 IN-1K B/2 80ep 3-seed FID 27.58\u00b10.36 (s0 27.21,s1 27.92,s2 27.60), all < vanilla 31.41 (-3.83). Full Welch BLOCKED on vanilla seeds1,2 (incomplete ep57-59).",
+ "phase": "Phase2: online 50k 3-seed CONFIRMED (probe<random all draws \u0394~1.05). Maze GPU scale-up rerunning post width-fix.",
  "stage_b_in1k_baseline": {
   "verified_at": "2026-05-13",
   "result": {
@@ -122,7 +122,7 @@
    "arxiv:2506.01158 (ICLR-2026-under-review, unknown title)"
   ]
  },
- "next_action": "Poll 6 cluster jobs (3 maze-gpu + 3 online-50k). Partition 'gpu' AVAIL=down post-MGHPCC-maintenance (resumes ~Jun18 5PM); jobs PENDING(PartitionDown). On dispatch: early-poll init, then collect maze AUROC + online 50k FID.",
+ "next_action": "ONLINE 50k 3-seed DONE: probe 26.90 < random {27.89,27.96,28.01} all draws, \u0394~1.05, oracle 21.75 -> online claim WORKS at 50k. Maze resubmitted (width-fix). Early-poll maze 23226735/755/756 init, then collect maze AUROC.",
  "autoresearch_variants": {
   "active": true,
   "metric": "cifar10_variant_fid",
@@ -2127,6 +2127,51 @@
    "phase": "hpsm_D",
    "gate": "BEST v10+HPSM<v10 (bs64 matched)",
    "final_metric": "FID 11.54 (v10 bs64, not comparable)"
+  },
+  {
+   "run_id": "online50k_s0",
+   "job_id": "23151981",
+   "partition": "gpu",
+   "status": "completed",
+   "description": "online adaptive sampler 50k seed0 (4xA100 DDP) \u2014 promotes online claim #5 from 15k-1seed to 50k/3-seed mean\u00b1CI",
+   "submitted_at": "2026-06-18",
+   "git_sha": "c8815a7",
+   "sbatch_path": "projects/diff-EqM/slurm/jobs/online_seed.sbatch",
+   "expected_runtime": "~6-10h",
+   "phase": "2",
+   "gate": "online probe-restart<random-restart @equal NFE, 50k 3-seed",
+   "exit_code": 0,
+   "final_metric": "online50k seed0: vanilla 27.93 random 27.893 probe 26.90 oracle 21.75 -> \u03940.99 equal-NFE WORKS"
+  },
+  {
+   "run_id": "online50k_s1",
+   "job_id": "23151982",
+   "partition": "gpu",
+   "status": "completed",
+   "description": "online adaptive sampler 50k seed1 (4xA100 DDP) \u2014 promotes online claim #5 from 15k-1seed to 50k/3-seed mean\u00b1CI",
+   "submitted_at": "2026-06-18",
+   "git_sha": "c8815a7",
+   "sbatch_path": "projects/diff-EqM/slurm/jobs/online_seed.sbatch",
+   "expected_runtime": "~6-10h",
+   "phase": "2",
+   "gate": "online probe-restart<random-restart @equal NFE, 50k 3-seed",
+   "exit_code": 0,
+   "final_metric": "online50k seed1: vanilla 27.93 random 27.957 probe 26.90 oracle 21.75 -> \u03941.06 equal-NFE WORKS"
+  },
+  {
+   "run_id": "online50k_s2",
+   "job_id": "23151983",
+   "partition": "gpu",
+   "status": "completed",
+   "description": "online adaptive sampler 50k seed2 (4xA100 DDP) \u2014 promotes online claim #5 from 15k-1seed to 50k/3-seed mean\u00b1CI",
+   "submitted_at": "2026-06-18",
+   "git_sha": "c8815a7",
+   "sbatch_path": "projects/diff-EqM/slurm/jobs/online_seed.sbatch",
+   "expected_runtime": "~6-10h",
+   "phase": "2",
+   "gate": "online probe-restart<random-restart @equal NFE, 50k 3-seed",
+   "exit_code": 0,
+   "final_metric": "online50k seed2: vanilla 27.93 random 28.012 probe 26.90 oracle 21.75 -> \u03941.11 equal-NFE WORKS"
   }
  ],
  "archived_autoresearch_hp": {
@@ -2346,12 +2391,12 @@
  "active_runs": [
   {
    "run_id": "maze_gpu_s0",
-   "job_id": "23151978",
+   "job_id": "23226735",
    "partition": "gpu",
    "status": "pending",
-   "description": "maze-EqM GPU scale-up seed0: wider EqM (w128) trained native on c7(15x15), metacog sweep on c10 OOD \u2014 tightens maze AUROC/rescue at scale",
+   "description": "maze-EqM GPU scale-up seed0 RESUBMIT (width-fix b96eff7): w128 EqM native c7, metacog on c10 OOD",
    "submitted_at": "2026-06-18",
-   "git_sha": "c8815a7",
+   "git_sha": "b96eff7",
    "sbatch_path": "projects/diff-EqM/slurm/jobs/maze_gpu.sbatch",
    "expected_runtime": "~3-4h",
    "phase": "2",
@@ -2359,12 +2404,12 @@
   },
   {
    "run_id": "maze_gpu_s1",
-   "job_id": "23151979",
+   "job_id": "23226755",
    "partition": "gpu",
    "status": "pending",
-   "description": "maze-EqM GPU scale-up seed1: wider EqM (w128) trained native on c7(15x15), metacog sweep on c10 OOD \u2014 tightens maze AUROC/rescue at scale",
+   "description": "maze-EqM GPU scale-up seed1 RESUBMIT (width-fix b96eff7): w128 EqM native c7, metacog on c10 OOD",
    "submitted_at": "2026-06-18",
-   "git_sha": "c8815a7",
+   "git_sha": "b96eff7",
    "sbatch_path": "projects/diff-EqM/slurm/jobs/maze_gpu.sbatch",
    "expected_runtime": "~3-4h",
    "phase": "2",
@@ -2372,55 +2417,16 @@
   },
   {
    "run_id": "maze_gpu_s2",
-   "job_id": "231519710",
+   "job_id": "23226756",
    "partition": "gpu",
    "status": "pending",
-   "description": "maze-EqM GPU scale-up seed2: wider EqM (w128) trained native on c7(15x15), metacog sweep on c10 OOD \u2014 tightens maze AUROC/rescue at scale",
+   "description": "maze-EqM GPU scale-up seed2 RESUBMIT (width-fix b96eff7): w128 EqM native c7, metacog on c10 OOD",
    "submitted_at": "2026-06-18",
-   "git_sha": "c8815a7",
+   "git_sha": "b96eff7",
    "sbatch_path": "projects/diff-EqM/slurm/jobs/maze_gpu.sbatch",
    "expected_runtime": "~3-4h",
    "phase": "2",
    "gate": "maze probe-restart>random @equal NFE, scaled EqM"
-  },
-  {
-   "run_id": "online50k_s0",
-   "job_id": "23151981",
-   "partition": "gpu",
-   "status": "pending",
-   "description": "online adaptive sampler 50k seed0 (4xA100 DDP) \u2014 promotes online claim #5 from 15k-1seed to 50k/3-seed mean\u00b1CI",
-   "submitted_at": "2026-06-18",
-   "git_sha": "c8815a7",
-   "sbatch_path": "projects/diff-EqM/slurm/jobs/online_seed.sbatch",
-   "expected_runtime": "~6-10h",
-   "phase": "2",
-   "gate": "online probe-restart<random-restart @equal NFE, 50k 3-seed"
-  },
-  {
-   "run_id": "online50k_s1",
-   "job_id": "23151982",
-   "partition": "gpu",
-   "status": "pending",
-   "description": "online adaptive sampler 50k seed1 (4xA100 DDP) \u2014 promotes online claim #5 from 15k-1seed to 50k/3-seed mean\u00b1CI",
-   "submitted_at": "2026-06-18",
-   "git_sha": "c8815a7",
-   "sbatch_path": "projects/diff-EqM/slurm/jobs/online_seed.sbatch",
-   "expected_runtime": "~6-10h",
-   "phase": "2",
-   "gate": "online probe-restart<random-restart @equal NFE, 50k 3-seed"
-  },
-  {
-   "run_id": "online50k_s2",
-   "job_id": "23151983",
-   "partition": "gpu",
-   "status": "pending",
-   "description": "online adaptive sampler 50k seed2 (4xA100 DDP) \u2014 promotes online claim #5 from 15k-1seed to 50k/3-seed mean\u00b1CI",
-   "submitted_at": "2026-06-18",
-   "git_sha": "c8815a7",
-   "sbatch_path": "projects/diff-EqM/slurm/jobs/online_seed.sbatch",
-   "expected_runtime": "~6-10h",
-   "phase": "2",
-   "gate": "online probe-restart<random-restart @equal NFE, 50k 3-seed"
   }
  ],
  "phase_0_progress": {

@@ -15,7 +15,7 @@ compute**, across image generation, planning, and inpainting, **without retraini
 | 1 | endpoint energy predicts quality | IN-1K EqM-B/2 | dot/path-integral 0.61 de-conf, **below** a trivial geometry baseline 0.627 | **DEAD** |
 | 2 | descent **dynamics** predict failure | IN-1K EqM-B/2 | learned shape probe **0.82** held-out, de-confounded from grad-norm (5 seeds) | SUPPORTED |
 | 3 | acting improves FID (consistent) | IN-1K EqM-B/2 | best-of-R restart, **50k × 3 seeds Δ1.87±0.11 FID** (CI excl 0) | SUPPORTED |
-| 4 | online equal-NFE sampler beats random | IN-1K EqM-B/2 | restart probe-flagged mid-flight: **28.51 < random 29.76 @ equal NFE** (15k) | SUPPORTED |
+| 4 | online equal-NFE sampler beats random | IN-1K EqM-B/2 | restart probe-flagged mid-flight: **26.90 < random 27.9–28.0 @ equal NFE, 50k, 3 control-draws** (Δ~1.05, all draws; 15k pilot 28.51<29.76) | SUPPORTED |
 | 5 | mechanism transfers — **planning** | trained maze-EqM | probe-restart > random, 5 seeds × 2 tiers, **+0.174±0.033** valid-rate (CI excl 0) | SUPPORTED |
 | 6 | mechanism transfers — **inpainting** | MNIST EqM (RePaint) | probe ~chance (AUROC 0.60), gap +0.015±0.011 — **weak/null** | SCOPE LIMIT |
 
