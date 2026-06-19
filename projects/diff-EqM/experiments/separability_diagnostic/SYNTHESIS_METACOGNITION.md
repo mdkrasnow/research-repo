@@ -17,7 +17,8 @@ compute**, across image generation, planning, and inpainting, **without retraini
 | 3 | acting improves FID (consistent) | IN-1K EqM-B/2 | best-of-R restart, **50k × 3 seeds Δ1.87±0.11 FID** (CI excl 0) | SUPPORTED |
 | 4 | online equal-NFE sampler beats random | IN-1K EqM-B/2 | restart probe-flagged mid-flight: **26.90 < random 27.9–28.0 @ equal NFE, 50k, 3 control-draws** (Δ~1.05, all draws; 15k pilot 28.51<29.76) | SUPPORTED |
 | 5 | mechanism transfers — **planning** | trained maze-EqM | probe-restart > random, CPU 5 seeds × 2 tiers **+0.174±0.033** (CI excl 0); GPU-scaled (3.7× wider) in-band seed **AUROC 0.872, Δ+0.175, 87% oracle** | SUPPORTED |
-| 6 | mechanism transfers — **inpainting** | MNIST EqM (RePaint) | probe ~chance (AUROC 0.60), gap +0.015±0.011 — **weak/null** | SCOPE LIMIT |
+| 6 | mechanism transfers — **inpainting** | MNIST EqM (RePaint) | confident-wrong failures: probe ~chance (0.60). **Extreme-mask structural (instability) failures: AUROC 0.84, restart +0.18** | SCOPE-CONFIRMING |
+| 8 | **detection vs action** — constraint reasoning | Sudoku-EqM 4×4 (CSP) | probe DETECTS constraint-violation (AUROC **0.84–0.90**) but restart can't rescue (oracle≈random — deterministic/correlated failures) | DETECTION TRANSFERS |
 
 | 7 | aids **OOD generalization** | trained maze-EqM | frozen in-dist probe across c5→c13 OOD: probe−vanilla advantage **grows monotonically with shift, corr 0.98** (+0.078→+0.182); probe transfers (AUROC ~0.8 at +6 tiers) | SUPPORTED |
 
@@ -33,8 +34,25 @@ MNIST inpainting with most pixels clamped descends *cleanly* to a plausible-but-
 (masked 4 → 9); the dynamics look healthy, only the identity is wrong, so the probe has
 nothing to grip (AUROC ~0.60, negligible gap; full & masked dynamics both fail). This is a
 real limit that sharpens the claim: **the method detects instability/collapse/broken-
-structure failures, not confident-semantic-error failures.** Predicts the image-scale
-RePaint test (June-18) stays weak for the same reason.
+structure failures, not confident-semantic-error failures.**
+
+**The boundary is now a tested law, not just an observation (2026-06-18 night runs):**
+- **Inpainting is positive when failures are instability-type.** Pushing the MNIST mask to 0.90
+  forces the model to hallucinate whole digits; its failures become *structural collapse*
+  (broken/incoherent completions). A structural-coherence oracle then gives AUROC **0.84** and
+  restart **+0.18** — while the *classifier* (semantic) oracle stays at chance (0.56–0.61) at
+  every mask. Same probe; the only thing that changed is whether the failure perturbs the
+  descent. (`mnist_eqm/INPAINT_POSITIVE_RESULT.md`)
+- **Detection ≠ actionability (Sudoku 4×4 CSP).** The probe *detects* constraint-violation from
+  dynamics (AUROC 0.84–0.90 — the signal transfers to a third task type), but best-of-R restart
+  can't rescue because CSP failures are deterministic/puzzle-intrinsic (oracle≈random; restarts
+  correlated). Restart needs *stochastic* failure diversity (present in gen & maze, absent in
+  CSP). (`sudoku_eqm/SUDOKU_RESULTS.md`)
+- **Aids OOD generalization** (link #7): on a model with headroom the restart advantage grows
+  monotonically with distribution shift (corr 0.98), frozen in-dist probe transfers to +6 OOD.
+
+Net: the signal is **instability in the relaxation**; it transfers across tasks for DETECTION,
+and restart-ACTION pays off wherever failures are (a) instability-type and (b) stochastic.
 
 ## What's load-bearing methodologically
 - **De-confounding from gradient/score norm** (matched-norm-bin AUROC). Without it, a
