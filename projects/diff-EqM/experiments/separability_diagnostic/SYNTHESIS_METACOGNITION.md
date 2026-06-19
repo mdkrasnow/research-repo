@@ -19,6 +19,8 @@ compute**, across image generation, planning, and inpainting, **without retraini
 | 5 | mechanism transfers — **planning** | trained maze-EqM | probe-restart > random, CPU 5 seeds × 2 tiers **+0.174±0.033** (CI excl 0); GPU-scaled (3.7× wider) in-band seed **AUROC 0.872, Δ+0.175, 87% oracle** | SUPPORTED |
 | 6 | mechanism transfers — **inpainting** | MNIST EqM (RePaint) | probe ~chance (AUROC 0.60), gap +0.015±0.011 — **weak/null** | SCOPE LIMIT |
 
+| 7 | aids **OOD generalization** | trained maze-EqM | frozen in-dist probe across c5→c13 OOD: probe−vanilla advantage **grows monotonically with shift, corr 0.98** (+0.078→+0.182); probe transfers (AUROC ~0.8 at +6 tiers) | SUPPORTED |
+
 The signal is the **same probe over the same descent-shape features** (oscillation, log-
 decay slope, magnitude-normalized norm/dot curves) in every testbed. Exact labels where
 available (BFS for maze, classifier for MNIST) corroborate the noisy image-FID labels.
