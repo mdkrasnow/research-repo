@@ -32,7 +32,7 @@ def main(args):
     rows = []
     for steps, eta in grid:
         torch.manual_seed(0)
-        xt, _, _ = gd_sample(m, cond, eta, steps, log=False)
+        xt = gd_sample(m, cond, eta, steps, log=False)
         vr = float(valid_mask(xt.cpu().numpy(), cond).mean())
         rows.append({"steps": steps, "eta": eta, "budget": round(steps * eta, 3),
                      "vanilla_valid": round(vr, 4)})

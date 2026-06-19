@@ -58,6 +58,21 @@ mazes (0.88–0.93). Trajectory-metacognition on it, exact BFS labels, equal NFE
 the EqM-native planning result Yilun asked for: metacognition rescues a real trained
 EqM planner under exact-label, equal-compute controls. Detail: `maze_eqm/STEP3_RESULTS.md`.
 
+### D″. GPU scale-up (3.7× wider EqM, native c7 train) — RUN ✅ (`maze_eqm/STEP3_GPU_RESULTS.md`)
+Wider EqM (width 128, ~2.4M params), GPU-trained natively on c7, metacog on c10 OOD:
+
+| seed | invalid | AUROC (de-conf) | vanilla | random | **probe** | oracle | Δ | %oracle |
+|---|---|---|---|---|---|---|---|---|
+| **s1** (in-band) | 0.42 | **0.872** | 0.583 | 0.584 | **0.759** | 0.785 | **+0.175** | **87%** |
+| s0 (near-ceiling) | 0.25 | 0.645 | 0.756 | 0.753 | 0.775 | 0.846 | +0.022 | 24% |
+
+Both probe>random. The in-band seed gives the **strongest maze result to date** (AUROC
+0.872 > CPU 0.67–0.76; +0.175; 87% oracle) — the mechanism tightens at a wider, GPU-
+trained EqM. Caveats: width-128/80ep training was **unstable** (s2 diverged, loss 20 —
+recipe issue, excluded), and the strong number is one in-band seed, so this **corroborates**
+the CPU multi-seed (+0.174±0.034), not replaces it. Root-caused a false-negative first run
+(sampler budget 0.25 < manifold threshold; fixed at η≥0.02 via `maze_sampler_probe.py`).
+
 ---
 
 ## A. Failed-sample rescue — **PARTIALLY RUN (via the online sampler)**
