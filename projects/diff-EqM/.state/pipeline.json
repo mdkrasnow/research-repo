@@ -122,7 +122,7 @@
    "arxiv:2506.01158 (ICLR-2026-under-review, unknown title)"
   ]
  },
- "next_action": "Maze GPU train OK (0.975 in-dist) but metacog sampler budget 0.25 too weak (vanilla c10 ~0). Probe 23227889 sweeping budget to find 0.2-0.8 band, then rerun metacog 3 seeds at that point (model already saved, no retrain).",
+ "next_action": "Maze GPU scale-up training UNSTABLE at width128/80ep (s0 great/s1 ok/s2 diverged loss20). Original metacog failure was sampler budget 0.25<threshold (eta0.01 bug). Rerun metacog at eta0.02 on trainable s0+s1 (job 23229204). CPU multi-seed (+0.174) remains PRIMARY maze evidence; GPU = confirmatory where trainable. Training-recipe fix (LR warmup/clip) deferred - optional tightening, not load-bearing.",
  "autoresearch_variants": {
   "active": true,
   "metric": "cifar10_variant_fid",
@@ -2217,6 +2217,21 @@
    "gate": "maze probe-restart>random @equal NFE, scaled EqM",
    "exit_code": 0,
    "final_metric": "train CONVERGED (in-dist c7 test-valid 0.975 gate PASS) BUT metacog sampler too weak (steps25/eta0.01 budget0.25) -> vanilla c10 valid ~0, oracle ~0, no invalid-band. NOT a result. Diagnosing budget."
+  },
+  {
+   "run_id": "maze_sbprobe",
+   "job_id": "23227889",
+   "partition": "gpu_test",
+   "status": "completed",
+   "description": "maze sampler-budget probe on saved s0/1/2 models: sweep steps x eta, find band where vanilla c10 valid in 0.2-0.8 (so metacog has invalid-band). No retrain.",
+   "submitted_at": "2026-06-18",
+   "git_sha": "b96eff7",
+   "sbatch_path": "inline --wrap maze_sampler_probe.py",
+   "expected_runtime": "~10min",
+   "phase": "2",
+   "gate": "find workable maze sampler budget",
+   "exit_code": 0,
+   "final_metric": "sampler band found: orig eta0.01(budget0.25) BELOW threshold=bug. At eta>=0.02 models solve. BUT 3 seeds inconsistent: s0 c10-valid 0.76-0.84(too easy), s1 0.31-0.61(ideal), s2 0.0(train DIVERGED loss20 in-dist0.0 gate FAIL). width128/80ep training unstable."
   }
  ],
  "archived_autoresearch_hp": {
@@ -2435,17 +2450,17 @@
  ],
  "active_runs": [
   {
-   "run_id": "maze_sbprobe",
-   "job_id": "23227889",
+   "run_id": "maze_metacog2_s0s1",
+   "job_id": "23229204",
    "partition": "gpu_test",
    "status": "running",
-   "description": "maze sampler-budget probe on saved s0/1/2 models: sweep steps x eta, find band where vanilla c10 valid in 0.2-0.8 (so metacog has invalid-band). No retrain.",
+   "description": "maze metacog at PROPER budget on trainable seeds: s0 steps25/eta0.02(van~0.76), s1 steps80/eta0.02(van~0.58 ideal). s2 excluded (diverged). One clean GPU-scale probe>random check.",
    "submitted_at": "2026-06-18",
-   "git_sha": "b96eff7",
-   "sbatch_path": "inline --wrap maze_sampler_probe.py",
-   "expected_runtime": "~10min",
+   "git_sha": "ff5fde3",
+   "sbatch_path": "inline maze_metacog.py",
+   "expected_runtime": "~5min",
    "phase": "2",
-   "gate": "find workable maze sampler budget"
+   "gate": "maze GPU-scale probe>random @equal NFE"
   }
  ],
  "phase_0_progress": {
