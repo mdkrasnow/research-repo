@@ -122,7 +122,7 @@
    "arxiv:2506.01158 (ICLR-2026-under-review, unknown title)"
   ]
  },
- "next_action": "RePaint CONFIRMED Thread3 at image scale (B/2 frac0.9 TV-struct AUROC 0.852 +0.215 = Tier-1). SATNet v1 diverged (LR), v2 23490628 running w/ stability fix. v11 metacog-curriculum proposal drafted. Next: SATNet gate -> RRN-hard -> metacog + maybe v11.",
+ "next_action": "v11 full 4-arm running. Pure EqM-GD CANNOT solve real Sudoku (board 0, cell ~80% ceiling, loss-sampling decoupling confirmed v3). v11 tests if metacog-guided TRAINING breaks plateau where inference-restart can't.",
  "autoresearch_variants": {
   "active": true,
   "metric": "cifar10_variant_fid",
@@ -2322,6 +2322,22 @@
    "exit_code": 0,
    "description": "SATNet train v1",
    "final_metric": "GATE FAIL board-acc 0 - DIVERGENCE (loss 19676->72995 osc, LR too high on 47M conv+attn). Fixed v2 (LR2e-4+clip+warmup) 23490628."
+  },
+  {
+   "run_id": "sudoku_23497601",
+   "job_id": "23497601",
+   "status": "completed",
+   "exit_code": 0,
+   "description": "SATNet v3 long: cell-acc DEGRADES w/ training (0.62->0.51) while loss drops -> loss-sampling DECOUPLING, pure EqM-GD ~80% ceiling on Sudoku, board 0",
+   "final_metric": "SATNet v3 long: cell-acc DEGRADES w/ training (0.62->0.51) while loss drops -> loss-sampling DECOUPLING, pure EqM-GD ~80% ceiling on Sudoku, board 0"
+  },
+  {
+   "run_id": "sudoku_23496455",
+   "job_id": "23496455",
+   "status": "completed",
+   "exit_code": 0,
+   "description": "infer probe: cell-acc 0.78clamp/0.83noclamp FLAT across steps 100-1000 -> field fixed-point ceiling not sampling",
+   "final_metric": "infer probe: cell-acc 0.78clamp/0.83noclamp FLAT across steps 100-1000 -> field fixed-point ceiling not sampling"
   }
  ],
  "archived_autoresearch_hp": {
@@ -2540,16 +2556,15 @@
  ],
  "active_runs": [
   {
-   "run_id": "sudoku_satnet_v2",
-   "job_id": "23490628",
+   "run_id": "v11_curriculum_full",
+   "job_id": "PENDING",
    "partition": "gpu_test",
    "status": "running",
-   "description": "SATNet train v2 (LR2e-4 grad-clip warmup): Stage1 gate does pure EqM solve real Sudoku board-acc>=0.8",
+   "description": "v11 metacog-curriculum 4-arm (uniform/random/oracle/probe) on SATNet from v2 base: probe-guided hard mining, track cell-acc. Does probe-mining hold/improve cell-acc vs uniform-degrades, ~=oracle?",
    "submitted_at": "2026-06-19",
    "git_sha": "HEAD",
-   "expected_runtime": "~20min",
    "phase": "2",
-   "gate": "SATNet board-acc>=0.8"
+   "gate": "probe>random cell-acc AND probe~=oracle"
   }
  ],
  "phase_0_progress": {
