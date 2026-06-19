@@ -1,7 +1,7 @@
 {
  "project": "diff-EqM",
  "title": "Differential-Geometry-Guided Adversarial Negative Mining for EqM (DG-ANM)",
- "phase": "Night research COMPLETE (3 threads). Scope law tested: probe=instability detector; transfers across tasks for DETECTION; restart-ACTION needs instability+stochastic failures. OOD-aid confirmed.",
+ "phase": "Thread3 IMAGE-SCALE CONFIRMED (Tier-1). Real-Sudoku Stage1 retry (divergence fixed). v11 proposal ready.",
  "stage_b_in1k_baseline": {
   "verified_at": "2026-05-13",
   "result": {
@@ -122,7 +122,7 @@
    "arxiv:2506.01158 (ICLR-2026-under-review, unknown title)"
   ]
  },
- "next_action": "Repaint smoke PASS (early TV-struct gap +0.219 @mask0.9). Real sweep 23441600 running (n=256). Drafting Yilun page. On real result: write image-scale inpaint confirmation, update SYNTHESIS.",
+ "next_action": "RePaint CONFIRMED Thread3 at image scale (B/2 frac0.9 TV-struct AUROC 0.852 +0.215 = Tier-1). SATNet v1 diverged (LR), v2 23490628 running w/ stability fix. v11 metacog-curriculum proposal drafted. Next: SATNet gate -> RRN-hard -> metacog + maybe v11.",
  "autoresearch_variants": {
   "active": true,
   "metric": "cifar10_variant_fid",
@@ -2295,6 +2295,33 @@
    "exit_code": 1,
    "description": "repaint real v1",
    "error": "CUDA OOM in VAE decode (20G gpu_test card, n=256 all-at-once). Fixed: chunk batch + gpu partition -> v2 23442566"
+  },
+  {
+   "run_id": "sudoku_smoke",
+   "job_id": "23445573",
+   "partition": "gpu_test",
+   "status": "completed",
+   "exit_code": 0,
+   "description": "sudoku_real smoke",
+   "final_metric": "PIPELINE VALID (1:10): SATNet load+attention fwd/bwd+board-acc+gate OK, loss 55->20.5, board-acc 0 (undertrained 8ep/3k). Full train next."
+  },
+  {
+   "run_id": "repaint_real_v2",
+   "job_id": "23442566",
+   "partition": "gpu",
+   "status": "completed",
+   "exit_code": 0,
+   "description": "Image-scale RePaint B/2",
+   "final_metric": "CONFIRMS Thread3 at scale: center mask frac0.9 TV-struct AUROC 0.852 restart gap +0.215 (probe LPIPS 0.753<random0.763), matches MNIST 0.84/+0.18. Tier-1. expand mask degenerate>=0.5 (geom artifact)."
+  },
+  {
+   "run_id": "sudoku_satnet_v1",
+   "job_id": "23445933",
+   "partition": "gpu_test",
+   "status": "completed",
+   "exit_code": 0,
+   "description": "SATNet train v1",
+   "final_metric": "GATE FAIL board-acc 0 - DIVERGENCE (loss 19676->72995 osc, LR too high on 47M conv+attn). Fixed v2 (LR2e-4+clip+warmup) 23490628."
   }
  ],
  "archived_autoresearch_hp": {
@@ -2513,17 +2540,16 @@
  ],
  "active_runs": [
   {
-   "run_id": "repaint_real_v2",
-   "job_id": "23442566",
-   "partition": "gpu",
+   "run_id": "sudoku_satnet_v2",
+   "job_id": "23490628",
+   "partition": "gpu_test",
    "status": "running",
-   "description": "Image-scale RePaint real sweep v2 (chunked bs32, gpu A100): n=256 R=4 250steps center+expand, dual-oracle metacog",
+   "description": "SATNet train v2 (LR2e-4 grad-clip warmup): Stage1 gate does pure EqM solve real Sudoku board-acc>=0.8",
    "submitted_at": "2026-06-19",
    "git_sha": "HEAD",
-   "sbatch_path": "inline repaint_eqm.py",
-   "expected_runtime": "~1-2h",
+   "expected_runtime": "~20min",
    "phase": "2",
-   "gate": "TV-struct AUROC>chance + probe>random extreme mask"
+   "gate": "SATNet board-acc>=0.8"
   }
  ],
  "phase_0_progress": {

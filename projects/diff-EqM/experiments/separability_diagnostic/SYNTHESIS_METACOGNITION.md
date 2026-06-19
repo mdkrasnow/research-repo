@@ -17,7 +17,7 @@ compute**, across image generation, planning, and inpainting, **without retraini
 | 3 | acting improves FID (consistent) | IN-1K EqM-B/2 | best-of-R restart, **50k × 3 seeds Δ1.87±0.11 FID** (CI excl 0) | SUPPORTED |
 | 4 | online equal-NFE sampler beats random | IN-1K EqM-B/2 | restart probe-flagged mid-flight: **26.90 < random 27.9–28.0 @ equal NFE, 50k, 3 control-draws** (Δ~1.05, all draws; 15k pilot 28.51<29.76) | SUPPORTED |
 | 5 | mechanism transfers — **planning** | trained maze-EqM | probe-restart > random, CPU 5 seeds × 2 tiers **+0.174±0.033** (CI excl 0); GPU-scaled (3.7× wider) in-band seed **AUROC 0.872, Δ+0.175, 87% oracle** | SUPPORTED |
-| 6 | mechanism transfers — **inpainting** | MNIST EqM (RePaint) | confident-wrong failures: probe ~chance (0.60). **Extreme-mask structural (instability) failures: AUROC 0.84, restart +0.18** | SCOPE-CONFIRMING |
+| 6 | mechanism transfers — **inpainting** | MNIST EqM + **real IN-1K B/2** (RePaint) | confident-wrong ~chance (0.60); extreme-mask structural (instability): MNIST AUROC 0.84/+0.18, **real B/2 AUROC 0.852/+0.215** | SCOPE-CONFIRMING (Tier-1) |
 | 8 | **detection vs action** — constraint reasoning | Sudoku-EqM 4×4 (CSP) | probe DETECTS constraint-violation (AUROC **0.84–0.90**) but restart can't rescue (oracle≈random — deterministic/correlated failures) | DETECTION TRANSFERS |
 
 | 7 | aids **OOD generalization** | trained maze-EqM | frozen in-dist probe across c5→c13 OOD: probe−vanilla advantage **grows monotonically with shift, corr 0.98** (+0.078→+0.182); probe transfers (AUROC ~0.8 at +6 tiers) | SUPPORTED |
