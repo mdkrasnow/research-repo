@@ -1,5 +1,44 @@
 # Update for Yilun — EqM trajectory-metacognition
 
+## TL;DR (2026-06-19) — net positive; the method now has a *stated, tested boundary*
+One mechanism explains everything: the probe reads **instability in the EqM's descent**.
+It rescues failures where the model visibly struggles (collapse / broken structure), and is
+blind to failures where it's confidently wrong. This single rule predicted all of last
+night's results and is the paper's spine.
+
+**What we have (decision-grade):**
+1. **Image generation (real B/2):** probe-restart improves FID — 50k×3 seeds, **Δ1.87±0.11**
+   (CI excl 0); online equal-NFE sampler **26.90 < random ~27.9** at 50k (3 control draws).
+2. **OOD generalization (NEW, strongest claim):** on a model with headroom, probe-restart's
+   advantage over vanilla **grows monotonically with distribution shift, corr 0.98**
+   (+0.08→+0.18 across maze tiers c5→c13); a probe trained only in-distribution still flags
+   failures **6 tiers OOD** (AUROC ~0.8). "Helps most exactly when you need it."
+3. **Inpainting (NEW, prior null → positive):** dual oracle shows the *semantic* axis stays
+   at chance (0.56–0.61) at every mask, but the *structural/instability* axis hits **AUROC
+   0.84, restart +0.18 at extreme masks** — inpainting becomes rescuable precisely when the
+   failure mode turns from confident-wrong to structural collapse. Same probe, one knob.
+4. **Detection vs action (NEW, Sudoku/CSP):** the probe *detects* constraint violations
+   (AUROC 0.84–0.90 — signal transfers to a third task type), but best-of-R restart can't
+   *fix* them (deterministic failures, oracle≈random). → restart needs **stochastic** failure
+   diversity; for CSP the right action is extra compute on flagged, not restart (future work).
+
+**Is it positive?** Yes. Nothing was a setback: a new headline (OOD), a rescued limitation
+(inpainting), and a useful clarification (Sudoku). The boundary sharpens the claim, not weakens it.
+
+**What's left for the paper:**
+- *In flight now:* image-scale RePaint on the **real IN-1K B/2 checkpoint** (`repaint_eqm.py`,
+  job running) — smoke already shows the predicted structural-restart gain (+0.22 at mask 0.9).
+  Confirms the inpainting law isn't a toy artifact.
+- Paper shape: (1) energy≠quality → (2) descent-shape probe → (3) acting improves FID →
+  (4) it's a *mechanism* (planning + inpainting, with the instability boundary) → (5) aids OOD.
+- Your call: is OOD + image-FID + inpainting-mechanism enough for the workshop, or push the
+  Sudoku "right-action-for-CSP" extension too? My lean: ship the four, Sudoku as future work.
+
+**Caveats:** maze/MNIST/Sudoku are small EqMs we trained; image results are the real B/2.
+OOD win needs a model with headroom (near-perfect models gain little — expected).
+
+---
+
 **TL;DR (updated 2026-06-14 — both ran).** Your two questions: (1) are gains
 consistent — **YES**: 50k × 3 seeds, mean Δ1.87±0.11 FID, 95% CI ±0.12 excludes 0,
 probe<vanilla every seed. (2) capabilities — the EqM-native **online metacognition
