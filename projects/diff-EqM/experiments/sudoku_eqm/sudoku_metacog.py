@@ -47,8 +47,10 @@ def main(args):
     torch.manual_seed(args.seed)
     ck = torch.load(args.ckpt, map_location=dev, weights_only=False)
     W = int(ck.get("args", {}).get("width", 96))
-    m = SudokuEqM(C=W).to(dev); m.load_state_dict(ck["model"]); m.eval()
     cond, _, sols, masks = load(args.data)
+    Nd = sols.shape[-1]                              # grid size N from data
+    m = SudokuEqM(cond_ch=cond.shape[1], C=W, D=Nd).to(dev)
+    m.load_state_dict(ck["model"]); m.eval()
     cond = cond[:args.n].to(dev); sols = sols[:args.n]; masks = masks[:args.n]
     M = cond.shape[0]
 

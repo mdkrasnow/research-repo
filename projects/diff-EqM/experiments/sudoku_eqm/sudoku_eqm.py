@@ -34,62 +34,65 @@ import torch.nn.functional as F
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "maze_eqm"))
 from eqm_maze import TimeEmb, ResBlock, eqm_target  # noqa: E402
 
-N = 9
+import math
 
 
 # --------------------------- sudoku data (synthetic) ----------------------- #
-def _full_solution(rng):
-    """A valid 9x9 grid (digits 1-9) via base pattern + structure-preserving shuffles."""
+def _full_solution(rng, N=9):
+    """A valid NxN grid (digits 1..N) via base pattern + structure-preserving shuffles.
+    N must be a perfect square; box size b=sqrt(N)."""
+    b = int(round(math.sqrt(N)))
     def pat(r, c):
-        return (3 * (r % 3) + r // 3 + c) % 9
-    g = np.array([[pat(r, c) for c in range(9)] for r in range(9)])
-    g = rng.permutation(9)[g]                       # relabel digits 0..8
+        return (b * (r % b) + r // b + c) % N
+    g = np.array([[pat(r, c) for c in range(N)] for r in range(N)])
+    g = rng.permutation(N)[g]                        # relabel digits 0..N-1
     def blocks():
         order = []
-        for band in rng.permutation(3):
-            for row in rng.permutation(3):
-                order.append(band * 3 + row)
+        for band in rng.permutation(b):
+            for row in rng.permutation(b):
+                order.append(band * b + row)
         return np.array(order)
     g = g[np.ix_(blocks(), blocks())]               # shuffle rows-in-bands & cols-in-stacks
     if rng.random() < 0.5:
         g = g.T
-    return g + 1                                     # 1..9
+    return g + 1                                     # 1..N
 
 
 def make_puzzle(sol, n_clues, rng):
-    mask = np.zeros((9, 9), bool)
-    idx = rng.permutation(81)[:n_clues]
+    N = sol.shape[0]
+    mask = np.zeros((N, N), bool)
+    idx = rng.permutation(N * N)[:n_clues]
     mask.flat[idx] = True
     clue = np.where(mask, sol, 0)
     return clue, mask
 
 
-def encode(sol, clue, mask):
-    """sol/clue:(9,9) digits 1-9 (clue 0=empty); -> target(9,9,9) onehot{-1,+1},
-    cond(10,9,9) = clue-onehot{-1,+1} ++ given-mask{-1,+1}."""
-    tgt = -np.ones((9, 9, 9), np.float32)
-    for d in range(9):
+def encode(sol, clue, mask, N=9):
+    """sol/clue:(N,N) digits 1..N (clue 0=empty); -> target(N,N,N) onehot{-1,+1},
+    cond(N+1,N,N) = clue-onehot{-1,+1} ++ given-mask{-1,+1}."""
+    tgt = -np.ones((N, N, N), np.float32)
+    for d in range(N):
         tgt[d][sol == d + 1] = 1.0
-    cco = -np.ones((9, 9, 9), np.float32)
-    for d in range(9):
+    cco = -np.ones((N, N, N), np.float32)
+    for d in range(N):
         cco[d][clue == d + 1] = 1.0
     gm = np.where(mask, 1.0, -1.0).astype(np.float32)[None]
-    cond = np.concatenate([cco, gm], 0)             # (10,9,9)
+    cond = np.concatenate([cco, gm], 0)             # (N+1,N,N)
     return tgt, cond
 
 
-def gen_dataset(n, n_clues, seed, out):
+def gen_dataset(n, n_clues, seed, out, N=9):
     rng = np.random.default_rng(seed)
     conds, tgts, sols, masks = [], [], [], []
     for _ in range(n):
-        sol = _full_solution(rng)
+        sol = _full_solution(rng, N)
         clue, mask = make_puzzle(sol, n_clues, rng)
-        tgt, cond = encode(sol, clue, mask)
+        tgt, cond = encode(sol, clue, mask, N)
         conds.append(cond); tgts.append(tgt); sols.append(sol); masks.append(mask)
     Path(out).parent.mkdir(parents=True, exist_ok=True)
     np.savez(out, cond=np.stack(conds), target=np.stack(tgts),
-             sol=np.stack(sols), mask=np.stack(masks), n_clues=n_clues)
-    print(f"gen {n} puzzles ({n_clues} clues) -> {out}", flush=True)
+             sol=np.stack(sols), mask=np.stack(masks), n_clues=n_clues, grid=N)
+    print(f"gen {n} puzzles N={N} ({n_clues} clues) -> {out}", flush=True)
 
 
 def load(npz):
@@ -106,18 +109,18 @@ def decode_grid(x):
 
 
 def solved(grid, clue_sol, mask):
-    """Exact: all rows/cols/boxes are permutations of 1..9 AND given clues respected."""
-    g = grid
+    """Exact: all rows/cols/boxes are permutations of 1..N AND given clues respected."""
+    g = grid; Ng = g.shape[0]; b = int(round(math.sqrt(Ng)))
     if mask is not None and clue_sol is not None:
         if np.any(g[mask] != clue_sol[mask]):
             return False
-    full = set(range(1, 10))
-    for i in range(9):
+    full = set(range(1, Ng + 1))
+    for i in range(Ng):
         if set(g[i]) != full or set(g[:, i]) != full:
             return False
-    for br in range(3):
-        for bc in range(3):
-            if set(g[br * 3:br * 3 + 3, bc * 3:bc * 3 + 3].flatten()) != full:
+    for br in range(b):
+        for bc in range(b):
+            if set(g[br * b:br * b + b, bc * b:bc * b + b].flatten()) != full:
                 return False
     return True
 
@@ -164,7 +167,7 @@ class SudokuEqM(nn.Module):
 @torch.no_grad()
 def gd_sample(model, cond, eta, steps, log=False):
     dev = cond.device
-    xt = torch.randn(cond.shape[0], model.D, 9, 9, device=dev)
+    xt = torch.randn(cond.shape[0], model.D, cond.shape[2], cond.shape[3], device=dev)
     t0 = torch.zeros(cond.shape[0], device=dev)
     norms, dots = [], []
     for _ in range(steps):
@@ -186,7 +189,7 @@ def solve_rate(model, cond, sols, masks, eta, steps):
 # --------------------------- train ----------------------------------------- #
 def main(args):
     if args.gen:
-        gen_dataset(args.n, args.clues, args.seed, args.out)
+        gen_dataset(args.n, args.clues, args.seed, args.out, args.grid)
         return
     dev = "cuda" if torch.cuda.is_available() else "cpu"
     torch.manual_seed(args.seed); np.random.seed(args.seed)
@@ -194,7 +197,8 @@ def main(args):
     cond, tgt = cond.to(dev), tgt.to(dev)
     condte, tgtte, solte, maskte = load(args.test) if args.test else (cond, tgt, sols, masks)
     condte = condte.to(dev)
-    model = SudokuEqM(C=args.width).to(dev)
+    Nd = tgt.shape[1]                                # digit channels = grid size N
+    model = SudokuEqM(cond_ch=cond.shape[1], C=args.width, D=Nd).to(dev)
     opt = torch.optim.AdamW(model.parameters(), lr=args.lr)
     print(f"[sudoku-eqm] params={sum(p.numel() for p in model.parameters())/1e3:.0f}K "
           f"clues={int(np.load(args.train)['n_clues'])}", flush=True)
@@ -212,7 +216,7 @@ def main(args):
             model.eval()
             sr = solve_rate(model, condte[:args.eval_n], solte[:args.eval_n],
                             maskte[:args.eval_n], args.eta, args.steps)
-            rf = float(valid_mask(np.random.randn(min(args.eval_n, len(solte)), 9, 9, 9),
+            rf = float(valid_mask(np.random.randn(min(args.eval_n, len(solte)), Nd, Nd, Nd),
                                   solte[:args.eval_n], maskte[:args.eval_n]).mean())
             print(f"  ep{ep+1:3d} loss={tot/M:.4f}  solve={sr:.3f} (rand {rf:.3f})  {time.time()-t0:.0f}s", flush=True)
     sr = solve_rate(model, condte[:args.eval_n], solte[:args.eval_n], maskte[:args.eval_n], args.eta, args.steps)
@@ -226,6 +230,7 @@ def main(args):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--gen", action="store_true")
+    ap.add_argument("--grid", type=int, default=9)
     ap.add_argument("--n", type=int, default=20000)
     ap.add_argument("--clues", type=int, default=35)
     ap.add_argument("--train", default="")
