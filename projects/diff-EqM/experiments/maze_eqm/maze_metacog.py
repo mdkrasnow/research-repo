@@ -65,8 +65,10 @@ def heldout_auc(X, y, norm_end, frac=0.3, seeds=5, l2=1.0):
 def main(args):
     dev = "cuda" if torch.cuda.is_available() else "cpu"
     torch.manual_seed(args.seed)
-    m = MazeEqM().to(dev)
     ck = torch.load(args.ckpt, map_location=dev, weights_only=False)
+    # width: ckpt's training args win; else --width fallback (avoids 64/128 mismatch)
+    W = int(ck.get("args", {}).get("width", args.width))
+    m = MazeEqM(C=W).to(dev)
     m.load_state_dict(ck["model"]); m.eval()
     cond, _ = load(args.data); cond = cond[:args.n].to(dev)
     M = cond.shape[0]
@@ -150,6 +152,7 @@ if __name__ == "__main__":
     ap.add_argument("--eta", type=float, default=0.02)
     ap.add_argument("--thr", type=float, default=0.0)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--width", type=int, default=64)
     ap.add_argument("--out", default="")
     args = ap.parse_args()
     main(args)
