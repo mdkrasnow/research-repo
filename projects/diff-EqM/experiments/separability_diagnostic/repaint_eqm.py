@@ -184,15 +184,23 @@ def main(args):
         mask_lat = make_latent_mask(B, ls, frac, args.mask, dev, rng)
         mask_px = torch.nn.functional.interpolate(mask_lat, size=(args.image_size, args.image_size), mode="nearest")
         dn, dd, lp, tv = [], [], [], []
+        bsz = args.batch_size
         for r in range(args.R):
             torch.manual_seed(args.seed * 100 + r)
-            xt, norm, dot = gd_repaint(model, z_known, mask_lat, y, args.stepsize, args.num_sampling_steps, log=True)
-            img = decode(xt)
-            with torch.no_grad():
-                d = lpips_fn(img, gt).flatten().cpu().numpy()          # LPIPS to GT (lower=better)
-            dn.append(norm); dd.append(dot); lp.append(d)
-            tv.append(tv_structural((img / 2 + 0.5), mask_px))
-            print(f"  frac={frac} draw{r}: LPIPS={d.mean():.3f} TV={tv[-1].mean():.3f}", flush=True)
+            nrm_c, dot_c, lp_c, tv_c = [], [], [], []
+            for c0 in range(0, B, bsz):                                # chunk the batch (VAE OOM guard)
+                c1 = min(B, c0 + bsz)
+                xt, norm, dot = gd_repaint(model, z_known[c0:c1], mask_lat[c0:c1], y[c0:c1],
+                                           args.stepsize, args.num_sampling_steps, log=True)
+                img = decode(xt)
+                with torch.no_grad():
+                    d = lpips_fn(img, gt[c0:c1]).flatten().cpu().numpy()
+                nrm_c.append(norm); dot_c.append(dot); lp_c.append(d)
+                tv_c.append(tv_structural((img / 2 + 0.5), mask_px[c0:c1]))
+            norm = np.concatenate(nrm_c, 0); dot = np.concatenate(dot_c, 0)
+            d = np.concatenate(lp_c, 0); tvr = np.concatenate(tv_c, 0)
+            dn.append(norm); dd.append(dot); lp.append(d); tv.append(tvr)
+            print(f"  frac={frac} draw{r}: LPIPS={d.mean():.3f} TV={tvr.mean():.3f}", flush=True)
         lp = np.stack(lp); tv = np.stack(tv)                           # (R,B)
         # binarize each oracle at its median over all draws -> "invalid" = worse half
         lp_thr = np.median(lp); tv_thr = np.median(tv)
@@ -251,5 +259,6 @@ if __name__ == "__main__":
     ap.add_argument("--stepsize", type=float, default=0.003)
     ap.add_argument("--num-sampling-steps", type=int, default=250)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--batch-size", type=int, default=32)
     ap.add_argument("--out", required=True)
     main(ap.parse_args())
