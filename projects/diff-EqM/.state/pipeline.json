@@ -1,7 +1,7 @@
 {
  "project": "diff-EqM",
  "title": "Differential-Geometry-Guided Adversarial Negative Mining for EqM (DG-ANM)",
- "phase": "v11 metacog-curriculum: oracle training-as-action WORKS (+0.08), probe-selector weak on Sudoku (strong on images). Real-Sudoku arc: EqM learns(80% cell) but can't solve(board 0); mining lifts cell-acc.",
+ "phase": "v20 metacog-mining image-gen screen (CIFAR 3-arm). Tests label-free hard-mining where probe is strong.",
  "stage_b_in1k_baseline": {
   "verified_at": "2026-05-13",
   "result": {
@@ -122,7 +122,7 @@
    "arxiv:2506.01158 (ICLR-2026-under-review, unknown title)"
   ]
  },
- "next_action": "v11 DONE: oracle-mining breaks EqM Sudoku plateau (+0.08 cell-acc, training-as-action CONFIRMED, the missing action for deterministic failures). Probe-selector weak on Sudoku (+0.023 vs random, far<oracle) - probe's turf is images. Next (user call): v11-probe on EqM-B/2 image gen (no-label payoff where probe is strong AUROC 0.82), or retune probe selector.",
+ "next_action": "v20 3-arm CIFAR screen running (instability/random/vanilla 150ep). Smoke passed (ratio 1.22). Tests if metacog signal = label-free training selector on images (where probe strong, unlike Sudoku). ~3-5h.",
  "autoresearch_variants": {
   "active": true,
   "metric": "cifar10_variant_fid",
@@ -2567,7 +2567,41 @@
    ]
   }
  ],
- "active_runs": [],
+ "active_runs": [
+  {
+   "run_id": "v20_instability",
+   "job_id": "23775099",
+   "partition": "gpu",
+   "status": "running",
+   "description": "v20 3-arm CIFAR screen: instability-mine treatment",
+   "submitted_at": "2026-06-20",
+   "git_sha": "HEAD",
+   "phase": "2",
+   "gate": "instability-mine FID < random & vanilla -> label-free metacog training selector works on images"
+  },
+  {
+   "run_id": "v20_random",
+   "job_id": "23775101",
+   "partition": "gpu",
+   "status": "running",
+   "description": "v20 3-arm CIFAR screen: random control",
+   "submitted_at": "2026-06-20",
+   "git_sha": "HEAD",
+   "phase": "2",
+   "gate": "instability-mine FID < random & vanilla -> label-free metacog training selector works on images"
+  },
+  {
+   "run_id": "v00_vanilla_v20cmp",
+   "job_id": "23775102",
+   "partition": "gpu",
+   "status": "running",
+   "description": "v20 3-arm CIFAR screen: vanilla floor",
+   "submitted_at": "2026-06-20",
+   "git_sha": "HEAD",
+   "phase": "2",
+   "gate": "instability-mine FID < random & vanilla -> label-free metacog training selector works on images"
+  }
+ ],
  "phase_0_progress": {
   "tasks_done": [
    "0.A.1 read slate",
