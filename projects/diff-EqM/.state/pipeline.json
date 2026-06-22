@@ -1,7 +1,7 @@
 {
  "project": "diff-EqM",
  "title": "Differential-Geometry-Guided Adversarial Negative Mining for EqM (DG-ANM)",
- "phase": "v20 metacog-mining image-gen screen (CIFAR 3-arm). Tests label-free hard-mining where probe is strong.",
+ "phase": "v20 metacog-mining: CIFAR screen PASS (instability-mine -1.15 FID vs controls). Label-free training-selector works on images. IN-1K confirm next (human-gated).",
  "stage_b_in1k_baseline": {
   "verified_at": "2026-05-13",
   "result": {
@@ -122,7 +122,7 @@
    "arxiv:2506.01158 (ICLR-2026-under-review, unknown title)"
   ]
  },
- "next_action": "v20 3-arm CIFAR screen running (instability/random/vanilla 150ep). Smoke passed (ratio 1.22). Tests if metacog signal = label-free training selector on images (where probe strong, unlike Sudoku). ~3-5h.",
+ "next_action": "v20 metacog-mine CIFAR screen PASSED: instability-mine FID 13.26 < random 14.41 ~= vanilla 14.41 (gain from failure-selection not upweighting). Metacog = label-free training selector on IMAGES (works where Sudoku probe-selector failed). NEXT: IN-1K B/2 confirm (human-gated FID), v20 vs vanilla.",
  "autoresearch_variants": {
   "active": true,
   "metric": "cifar10_variant_fid",
@@ -2351,6 +2351,30 @@
    "gate": "probe>random cell-acc AND probe~=oracle",
    "exit_code": 0,
    "final_metric": "ORACLE mining WORKS (cell-acc 0.760 only arm that improves, +0.080 vs random, breaks plateau -> training IS the action for deterministic failures restart cant fix). PROBE selector WEAK on sudoku (0.703, +0.023 vs random, -0.057 vs oracle). Probe home turf=images; test v11-probe there."
+  },
+  {
+   "run_id": "v20_instability",
+   "job_id": "23775099",
+   "status": "completed",
+   "exit_code": 0,
+   "description": "v20 3-arm CIFAR screen",
+   "final_metric": "CIFAR FID 13.26"
+  },
+  {
+   "run_id": "v20_random",
+   "job_id": "23775101",
+   "status": "completed",
+   "exit_code": 0,
+   "description": "v20 3-arm CIFAR screen",
+   "final_metric": "CIFAR FID 14.41"
+  },
+  {
+   "run_id": "v00_vanilla_v20cmp",
+   "job_id": "23775102",
+   "status": "completed",
+   "exit_code": 0,
+   "description": "v20 3-arm CIFAR screen",
+   "final_metric": "CIFAR FID 14.41"
   }
  ],
  "archived_autoresearch_hp": {
@@ -2567,41 +2591,7 @@
    ]
   }
  ],
- "active_runs": [
-  {
-   "run_id": "v20_instability",
-   "job_id": "23775099",
-   "partition": "gpu",
-   "status": "running",
-   "description": "v20 3-arm CIFAR screen: instability-mine treatment",
-   "submitted_at": "2026-06-20",
-   "git_sha": "HEAD",
-   "phase": "2",
-   "gate": "instability-mine FID < random & vanilla -> label-free metacog training selector works on images"
-  },
-  {
-   "run_id": "v20_random",
-   "job_id": "23775101",
-   "partition": "gpu",
-   "status": "running",
-   "description": "v20 3-arm CIFAR screen: random control",
-   "submitted_at": "2026-06-20",
-   "git_sha": "HEAD",
-   "phase": "2",
-   "gate": "instability-mine FID < random & vanilla -> label-free metacog training selector works on images"
-  },
-  {
-   "run_id": "v00_vanilla_v20cmp",
-   "job_id": "23775102",
-   "partition": "gpu",
-   "status": "running",
-   "description": "v20 3-arm CIFAR screen: vanilla floor",
-   "submitted_at": "2026-06-20",
-   "git_sha": "HEAD",
-   "phase": "2",
-   "gate": "instability-mine FID < random & vanilla -> label-free metacog training selector works on images"
-  }
- ],
+ "active_runs": [],
  "phase_0_progress": {
   "tasks_done": [
    "0.A.1 read slate",
