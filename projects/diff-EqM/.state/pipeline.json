@@ -1,7 +1,7 @@
 {
  "project": "diff-EqM",
  "title": "Differential-Geometry-Guided Adversarial Negative Mining for EqM (DG-ANM)",
- "phase": "B/2 inference-result lockdown: 5-seed selector-comparison @50k (vs energy/norm/random/oracle at equal compute) + early-intervention curve.",
+ "phase": "B/2 lockdown deepening: Pareto(restart vs depth) + online early-abandon @ equal NFE. Prior: full-probe~=energy_path, EARLY probe@50 wins.",
  "stage_b_in1k_baseline": {
   "verified_at": "2026-05-13",
   "result": {
@@ -122,7 +122,7 @@
    "arxiv:2506.01158 (ICLR-2026-under-review, unknown title)"
   ]
  },
- "next_action": "Locking B/2 inference result airtight (PI ask). 5-seed 50k selector_compare running: money figure = FID@equal-compute vanilla/random/energy(dot+path)/gradnorm/probe/oracle from identical draws (NFE parity by construction). + early-intervention curve (probe@k). Smoke validated code (17 arms). Paused v20/IN-1K per hold.",
+ "next_action": "PI exp1(Pareto: restart-vs-spend-NFE-on-depth, NFE750: long750 vs R3 random/energy/probe@50) + exp2(online early-abandon@step50 equal-NFE probe vs random) launched 24249662-680, 50k each. Incremental-FID (disk-safe). Locks whether restart is right compute use + probe is best selector.",
  "autoresearch_variants": {
   "active": true,
   "metric": "cifar10_variant_fid",
@@ -2593,59 +2593,70 @@
  ],
  "active_runs": [
   {
-   "run_id": "sel_compare_s0",
-   "job_id": "24114967",
+   "run_id": "pareto_long250",
+   "job_id": "24249662",
    "partition": "gpu",
    "status": "pending",
-   "description": "Airtight B/2 selector-comparison seed0: FID@equal-compute {vanilla/random/energy/gradnorm/probe/oracle} from identical R=3 draws, 50k, + probe@k early curve",
-   "submitted_at": "2026-06-22",
+   "description": "Exp1 Pareto: vanilla S250 NFE250 baseline",
+   "submitted_at": "2026-06-23",
    "git_sha": "HEAD",
    "phase": "2",
-   "gate": "probe FID < all trivial selectors at equal NFE, 5-seed"
+   "gate": "Exp1 probe-restart on better Pareto than depth+random+energy; Exp2 probe-abandon<random-abandon@equal-NFE"
   },
   {
-   "run_id": "sel_compare_s1",
-   "job_id": "24114971",
+   "run_id": "pareto_long750",
+   "job_id": "24249676",
    "partition": "gpu",
    "status": "pending",
-   "description": "Airtight B/2 selector-comparison seed1: FID@equal-compute {vanilla/random/energy/gradnorm/probe/oracle} from identical R=3 draws, 50k, + probe@k early curve",
-   "submitted_at": "2026-06-22",
+   "description": "Exp1: vanilla S750 NFE750 (spend-on-depth)",
+   "submitted_at": "2026-06-23",
    "git_sha": "HEAD",
    "phase": "2",
-   "gate": "probe FID < all trivial selectors at equal NFE, 5-seed"
+   "gate": "Exp1 probe-restart on better Pareto than depth+random+energy; Exp2 probe-abandon<random-abandon@equal-NFE"
   },
   {
-   "run_id": "sel_compare_s2",
-   "job_id": "24114974",
+   "run_id": "pareto_r3rand",
+   "job_id": "24249677",
    "partition": "gpu",
    "status": "pending",
-   "description": "Airtight B/2 selector-comparison seed2: FID@equal-compute {vanilla/random/energy/gradnorm/probe/oracle} from identical R=3 draws, 50k, + probe@k early curve",
-   "submitted_at": "2026-06-22",
+   "description": "Exp1: best-of-R3 random-keep NFE750",
+   "submitted_at": "2026-06-23",
    "git_sha": "HEAD",
    "phase": "2",
-   "gate": "probe FID < all trivial selectors at equal NFE, 5-seed"
+   "gate": "Exp1 probe-restart on better Pareto than depth+random+energy; Exp2 probe-abandon<random-abandon@equal-NFE"
   },
   {
-   "run_id": "sel_compare_s3",
-   "job_id": "24114977",
+   "run_id": "pareto_r3energy",
+   "job_id": "24249678",
    "partition": "gpu",
    "status": "pending",
-   "description": "Airtight B/2 selector-comparison seed3: FID@equal-compute {vanilla/random/energy/gradnorm/probe/oracle} from identical R=3 draws, 50k, + probe@k early curve",
-   "submitted_at": "2026-06-22",
+   "description": "Exp1: best-of-R3 energy_path NFE750",
+   "submitted_at": "2026-06-23",
    "git_sha": "HEAD",
    "phase": "2",
-   "gate": "probe FID < all trivial selectors at equal NFE, 5-seed"
+   "gate": "Exp1 probe-restart on better Pareto than depth+random+energy; Exp2 probe-abandon<random-abandon@equal-NFE"
   },
   {
-   "run_id": "sel_compare_s4",
-   "job_id": "24114980",
+   "run_id": "pareto_r3probe",
+   "job_id": "24249679",
    "partition": "gpu",
    "status": "pending",
-   "description": "Airtight B/2 selector-comparison seed4: FID@equal-compute {vanilla/random/energy/gradnorm/probe/oracle} from identical R=3 draws, 50k, + probe@k early curve",
-   "submitted_at": "2026-06-22",
+   "description": "Exp1: best-of-R3 probe@step50 NFE750 (treatment)",
+   "submitted_at": "2026-06-23",
    "git_sha": "HEAD",
    "phase": "2",
-   "gate": "probe FID < all trivial selectors at equal NFE, 5-seed"
+   "gate": "Exp1 probe-restart on better Pareto than depth+random+energy; Exp2 probe-abandon<random-abandon@equal-NFE"
+  },
+  {
+   "run_id": "online_k50",
+   "job_id": "24249680",
+   "partition": "gpu",
+   "status": "pending",
+   "description": "Exp2: online early-abandon decide@step50 flag0.3, probe vs random@equal-NFE",
+   "submitted_at": "2026-06-23",
+   "git_sha": "HEAD",
+   "phase": "2",
+   "gate": "Exp1 probe-restart on better Pareto than depth+random+energy; Exp2 probe-abandon<random-abandon@equal-NFE"
   }
  ],
  "phase_0_progress": {
