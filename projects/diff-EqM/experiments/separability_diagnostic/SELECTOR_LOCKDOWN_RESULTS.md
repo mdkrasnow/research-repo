@@ -42,3 +42,46 @@ is the deployable, online-relevant result and it is cleanly separated from the t
 - Proxy reference (50k, single B/2 checkpoint). FID human-gated for any paper number.
 - energy_path competitiveness is itself reportable: end-of-trajectory magnitude ≈ shape probe;
   the shape probe's value is early prediction.
+
+---
+
+# Exp 1 — Pareto null: restart vs depth (2026-06-23, 50k, NFE=750 matched)
+
+PI ask: is restart a better use of compute than spending the same NFE on deeper/longer vanilla sampling?
+
+| arm | FID (50k) | what |
+|---|---|---|
+| long250 (NFE=250) | 28.17 | shallow vanilla baseline |
+| long750 (depth, NFE=750) | 29.49 | spend NFE on 3× deeper GD sampling |
+| r3rand | 28.03 | restart, random keep |
+| r3energy (Σ‖f‖) | 25.78 | restart, best trivial |
+| **r3probe@50** | **24.84** | restart, early metacog probe |
+
+**Null KILLED.** long750 (29.49) is WORSE than long250 (28.17) — deeper vanilla GD does not help (EqM-GD
+saturates, extra steps add nothing). Same NFE spent on **restarts** helps; **probe@50 (24.84) wins by
+4.65 over depth, 3.19 over random, 0.94 over best trivial (energy_path).** Restart is the better compute
+allocation, and the early-trajectory probe is the best selector. Matches the lockdown numbers above
+(probe@50 24.84/24.65, energy_path 25.78). Preview (8k single-GPU) agrees directionally:
+long750 33.23 vs r3probe 28.67 (−4.56).
+
+# Exp 2 — Online early-abandon @ step-50 (2026-06-23, 50k, equal NFE)
+
+`online_adaptive_sampler --k-dec 50 --flag-frac 0.3`: read step-50 risk score, abandon+restart worst 30%.
+
+| arm | FID (50k) | Δ vs random |
+|---|---|---|
+| vanilla | 27.93 | — |
+| random_restart | 27.89 | 0 |
+| **probe_restart** | **26.46** | **+1.43** |
+| oracle_restart | 21.75 | ceiling |
+
+Probe-abandon recovers **23% of oracle gain** reallocating compute online from a step-50 risk score, at
+equal NFE. True online metacognition — no retrain. The step-50 read is actionable mid-sampling, not just
+post-hoc selection.
+
+## Combined verdict (both experiments, 2026-06-23)
+Two independent inference-time tests, both clean at 50k: (1) restart > depth, and the early descent-shape
+probe is the best restart selector at equal compute; (2) online, the same step-50 probe actionably
+reallocates compute (+1.43 over random-abandon). Claim holds: *EqM energy doesn't predict quality, but
+the early descent-trajectory shape does — and acting on it improves generation at equal compute, online,
+without retraining.*
