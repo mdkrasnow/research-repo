@@ -79,6 +79,28 @@ Probe-abandon recovers **23% of oracle gain** reallocating compute online from a
 equal NFE. True online metacognition — no retrain. The step-50 read is actionable mid-sampling, not just
 post-hoc selection.
 
+# Probe ablation — shape vs magnitude, de-confounded (2026-06-24, CPU, 5-seed held-out)
+
+Reviewer poke: "energy_path (Σ‖f‖) nearly matched the full probe at trajectory-end — is the
+probe shape or smuggled magnitude?" Answer (within-norm AUROC = de-confounded from grad-norm):
+
+| feature | within-norm AUROC |
+|---|---|
+| gradnorm_end (mag) | 0.553 ± 0.011 |
+| path_integral Σ‖f‖ (mag) | 0.614 ± 0.022 |
+| **ALL-shape probe** | **0.818 ± 0.012** |
+
+The energy_path "match" was a **trajectory-end magnitude artifact** — under within-norm control it
+collapses to 0.614 while the shape probe holds 0.818. Shape decisively beats magnitude.
+
+- **Drop-one (leave-one-group-out):** max loss 0.015 (drop norm_curve → 0.803). Signal **distributed**
+  across oscillation/slopes/norm_curve/dot_curve — no single smuggled scalar.
+- **Early-cut:** detection AUROC saturates by k=100 (0.813), already 0.743 at k=50 → **online-viable**.
+  Selection FID still best at k=50 (later probe over-weights magnitude-correlated late features that
+  hurt restart picking). Detect-early and act-early both supported.
+
+Files: `probe_ablation.py`, `results/PROBE_ABLATION.txt`.
+
 ## Combined verdict (both experiments, 2026-06-23)
 Two independent inference-time tests, both clean at 50k: (1) restart > depth, and the early descent-shape
 probe is the best restart selector at equal compute; (2) online, the same step-50 probe actionably
