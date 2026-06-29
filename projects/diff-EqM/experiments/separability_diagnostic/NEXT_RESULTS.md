@@ -53,6 +53,21 @@ python projects/diff-EqM/experiments/separability_diagnostic/aggregate_policy_sw
    locked early-shape selector is the ceiling among these mechanisms; report the
    table and stop (no laundering). Update `SELECTOR_LOCKDOWN_RESULTS.md`.
 
+## Overnight progress (2026-06-29)
+- Selection arms passing CLEAN at matched NFE 750.0 exact: energy_path, stacked_selector,
+  multiread_triage done (n=10k). random/probe_k50/smc_metacog stuck PENDING (4-GPU node
+  contention) — screen aggregate blocked on them. No code issue.
+- **Segmented engine VALIDATED on real B/2** (heun 25677697 nfe/img 747.7; alloc 25677699
+  747.0; n=256, COMPLETED). churn/optsw PD (same code, expected pass).
+- Two real bugs caught + fixed by the watcher loop (local CPU smoke missed both — fake model
+  too simple; per CLAUDE.md smoke-insufficiency rule, now hardened with a Conv layer):
+  1. `134b326` — segmented final `feat()` built an autograd graph → `.numpy()` on grad tensor.
+     Fix: global `torch.set_grad_enabled(False)`.
+  2. `b10cad7` — `eta` float64 → `et` double → `xt` upcast → model float32 Conv bias rejected
+     ("Input type double, bias float"). Fix: `et` forced float32.
+- Segmented FULL screen (n=10k) NOT launched yet — deliberately held so it doesn't starve the
+  priority selection screen of nodes. Launch after selection screen drains.
+
 ## Known caveats / honest flags
 - `smc_metacog` at keep-1 matched NFE reduces to risk-weighted selection (extra
   particles/jitter not affordable at 750 NFE) — labeled as such, not "full SMC".
