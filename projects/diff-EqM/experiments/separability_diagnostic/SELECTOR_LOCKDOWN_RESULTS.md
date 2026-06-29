@@ -79,6 +79,22 @@ Probe-abandon recovers **23% of oracle gain** reallocating compute online from a
 equal NFE. True online metacognition — no retrain. The step-50 read is actionable mid-sampling, not just
 post-hoc selection.
 
+# 5-SEED CI — Pareto headline (2026-06-28, 50k, FID equal-NFE)
+
+PI item 1. Error bars on the headline via pareto_sample incremental-FID (disk-safe; first batch
+15/16 hit CUDA-driver-init bad nodes 06-26, resubmitted split gpu/seas_gpu w/ nvidia-smi guard).
+
+| arm | FID mean ± std (n=5) | per-seed |
+|---|---|---|
+| long250 (depth/shallow) | 28.096 ± 0.071 | 28.17/28.04/28.16/28.13/27.99 |
+| r3rand (null, equal NFE) | 27.951 ± 0.104 | 28.03/27.82/28.06/28.01/27.83 |
+| r3energy (best trivial) | 25.705 ± 0.054 | 25.78/25.67/25.63/25.69/25.75 |
+| **r3probe@50 (treatment)** | **24.661 ± 0.160** | 24.84/24.37/24.73/24.72/24.64 |
+
+**PAIRED probe vs random (same draws/seed): mean Δ = +3.290 ± 0.097 FID, SE 0.044, t≈75, all 5 seeds positive.**
+probe vs depth Δ +3.44; probe vs energy_path Δ +1.04. All CIs disjoint. Decision-grade: the early-descent
+probe restart beats null/depth/best-trivial at equal compute with non-overlapping 5-seed error bars.
+
 # Probe ablation — shape vs magnitude, de-confounded (2026-06-24, CPU, 5-seed held-out)
 
 Reviewer poke: "energy_path (Σ‖f‖) nearly matched the full probe at trajectory-end — is the
