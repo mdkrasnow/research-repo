@@ -243,6 +243,7 @@ def main(args):
     st = find_model(args.ckpt); model.load_state_dict(st["ema"] if "ema" in st else st.get("model", st)); model.eval()
     for p in model.parameters():
         p.requires_grad_(False)
+    torch.set_grad_enabled(False)   # inference-only; segmented feat()/decode must not build a graph
     vae = AutoencoderKL.from_pretrained(f"stabilityai/sd-vae-ft-{args.vae}").to(dev).eval()
     incep = build_incep(dev)
     fn = run_selection if args.engine == "selection" else run_segmented
