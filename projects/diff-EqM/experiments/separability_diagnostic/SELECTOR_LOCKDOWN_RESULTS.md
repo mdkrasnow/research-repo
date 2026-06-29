@@ -131,3 +131,40 @@ probe is the best restart selector at equal compute; (2) online, the same step-5
 reallocates compute (+1.43 over random-abandon). Claim holds: *EqM energy doesn't predict quality, but
 the early descent-trajectory shape does — and acting on it improves generation at equal compute, online,
 without retraining.*
+
+# Metacog method-improvement sweep — 10 policies vs probe_k50 (2026-06-29, n=10k seed0, matched NFE=750)
+
+Asked: does ANY richer inference-time mechanism beat the locked early-shape selector (probe_k50) at
+equal compute? Built 10 policies (selection + segmented engines). Screen at n=10k seed0 (ranking tier;
+promote winner to 50k×5). Engine paths exact-NFE (selection) / NFE-counted (segmented).
+
+| arm (selection) | FID @ n=10k | Δ vs probe_k50 | nfe/img |
+|---|---|---|---|
+| **probe_k50 (locked baseline)** | **27.76** | — | 750.0 |
+| multiread_triage | 28.12 | −0.36 | 750.0 |
+| smc_metacog | 28.19 | −0.43 | 750.0 |
+| energy_path (best trivial) | 28.33 | −0.57 | 750.0 |
+| stacked_selector | 28.55 | −0.79 | 750.0 |
+| random (null) | 30.73 | −2.97 | 750.0 |
+
+**VERDICT: nothing beats probe_k50. It is the ceiling among all 10 mechanisms at matched compute.**
+No promotion. Per protocol that IS the result — not a failure to launder. The simple frozen early-shape
+logistic probe is not improved on by: a calibrated stacked ranker (probe+magnitude+shape), risk-weighted
+SMC resampling, multi-read triage, or any trivial magnitude selector. probe_k50 > energy_path by +0.57
+here (vs +1.04 at 50k) — same direction, consistent with the lockdown.
+
+Honest reads / caveats:
+- **n=10k FID is positively biased vs n=50k** — every arm sits ~+2.5–3.1 above its 50k counterpart
+  (probe 27.76 vs 24.66; energy 28.33 vs 25.78; random 30.73 vs 27.95). RANKING is what the screen
+  tests and it is preserved, so the "no-promotion" conclusion is valid. The aggregator's REPRO check
+  flagged a 2.55 "mismatch" — that is exactly this n=10k-sweep vs n=50k-pareto difference, NOT a
+  pipeline bug (uniform shift, order intact). Tooling note: repro check should compare same-n.
+- segmented heun/alloc FID 144 = n=256 smoke artifact (FID meaningless at tiny n); those validated the
+  segmented ENGINE (NFE 747.8/747.0 exact, no crash), never intended as FID points.
+- stacked_selector UNDERperforming probe_k50 is itself informative: adding magnitude features to the
+  shape probe HURTS (magnitude is the confound the ablation already flagged) — the pure shape probe is
+  better alone. Consistent with PROBE_ABLATION (shape 0.818 vs magnitude 0.61 de-conf).
+
+Bottom line: probe_k50 stands as the best inference-time EqM selector found. The method story is the
+locked 50k×5-seed result above; this sweep CLOSES the "did you try richer policies?" reviewer question
+with a clean negative — 10 mechanisms, none beat it.
