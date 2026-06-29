@@ -37,9 +37,12 @@ def _fake_artifacts(tmp, ks):
 
 
 class FakeModel(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.c = nn.Conv2d(4, 4, 1)  # float32 bias -> catches dtype-mismatch bugs (eta float64)
     def forward(self, xt, t, y):
         # smooth contractive field so descent is well-behaved + finite
-        return -0.05 * xt + 0.01 * torch.sin(xt)
+        return -0.05 * xt + 0.01 * torch.sin(self.c(xt))
 
 
 class FakeVAE:

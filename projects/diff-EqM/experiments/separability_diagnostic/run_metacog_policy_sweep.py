@@ -172,7 +172,7 @@ def run_segmented(args, model, vae, incep, dev, ls, rank, world):
         for seg_i, kb in enumerate(bounds):
             # advance every lane from prev -> kb steps
             for r in range(args.R):
-                et = torch.tensor(eta[r], device=dev).view(B, 1, 1, 1)
+                et = torch.tensor(eta[r], device=dev, dtype=torch.float32).view(B, 1, 1, 1)
                 for _ in range(prev, kb - 1 if kb == args.steps else kb):
                     out = _f(model, xt[r], t, y)
                     nbuf[r].append(out.flatten(1).norm(dim=1).float().cpu().numpy())
@@ -208,7 +208,7 @@ def run_segmented(args, model, vae, incep, dev, ls, rank, world):
                 for r in range(args.R):
                     m_heun = act[r] == 4
                     if m_heun.any():
-                        et = torch.tensor(eta[r], device=dev).view(B, 1, 1, 1)
+                        et = torch.tensor(eta[r], device=dev, dtype=torch.float32).view(B, 1, 1, 1)
                         g1 = _f(model, xt[r], t, y)
                         xtmp = xt[r] + g1 * et
                         g2 = _f(model, xtmp, t, y)
