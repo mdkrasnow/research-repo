@@ -92,8 +92,16 @@ PI item 1. Error bars on the headline via pareto_sample incremental-FID (disk-sa
 | **r3probe@50 (treatment)** | **24.661 ± 0.160** | 24.84/24.37/24.73/24.72/24.64 |
 
 **PAIRED probe vs random (same draws/seed): mean Δ = +3.290 ± 0.097 FID, SE 0.044, t≈75, all 5 seeds positive.**
-probe vs depth Δ +3.44; probe vs energy_path Δ +1.04. All CIs disjoint. Decision-grade: the early-descent
-probe restart beats null/depth/best-trivial at equal compute with non-overlapping 5-seed error bars.
+probe vs depth Δ +3.44; probe vs energy_path Δ +1.04.
+
+Disjointness (mean±1σ bands): probe [24.50,24.82], energy [25.66,25.76], rand [27.85,28.05], depth [28.03,28.17].
+- probe vs {energy, rand, depth}: **disjoint** (every treatment comparison clears its band).
+- energy vs {rand, depth}: disjoint.
+- rand vs depth: **OVERLAP** (28.03–28.05) — expected; random-restart ≈ shallow-vanilla, both = no-useful-selection floor.
+
+Decision-grade: the early-descent probe restart beats null/best-trivial/depth at equal compute with
+non-overlapping 5-seed bands on every treatment comparison (and the paired probe-vs-random delta is
+t≈75, all seeds positive). The only overlap is between the two no-selection controls, which SHOULD coincide.
 
 # Probe ablation — shape vs magnitude, de-confounded (2026-06-24, CPU, 5-seed held-out)
 
