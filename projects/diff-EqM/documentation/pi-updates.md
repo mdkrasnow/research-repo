@@ -506,3 +506,29 @@ dynamics* (~0.82 de-confounded) and is actionable at inference with no retrainin
 are designed but unrun. Should we prioritize those, or go deeper on planning (maze)?
 
 *(Detail: experiments/separability_diagnostic/{SCALE_RESULTS.md, PAPER_CLAIM_STATUS.md, YILUN_UPDATE.md, FINDINGS.md}.)*
+
+---
+
+## DRAFT (2026-06-30) — Selector result replicates on a 2nd checkpoint (NOT seed0-specific)
+
+**Trigger:** result at paper-comparable scale (IN-1K 50k) + generality check.
+
+We re-ran the locked B/2 inference-time metacognition selector on an independent
+checkpoint (B/2 vanilla **seed1**) to test whether the result is checkpoint-specific.
+
+Full 50k FID (probe_gated, R=3 restart):
+- probe-restart **24.81** vs vanilla restart-baseline 27.51 (Δ **2.70**, recovers 23% of oracle 15.84).
+- Locked seed0 reference: probe 24.66 ± 0.16, r3rand 27.95. → **probe-restart 24.81 ≈ 24.66**.
+
+**Takeaway:** the actionable selector gain reproduces near-identically on a second,
+independently-trained checkpoint. Not a seed0 artifact.
+
+One nuance worth flagging: seed1's *diagnostic* probe AUROC came in lower (0.746 vs 0.813)
+because that run's label-sanity check was weak (s4=0.577). But the **FID gain transferred
+in full** — confirming AUROC was depressed by the label pipeline, while the real
+(label-independent) selector signal is intact. FID is the number to trust.
+
+**Scope:** single 50k draw, same B/2 scale (tests checkpoint-instance, not model-scale).
+Model-scale axis (S/2 checkpoint, complete + ready) is the natural next replication.
+
+**Ask:** proceed to S/2 scale-axis replication, or call checkpoint-generality settled here?

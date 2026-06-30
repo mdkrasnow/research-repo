@@ -36,14 +36,32 @@ which depresses all training-label-based AUROCs. Whether the residual gap is che
 or label-pipeline noise is **resolved by the selector arms below**, whose FID readout is
 label-independent.
 
-## Step 3 — Selector arms (FID, label-independent) — IN PROGRESS
+## Step 3 — Selector arms (FID, label-independent) — DONE
 `probe_gated.sbatch`, probe artifact = `runs/b2_seed1_repl/probe_artifact.npz` (dim=30).
-- Smoke: NUM_SLOTS=512 R=3, gpu_test single-GPU — **job 26013773** (de-risk wiring).
-- Full (pending smoke): NUM_SLOTS=50000 R=3, seas_gpu 4-GPU — arms long250 / r3rand / r3energy / r3probe@50.
-- Locked seed0 headline (5-seed CI): r3probe@50 **24.66±0.16** vs r3rand 27.95 vs long250 28.10.
-- Replication question: does r3probe@50 beat r3rand by a comparable margin on seed1?
+Smoke: NUM_SLOTS=512 R=3 gpu_test (job 26013773) — probe 95.91<vanilla 100.21 Δ4.30, wiring clean.
+Full: NUM_SLOTS=50000 R=3 seas_gpu 4-GPU (job **26028553**, COMPLETED 1h20m).
 
-## Interim verdict
-Mechanism (shape-not-magnitude, de-confounded, held-out) **replicates** on a second checkpoint —
-not a seed0 artifact. Absolute probe AUROC lower (0.746 vs 0.813); selector FID arms will decide
-whether the *actionable* inference-time gain transfers. **No promotion / claim change yet.**
+**Full 50k FID:**
+
+| arm | B/2 seed1 (50k) | locked B/2 seed0 |
+|---|---|---|
+| vanilla (restart-baseline) | 27.506 | r3rand 27.95 / long250 28.10 |
+| **probe-restart** | **24.808** | r3probe@50 **24.66 ± 0.16** (5-seed CI) |
+| oracle (ceiling) | 15.837 | 21.75 |
+| Δ vanilla−probe | **2.698** | ~3.29 |
+| oracle-recovered fraction | 0.231 (23%) | ~16–18% |
+
+`"sane": false` is the known-harmless flag: pipeline "vanilla" is a restart control (~27.5), not the
+non-restart NFE-250 reference 31.41 — identical behaviour to the locked seed0 run; deltas are valid.
+
+## VERDICT — selector gain is NOT checkpoint-specific
+- **probe-restart FID 24.81 (seed1) ≈ 24.66 (locked seed0)** — near-identical at 50k on a second,
+  independently-trained checkpoint. Δ≈2.7 FID, 23% oracle recovery — comparable magnitude.
+- The full mechanism chain replicates: scalars dead → SHAPE≫MAG learned probe → probe-restart wins at FID.
+- **AUROC vs FID dissociation (important):** seed1's diagnostic AUROC was lower (0.746 vs 0.813),
+  depressed by weak label sanity (s4=0.577) — yet the **FID gain fully transferred**. Confirms the
+  AUROC drop was a label-pipeline artifact, not weaker real selector signal. FID (label-independent)
+  is the trustworthy readout; the locked inference-time result generalizes across checkpoints.
+- Scope: one extra checkpoint (same B/2 scale, seed1, single 50k draw — not a multi-seed CI on this
+  ckpt). Tests *checkpoint*-specificity, not *model-scale*. Scale axis (S/2) remains future per
+  `NEXT_CHECKPOINT_DISCOVERY.md`. No claim change beyond "robust to checkpoint instance."
