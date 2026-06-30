@@ -19,3 +19,13 @@ AUROC but pattern intact. probe_artifact.npz (dim=30) saved to runs/s2_seed0_rep
 
 ## Step 3 — Selector smoke (job 26392208, gpu_test, NUM_SLOTS=512 R=3, MODEL=EqM-S/2)
 SUBMITTED 2026-06-30. Pending result — poll before launching full 50k.
+
+## Step 3 (cont.) — Smoke result (job 26392208, COMPLETED 10m35s, NUM_SLOTS=512)
+```
+vanilla  n=512  FID=123.196
+probe    n=512  FID=120.376
+oracle   n=512  FID=100.569
+```
+sanity: vanilla 123.20 vs known baseline 31.41 -> MISMATCH (small-n smoke + ref-stats artifact; interpret
+deltas only, matches known smoke-scale behavior). probe<vanilla, Δ2.82, 12% oracle recovery — direction
+SANE, consistent with locked result. Launched FULL 50k: job **26395188**, seas_gpu, 4-GPU.
