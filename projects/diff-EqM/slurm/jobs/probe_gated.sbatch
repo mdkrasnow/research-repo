@@ -35,6 +35,7 @@ R="${R:-3}"
 NUM_REAL_BANK="${NUM_REAL_BANK:-10000}"
 BATCH_SIZE="${BATCH_SIZE:-64}"
 RUN_TAG="${RUN_TAG:-b2_vanilla}"
+MODEL="${MODEL:-EqM-B/2}"
 SD="$REPO_ROOT/projects/diff-EqM/experiments/separability_diagnostic"
 OUT_DIR="$SD/runs/$RUN_TAG"
 ART="$OUT_DIR/probe_artifact.npz"
@@ -56,7 +57,7 @@ PORT=$((29500 + RANDOM % 1000))
 echo "=== GATED SAMPLE slots=$NUM_SLOTS R=$R gpus=$NUM_GPUS $(date) ==="
 python -m torch.distributed.run --nnodes=1 --nproc_per_node=$NUM_GPUS --master_port=$PORT \
     "$SD/probe_gated_sample.py" \
-    --model EqM-B/2 --ckpt "$LOCAL_CKPT" --probe-artifact "$ART" --out "$GATED_OUT" \
+    --model "$MODEL" --ckpt "$LOCAL_CKPT" --probe-artifact "$ART" --out "$GATED_OUT" \
     --real-dir "$REAL_DIR" --num-real-bank "$NUM_REAL_BANK" \
     --num-slots "$NUM_SLOTS" --R "$R" --stepsize 0.003 --num-sampling-steps 250 \
     --batch-size "$BATCH_SIZE" 2>&1 | tee "$WORK/gated.log"
