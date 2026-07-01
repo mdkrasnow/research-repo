@@ -213,8 +213,8 @@
     "sbatch": "projects/diff-EqM/slurm/jobs/variant_pilot.sbatch"
   },
   "needs_user_input": {
-    "value": false,
-    "prompt": ""
+    "value": true,
+    "prompt": "S/2 scale-axis selector replication CONFIRMED (\u03942.72 FID, 16% oracle) \u2014 matches B/2 seed0/seed1 pattern. PI update drafted in pi-updates.md (2026-07-01 entry). Selector generality now spans checkpoint + model scale. Review draft and decide: sufficient breadth for paper claim, or add 3rd axis (L/2 or non-vanilla recipe) before locking writeup?"
   },
   "completed_runs": [
     {
@@ -2910,6 +2910,71 @@
       "phase": "2",
       "gate": "selector-scale generalization (S/2 vs locked B/2)",
       "final_metric": "probe FID 47.290 < vanilla 50.006 (Delta 2.72, 16% oracle 32.640) \u2014 replicates locked B/2 seed0 pattern (Delta~3.29, 16-18% oracle) at different model scale"
+    },
+    {
+      "run_id": "v21_metacog_mine_smoke_seed0",
+      "job_id": "26440246",
+      "partition": "gpu_test",
+      "status": "completed",
+      "description": "v21 Goal-3 build: shape-of-local-rollout hard-negative mining, CIFAR smoke (2ep, shape selector) \u2014 mechanism+collapse check before 150ep run",
+      "submitted_at": "2026-06-30",
+      "git_sha": "ccd3400",
+      "sbatch_path": "projects/diff-EqM/slurm/jobs/variant_pilot.sbatch",
+      "expected_runtime": "~0.5h",
+      "phase": "0",
+      "gate": "v21 CIFAR smoke: no collapse, ratio non-saturating, sample probe sane",
+      "final_metric": {
+        "fid_2ep_smoke": 451.0207
+      },
+      "exit_code": 0
+    },
+    {
+      "run_id": "v21_metacog_mine_150ep_shape_seed0",
+      "job_id": "26445284",
+      "partition": "seas_gpu",
+      "status": "timeout",
+      "description": "v21 Goal-3 treatment: shape-of-local-rollout selector, CIFAR 150ep, vs v10=13.40/v20=13.26 baselines",
+      "submitted_at": "2026-06-30",
+      "git_sha": "8593f74",
+      "sbatch_path": "projects/diff-EqM/slurm/jobs/variant_pilot.sbatch",
+      "expected_runtime": "~25h",
+      "phase": "0",
+      "gate": "v21-shape FID < min(v10,v20) - 0.3",
+      "error": "SLURM TIME LIMIT at 6h default, epoch 84/150 (K=4 rollout ~252s/epoch, needs ~10.5h)"
+    },
+    {
+      "run_id": "v21_random_150ep_seed0",
+      "job_id": "26445285",
+      "partition": "seas_gpu",
+      "status": "completed",
+      "description": "v21 Goal-3 negative control: random selector, CIFAR 150ep, same aux-loss form as shape arm",
+      "submitted_at": "2026-06-30",
+      "git_sha": "8593f74",
+      "sbatch_path": "projects/diff-EqM/slurm/jobs/variant_pilot.sbatch",
+      "expected_runtime": "~25h",
+      "phase": "0",
+      "gate": "control for v21 three-arm comparison",
+      "final_metric": {
+        "fid": 14.2912
+      },
+      "exit_code": 0
+    },
+    {
+      "run_id": "v21_magnitude_150ep_seed0",
+      "job_id": "26445286",
+      "partition": "seas_gpu",
+      "status": "completed",
+      "description": "v21 Goal-3 ablation: magnitude (v20-style) selector inside v21 harness, CIFAR 150ep, isolates shape-vs-magnitude",
+      "submitted_at": "2026-06-30",
+      "git_sha": "8593f74",
+      "sbatch_path": "projects/diff-EqM/slurm/jobs/variant_pilot.sbatch",
+      "expected_runtime": "~25h",
+      "phase": "0",
+      "gate": "control for v21 three-arm comparison",
+      "final_metric": {
+        "fid": 13.6824
+      },
+      "exit_code": 0
     }
   ],
   "archived_autoresearch_hp": {
@@ -3128,56 +3193,17 @@
   ],
   "active_runs": [
     {
-      "run_id": "v21_metacog_mine_smoke_seed0",
-      "job_id": "26440246",
-      "partition": "gpu_test",
-      "status": "pending",
-      "description": "v21 Goal-3 build: shape-of-local-rollout hard-negative mining, CIFAR smoke (2ep, shape selector) \u2014 mechanism+collapse check before 150ep run",
-      "submitted_at": "2026-06-30",
-      "git_sha": "ccd3400",
-      "sbatch_path": "projects/diff-EqM/slurm/jobs/variant_pilot.sbatch",
-      "expected_runtime": "~0.5h",
-      "phase": "0",
-      "gate": "v21 CIFAR smoke: no collapse, ratio non-saturating, sample probe sane"
-    },
-    {
-      "run_id": "v21_metacog_mine_150ep_shape_seed0",
-      "job_id": "26445284",
+      "run_id": "v21_metacog_mine_150ep_shape_seed0_resubmit",
+      "job_id": "26823625",
       "partition": "seas_gpu",
       "status": "pending",
-      "description": "v21 Goal-3 treatment: shape-of-local-rollout selector, CIFAR 150ep, vs v10=13.40/v20=13.26 baselines",
-      "submitted_at": "2026-06-30",
+      "description": "v21 Goal-3 shape-selector arm RESUBMIT with --time=14:00:00 (prior attempt 26445284 hit 6h default time limit at epoch84/150; not a mechanism retune, infra fix)",
+      "submitted_at": "2026-07-01",
       "git_sha": "8593f74",
       "sbatch_path": "projects/diff-EqM/slurm/jobs/variant_pilot.sbatch",
-      "expected_runtime": "~25h",
+      "expected_runtime": "~10.5h",
       "phase": "0",
-      "gate": "v21-shape FID < min(v10,v20) - 0.3"
-    },
-    {
-      "run_id": "v21_random_150ep_seed0",
-      "job_id": "26445285",
-      "partition": "seas_gpu",
-      "status": "pending",
-      "description": "v21 Goal-3 negative control: random selector, CIFAR 150ep, same aux-loss form as shape arm",
-      "submitted_at": "2026-06-30",
-      "git_sha": "8593f74",
-      "sbatch_path": "projects/diff-EqM/slurm/jobs/variant_pilot.sbatch",
-      "expected_runtime": "~25h",
-      "phase": "0",
-      "gate": "control for v21 three-arm comparison"
-    },
-    {
-      "run_id": "v21_magnitude_150ep_seed0",
-      "job_id": "26445286",
-      "partition": "seas_gpu",
-      "status": "pending",
-      "description": "v21 Goal-3 ablation: magnitude (v20-style) selector inside v21 harness, CIFAR 150ep, isolates shape-vs-magnitude",
-      "submitted_at": "2026-06-30",
-      "git_sha": "8593f74",
-      "sbatch_path": "projects/diff-EqM/slurm/jobs/variant_pilot.sbatch",
-      "expected_runtime": "~25h",
-      "phase": "0",
-      "gate": "control for v21 three-arm comparison"
+      "gate": "v21-shape FID < min(v10=13.40,v20=13.26) - 0.3"
     }
   ],
   "phase_0_progress": {

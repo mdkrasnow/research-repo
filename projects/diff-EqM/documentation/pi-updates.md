@@ -532,3 +532,37 @@ in full** — confirming AUROC was depressed by the label pipeline, while the re
 Model-scale axis (S/2 checkpoint, complete + ready) is the natural next replication.
 
 **Ask:** proceed to S/2 scale-axis replication, or call checkpoint-generality settled here?
+
+---
+
+## DRAFT (2026-07-01) — Selector result ALSO replicates across model scale (S/2)
+
+**Trigger:** result at paper-comparable scale (IN-1K 50k) + scale-axis generality check
+(continuation of the checkpoint-generality replication above).
+
+Re-ran the locked B/2 inference-time metacognition selector on an independent model
+scale (**EqM-S/2** vanilla, seed0, 80ep, same sampler config eta=0.003/250/cfg=1.0).
+
+Full 50k FID (probe_gated, R=3 restart):
+- probe-restart **47.29** vs vanilla restart-baseline 50.01 (Δ **2.72**, recovers 16% of oracle 32.64).
+- Compare: locked B/2 seed0 Δ~3.29 (16-18% oracle); B/2 seed1 Δ2.70 (23% oracle).
+- **Nearly identical Δ FID (2.7-3.3) across all three runs, at three different checkpoints/scales.**
+
+Diagnostic chain also replicated a third time: scalar energies dead (best AUROC 0.593),
+learned SHAPE-only probe de-conf 0.736 (vs seed0 0.813, seed1 0.746) — same SHAPE≫MAG,
+FULL≈SHAPE pattern; absolute AUROC tracks a weak label-sanity check (s4≈0.58 in both
+non-seed0 runs) but FID (label-independent) confirms the mechanism each time.
+
+**Takeaway:** the selector result now generalizes across BOTH checkpoint instance
+(seed1) AND model capacity/scale (S/2) at fixed sampler config. This is the strongest
+generality evidence for the metacognition selector to date — a single locked recipe
+(SHAPE probe over descent trajectory, best-of-3 restart) delivers a consistent ~2.7-3.3
+FID gain independent of which EqM checkpoint it's applied to.
+
+**Scope/caveats:** each non-seed0 run is a single 50k draw (not multi-seed CI like the
+locked 5-seed B/2 seed0 result). S/2 is undertrained relative to B/2 at 80ep (smaller
+model, absolute FID much higher) — that's expected and doesn't affect the delta reading.
+
+**Ask:** with checkpoint + scale generality both confirmed, is this sufficient breadth
+for the paper's generality claim, or do we want a third axis (e.g. L/2, or a non-vanilla
+training recipe) before locking the writeup?
