@@ -113,6 +113,19 @@ dead endpoint baselines (0.505-0.568). Read: **most of the 0.753 raw AUROC
 is explained by `E_ψ` re-deriving `nn_dist`**, not by new signal from the
 endpoint latent beyond what `nn_dist` already encodes.
 
+### CORRECTION (user, 2026-07-02): residual test over-controls
+
+Same correction applies here as for the shape probe
+(`shape-probe-nndist-skepticism-2026-07-02.md`): labels are `y = 1[nn_dist >
+τ]`, so residualizing `E_ψ` against `nn_dist` and scoring against that same
+label removes the label-generating variable — collapse is partly expected by
+construction, not proof `E_ψ` "does nothing beyond distance." The honest
+downgrade is narrower than originally stated: not "E_ψ collapses to noise,"
+but "E_ψ's validation target is nn_dist-defined, so we cannot yet claim
+distance-independent endpoint signal from this test alone." A non-nn_dist
+target (`max_softmax`, classifier confidence, per-sample FID contribution) is
+the correct next check, not further residualization.
+
 ### Downgraded claim table
 
 | Claim | Believe it? | Why |

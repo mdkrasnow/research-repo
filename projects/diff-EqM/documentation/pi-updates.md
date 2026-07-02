@@ -635,3 +635,24 @@ replicates, does the paper narrative need to shift from "descent dynamics reveal
 OOD" to "descent dynamics recover an nn_dist-correlated failure signal, actionable via
 restart regardless of mechanism"? (3) should `SELECTOR_LOCKDOWN_RESULTS.md` and the
 workshop draft be held pending this ablation?
+
+## 2026-07-02 — CORRECTION to nn_dist skepticism entry above: over-controlled, not a bug
+
+**User correction (methodological):** the residual-AUROC test above regressed `nn_dist`
+out of the probe score and then scored against a label DEFINED as `1[nn_dist > τ]`. That
+removes the label-generating variable itself — a good predictor is expected to collapse
+under this test near-tautologically. This is NOT a "bug invalidating prior result"; it's
+an over-controlled test that asks an ill-posed question.
+
+**Corrected claim status:**
+- NOT supported: "shape probe / E_ψ reveal semantic OOD independent of distance."
+- STILL STANDING: "early trajectory shape predicts eventual nn_dist-defined failure"
+  (claim #2, restated) and "acting on it improves FID" (claim #3, intervention result,
+  untouched).
+- The 1/10-usable-bin decile collapse reflects the label being too tightly coupled to
+  `nn_dist` for that control to be well-powered — not that the probe lacks information.
+
+**Revised ask:** no longer requesting a decision on invalidating claim #2. Instead:
+should we run the shape probe / E_ψ against a non-`nn_dist` target next (`max_softmax`,
+already cached, zero new compute) to test the distance-independent claim properly? Cross-
+seed/cross-shard replication still separately pending, not yet run.

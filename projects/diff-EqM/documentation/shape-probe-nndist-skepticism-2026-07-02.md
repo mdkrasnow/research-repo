@@ -42,7 +42,40 @@ anywhere to run (same failure mode `dynamics_probe.py`'s `MIN_USABLE_BINS`
 guard was built to catch — it just wasn't applied against `nn_dist`, only
 against the norm-magnitude confound).
 
-## VERDICT: COLLAPSE
+## CORRECTION (user, 2026-07-02): residual test over-controls
+
+Labels are `y = 1[nn_dist > τ]` (thresholded, per `thresholds.json`). Regressing
+`nn_dist` out of `p_bad` and then scoring against a label *defined by* `nn_dist`
+removes the label-generating variable itself — a good predictor is EXPECTED to
+collapse under this test, near-tautologically. This is not evidence the probe
+lacks signal; it's evidence the test asks an over-constrained question ("does
+the probe predict this label using zero information correlated with the
+variable that made the label"). Downgrade the verdict below from "bug
+invalidating prior result" to "mechanistic caveat on interpretation":
+
+- **Not supported:** "shape reveals semantic OOD independent of distance."
+- **Still standing:** "early trajectory shape predicts eventual nn_dist-defined
+  failure" (claim #2, restated correctly) and "acting on it improves FID"
+  (claim #3, an intervention result, untouched by this whole discussion).
+- The 1/10-usable-bin decile result also doesn't show the probe is useless —
+  it shows the label is too tightly coupled to `nn_dist` for that particular
+  control to be well-powered, by construction.
+
+**Corrected framing:** *"The shape probe's current validation target is
+nn_dist-defined failure. Residualizing against nn_dist removes the
+label-defining signal, so collapse is expected and uninformative on its own.
+This does not invalidate the selector or the early-trajectory-predicts-
+eventual-failure result; it only means we cannot yet claim semantic OOD
+independent of distance without a non-nn_dist label."*
+
+**Better next test (not yet run):** evaluate the shape probe against a
+non-`nn_dist` quality target — `max_softmax` (already cached in `labels.csv`,
+zero new compute), classifier confidence, Inception-feature quality bucket,
+or per-sample FID contribution. If shape probe AUROC holds against a target
+that isn't distance-derived, the distance-independent claim is supported
+properly instead of via residualization.
+
+## Original verdict text (superseded by correction above, kept for record)
 
 The residual AUROC (~0.56, stable across 5 seeds) falls to essentially the
 same floor the endpoint `E_ψ` residual hit (0.524). **The shape probe's
