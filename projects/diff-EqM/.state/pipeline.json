@@ -218,6 +218,22 @@
   },
   "completed_runs": [
     {
+      "run_id": "v21_metacog_mine_150ep_shape_seed0_resubmit3",
+      "job_id": "26827268",
+      "partition": "seas_gpu",
+      "status": "completed",
+      "description": "v21 Goal-3 shape-selector arm, 3rd submission, seas_gpu full A100, 14h cap.",
+      "submitted_at": "2026-07-01",
+      "git_sha": "8593f74",
+      "sbatch_path": "projects/diff-EqM/slurm/jobs/variant_pilot.sbatch",
+      "expected_runtime": "~10.5h",
+      "phase": "0",
+      "gate": "v21-shape FID < min(v10=13.40,v20=13.26) - 0.3",
+      "exit_code": "0:0",
+      "duration": "10:44:16",
+      "final_metric": "cifar10_variant_fid[v21_metacog_mine]=13.8680. FAIL gate: worse than v10(13.40), v20(13.26), and v21-magnitude(13.68). Ratio non-saturating throughout (1.26 stable). Triggers 1 allowed retune shape_step=0.1."
+    },
+    {
       "run_id": "sd_smoke_s2_seed0",
       "job_id": "26330335",
       "partition": "gpu_test",
@@ -3219,21 +3235,7 @@
       ]
     }
   ],
-  "active_runs": [
-    {
-      "run_id": "v21_metacog_mine_150ep_shape_seed0_resubmit3",
-      "job_id": "26827268",
-      "partition": "seas_gpu",
-      "status": "pending",
-      "description": "v21 Goal-3 shape-selector arm, 3rd submission, back on seas_gpu (full A100, correct throughput ~252s/epoch) with 14h cap after gpu_test MIG-slice proved too slow",
-      "submitted_at": "2026-07-01",
-      "git_sha": "8593f74",
-      "sbatch_path": "projects/diff-EqM/slurm/jobs/variant_pilot.sbatch",
-      "expected_runtime": "~10.5h",
-      "phase": "0",
-      "gate": "v21-shape FID < min(v10=13.40,v20=13.26) - 0.3"
-    }
-  ],
+  "active_runs": [],
   "phase_0_progress": {
     "tasks_done": [
       "0.A.1 read slate",
@@ -3323,6 +3325,21 @@
       "value": 27.2086,
       "result": "PASS",
       "date": "2026-06-07"
+    },
+    "v21_goal3_cifar": {
+      "rule": "shape FID must beat BOTH v10(13.40) AND v20(13.26) by >=0.3",
+      "arms": {
+        "vanilla": 14.17,
+        "v10": 13.40,
+        "v20": 13.26,
+        "v21_random_negctrl": 14.2912,
+        "v21_magnitude_ablation": 13.6824,
+        "v21_shape_treatment": 13.8680
+      },
+      "job_id": "26827268",
+      "result": "FAIL",
+      "detail": "shape FID (13.868) is WORSE than both v10 and v20, and also worse than v21-magnitude ablation (13.68) despite testing a strictly richer signal (K-step shape vs single-step magnitude). Ratio non-saturating throughout (1.26 stable, epochs 1-150). Triggers the 1 allowed retune per CLAUDE.md gating discipline: shape_step 0.05->0.1 (NOT shape_K, mechanistically invalid per AGENTS.md).",
+      "date": "2026-07-02"
     }
   },
   "notes": [
