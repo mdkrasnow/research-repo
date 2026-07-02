@@ -566,3 +566,36 @@ model, absolute FID much higher) — that's expected and doesn't affect the delt
 **Ask:** with checkpoint + scale generality both confirmed, is this sufficient breadth
 for the paper's generality claim, or do we want a third axis (e.g. L/2, or a non-vanilla
 training recipe) before locking the writeup?
+
+---
+
+## 2026-07-02 — Yilun request: math formulation + energy-OOD proposal (draft, do-not-send-verbatim, review first)
+
+**Trigger:** PI-requested deliverable (methodology writeup) + open research question (blocker
+requiring scope decision on whether to pursue energy-side work vs. lock current selector story).
+
+Wrote up full mathematical formulation of the metacognition selector: EqM target/c(γ) def,
+why pointwise energy reads are degenerate at the manifold (c(γ)→0 forces ‖f‖→0 near
+convergence for good AND bad samples alike — explains why dot/path energy scored 0.605-0.609,
+below the dumb k-NN baseline 0.627), the SHAPE-vs-MAG feature decomposition behind the 0.813
+probe, and the deployed probe@50/best-of-R selector. Full doc:
+`documentation/metacog-math-formulation-2026-07-02.md`.
+
+**Energy-OOD question**: proposed 3 levers, cheapest first —
+(a) re-read existing trajectory shards with a windowed path-integral (early/mid descent only,
+where the shape probe's signal actually lives) instead of full-path or terminal — zero GPU
+cost, no retrain, direct next experiment;
+(b) fold the shape signal into training via an auxiliary loss (low-risk, reuses v10 mining
+infra) or an explicit contrastive energy head (higher-risk, needs a written EqM-compatibility
+argument before code per AGENTS.md gating discipline — flagged fragile, matches paper's
+noted fragile EqM-E mode, currently untested);
+(c) distill the 0.813 shape probe into a single-forward-pass scalar (supervised, bounded by
+known ceiling, cheap).
+
+**Recommendation**: run (a) first (no new compute), only escalate to (c) then (b) if (a)
+doesn't cross 0.80.
+
+**Ask**: does PI want us to pursue making the energy function itself OOD-discriminative
+(new work, opens a lever likely to loop through the AGENTS.md variant-proposal gate for (b)),
+or is the current framing ("selector over descent shape, energy explicitly ruled out as
+uninformative") sufficient for the paper and this stays a documented negative result?
