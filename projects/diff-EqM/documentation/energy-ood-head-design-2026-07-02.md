@@ -91,6 +91,51 @@ mode is representation-limit, not bad negatives (mining pool is 41% true
 garbage, i.e. informative) or lack of endpoint information outright (0.75
 is well above the endpoint-info floor of ~0.55).
 
+## Skepticism check: is E_ψ just a learned nn_dist proxy? (2026-07-02, user-requested)
+
+Labels are derived by thresholding `nn_dist` (`thresholds.json`), so a smooth
+function of `x_final` could trivially recover `nn_dist` itself rather than
+new semantic signal. Checked directly: held-out `E_ψ` scores vs `nn_dist`,
+Pearson + Spearman, and AUROC of the **residual** after regressing `nn_dist`
+out of `E_ψ` (i.e. what's left once the distance-correlated part is removed).
+
+| check | value |
+|---|---|
+| Pearson corr(E_ψ, nn_dist) | 0.431 |
+| Spearman corr(E_ψ, nn_dist) | 0.430 |
+| raw E_ψ AUROC | 0.753 |
+| **residual-after-nn_dist AUROC** | **0.524 ± 0.013** |
+
+**Downgrade, hard.** Correlation alone (0.43) reads as "moderate," but the
+residual AUROC is the decisive number: once the nn_dist-correlated part of
+`E_ψ` is removed, what's left is statistically indistinguishable from the
+dead endpoint baselines (0.505-0.568). Read: **most of the 0.753 raw AUROC
+is explained by `E_ψ` re-deriving `nn_dist`**, not by new signal from the
+endpoint latent beyond what `nn_dist` already encodes.
+
+### Downgraded claim table
+
+| Claim | Believe it? | Why |
+|---|---|---|
+| Script AUROC numbers themselves | Yes | small cached-latent experiment, reproducible |
+| `x_final` contains *some* good/bad signal | Yes | above dead-baseline floor, but see below |
+| `E_ψ` recovers signal beyond `nn_dist` | **No** | residual AUROC 0.524 ≈ baseline floor |
+| `E_ψ` can replace the SHAPE probe | No | 0.753 raw (or 0.524 residual) vs 0.815 ceiling |
+| This "fixes" the EqM energy function | No | post-hoc head on frozen latents, not the trained energy |
+| This proves semantic OOD detection | No | labels are nn_dist-derived; mostly measuring a distance proxy |
+
+**Correct framing going forward:** *"a post-hoc endpoint head mostly re-learns
+the nearest-neighbor-distance signal already baked into the labels; it does
+not demonstrate new distance-independent endpoint information."* Do not cite
+0.753 without the residual caveat in any PI-facing material.
+
+**Required before promoting past PARTIAL / before any PI update:** cross-seed
+or cross-shard held-out test (train on one generation seed/shard, evaluate on
+another) — flagged, not run yet. Also worth: re-run this same residual check
+against labels from a non-`nn_dist` source (e.g. classifier max_softmax) if
+one becomes available, to see whether the distance-independent AUROC differs
+under a different labeling scheme.
+
 ## Recommendation
 Do not chase a pure-endpoint `E_ψ` further as an energy story. The result
 says the manifold-relative signal in `x_final` alone recovers ~60% of the

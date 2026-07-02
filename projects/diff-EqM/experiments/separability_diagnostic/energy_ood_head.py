@@ -143,7 +143,46 @@ def eval_energy_head(model, mu, sd, x_final_held, y_held):
     with torch.no_grad():
         x = (torch.tensor(x_final_held, dtype=torch.float32) - mu) / sd
         e = model(x).numpy()
-    return auc(y_held, e)
+    return auc(y_held, e), e
+
+
+def _rankdata(a):
+    order = np.argsort(a, kind="mergesort")
+    ranks = np.empty(len(a), dtype=np.float64)
+    ranks[order] = np.arange(1, len(a) + 1)
+    s = a[order]; i = 0
+    while i < len(s):
+        j = i
+        while j + 1 < len(s) and s[j + 1] == s[i]:
+            j += 1
+        if j > i:
+            ranks[order[i:j + 1]] = (i + 1 + j + 1) / 2.0
+        i = j + 1
+    return ranks
+
+
+def pearson(a, b):
+    a = a - a.mean(); b = b - b.mean()
+    return float((a @ b) / (np.sqrt((a @ a) * (b @ b)) + 1e-12))
+
+
+def spearman(a, b):
+    return pearson(_rankdata(a), _rankdata(b))
+
+
+def nn_dist_check(e_held, nnd_held, y_held):
+    """Held-out E_psi vs nn_dist: correlation + AUROC of the residual after
+    regressing nn_dist out of E_psi (i.e. what E_psi adds beyond nn_dist)."""
+    m = np.isfinite(e_held) & np.isfinite(nnd_held)
+    e, nnd, y = e_held[m], nnd_held[m], y_held[m]
+    pr = pearson(e, nnd)
+    sr = spearman(e, nnd)
+    # residualize: E_psi - (a*nn_dist + b), via simple OLS
+    A = np.stack([nnd, np.ones_like(nnd)], 1)
+    coef, *_ = np.linalg.lstsq(A, e, rcond=None)
+    resid = e - A @ coef
+    resid_auroc = auc(y, resid)
+    return pr, sr, resid_auroc
 
 
 # --------------------------------------------------------------------------- #
@@ -174,13 +213,18 @@ def main(args):
     neg_tr = np.setdiff1d(np.where(hard_neg_mask)[0], te_idx)
 
     seeds = list(range(args.n_model_seeds))
-    aurocs = []
+    aurocs, pearsons, spearmans, resid_aurocs = [], [], [], []
+    nnd_te = d["nn_dist"][te_idx]; y_te = d["y"][te_idx]
     for s in seeds:
         model, mu, sd = train_energy_head(x_final_flat[pos_tr], x_final_flat[neg_tr],
                                            seed=s, epochs=args.epochs, margin=args.margin, lr=args.lr)
-        a = eval_energy_head(model, mu, sd, x_final_flat[te_idx], d["y"][te_idx])
+        a, e_held = eval_energy_head(model, mu, sd, x_final_flat[te_idx], y_te)
         aurocs.append(a)
+        pr, sr, ra = nn_dist_check(e_held, nnd_te, y_te)
+        pearsons.append(pr); spearmans.append(sr); resid_aurocs.append(ra)
     e_psi_mean, e_psi_std = float(np.mean(aurocs)), float(np.std(aurocs))
+    nnd_pearson = float(np.mean(pearsons)); nnd_spearman = float(np.mean(spearmans))
+    resid_auroc_mean = float(np.mean(resid_aurocs)); resid_auroc_std = float(np.std(resid_aurocs))
 
     # sanity: overlap between mined hard negatives and true garbage labels
     mined_garbage_frac = float(d["y"][np.where(hard_neg_mask)[0]] .__eq__(1).mean()) if hard_neg_mask.sum() else float("nan")
@@ -213,14 +257,34 @@ def main(args):
     for name, v in rows:
         lines.append(f"| {name} | {v:.4f} |")
 
+    lines += ["",
+              "## E_psi vs nn_dist (held-out test split only, is E_psi just a distance proxy?)",
+              f"- Pearson corr(E_psi, nn_dist): {nnd_pearson:.3f}",
+              f"- Spearman corr(E_psi, nn_dist): {nnd_spearman:.3f}",
+              f"- AUROC of E_psi residual after regressing out nn_dist: "
+              f"{resid_auroc_mean:.4f} +/- {resid_auroc_std:.4f} "
+              f"(vs raw E_psi AUROC {e_psi_mean:.4f})"]
+
     old_best = max(baselines.values())
+    if abs(nnd_pearson) > 0.7 or abs(nnd_spearman) > 0.7:
+        corr_note = (f"corr > 0.7 (Pearson {nnd_pearson:.3f}, Spearman {nnd_spearman:.3f}) -- "
+                     "DOWNGRADE: E_psi is substantially a learned nn_dist proxy, not new signal.")
+    elif abs(nnd_pearson) > 0.4 or abs(nnd_spearman) > 0.4:
+        corr_note = (f"moderate corr (Pearson {nnd_pearson:.3f}, Spearman {nnd_spearman:.3f}) -- "
+                     "E_psi recovers a mix of distance-correlated and distance-independent signal.")
+    else:
+        corr_note = (f"low corr (Pearson {nnd_pearson:.3f}, Spearman {nnd_spearman:.3f}) with AUROC "
+                     f"still {e_psi_mean:.3f} -- more interesting: E_psi is not just re-deriving nn_dist.")
+
     if e_psi_mean >= shape_ref - 0.03:
         verdict = f"GREEN: E_psi ({e_psi_mean:.3f}) approaches the SHAPE probe ceiling ({shape_ref:.3f})."
     elif e_psi_mean > old_best + 0.05:
         verdict = (f"PARTIAL: E_psi ({e_psi_mean:.3f}) beats old energy baselines "
                    f"(best {old_best:.3f}) but well short of SHAPE probe ({shape_ref:.3f}). "
                    "Some endpoint-only signal recoverable via hard-negative mining, "
-                   "but most of the metacog signal is still in trajectory shape.")
+                   "but most of the metacog signal is still in trajectory shape. "
+                   f"nn_dist check: {corr_note} Residual-after-nn_dist AUROC "
+                   f"{resid_auroc_mean:.3f} is the honest estimate of signal beyond distance.")
     else:
         verdict = (f"NEGATIVE: E_psi ({e_psi_mean:.3f}) does not clear old energy baselines "
                    f"(best {old_best:.3f}). Confirms the signal is not a static function of "
