@@ -6,6 +6,7 @@ import torch.distributed as dist
 import enum
 
 from . import path
+from . import corruption
 from .utils import EasyDict, log_state, mean_flat
 from .integrators import ode, sde
 
@@ -47,6 +48,12 @@ class Transport:
         loss_type,
         train_eps,
         sample_eps,
+        corruption_mode="gaussian",
+        mask_prob=0.5,
+        fourier_cutoff=0.25,
+        gaussian_weight=1.0,
+        mask_weight=0.0,
+        fourier_weight=0.0,
     ):
         path_options = {
             PathType.LINEAR: path.ICPlan,
@@ -59,6 +66,12 @@ class Transport:
         self.path_sampler = path_options[path_type]()
         self.train_eps = train_eps
         self.sample_eps = sample_eps
+        self.corruption_mode = corruption_mode
+        self.mask_prob = mask_prob
+        self.fourier_cutoff = fourier_cutoff
+        self.gaussian_weight = gaussian_weight
+        self.mask_weight = mask_weight
+        self.fourier_weight = fourier_weight
 
     def prior_logp(self, z):
         '''
@@ -106,8 +119,20 @@ class Transport:
           Args:
             x1 - data point; [batch, *dim]
         """
-        
-        x0 = th.randn_like(x1)
+
+        if self.corruption_mode == "gaussian":
+            x0 = th.randn_like(x1)
+        elif self.corruption_mode == "mask":
+            x0 = corruption.mask_corrupt(x1, self.mask_prob)
+        elif self.corruption_mode == "fourier":
+            x0 = corruption.fourier_corrupt(x1, self.fourier_cutoff)
+        elif self.corruption_mode == "mixture":
+            x0 = corruption.mixture_sample(
+                x1, self.gaussian_weight, self.mask_weight, self.fourier_weight,
+                self.mask_prob, self.fourier_cutoff,
+            )
+        else:
+            raise NotImplementedError(self.corruption_mode)
         t0, t1 = self.check_interval(self.train_eps, self.sample_eps)
         t = th.rand((x1.shape[0],)) * (t1 - t0) + t0
         t = t.to(x1)

@@ -191,8 +191,14 @@ def main(args):
         args.prediction,
         args.loss_weight,
         args.train_eps,
-        args.sample_eps
-    )  # default: velocity; 
+        args.sample_eps,
+        corruption_mode=args.corruption_mode,
+        mask_prob=args.mask_prob,
+        fourier_cutoff=args.fourier_cutoff,
+        gaussian_weight=args.gaussian_weight,
+        mask_weight=args.mask_weight,
+        fourier_weight=args.fourier_weight,
+    )  # default: velocity;
     transport_sampler = Sampler(transport)
     vae = AutoencoderKL.from_pretrained(f"stabilityai/sd-vae-ft-{args.vae}").to(device)
     logger.info(f"EqM Parameters: {sum(p.numel() for p in model.parameters()):,}")

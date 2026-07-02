@@ -6,6 +6,12 @@ def create_transport(
     loss_weight=None,
     train_eps=None,
     sample_eps=None,
+    corruption_mode="gaussian",
+    mask_prob=0.5,
+    fourier_cutoff=0.25,
+    gaussian_weight=1.0,
+    mask_weight=0.0,
+    fourier_weight=0.0,
 ):
     """function for creating Transport object
     **Note**: model prediction defaults to velocity
@@ -17,6 +23,10 @@ def create_transport(
     - likelihood_weighted: weight loss by likelihood weight
     - train_eps: small epsilon for avoiding instability during training
     - sample_eps: small epsilon for avoiding instability during sampling
+    - corruption_mode: x0 start-state family; gaussian (baseline), mask, fourier, or mixture
+    - mask_prob: fraction of latent elements replaced by noise under mask corruption
+    - fourier_cutoff: fraction of radial frequency band kept under Fourier corruption
+    - gaussian_weight/mask_weight/fourier_weight: mixture weights, only used when corruption_mode=mixture
     """
 
     if prediction == "noise":
@@ -58,6 +68,12 @@ def create_transport(
         loss_type=loss_type,
         train_eps=train_eps,
         sample_eps=sample_eps,
+        corruption_mode=corruption_mode,
+        mask_prob=mask_prob,
+        fourier_cutoff=fourier_cutoff,
+        gaussian_weight=gaussian_weight,
+        mask_weight=mask_weight,
+        fourier_weight=fourier_weight,
     )
     
     return state
