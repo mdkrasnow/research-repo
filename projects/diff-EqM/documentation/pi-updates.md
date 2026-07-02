@@ -599,3 +599,39 @@ doesn't cross 0.80.
 (new work, opens a lever likely to loop through the AGENTS.md variant-proposal gate for (b)),
 or is the current framing ("selector over descent shape, energy explicitly ruled out as
 uninformative") sufficient for the paper and this stays a documented negative result?
+
+## 2026-07-02 — nn_dist skepticism control COLLAPSES shape-probe headline claim (bug-invalidating trigger)
+
+**Trigger:** bug invalidating prior reported result (AGENTS.md PI-update trigger).
+
+Following Yilun's energy-OOD question, ran a skepticism control on the post-hoc endpoint
+energy head (`E_ψ`, `energy-ood-head-design-2026-07-02.md`): raw 0.753 AUROC collapsed to
+0.524 (baseline floor) once regressed against `nn_dist` — the same distance metric used to
+construct the good/garbage labels. `E_ψ` was mostly re-deriving `nn_dist`, not finding new
+endpoint signal.
+
+Applied the SAME control to the **main claimed result**, the descent-SHAPE probe (reported
+0.81-0.82 AUROC, "de-confounded from grad-norm", `SYNTHESIS_METACOGNITION.md` claim #2):
+raw AUROC 0.80-0.83 (5 seeds), but **residual AUROC after regressing out nn_dist collapses
+to 0.556-0.570 (mean 0.562)** — same failure mode as the energy head. Pearson/Spearman
+corr(p_bad, nn_dist) ≈ 0.54-0.55. Within-nn_dist-decile control has only 1/10 usable bins
+(nn_dist near-fully determines the label in 9/10 deciles) — same confound-collapse pattern
+`dynamics_probe.py`'s `MIN_USABLE_BINS` guard exists for, just never checked against
+`nn_dist`, only against norm magnitude. Full writeup + numbers:
+`documentation/shape-probe-nndist-skepticism-2026-07-02.md`.
+
+**What's affected:** claim #2 in `SYNTHESIS_METACOGNITION.md` ("descent dynamics predict
+failure, de-confounded from grad-norm") was never de-confounded against `nn_dist`. Until
+shown otherwise, the honest claim is "trajectory shape predicts nn_dist-defined failure —
+largely explained by correlation with nn_dist itself," not "trajectory dynamics reveal
+distance-independent semantic OOD/quality." Claim #3 (restart improves FID, an action-based
+result) is not directly invalidated — the intervention still works — but the *mechanistic*
+story ("it's dynamics, not distance/magnitude") needs re-examination, since it was never
+tested against this specific confound.
+
+**Ask:** (1) does PI want a cross-seed/cross-shard held-out replication of this residual
+check before treating it as settled (not yet run, per explicit instruction)? (2) if it
+replicates, does the paper narrative need to shift from "descent dynamics reveal semantic
+OOD" to "descent dynamics recover an nn_dist-correlated failure signal, actionable via
+restart regardless of mechanism"? (3) should `SELECTOR_LOCKDOWN_RESULTS.md` and the
+workshop draft be held pending this ablation?
