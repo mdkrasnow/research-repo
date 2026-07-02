@@ -656,3 +656,33 @@ an over-controlled test that asks an ill-posed question.
 should we run the shape probe / E_ψ against a non-`nn_dist` target next (`max_softmax`,
 already cached, zero new compute) to test the distance-independent claim properly? Cross-
 seed/cross-shard replication still separately pending, not yet run.
+
+## 2026-07-02 — non-nn_dist target check: WEAK SUPPORT for distance-independent signal (~0.66, not 0.81)
+
+**Trigger:** result at paper-comparable analysis stage; resolves the open question from the
+two prior entries above.
+
+Ran shape probe / E_psi against `max_softmax` (cached, zero new compute) instead of the
+nn_dist-thresholded label -- a genuinely distinct quality axis (Pearson(nn_dist,
+max_softmax) = -0.427, not a relabeling). Results (`runs/b2_vanilla`, seed 0):
+- SHAPE probe fresh-fit on max_softmax label: 0.661 held-out AUROC
+- OLD nn_dist-trained shape probe, transferred (no retrain) to max_softmax label: 0.659
+- E_psi fresh-fit on max_softmax label: 0.615 ± 0.009 (5 seeds)
+
+Full writeup: `documentation/nonnndist-target-check-2026-07-02.md`.
+
+**Verdict: WEAK SUPPORT, real but smaller than headline.** Trajectory shape does carry
+distance-independent quality signal (~0.66, clears chance and clears the dead
+endpoint-energy floor 0.50-0.57) -- and the ORIGINAL nn_dist-trained probe transfers to
+this new axis almost losslessly (0.659 vs 0.661 fresh-fit) without retraining. But the
+honest distance-independent number is ~0.66, not the 0.81-0.82 headline -- roughly half
+the headline's distance-above-chance is nn_dist-specific, not distance-independent.
+
+**Recommended framing going forward:** cite ~0.66 (not 0.81-0.82) for any distance-
+independent / semantic-OOD claim. The 0.81-0.82 number remains valid for the
+nn_dist-defined-failure framing and for the restart-improves-FID intervention claim,
+which is unaffected by any of this decomposition.
+
+**Ask:** does this resolve the mechanism question enough to proceed to cross-seed/
+cross-shard replication of the 0.66 number, or is a probe-fit-jointly-on-both-targets
+check (proposed in the doc) wanted first?
