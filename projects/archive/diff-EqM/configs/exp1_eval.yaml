@@ -1,0 +1,40 @@
+# Experiment 1 -- NFE / sampler robustness pre-registered config.
+# Vanilla EqM vs ANM EqM (v10) under a sampler sweep. EVALUATION ONLY.
+# Sampler defaults are the trusted IN-1K EqM-B/2 eval settings (pipeline.json
+# baseline note + slurm/jobs/imagenet1k_fid_eval.sbatch). DO NOT retune
+# base_step_size per checkpoint in the primary run.
+
+model: EqM-B/2
+image_size: 256
+num_classes: 1000
+
+checkpoints:
+  vanilla: projects/diff-EqM/results/stage_b_vanilla_in1k_80ep_seed0/000-EqM-B-2-Linear-velocity-None-vanilla/checkpoints/0380000.pt   # FID 31.41 trusted
+  anm:     projects/diff-EqM/results/imagenet1k_80ep_v10_seed0/000-EqM-B-2-Linear-velocity-None-dganm/checkpoints/final.pt              # v10 lambda=0.1, FID 29.01
+  # anm_lambda03: <resolve path>  # v10 lambda=0.3, FID 27.09 -- locate before primary run
+
+sampler_defaults:
+  base_step_size: 0.003     # eta for EqM-B/2 IN-1K gd eval
+  nag_mu: 0.3               # NAG-GD momentum (paper XL/2; sample_gd default)
+  cfg_scale: 1.0            # cfg<=1 -> single forward per step -> nfe_raw == nfe_field
+  vae: ema
+  ema: true
+
+grid:
+  samplers: [gd, ngd]
+  nfe: [10, 25, 50, 100, 250]      # --num-sampling-steps; loop runs nfe-1 evals -> nfe_field = nfe-1
+  step_mult: [0.5, 1.0, 1.5, 2.0]  # multiplies BOTH the GD step and (via t+=stepsize) the time schedule
+
+evaluation:
+  num_samples: 50000
+  ref_samples: 50000
+  sample_batch_size: 64
+  global_seed: 123
+  imagenet_ref: /n/holylabs/ydu_lab/Lab/raywang4/imagenet/train
+  kid_subsets: 100
+  kid_subset_size: 1000
+
+# Known caveats (see plan §8): (1) step_mult couples into the t/gamma schedule
+# -- label the axis "step+time mult", not pure step size. (2) nfe_field = nfe-1
+# (upstream loop length, kept for baseline reproducibility). (3) reference set is
+# frozen + deterministically ordered (no shuf) and reused by all 80 cells.

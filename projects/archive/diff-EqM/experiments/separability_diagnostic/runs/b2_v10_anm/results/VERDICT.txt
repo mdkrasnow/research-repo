@@ -1,0 +1,20 @@
+EqM SEPARABILITY DIAGNOSTIC -- VERDICT
+==================================================
+samples: good=205 garbage=154
+label sanity (s4 latent-NN raw AUROC, should be >~0.6): 0.583
+  !! s4 weak -> LABEL PIPELINE SUSPECT; treat all below with caution.
+
+de-confounded (within-norm-bin) AUROC, fixed regime:
+  s1: raw=0.511  within-norm=0.592   dot energy  -<f,x>  (de-confoundable)
+  s2: raw=0.520  within-norm=0.540   l2 energy  0.5||f||^2  (norm-coupled)
+  s3: raw=0.538  within-norm=0.553   path integral  sum<f,dx>  (de-confoundable)
+  s4: raw=0.583  within-norm=0.621   latent NN dist  (no f; label sanity)
+  s5: raw=0.520  within-norm=0.540   post-step residual ||f||  (norm-coupled)
+  s6: raw=0.542  within-norm=0.561   traj mean norm  (dynamics; norm-coupled)
+  s7: raw=0.551  within-norm=0.540   log-norm decay slope  (dynamics; de-confoundable)
+  s8: raw=0.614  within-norm=0.622   norm oscillation  (dynamics; de-confoundable)
+  s9: raw=0.510  within-norm=0.539   late-stage slope  (dynamics; de-confoundable)
+
+best_independent_auroc = 0.622  (score s8)
+
+VERDICT: WEAK: separation exists but below the 0.80 action threshold (best 0.622). Quantified target: lift s8 >= 0.80. This is how much a 'more reliable scalar' must improve before the metacognition sampler is worth building.

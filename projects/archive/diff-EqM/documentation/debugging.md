@@ -1,0 +1,276 @@
+# Debugging — DG-ANM for EqM
+
+## Active Issues
+
+### R2 v03/v06 OOM on gpu_test 20G card (RESOLVED 2026-04-27)
+- **Symptom**: jobs 8898137 (v03) and 8898147 (v06) FAILED at 2-3 min wall-time on `gpu_test` partition. `torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 128.00 MiB. GPU 0 has a total capacity of 19.62 GiB of which 32.88 MiB is free`.
+- **Root cause**: mining variants need 3-4x the activation memory of vanilla (PGA does multiple forward+backward per step). bs=128 fits in 40G A100 but not in the 20G test card. v00_vanilla ran fine on `gpu` (40G) at the same bs because it has no mining.
+- **Fix**: resubmit mining variants only to `gpu` partition. v02 (8898150) and v04 (8898152) already there and unaffected.
+- **Resubmits**: v03→8941251, v06→8941252 on `gpu`.
+- **Future rule**: never submit mining variants (v01-v04, v06) to `gpu_test`. Add to variant_pilot.sbatch header comment, or split sbatches per-partition. Non-mining variants (v00, v05) can still use gpu_test for queue speed.
+
+
+
+### CIFAR-10 vanilla FID 497 vs paper's 3.36 (ROOT CAUSE IDENTIFIED, 2026-04-18)
+- **Symptom**: vanilla EqM CIFAR 80ep → FID 497.55 (job 3053350); DG-ANM → FID 497.04 (job 3104472). Both stuck at pathological floor, no method separation.
+- **Root cause**: wrong architecture. Paper Appendix B.1 uses U-Net on CIFAR from the Flow Matching (Lipman et al., 2024) codebase. We used EqM-S/2 transformer (patch=4) because our vendored `eqm-upstream/` only contains the SiT-style transformers from the ImageNet branch — no U-Net.
+- **Full audit + fix plan**: `documentation/stage-a5-audit.md`
+- **Action**: do not run any more CIFAR experiments on the current stack. Decide fix path (port FM UNet / DDPM UNet smoke / defer CIFAR) before more compute.
+- **Good news**: Stage B (ImageNet-256) is NOT affected — our upstream's transformer models are what the paper used on ImageNet. Stage B can proceed in parallel with the CIFAR fix.
+
+## Resolved
+(none yet)
+
+---
+## Common Failure Modes (Preemptive Checklist)
+- [ ] Import errors (timm, diffusers not installed on cluster)
+- [ ] OOM with geometry estimation (P_T/P_N are BxDxD — may need batching for large D)
+- [ ] Mining gradient explosion (adversarial search can produce NaN)
+- [ ] EqM field returns NaN at large perturbations
+- [ ] Checkpoint path mismatch between train and eval configs
+- [ ] CIFAR-10 download fails on cluster (use pre-cached data_dir)
+
+---
+
+## v02 IN-1K 80ep cancellations (2026-05-05 + 2026-05-06) — POSTMORTEM PENDING
+
+**Jobs**: 10198798 (elapsed 04:54, cancelled 2026-05-05), 10387316 (elapsed 09:57, cancelled 2026-05-06).
+**Status as of 2026-05-19**: SSH to cluster returning "Permission denied (keyboard-interactive)" — cannot fetch sacct details or logs.
+**Required**: re-authenticate `scripts/cluster/ssh.sh` (likely needs MFA or session refresh). Then:
+```bash
+bash scripts/cluster/ssh.sh "sacct -j 10198798,10387316 --format=JobID,JobName,State,ExitCode,ReqMem,MaxRSS,Elapsed,DerivedExitCode,Reason -P"
+bash scripts/cluster/remote_fetch.sh diff-EqM
+ls projects/diff-EqM/slurm/logs/stageb-v02-in1k-80ep_*.{out,err}
+```
+**Implication for Phase 1a**: blocking only if cancellation cause was OOM (would constrain CAFM-EqM port memory budget). Given CAFM uses 80G A100s and our vanilla baseline trained fine on `seas_gpu`, working assumption is OOM was NOT the cause and Phase 1a can proceed on `seas_gpu`. Update postmortem when SSH restored.
+
+---
+
+## POSTMORTEM UPDATE (2026-05-19): v02 IN-1K cancellations RESOLVED
+
+Replaces the "POSTMORTEM PENDING" entry below.
+
+**Root cause**: **mechanism saturation, USER-CANCELLED** (not OOM, not timeout, not crash).
+
+**Evidence from logs** (`slurm/logs/stageb-v02-in1k-80ep_{10198798,10387316}.out`):
+- Diagnostics across epochs 9-11: `v02(pos=0.005, neg=0.999, |v_neg|=220)` — completely flat.
+- **`neg=0.999`** = PGA-found cosine similarity ≈ 1.0 (max anti-alignment achieved); objective saturated.
+- **`pos=0.005`** = clean cosine ≈ 0; model perfectly aligns with target.
+- **`|v_neg|=220`** constant — EqM-B/2 output magnitude huge; confirms v10-proposal-line-14: "v02 cosine saturated on EqM-B/2 because |v|≈220 >> |J·δ|, cos≈1 for any small δ, PGA gradient vanishes."
+- `Aux: 0.20` constant. v02 auxiliary loss doing NOTHING by epoch 9.
+
+**SACCT confirms**:
+- ExitCode 0:0 (clean), CANCELLED by user UID.
+- MaxRSS 19-20 GB / 256 GB ReqMem → no OOM.
+- Throughput: 3.25 sps fast / 1.62 sps slow. 80ep ETA: 27h fast, 54h slow. Attempt 2 would have exceeded 48h walltime.
+
+**Implications**:
+1. CAFM-EqM throughput: with N=16 disc/gen, expect ~24-36h for 10ep post-training. Set sbatch time=48h.
+2. OOM not a concern for CAFM port (same memory profile).
+3. v10's **L2-regression objective avoids v02's saturation**: regression has unbounded gradient even at perfect alignment.
+4. Confirms Branch B framing: v02 saturation is mechanism-level; v10 + CAFM mechanistically immune.
+
+**No remediation needed**. v02 path dead. v10 + CAFM is correct continuation.
+
+---
+
+## 2026-05-23: CAFM-EqM Phase 1b CATASTROPHIC FID 341.25
+
+Full postmortem: `postmortem-cafm-eqm-2026-05-23.md`.
+
+**Headline**: CAFM port to EqM, after clean training (gen loss 4.0→1.7, dis loss 0.9-2.1 oscillating), produced 50K-sample FID 341.25 vs vanilla 31.41 (10× worse). Ckpt_5000 diagnostic FID 369.64 confirmed instant (not cumulative) collapse.
+
+**Root cause**: Vanilla EqM was trained by pure regression; freshly-initialized discriminator trivially discriminates "vanilla-EqM output ≠ training-data velocity" and pushes generator off the EqM target manifold. `c(γ)→0` near data manifold amplifies asymmetry — any adversarial gradient at high γ preferred over vanishing regression target.
+
+**Process failures**:
+1. Smoke validated loss-finiteness + exit 0, NOT sample quality.
+2. Misread one-sided monotonic dis-loss decrease as healthy convergence.
+3. Design doc reasoned about JVP geometry, not about discriminator-shortcut against non-adversarially-trained generators.
+
+**Fixes landed in CLAUDE.md**:
+- Mandatory smoke-time sample-quality probe for new losses on gen models.
+- Discriminator-loss oscillation check (one-sided decrease = STOP).
+- Branch B-Both retired; v10-only pivot confirmed.
+
+---
+
+## 2026-05-24/25: Home-quota deadlock killed v10 train 15290932
+
+**Headline**: Main job 15290932 wedged at step 74,200 of 380K. Symptom: SLURM .out write blocked → Python stdout buffer filled → training process froze (no exit, no crash, no error).
+
+**Root cause**: Home quota 100GB hard limit hit. ckpt-every=5000 + 30min rsync sync from /tmp persisted ~70 ckpts × 2GB = 140GB total over ~13h. Combined with prior CAFM dirs (66GB) + ref-stats files (114MB) = >100GB triggered quota wall. Process froze on first write attempt that exceeded quota.
+
+**Recovery**: cancelled 15290932; deleted ~66GB of CAFM dead-tree dirs (with user approval); resumed v10 from ckpt_65000.pt as 15638767. Completed clean in 1d11h32m.
+
+**Mitigation deployed**: `slurm/jobs/prune_v10_ckpts.sbatch` — periodic shared-partition pruner watching MAIN_JOB_ID, keeps anchors {5000, 65000} + latest 2, prunes every 10min, exits on main-job completion. Used during 15638767 successfully (peak quota 50G/95G, never wedged).
+
+**Outstanding bug**: main job's sync_checkpoints rsync re-uploads ckpts from /tmp source every 30min, resurrecting pruner-deleted files. Requires 1-2 manual prunes per train. Fix: patch sync_checkpoints to thin /tmp side BEFORE rsync. Deferred to next sbatch revision (applies only to future runs, not in-flight).
+
+---
+
+## 2026-05-27: FID eval failed on .JPEG case-sensitivity (16327377)
+
+**Headline**: Phase 1 gate FID resubmission 16327377 (gpu_requeue) failed at 2m27s. Error: "Flat reference: 0 images" → "ERROR: No reference images found in /n/holylabs/.../imagenet/train".
+
+**Root cause**: `imagenet_fid.sbatch` line 91 used `find -name "*.jpg" -o -name "*.jpeg" -o -name "*.png"` (case-sensitive). IN-1K data uses `.JPEG` (uppercase). Find matched 0 files → 0 symlinks → 0 ref → exit.
+
+**Why missed earlier**: `imagenet_fid.sbatch` was generic (IN-100 was lowercase .jpg). Trusted IN-1K baseline FID 31.41 (12590806) used a different sbatch: `imagenet1k_fid_eval.sbatch` which has both `.JPEG` and `.jpg` patterns + 50K shuf subsample (handles 1.3M file count). Pre-staged helper `submit_v10_phase1_fid.sh` pointed to the wrong sbatch.
+
+**Fix**: commit `fef80d7` — switched helper to `imagenet1k_fid_eval.sbatch`. Resubmitted as 16328965 → COMPLETED FID 29.01 in 2h20m.
+
+**Lesson**: Pre-staged helpers must match the trusted-baseline path verbatim. Audit any sbatch interaction with NFS-mounted datasets for case-sensitivity + extension assumptions.
+
+---
+
+## 2026-05-27/28: gpu_requeue MIG roulette + preempt
+
+Two events on gpu_requeue:
+
+**Event 1 — 16371645 K=3 B/2 smoke FAILED 5min**: Node `holygpu7c0705` was MIG-sliced. NCCL `Duplicate GPU detected: rank 1 and rank 0 both on CUDA device 6000`. Same class as gpu_test MIG bug. Resubmit to seas_gpu as 16374706 → PASS (timeout but loss curve healthy).
+
+**Event 2 — 16376978 vanilla L/2 PREEMPTED 3min**: Got non-MIG node (DDP init OK) but preempted before 5K-step ckpt. No state saved → had to start from scratch. Resubmit to seas_gpu as 16406011 → RUNNING successfully.
+
+**Decision**: gpu_requeue is too unreliable for long multi-GPU DDP trains. Use only for: (a) single-GPU jobs (eval, FID); (b) jobs that tolerate restart from scratch within minutes; (c) when seas_gpu/gpu queues catastrophic.
+
+CLAUDE.md "gpu_requeue MIG roulette" + "Auto-pruner standing infrastructure" sections added.
+
+---
+
+## 2026-05-28: Smoke ckpt accumulation + rsync temp file leak (quota hit 95G)
+
+**Headline**: Quota hit 95G/100G with 6 jobs running. Investigation found 21G in dead XL/2 smoke dir = all hidden rsync temp files `.0015000.pt.yJJYZ6` etc, not actual `*.pt` ckpts.
+
+**Root cause**: When SLURM signals smoke jobs at wall-time (TIMEOUT), in-flight rsync from /tmp to home leaves partial-transfer temp files. Pruner glob `*.pt` doesn't match hidden temp pattern. Smoke dir keeps growing across multiple aborted rsync calls.
+
+**Triple fix**:
+1. Manual mass-prune: `find $RESULTS -name '.*.pt.*' -delete` (freed 27G immediately).
+2. Pruner patched (commit `a75fd5e`) to include same find-delete every 5min cycle.
+3. CLAUDE.md "Rsync temp-file failure mode" section added for durable cluster discipline.
+
+**Other contributor**: 4 smokes ran with `--ckpt-every 5000` (default in scaling sbatch) → each saved 3-15 ckpts × 1-7GB = up to 21G per smoke. Smokes have no use for ckpts. Pruner's smoke-dir loop deletes all `*.pt` in smoke dirs (and now temps too).
+
+## Exp1 sampler-robustness: torchrun master-port collision (2026-06-01)
+- **Symptom**: intermittent cell failures in the full sweep (job 17828606), ~3% (1/33 early). job.log: `RuntimeError: ... EADDRINUSE ... port: 29629` from torch.distributed.elastic static_tcp_rendezvous. Failed cell recorded with `generate_rc=1`, fid empty, n=0; driver continues (no crash).
+- **Root cause**: `generate()` set `master_port = 29500 + hash((sampler,nfe,sm))%1000`. Across 80 sequential torchrun launches, ports collide (birthday) and/or reuse a port still in TIME_WAIT from the previous cell.
+- **Fix (commit 8aa5308)**: OS-assigned free port via `socket.bind(("",0))` + 3x retry with a fresh port on nonzero rc. Applies to future runs (50k resume / reruns). The in-flight 17828606 keeps old code -> expect ~2-4 holes/80; analysis dropna's them, result still interpretable.
+
+## Exp1: exec>tee NFS logging causes SIGPIPE job death (2026-06-01)
+- **Symptom**: full sweep job 17828606 died at 58/80 cells (12h56m), sacct State=FAILED ExitCode 0:13 (signal 13 = SIGPIPE), MaxRSS 7G/64G (NOT OOM), elapsed < wall (NOT timeout). anm_ngd block never ran.
+- **Root cause**: sbatch used `exec > >(tee -a "$SYNC/job.log") 2>&1` for failsafe NFS logging. The `tee` process substitution can die on a transient NFS write hiccup; the next write from the script then hits a broken pipe -> SIGPIPE -> whole job killed. The failsafe BECAME the fragility. The per-call `python ... | tee exp1.log` had the same risk.
+- **Fix (commit c88ffbe)**: replace with a plain redirect `exec >> "$SYNC/job.log" 2>&1` (no pipe -> cannot SIGPIPE) and drop the `| tee` (wrap `python` in `set +e; ...; RC=$?; set -e` so sync still runs on nonzero rc). LESSON: never pipe a long-lived job's stdout through `tee` to NFS; redirect to a file directly.
+
+## Exp1 operational gotchas (2026-06-01)
+- **remote_submit.sh needs an ABSOLUTE sbatch path AND case must match the helper's `pwd`** (macOS case-insensitive FS: pass `/Users/mkrasnow/desktop/...` lowercase 'desktop' to match `scripts/cluster` resolution, else relpath produces a broken `../../../../Desktop/...` and sbatch can't open the file).
+- **slurm/logs/*.out is rsync --delete'd by any concurrent remote_submit** -> job stdout there can vanish mid-run. Durable logs MUST go under results/ (not synced). This is why exp1 logs to results/.../job.log.
+- **Resume + fixed-latents batch coupling**: the deterministic init-latents bank is padded to a multiple of SAMPLE_BATCH (ceil(N/bs)*bs). A resume/merge run MUST reuse the SAME SAMPLE_BATCH (and GLOBAL_SEED, NUM_SAMPLES, imagenet_ref) as the original, or new cells get a DIFFERENT latent bank and break the paired vanilla-vs-anm comparison. exp1_merge.sbatch pins batch=64 to match 17828606.
+
+## 2026-06-02 exp4 vanilla-resume 17982683 FAILED (node glitch)
+- Symptom: State FAILED exit 0:53, elapsed 1s, node holygpu8a22501. batch step CANCELLED, extern step COMPLETED, stdout+stderr EMPTY.
+- Diagnosis: launch/node glitch (allocation succeeded -> extern OK; batch killed instantly before any echo). Not a code/sbatch bug — harness passed exp4_smoke 17788555.
+- Action: resubmitted unchanged as 18607103 (SHA 1b915a9). remote_submit rsync failed (2FA on fresh ssh); submitted via control-socket sbatch directly.
+
+## 2026-06-03 ROOT CAUSE: exit-53/1s/empty-logs = HOME QUOTA FULL (0 bytes)
+- exp4-van-resume 17982683 & 18607103, exp3-gen 18361248, eqm-van-s2 18609082 all FAILED exit 0:53, ~1-5s, batch step CANCELLED, extern COMPLETED, stdout+stderr files NEVER CREATED.
+- df ~ = 95G/95G 0 avail; touch fails 'No space left on device'. SLURM cannot create --output log -> instant batch fail (exit 53). Matches CLAUDE.md quota-deadlock note.
+- Safe junk (~2.3G) instantly re-consumed by live writers. Real levers were other-experiment data: exp3/reference 41G, exp3/full_lambda03 24G, eqm-l-2 scaling 17G.
+- FIX (user-approved): deleted exp3/reference (41G regenerable inception/classifier stats) -> 28G free, write OK. exp3-metrics (pending) will need refs rebuilt. Resubmitted exp4 resume 18778727.
+- LESSON: exit-53 + empty logs == disk/quota, NOT node glitch. Check df ~ FIRST. Relaunch prune_all_active to prevent recurrence.
+
+## 2026-06-04 — home03 100% quota deadlock wedged v10 gate ~12h (INCIDENT)
+
+**Symptom:** v10 3-seed gate (eqm-v10-l03-s1 18776202, s2 18776219), vanilla-s2 (18776221),
+and lambda10 scale (18949715) all RUNNING in squeue but FROZEN — stdout stale 740-1238min,
+no checkpoint written in 5-8h. Discovered while submitting/polling the CIFAR symmetry-bridge arms.
+
+**Root cause:** `/n/home03` is 95G hard cap. These IN-1K jobs were submitted WITHOUT the
+`PERSISTENT_RESULTS` override, so 2GB checkpoints (every 5000 steps) defaulted to home
+(`imagenet1k_80ep_v10.sbatch` lines 66-69). Home hit 100% ~10:05 → checkpoint/stdout writes
+returned ENOSPC → tee/pipe deadlock → trains halted but stayed in RUNNING (burning 4×A100 each,
+~12h wasted). Freeing space does NOT revive an already-deadlocked job.
+
+**Durable fix (already in the sbatch, just unused):** resume with
+`PERSISTENT_RESULTS=/n/holylabs/ydu_lab/Lab/mkrasnow_eqm/<dir>` (holylabs scratch = 1.5PB).
+IN-1K checkpoints must NEVER default to home. RESUME_CKPT=<dir>/000-*/checkpoints/<latest>.pt.
+
+**Actions taken (per user):** killed the 4 wedged IN-1K jobs (ckpts PRESERVED on home:
+l03-s1 0315000, l03-s2 0310000, van-s2 0210000, lambda10 0110000) to stop GPU waste; user to
+resume the gate on holylabs. Freed 27G (deleted superseded 40ep bridge dirs + 3 stale _rescued
+dirs whose canonical equivalents were ahead). Deployed aggressive standing pruner
+(prune_aggressive.sbatch, job 19240382): keep {65000 anchor}+latest2 on *80ep* dirs, prune bridge
+dirs, 180s cycle; retired the 2 lenient prune-all jobs. Restarted 3 bridge arms fresh on gpu.
+
+**Lessons:** (1) "RUNNING" in squeue != alive — verify by stdout mtime / latest-ckpt mtime.
+(2) Any IN-1K train MUST set PERSISTENT_RESULTS=holylabs. (3) The bridge submissions worsened but
+did not cause the fill; the gate was already wedged ~10am.
+
+## 2026-06-05 — Phase 2 multiseed catastrophe (storage + rescue-policy)
+3 of 4 Phase-2 trains CANCELLED near-completion (~step 380k) and lost. Chain:
+1. holylabs redirect used `rsync -a` → chown fails on setgid root:ydu_lab dir → 0 ckpts synced for 26h (silent, `2>/dev/null`). van-s1-orig (18776220) finished exit 0 but ckpt never persisted → LOST.
+2. home (95G) + holylabs ydu_lab group-quota both full → no clean persistent target.
+3. RESCUE MISTAKE: ran a loop ssh-ing into compute nodes every 30min to pull /tmp ckpts. FASRC prohibits compute-node ssh → almost certainly triggered admin cancellation of 18776202/19/21 (`CANCELLED+`).
+Survivor: vanilla seed1 (19051147), self-persisting to home via fixed sbatch.
+FIXES: sbatch sync `rsync -rtL` (no -a) + self-prune latest-3 + surfaces failures.
+LESSONS: (a) never `rsync -a` to setgid group dirs; (b) NEVER ssh compute nodes for file rescue; (c) trains must write ckpts DIRECTLY to a roomy quota-sorted persistent path, not /tmp+rsync; (d) verify ckpts actually land on disk within first sync interval, don't trust "Synced" echoes.
+
+## 2026-06-05 — Exp 3 metrics: 5-deep failure cascade before clean run (job 19120911 exit 0)
+
+Getting the Exp 3 verdict required clearing five stacked failures. Four were infra/storage; one was a real code bug. Logged so future eval runs avoid the same traps.
+
+1. **anm gen 18776254 → exit-53 (home quota deadlock).** home03 was 95G/95G (0 avail). Same root cause as commit 7973aaa. SLURM stdout pipe blocks when home is full → job dies ~4s. FIX: moved the 24G exp3 run dir (50K vanilla PNGs) home→holylabs via `rsync -a --remove-source-files`, then symlinked `results/exp3` → `/n/holylabs/ydu_lab/Lab/mkrasnow_eqm/exp3`. All exp3 REPO_ROOT-relative paths now resolve to holylabs transparently.
+
+2. **reference cache missing.** It had been deleted in the earlier 27G home-free (7973aaa). Metrics needs it. FIX: rebuilt via 18964347 (1000-class inception + per-class stats + resnet50 hist), exit 0.
+
+3. **anm gen 18964349 → exit 1, but 50000 PNGs present (cosmetic).** `tee: 'standard output': No space left on device` — home refilled mid-run (other-session trains dumping ckpts) and the SLURM stdout/tee pipe (on home) hit ENOSPC AFTER all image data was already written to holylabs. Data complete (provenance hash cd83c41c090a69db, schedule 83a8ede763e1b318 == vanilla; 0 errors in actual generation). No ERROR_rank file because the failure was the shell pipe, not Python. LESSON: a gen "FAILED" with full PNG count = check the log for ENOSPC on the *log pipe*, not a data failure.
+
+4. **metrics 19048900 → exit 1 (holylabs GROUP quota EDQUOT).** `mkdir: Disk quota exceeded` on holylabs even though `df` shows 1.5P free and inodes 1% — FAS sets a per-lab (ydu_lab) block quota invisible to `df`/`df -i`. The 24G move + 50K anm PNGs tipped the group over. FIX: added `OUT_DIR_REL` to `exp3_metrics.sbatch` so metrics READS gen+reference from holylabs (reads ignore quota) but WRITES its ~1.5GB outputs to home (12G free). LESSON: on holylabs, "df has space" ≠ "you can write" — the binding limit is the group quota, not the filesystem.
+
+5. **metrics 19048900 ALSO had a real code bug: feats/stems misalignment IndexError.** After the read/write split, the same job crashed in `run_arm`: `feats[common]` "size of axis is 49996 but size of corresponding boolean axis is 50000". ROOT CAUSE: `inception_features`/`classifier_predictions` SILENTLY SKIP unreadable images (try/except continue), so they returned 49996 feature rows — but `cached_features` paired those rows with the FULL 50000-file stem listing. 4 zero-byte vanilla PNGs (002189, 003069, 003178, 003180) had been truncated by the rsync move in step 1. FIX (commit abe9dbf):
+   - `cached_features`/`cached_preds` now build the stem array from the EXTRACTOR's own returned stems (the rows that actually have a feature/pred), persist a `.stems.npy` sidecar, and cache-validate on `n_files`+`prov`.
+   - Split `run_arm` into `extract_arm` (per-arm feats+preds) then `run_arm` (metrics); `main` intersects both arms to the COMMON readable sample-id set and scores both on it. Preserves the identical-sample-set guarantee, tolerates ≤0.5%/50 corrupt-PNG asymmetry, FAILs if a whole arm is genuinely deficient.
+   - Both arms scored on 49996 identical ids; 4 corrupt PNGs immaterial at 50K.
+
+**Lessons (general):**
+- (a) Any IN-1K eval that writes large outputs must target a quota-sorted path; home (95G hard) and holylabs (group quota) both bite. Split read-fs from write-fs when the read side is huge.
+- (b) Feature extractors that skip-on-error MUST return which items succeeded; never pair extractor output with the pre-extraction file list by position.
+- (c) `df` lies about writability on group-quota'd lustre/NFS exports — EDQUOT can fire with petabytes "free".
+- (d) A gen job FAILED with full sample count is usually a log-pipe ENOSPC, not a data loss — verify PNG count + provenance before regenerating.
+- (e) rsync moves can truncate a handful of files; make downstream eval robust to a few corrupt samples (score-on-common-set) rather than hard-failing a 50K run.
+
+---
+## 2026-06-08 — Capability ladder v2 Rung D: 3 failed attempts before clean 96-cell run
+
+Rung D (exp1 sampler-robustness sweep, vanilla-s0 vs v10-s1 λ0.3, eval-only) failed
+3× before completing. Each a distinct, reusable root cause:
+
+1. **job 19852662 — ran only 4 cells (looked COMPLETED).** Submitted with
+   `sbatch --export=ALL,...,NFE_LIST=5,10,25,50,100,250,STEP_MULTS=0.5,1.0,1.5,2.0`.
+   **`sbatch --export` splits on EVERY comma** → `NFE_LIST` became just `5`, `STEP_MULTS`
+   just `0.5`. Driver swept 1 nfe × 1 step × gd/ngd × 2 arms = 4 cells, exited 0.
+   Symptom: results.csv had 4 rows + all FID≈362 (nfe5 = far under-converged).
+   **Fix:** NEVER pass comma-lists through `--export`. Bake them into the script/driver
+   default (changed exp1_driver `--nfe-list` default to `5,10,25,50,100,250`). Same bug
+   bit Exp 2 (`--export` comma split, see 2026-06-05). This is a STANDING gotcha.
+
+2. **job 19913799 — exit 53 in 5 s, no logs.** sbatch line `exec >> "$SYNC/job.log"`
+   couldn't write. Cause: **home03 100 % full** (95 G/95 G, 0 avail; results dir = 87 G).
+   home03 is a HARD 95 G user quota → any write (even creating the job.log dir) fails →
+   batch step CANCELLED, exit 53, within seconds. `.ba+ CANCELLED 0:53`, no .out/.err.
+   **Fix:** freed ~14 G — deleted regenerable DINO npz caches (2×2.5 G), home-duplicate
+   ckpt dirs whose persistent copies are confirmed on holylabs (`mkrasnow_eqm/...`),
+   and rsync temp junk (`.*.pt.*`). Verified holylabs copy exists BEFORE deleting each
+   home ckpt dir. exit-53 ≈ "disk/quota" — first thing to check on a sub-10 s batch fail.
+
+3. (Recovery) launched `prune_all_active.sbatch` (shared partition) — keeps anchors
+   {5000,65000}+latest-2 per `*80ep*` dir, nukes smoke ckpts + rsync temps, stays alive
+   while `eqm-1k*` jobs run. Self-heals the home-quota leak going forward.
+
+4. **job 19948994 — clean, 96 cells, 11h55m, exit 0.** Note: a background squeue-poll
+   monitor falsely reported "left queue" once mid-run (transient ssh drop → empty grep →
+   loop exited). **Guard monitors with a double-probe** (re-confirm empty squeue after a
+   short sleep) before declaring a job done.
+
+Also this session: SSH ControlMaster `kex_exchange_identification: Connection closed`
+on round-robin login node = **fail2ban/MaxStartups throttle** from a tight automated
+retry loop (our `ssh.sh` BatchMode storm + monitor loops). TCP open but sshd refuses
+handshake pre-auth, intermittently, on one of the 2 login IPs. Clears once the storm
+stops (~minutes). Don't hammer; one clean bootstrap, wait 30 s between retries.

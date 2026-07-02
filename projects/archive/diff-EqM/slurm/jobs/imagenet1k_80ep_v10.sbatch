@@ -1,0 +1,171 @@
+#!/bin/bash
+#SBATCH --job-name=eqm-1k-80ep-v10
+#SBATCH --output=slurm/logs/eqm-1k-80ep-v10_%A.out
+#SBATCH --error=slurm/logs/eqm-1k-80ep-v10_%A.err
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=4
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=256GB
+#SBATCH --time=72:00:00
+#SBATCH --partition=gpu
+#SBATCH --gres=gpu:4
+
+# v10-only 80-epoch EqM-B/2 on ImageNet-1K 256x256, 4x GPU DDP.
+# v10 = PGD hard-example mining on EqM regression target. K=1 FGSM,
+# eps_radius=0.3, mining_lr=0.05, lambda=0.1 (per CIFAR Phase 0.3 PASS:
+# FID 13.40 vs vanilla 14.17, mining ratio stable 1.047-1.049 across 150ep).
+#
+# Cost estimate: vanilla 80ep ~24h on 4xA100; v10 K=1 adds ~50% per step
+# (one extra forward+backward) -> ~36h. 72h gpu limit accommodates.
+#
+# Per CLAUDE.md "Smoke-time sample probe" rule: --ckpt-every 5000 saves
+# early checkpoints; sample FID one early (~5K step ckpt) before letting
+# the full 80ep run complete to catch v10 mechanism failures fast.
+
+set -uo pipefail
+
+module load python/3.10.13-fasrc01
+module load cuda/11.8.0-fasrc01
+
+echo "=== GPU verification ===" >&2
+nvidia-smi || { echo "ERROR: No GPU available"; exit 1; }
+
+WORK_DIR="/tmp/eqm-1k-80ep-v10-${SLURM_JOB_ID}"
+mkdir -p "$WORK_DIR"
+cd "$WORK_DIR"
+
+GIT_URL="${GIT_URL:-https://github.com/mdkrasnow/research-repo.git}"
+GIT_SHA="${GIT_SHA:-HEAD}"
+
+export GIT_TERMINAL_PROMPT=0
+export GIT_SSH_COMMAND="ssh -o BatchMode=yes"
+
+echo "=== Cloning repo at SHA ${GIT_SHA} ===" >&2
+git init . 2>&1
+git remote add origin "$GIT_URL" 2>&1
+git fetch --depth=50 origin main 2>&1 | tail -10 || exit 1
+git checkout "${GIT_SHA}" 2>&1 | tail -5 || {
+    git fetch --unshallow origin 2>&1 | tail -5
+    git checkout "${GIT_SHA}" 2>&1 | tail -5 || exit 1
+}
+
+echo "=== Installing dependencies ===" >&2
+pip install timm diffusers accelerate scipy torchvision 2>&1 | tail -10
+
+IMAGENET_PATH="/n/holylabs/ydu_lab/Lab/raywang4/imagenet/train"
+SEED="${SEED:-0}"
+GAMMA="${GAMMA:-0.1}"
+RESULTS_DIR="${RESULTS_DIR:-projects/diff-EqM/results/imagenet1k_80ep_v10_seed${SEED}}"
+REPO_ROOT="/n/home03/mkrasnow/research-repo"
+
+if [ ! -d "$IMAGENET_PATH" ]; then
+    echo "ERROR: ImageNet-1K data not found at $IMAGENET_PATH" >&2
+    exit 1
+fi
+
+# PERSISTENT_RESULTS defaults to home repo, but home (/n/home03) is only 95G and
+# wedges trains via quota deadlock. Override to holylabs scratch (1.5PB free):
+#   PERSISTENT_RESULTS=/n/holylabs/ydu_lab/Lab/mkrasnow_eqm/<dir>
+PERSISTENT_RESULTS="${PERSISTENT_RESULTS:-$REPO_ROOT/$RESULTS_DIR}"
+mkdir -p "$WORK_DIR/$RESULTS_DIR"
+mkdir -p "$PERSISTENT_RESULTS"
+
+sync_checkpoints() {
+    if [ -d "$WORK_DIR/$RESULTS_DIR" ]; then
+        # -rtL (no -o/-g/-p): holylabs is a setgid root:ydu_lab dir; -a's chown/
+        # chgrp fails there and rsync copies NOTHING (silent w/ 2>/dev/null). Use
+        # -rtL so writes succeed regardless of dest ownership.
+        rsync -rtL --include='*/' --include='*.pt' --exclude='*' \
+            "$WORK_DIR/$RESULTS_DIR/" "$PERSISTENT_RESULTS/" || \
+        echo "=== rsync sync FAILED at $(date) ===" >&2
+        # Bound persistent storage: keep only latest 3 ckpts (home/holylabs quotas
+        # are tight; an unpruned 80ep run = ~160G of ckpts).
+        for cd in "$PERSISTENT_RESULTS"/*/checkpoints; do
+            [ -d "$cd" ] && ls -v "$cd"/*.pt 2>/dev/null | head -n -3 | xargs -r rm -f
+        done
+        echo "=== Synced checkpoints ($(ls "$PERSISTENT_RESULTS"/*/checkpoints/*.pt 2>/dev/null | wc -l) pt) at $(date) ===" >&2
+    fi
+}
+(
+    while true; do
+        sleep 1800
+        sync_checkpoints
+    done
+) &
+SYNC_PID=$!
+
+CLEANED_UP=0
+cleanup() {
+    [ $CLEANED_UP -eq 1 ] && return
+    CLEANED_UP=1
+    echo "=== Caught signal, syncing checkpoints before exit ===" >&2
+    sync_checkpoints
+    cp "$WORK_DIR/train.log" "$REPO_ROOT/projects/diff-EqM/slurm/logs/imagenet1k_80ep_v10_${SLURM_JOB_ID}.log" 2>/dev/null || true
+    kill $SYNC_PID 2>/dev/null || true
+    echo "=== Cleanup done at $(date) ===" >&2
+}
+trap cleanup SIGTERM SIGINT EXIT
+
+MASTER_PORT=$((29500 + RANDOM % 1000))
+
+# MINING=v10 (default) trains with v10 hard-example mining; MINING=none trains a
+# plain vanilla baseline (reuses this sbatch's robust periodic-sync + trap, which the
+# dedicated vanilla sbatch lacks — that omission lost a 2-day seed2 train to timeout).
+MINING="${MINING:-v10}"
+TRAIN_CMD="python -m torch.distributed.run --nnodes=1 --nproc_per_node=4 --master_port=$MASTER_PORT \
+    projects/diff-EqM/experiments/train_imagenet.py \
+    --model EqM-B/2 \
+    --data-path $IMAGENET_PATH \
+    --num-classes 1000 \
+    --global-batch-size 256 \
+    --epochs 80 \
+    --image-size 256 \
+    --results-dir $RESULTS_DIR \
+    --ckpt-every 5000 \
+    --global-seed $SEED"
+if [ "$MINING" = "v10" ]; then
+    TRAIN_CMD="$TRAIN_CMD \
+    --use-mining \
+    --mining-flavor v10 \
+    --gamma $GAMMA \
+    --v10-K 1 \
+    --v10-eps-radius 0.3 \
+    --mining-lr 0.05 \
+    --mine-every 1"
+    # V10_RANDOM=1 -> random-corruption control (load-bearing ablation): same
+    # eps-ball perturbation, NO PGD adversarial selection. Isolates mining gain.
+    if [ "${V10_RANDOM:-0}" = "1" ]; then
+        TRAIN_CMD="$TRAIN_CMD --v10-random-control"
+        echo "=== V10 RANDOM-CONTROL ablation ENABLED (no PGD ascent) ===" >&2
+    fi
+fi
+
+if [ -n "${RESUME_CKPT:-}" ] && [ -f "$RESUME_CKPT" ]; then
+    echo "=== Resuming from checkpoint: $RESUME_CKPT ===" >&2
+    LOCAL_CKPT="$WORK_DIR/resume_ckpt.pt"
+    cp "$RESUME_CKPT" "$LOCAL_CKPT"
+    TRAIN_CMD="$TRAIN_CMD --ckpt $LOCAL_CKPT"
+fi
+
+if [ "$MINING" = "v10" ]; then
+    echo "=== v10 mining ENABLED (gamma=$GAMMA, eps=0.3, K=1, lr=0.05, mine-every=1) ===" >&2
+else
+    echo "=== MINING DISABLED (vanilla baseline) ===" >&2
+fi
+echo "=== Starting 80-epoch training (MINING=$MINING) on ImageNet-1K, seed=$SEED ===" >&2
+echo "=== Job ID: $SLURM_JOB_ID, Node: $(hostname), Start: $(date) ===" >&2
+
+set +e
+eval $TRAIN_CMD 2>&1 | tee train.log
+TRAIN_EXIT=${PIPESTATUS[0]}
+set -e
+echo "=== Training exit code: $TRAIN_EXIT, end: $(date) ===" >&2
+
+echo "=== Final sync to persistent storage ===" >&2
+rsync -av "$WORK_DIR/$RESULTS_DIR/" "$PERSISTENT_RESULTS/" 2>&1 | tail -20
+cp train.log "$REPO_ROOT/projects/diff-EqM/slurm/logs/imagenet1k_80ep_v10_${SLURM_JOB_ID}.log" 2>/dev/null || true
+
+echo "=== Cleaning up work directory ===" >&2
+rm -rf "$WORK_DIR"
+
+exit $TRAIN_EXIT

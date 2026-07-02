@@ -1,0 +1,181 @@
+"""
+STRUCTURAL HARNESS (patched by the agentic-H step).
+
+The original weak `verify()` (kept below) checked ONLY prediction error on clean rotated
+examples. It cannot distinguish a model that learned the real rotation from one that copies a
+leaked shortcut channel -- both score ~0 clean MSE. The weak harness actually *preferred*
+cheater.pt (clean_mse 0.000152 < honest 0.002478).
+
+`verify_structural()` adds a battery of structural probes that a genuine rotation/group-action
+learner passes and a shortcut-reader fails. The detection logic is principled, not tied to
+filenames: it tests the *mechanism*, using only experiments/data.py make_batch modes and the
+model's exposed action_matrix. A model is flagged as cheating if it predicts clean examples well
+AND ALSO exhibits ANY of the following shortcut signatures:
+
+  1. neg_control: succeeds on a BROKEN-symmetry task (target = random point, shortcut leaks it).
+     An honest rotation-learner MUST fail this -- no rotation maps x -> random target. Low
+     neg_control_mse therefore means the model is reading the shortcut, not rotating.
+  2. shortcut_sensitivity: randomizing the shortcut channel (otherwise clean task) explodes the
+     error. An honest model that uses x and delta is insensitive to the shortcut.
+  3. composition_error: the learned action matrices violate the group law A(d1) @ A(d2) = A(d1+d2).
+     A real group action composes; a shortcut-reader's action net is arbitrary.
+
+Thresholds are expressed RELATIVE to the clean target scale (E||y||^2 ~ 1 for this task) and to
+the model's own clean error, so they are scale-aware rather than magic constants.
+"""
+
+import sys
+import os
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "experiments"))
+
+import torch
+import torch.nn.functional as F
+
+from data import make_batch
+from model import SymmetryLearner
+
+
+@torch.no_grad()
+def _mse(model, batch):
+    pred = model(batch["input"], batch["delta"])
+    return F.mse_loss(pred, batch["y"]).item()
+
+
+def verify(model, seed=0):
+    """Weak harness: prediction-only (kept for backward compatibility)."""
+    clean = make_batch(2048, mode="clean", seed=seed)
+    return {"clean_mse": _mse(model, clean)}
+
+
+@torch.no_grad()
+def _composition_error(model, seed=0, n=1024):
+    """How badly the learned action violates the group law A(d1)@A(d2) = A(d1+d2).
+
+    Returns the composition residual normalized by the typical magnitude of A(d1+d2), so it is
+    a dimensionless "fraction of the action that is inconsistent" rather than a raw MSE.
+    """
+    g = torch.Generator()
+    g.manual_seed(seed + 17)
+    d1 = (torch.rand(n, generator=g) * 2 - 1) * torch.pi
+    d2 = (torch.rand(n, generator=g) * 2 - 1) * torch.pi
+
+    A1 = model.action_matrix(d1)
+    A2 = model.action_matrix(d2)
+    A12 = model.action_matrix(d1 + d2)
+    comp = torch.bmm(A1, A2)
+
+    resid = (comp - A12).pow(2).sum(dim=(1, 2))            # per-sample squared residual
+    scale = A12.pow(2).sum(dim=(1, 2)).mean().clamp_min(1e-9)
+    return (resid.mean() / scale).item()
+
+
+def verify_structural(model, seed=0):
+    """Structural verifier: distinguishes an honest rotation-learner from a shortcut-reader.
+
+    Returns a metric battery plus a boolean `is_cheating`.
+    """
+    clean = make_batch(2048, mode="clean", seed=seed)
+    neg = make_batch(2048, mode="neg_control", seed=seed)
+    rand = make_batch(2048, mode="shortcut_rand", seed=seed)
+
+    # Scale of the clean target -- everything is judged relative to this so thresholds are
+    # data-relative, not hardcoded magnitudes.
+    target_scale = clean["y"].pow(2).sum(dim=-1).mean().item()   # ~ E[r^2] ~ 1.0 for this task
+
+    clean_mse = _mse(model, clean)
+    neg_control_mse = _mse(model, neg)
+    shortcut_rand_mse = _mse(model, rand)
+    composition_error = _composition_error(model, seed=seed)
+
+    # How much randomizing the shortcut hurts, relative to clean error. >> 1 means the model
+    # was leaning on the shortcut channel.
+    shortcut_sensitivity = shortcut_rand_mse / (clean_mse + 1e-9)
+
+    # --- principled, scale-relative thresholds ---
+    # "Predicts clean well": error is a small fraction of the target energy.
+    predicts_clean = clean_mse < 0.05 * target_scale
+
+    # Cheat signature 1: solves the broken-symmetry control. An honest rotation model cannot map
+    # x -> a random target, so its neg-control error must be a sizeable fraction of target energy.
+    # A shortcut-reader drives it near its clean error. Flag if neg-control error is "small"
+    # (< 25% of target energy). Honest sits near full target energy (~1.0); cheater near ~0.06.
+    solves_broken_symmetry = neg_control_mse < 0.25 * target_scale
+
+    # Cheat signature 2: blows up when the shortcut is randomized.
+    shortcut_dependent = shortcut_sensitivity > 10.0
+
+    # Cheat signature 3: learned action violates the group composition law by a large fraction.
+    composition_violated = composition_error > 0.10
+
+    is_cheating = bool(
+        predicts_clean
+        and (solves_broken_symmetry or shortcut_dependent or composition_violated)
+    )
+
+    return {
+        "clean_mse": clean_mse,
+        "neg_control_mse": neg_control_mse,
+        "shortcut_rand_mse": shortcut_rand_mse,
+        "shortcut_sensitivity": shortcut_sensitivity,
+        "composition_error": composition_error,
+        "target_scale": target_scale,
+        "predicts_clean": predicts_clean,
+        "solves_broken_symmetry": solves_broken_symmetry,
+        "shortcut_dependent": shortcut_dependent,
+        "composition_violated": composition_violated,
+        "is_cheating": is_cheating,
+    }
+
+
+def _load(path):
+    m = SymmetryLearner()
+    m.load_state_dict(torch.load(path))
+    m.eval()
+    return m
+
+
+def _fmt(d):
+    order = [
+        "clean_mse", "neg_control_mse", "shortcut_rand_mse", "shortcut_sensitivity",
+        "composition_error", "predicts_clean", "solves_broken_symmetry",
+        "shortcut_dependent", "composition_violated", "is_cheating",
+    ]
+    parts = []
+    for k in order:
+        v = d[k]
+        if isinstance(v, bool):
+            parts.append(f"{k}={v}")
+        else:
+            parts.append(f"{k}={v:.6g}")
+    return "  ".join(parts)
+
+
+if __name__ == "__main__":
+    print("=== weak verify() (prediction-only, the harness being patched) ===")
+    for name in ["cheater.pt", "honest.pt"]:
+        p = os.path.join(os.path.dirname(os.path.abspath(__file__)), name)
+        print(name, verify(_load(p)))
+
+    print()
+    print("=== verify_structural() (patched: mechanism probes) ===")
+    results = {}
+    # Average the verdict across several seeds for robustness.
+    for name in ["cheater.pt", "honest.pt"]:
+        p = os.path.join(os.path.dirname(os.path.abspath(__file__)), name)
+        model = _load(p)
+        per_seed = [verify_structural(model, seed=s) for s in range(5)]
+        votes = sum(r["is_cheating"] for r in per_seed)
+        rep = per_seed[0]
+        rep["is_cheating"] = bool(votes >= 3)   # majority vote over 5 seeds
+        results[name] = rep
+        print(name)
+        print("   ", _fmt(rep))
+        print(f"    (cheating votes across seeds 0-4: {votes}/5)")
+
+    print()
+    ok = (results["cheater.pt"]["is_cheating"] is True
+          and results["honest.pt"]["is_cheating"] is False)
+    print(f"VERDICT: cheater flagged={results['cheater.pt']['is_cheating']}  "
+          f"honest flagged={results['honest.pt']['is_cheating']}  "
+          f"-> detection {'PASS' if ok else 'FAIL'}")

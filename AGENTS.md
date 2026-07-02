@@ -1,8 +1,10 @@
-# Claude Code Rules — diff-EqM Project (single-project focus)
+# Claude Code Rules — masked-EqM Project (single-project focus)
 
-This repo is now scoped to **one active project**: `projects/diff-EqM/`. All other projects are dormant. Do not work on, modify, or even read other projects unless the user explicitly redirects.
+This repo is now scoped to **one active project**: `projects/masked-EqM/`. All other projects, INCLUDING former active project `projects/archive/diff-EqM/`, are dormant/archived. Do not work on, modify, or even read other projects unless the user explicitly redirects.
 
-**North star**: get to a publishable result at NeurIPS 2026 workshop (deadline 2026-08-29) and ICLR 2027 main (~2026-10-01). Plan locked in `projects/diff-EqM/documentation/summer-2026-plan.md`. Read it before any non-trivial action.
+**2026-07-02**: diff-EqM archived to `projects/archive/diff-EqM/`; masked-EqM (fresh clone of raywang4/EqM) is new active project. Below sections referencing diff-EqM paths, gates, baselines, and variant history (v10, ANM, CAFM, etc.) are LEGACY REFERENCE ONLY — they describe the retired project's state, not masked-EqM's. No summer plan / phase specs / pipeline.json exist yet for masked-EqM; do not assume diff-EqM's gates or thresholds carry over. Re-derive planning docs for masked-EqM before executing any phase-gated work.
+
+**North star**: get to a publishable result at NeurIPS 2026 workshop (deadline 2026-08-29) and ICLR 2027 main (~2026-10-01). Plan for masked-EqM TBD — create `projects/masked-EqM/documentation/summer-2026-plan.md` before any non-trivial action once direction is set.
 
 This is an **agentic research project** — claude executes Phase 0 → Phase 5 with minimal supervision. Decisions follow the pre-registered gates in the summer plan. When in doubt: pre-registered gate wins, not in-the-moment judgment.
 
@@ -31,8 +33,8 @@ If state files disagree with what the user asks for, surface the conflict before
 
 ## Project scope (HARD)
 
-- Only modify files inside `projects/diff-EqM/...`, `scripts/cluster/...`, `scripts/ralph/...`, and this CLAUDE.md.
-- Do NOT read, modify, or reference other projects (`projects/ired/`, `projects/algebra-ebm/`, `projects/archive/`). They are dormant.
+- Only modify files inside `projects/masked-EqM/...`, `scripts/cluster/...`, `scripts/ralph/...`, and this CLAUDE.md.
+- Do NOT read, modify, or reference other projects (`projects/archive/*`, incl. `diff-EqM`, `ired`, `algebra-ebm`). They are dormant.
 - Do NOT spawn parallel work on other projects. Single-project focus.
 
 ---

@@ -1,0 +1,34 @@
+PROBE ABLATION + EARLY-CUT (good=750 garbage=750, T=249)
+5-seed held-out (30%); within-norm = de-confounded from grad-norm. raw / within-norm.
+======================================================================
+
+MAGNITUDE BASELINES (what shape must beat):
+  gradnorm_end         dim=1   raw=0.539±0.010  within-norm=0.553±0.011
+  path_integral_Σ‖f‖   dim=1   raw=0.566±0.016  within-norm=0.614±0.022
+
+ADD-ONE (each shape group alone):
+  oscillation          dim=  3  raw=0.718±0.013  within-norm=0.730±0.013
+  slopes               dim=  3  raw=0.726±0.015  within-norm=0.727±0.017
+  norm_curve           dim= 16  raw=0.755±0.012  within-norm=0.754±0.015
+  dot_curve            dim=  8  raw=0.671±0.021  within-norm=0.664±0.018
+
+DROP-ONE (leave-one-group-out vs FULL within-norm=0.818):
+  -oscillation         dim= 27  raw=0.806±0.010  within-norm=0.805±0.011  Δfull=-0.013
+  -slopes              dim= 27  raw=0.817±0.010  within-norm=0.818±0.010  Δfull=+0.000
+  -norm_curve          dim= 14  raw=0.803±0.011  within-norm=0.803±0.012  Δfull=-0.015
+  -dot_curve           dim= 22  raw=0.806±0.010  within-norm=0.805±0.011  Δfull=-0.012
+  FULL ALL-shape       dim= 30  within-norm=0.818±0.012
+  -> most load-bearing group: norm_curve (drop -> 0.803, Δ -0.015); max single-drop loss 0.015
+
+EARLY-CUT (full probe on first-k steps only — item-6 early>late test):
+  k=  50  raw=0.746±0.020  within-norm=0.743±0.021
+  k= 100  raw=0.813±0.012  within-norm=0.813±0.014
+  k= 150  raw=0.814±0.012  within-norm=0.815±0.015
+  k= 200  raw=0.819±0.011  within-norm=0.819±0.013
+  k= 249  raw=0.817±0.010  within-norm=0.818±0.012
+  -> DETECTION AUROC saturates by k=100 (0.813 vs kFull 0.818); k=50 already 0.743. Signal present early — online-viable.
+  NOTE: detection AUROC ≈ flat after k=100, but SELECTION FID (selector_compare) is BEST at k=50 — later probe over-weights magnitude-correlated late features that hurt restart picking. Detect-early and act-early are both supported; the late-step gain is detection-only, not actionable.
+
+VERDICT:
+  full-shape within-norm 0.818 vs best magnitude baseline -> shape BEATS magnitude de-confounded.
+  no single group load-bearing: max drop-one loss = 0.015 (distributed signal).

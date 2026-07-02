@@ -1,0 +1,197 @@
+{
+  "project": "symmetry-discovery",
+  "title": "Symmetry discovery vs hard-negative mining for generative models (EqM)",
+  "phase": "v17 Phase0-3 POSITIVE + write-up finalized. CIFAR bridge detector CRACKED: combined conv-ED + nuisance-trained robust-AE separates valid/decoy on natural CIFAR (sep +0.378), discovery decoy_usage 0.079<0.10 at ae_weight 50. Bridge now PASSES decoy-avoidance smoke. Remaining: human FID-approval to submit 150ep bridge.",
+  "research_question": "Can a learned manifold-preserving operator, anchored to data (not the live field), discover a nonlinearly-hidden symmetry and fill held-out manifold regions? vs hard-negative mining and known-symmetry constraints.",
+  "scale": "CPU toy (2D/16D rings). NOT publishable; filters/diagnostics only.",
+  "ladder_status": {
+    "rungs_run": "1-16",
+    "rung1_arithmetic": "equivariance constraint perfect; hard-neg mining dead",
+    "rung2_ring_linear": "known + discovered rotation both work (symmetry linear in observed)",
+    "rung3_nonlinear_hidden_free_op": "FAIL (operator off-manifold)",
+    "rung4_enc_linear_dec_recon_frozen": "FAIL (recon latent distorted, not linearizing)",
+    "rung5_oracle_latent_control": "recipe collapses M->identity even with perfect latent (recipe bug exposed)",
+    "rung6_hinge_anti_identity": "FAIL (insufficient; M jitters near identity)",
+    "rung7_continuous_manifold": "FAIL (cyclic term pulls M->identity)",
+    "rung8_identity_exclusion": "FAIL (M drifts to non-symmetry; closure can't anchor)",
+    "rung9_frozen_anchor": "PARTIAL: frozen anchor FIXES field co-adaptation (T_onman 0.00->0.70) but distributional anchor under-constrains operator -> random on-manifold shuffle (shift_std ~95deg), arc not filled. FROZEN~=VISIBLE (no symmetry learned).",
+    "rung10_frozen_anchor_coherent": "PARTIAL SUCCESS (best yet): single latent matrix fixes coherence (shift_std 95->25), recovers real rotation (M_angle ~-39deg), recall floor0.002->0.025 (12x floor, ~37% of ORACLE 0.068). All 3 blockers (identity/co-adaptation/coherence) now individually fixed. Remaining gap = single-generator vs full-group COVERAGE + imperfect latent + seed variance.",
+    "rung11_orbit_augmentation": "Coverage hypothesis REJECTED: orbit aug == single aug (recall 0.024 both). Gap to ORACLE is NOT coverage but operator PRECISION (discovered M is fuzzy/seed-variable rotation, shift_std 25, M_off 1.04). FINAL: discovery possible-in-principle but imprecise -> below known-symmetry quality.",
+    "rung12_group_generator": "SUCCESS - near-oracle discovery. Group-structured generator M=exp(theta*A) fixes operator precision: shift_std 25->0.8(skew)/7.6(free); M_det 0.56->1.00(skew)/0.90(free); recall 0.024->0.071(SKEW = ORACLE 0.067)/0.046(FREE ~69% ORACLE). SKEW recovers exact rotation (~3deg/seed). Gap was PRECISION not impossibility.",
+    "rung13_prior_budget": "STRONG SUCCESS: GEN_FREE_STABLE (det~1 + well-conditioned, NO skew/rotation naming) = 99% ORACLE (recall 0.067, det 1.00, shift_std 0.84, angle within 2.8deg) -- MATCHES GEN_SKEW. Rotation EMERGES from stability prior; not needed to name it. Active ingredient = condition-number penalty (FREE w/o it stalls 69%). CAVEAT: 2D conflates stable~=rotation; definitive test needs higher-dim latent (rung14).",
+    "rung14_higher_dim": "DEFINITIVE SUCCESS: K=3 cylinder (rot in plane, h passive, stable!=rotation). GEN_FREE_STABLE (general 3x3, det~1+cond->1, NO skew/plane) = 113% ORACLE, MATCHES both skew arms. Discovered rotation CONFINED to active plane (passive_leak 0.04~=0) + h PRESERVED (passive_dh 0.15 = plane-told ref) + exact group (det 1.00 cond 1.00). 2D-conflation caveat DISSOLVED.",
+    "rung15_learned_latent": "PARTIAL: learned/recon latent reaches 89-97% recall BUT via COVERAGE not coherent symmetry (shift_std 34-69 vs supervised 3.4; passive_dh 0.96 vs 0.15 -> doesn't preserve true h). Stable on-manifold reshuffle covers 2D cylinder incl arc -> fills via coverage. recall is coverage-confounded; operator-quality metrics honest. Coherent discovery needs structure-ALIGNED coords; recon-only (0.196) faithful but not aligned. Open: symmetry-aware unsupervised latent (deferred, new mechanism).",
+    "rung16_screw": "INCONCLUSIVE (2 attempts, stop-rule). v1 C=0.4 confounded (helix~circle, rotation suffices, ISOMETRY 95%); v2 C=1.5 messy (ORACLE fills only 25% ideal, operators off-manifold T_onman 0.2-0.65, incoherent, recall COVERAGE-confounded: ISOMETRY htrans~0 yet 79%). Non-rotation discovery UNRESOLVED; screw toy ill-posed. No claim recipe handles non-rotation.",
+    "eqm_bridge_feature_proxy": "Fast CIFAR feature-space proxy (frozen random-conv+PCA32, rotation gap). KNOWN_AUG closes gap (0.18<<base 1.07, gate OK); RANDOM fails (off-manifold); DISCOVERED stable-generator = stable(det1,cond1.1)+beats-random BUT ~= BASE on held-out gap (1.19) -> anchor-matching doesn't target held-out (rung9/15 confound; frozen feature space not symmetry-aligned). Mechanism FAILS in CIFAR feature space as-is.",
+    "eqm_bridge_spatial_proxy": "SUPERSEDED by _v2 below. (Original claimed 'targeting open / anchor direction-agnostic / wrong -23deg direction' -- that was a BUG ARTIFACT: the @no_grad encoder blocked the anchor gradient to A, so the operator was driven only by move+stability and its sign was the init seed; and move_target=20deg leaked the held-band magnitude.)",
+    "eqm_bridge_spatial_proxy_v2": "CORRECTED (2026-06-04, results_spatial_proxy_v2.json): fixed grad-flowing frozen encoder + non-leaking move HINGE[5,45deg] + MIXTURE-anchor objective ((1-pi)real + pi*T(real) ~= real). RESULT PASSES: MIXTURE_SINGLE gap_HO 0.305 (angle +29.5, det0.99 cond1.13) << base 1.065, ~near KNOWN 0.182, beats random 1.41. T-only undershoots (+4.9deg, sits at move floor: visible mass dominates anchor so small rotation already matches bulk); mixture decouples bulk-coverage from gap-fill -> discovers correct direction+magnitude UNSUPERVISED (held band enters only as unlabeled anchor mass). Once grad flows, direction is DETERMINED (inverse worse) -> 'gauge' reading was itself a symptom of the no-grad bug. Anchor-matching is NOT direction-agnostic; the mass-mismatched T-only objective was. Controls clean (random/random_bidir/PCA_linear ~= base). Architecture critique still valid. Mechanism now warrants a LONG CIFAR/FID run (40ep was noise-limited).",
+    "v14_distribution_ladder": "A,B,C PASS (distribution covers 2D region single can't); D DECISIVE NEG (disc dist ~= random dist on classifier robustness, 3 seeds); E inconclusive (no signal). v14 NOT authorized: for known/generic CIFAR symmetry discovery adds nothing over random crop.",
+    "v14_beatcrop_policy_ladder": "A,B PASS (policy: high-rank 2D on-manifold bounded, 2D-cov entropy floor needed, beats single/random in coverage). C (utility vs crop, 3 seeds): policy TIES crop (transl\u00b16 0.382 vs 0.377 within noise) + beats random, NOT a beat; utility faint edge over entropy/random none over crop. D EqM-lite INCONCLUSIVE (no signal). NOT authorized: no headroom over near-optimal crop for known/generic symmetry.",
+    "v15_safe_adversarial_ladder": "STRONGER NEGATIVE. Reframe: learn SAFE-HARD policy targeting current model weakness (anchor=safety, scorer-loss=utility, conditionality=per-image). R1 known ceiling (3 seeds): crop_pad4 0.409 clear ceiling (tstd .001), 'beat crop' valid. R2 frozen-scorer hardness gate PASS (safe-hard CE 1.82>crop 1.70, MORE on-manifold ED 2.95<3.26, 2D) -- but FALSE POSITIVE for downstream. R3 train w/ global safe-hard (3 seeds): NO BEAT all lams, MONOTONE harder->worse (l1.5 .397, l3.0 .385 < crop .409, l3.0<random). R4 CONDITIONAL q(T|phi(x)) (3 seeds): WORSE -- .362-.363 << crop .409 (~=base transl), crushes clean acc (.38 vs .47); per-image mu_std real (3.4-8px) so adaptivity IS present but HURTS. Mechanism: adversarial-vs-frozen-scorer finds scorer blind spots not generalizing transforms; anchor keeps images realistic but chosen SHIFTS adversarial-degenerate -> train/test mismatch. CIFAR translation uniform/isotropic => crop ~Bayes-optimal => cleverness backfires. Confirms whole-arc thesis: discovery/adaptivity earns value ONLY for unknown non-generic structure (toy rungs 12-14). Do NOT run FID.",
+    "v16_residual_policy_ladder": "4TH CONSECUTIVE NEGATIVE; falsifies the last untested objective (validation-utility bilevel, not hardness/anchor-match). Reframe: crop is a strong BASE; learn a bounded RESIDUAL over BEST_KNOWN optimized for short-run VAL utility via ES, anchor/entropy as constraints, no per-image conditional. E1 known ceiling (3 seeds, mixed-corruption robust val): BEST_KNOWN=crop_pad4_color (0.429 > crop_pad4 0.420 > noise). E2 residual policy ES-on-val-utility (3 seeds, separate test): NO BEAT vs random -- learned 0.41483 vs rand_residual 0.41458 (delta 0.00025 << noise 0.005); residual CATEGORY marginally beats best_known 0.4008 (+0.014 ~=noise) from diversity only; learning the SHAPE adds nothing. E3 stage CURRICULUM ES-on-schedule (3 seeds): NO BEAT -- curriculum 0.4132 <= static 0.4148 = random_cur 0.4148; ES drifted to mild decay s0.40->0.30, zero benefit; TIMING adds nothing. E4 EqM-lite NOT RUN (gated, both no-beat). CONCLUSION: over known generic base, neither residual SHAPE nor TIMING can be learned to beat fixed/random; only gain is 'add a mild residual at all' (~=noise, no learning). Whole-arc thesis decisively confirmed across anchor-match/hardness/val-utility x single/dist/policy/conditional/curriculum. Discovery needs an UNKNOWN non-generic-symmetry testbed; the testbed itself must change. Do NOT run FID.",
+    "v17_morphism_gym": "PASS Phase0-2. Pivot to hidden-morphism rendered-shape gym (valid on-manifold, decoys off-manifold; label-free PCA-whitened random-conv ED anchor separates AUC 1.0). P0: classifier insensitive->EqM-lite gate brackets clean x2 seeds. P1 all 7 tasks: recovers true families, avoids decoys, valid, NO_ANCHOR degrades validity, no hallucination on impossible. P2 EqM-lite: multi_independent DISC_MULTI 0.062 BEATS random 0.107 BEATS oracle 0.078 vs base 0.466, NO_ANCHOR 0.30 (anchor essential) \u2014 FIRST discovery>random in whole arc. single_rotation no headroom. DISC ties single on EqM-lite. RECOMMEND integration, FID never auto-authorized.",
+    "v17_phase3_transfer": "PASS 3 seeds. MNIST objects, same machinery. DISC_MULTI EqM-lite gap 0.022-0.023 BEATS random 0.080 BEATS oracle 0.049 (base 0.117), NO_ANCHOR ~=base (essential). Discovery pattern holds on real images.",
+    "v17_eqm_bridge_smoke": "v14_multi_morphism_aug built (port of v17 recipe). Mandatory smoke FAILED on real CIFAR: no single label-free anchor separates valid morphisms from decoys (random-conv ED misses big_shear ED0.10; AE-recon misses crop_erase/color_collapse; combined max leaks valid hue). discovery picks decoy big_shear (decoy_usage 0.96). Per discipline NOT submitted. v17 gym/MNIST/dSprites positive STANDS; CIFAR anchor not symmetry-aligned (documented risk realized). Postmortem documentation/v17_bridge_smoke_postmortem.md.",
+    "v17_cifar_detector_crack": "Natural-image-robust label-free validity detector built (v17_cifar_detector.py). robust-AE (CIFAR + mild valid nuisances) vetoes big_shear + accepts valid hue; conv-ED catches crop/collapse. Static sep +0.378 (valid<all decoys). Wired into discover(ae,ae_weight); SUM needs ae_weight~50 -> decoy_usage 0.079<0.10. v14 defaults use_ae=true ae_weight=50. Bridge mechanism smoke PASSES. FID submit still human-gated."
+  },
+  "key_findings": [
+    "Hard-negative/v10 mining installs no manifold structure. Dead.",
+    "KNOWN-symmetry constraints generalize cleanly (ORACLE).",
+    "Recipe (frozen anchor + coherent group generator exp(A) + stability reg) achieves near-oracle COHERENT discovery for ROTATION/ISOMETRIC symmetries in a CLEAN supervised/aligned latent, incl higher-dim K=3 with correct active-subspace selection (rungs 12-14).",
+    "CROSS-CUTTING: held-out recall is COVERAGE-confounded (rungs 15-16: high recall with off-manifold/incoherent operators). Trust operator-quality metrics (on-manifold, shift coherence, structure preservation), not recall alone.",
+    "OUTSIDE the clean-rotation regime, discovery degrades to coverage-recall WITHOUT coherent symmetry: learned/unaligned latent (rung15) incoherent; non-rotation screw (rung16) inconclusive/ill-posed.",
+    "EqM bridge plan written (v12 frozen stable-generator aug, middle-block feature anchor); real validation needs cluster (2FA)."
+  ],
+  "next_action": {
+    "command": "HUMAN GATE: approve submitting the 150ep x4-arm CIFAR bridge (v00/vK/v14_discovered/v14_random). Mechanism smoke now PASSES (decoy_usage 0.079). On approval: submit bridge_v14_smoke (gpu_test, 16-sample probe) first, then the 4 full arms; pre-reg gate discovered FID<random AND <=known-aug.",
+    "reason": "Detector cracked: discovery now avoids decoys on natural CIFAR. The only remaining gate is the FID-run human approval (FID never auto).",
+    "hint": "Cluster session was live earlier. Submit smoke first (mandatory sample probe), verify finite loss + sane samples + decoy_usage in operator_diag.json, THEN the full 4-arm bridge. Add active_runs entries per job-tracking discipline."
+  },
+  "needs_user_input": {
+    "value": true,
+    "prompt": "Detector CRACKED. Built a natural-image-robust label-free validity detector: a small autoencoder trained on CIFAR + mild VALID nuisances (flip/affine/brightness/hue) which vetoes destructive shear and now correctly accepts valid hue, COMBINED with the random-conv energy-distance (which catches crop-erase/color-collapse). Static separability sep=+0.378 (valid families all below all decoys). Wired into discovery: at ae_weight=50, decoy_usage drops to 0.079 (<0.10 gate) -- discovery now AVOIDS decoys on natural CIFAR and favors valid morphisms (hue/bright/translate). The CIFAR EqM bridge (v14_multi_morphism_aug, defaults updated) now PASSES its mechanism/decoy-avoidance smoke. The ONLY remaining gate is your explicit FID-run approval (FID never auto-authorized). On your go I will submit bridge_v14_smoke on gpu_test (mandatory 16-sample probe + finite-loss + operator_diag check) FIRST, then the full 150ep 4-arm bridge (v00 base / vK known-aug / v14 discovered / v14 random), with the pre-registered gate discovered FID < random AND <= known-aug before any IN-1K. Approve the bridge submission?"
+  },
+  "active_runs": [],
+  "completed_runs": [
+    {
+      "run_id": "rung16_screw",
+      "where": "local CPU",
+      "date": "2026-06-04",
+      "result": "INCONCLUSIVE x2 (confounded/messy); non-rotation unresolved",
+      "results_path": "results/rung16b_full.json"
+    },
+    {
+      "run_id": "rung15_learned_latent",
+      "where": "local CPU",
+      "date": "2026-06-04",
+      "result": "PARTIAL: recall transfers via coverage, coherent symmetry needs aligned coords",
+      "results_path": "results/rung15_full.json"
+    },
+    {
+      "run_id": "rung14_higher_dim",
+      "where": "local CPU",
+      "date": "2026-06-04",
+      "result": "DEFINITIVE SUCCESS: stability prior = oracle in K=3 (stable!=rotation), discovers active plane + preserves passive dim",
+      "results_path": "results/rung14_full.json"
+    },
+    {
+      "run_id": "rung13_prior_budget",
+      "where": "local CPU",
+      "date": "2026-06-04",
+      "result": "STRONG SUCCESS: stability-only prior = 99% ORACLE (rotation emerges, not named)",
+      "results_path": "results/rung13_full.json"
+    },
+    {
+      "run_id": "rung12_group_generator",
+      "where": "local CPU",
+      "date": "2026-06-04",
+      "result": "SUCCESS near-oracle (SKEW=ORACLE, FREE ~69%)",
+      "results_path": "results/rung12_full.json"
+    },
+    {
+      "run_id": "rung11_orbit_aug",
+      "where": "local CPU",
+      "date": "2026-06-04",
+      "result": "coverage rejected; gap=operator precision",
+      "results_path": "results/rung11_full.json"
+    },
+    {
+      "run_id": "rung10_frozen_anchor_coherent",
+      "where": "local CPU",
+      "date": "2026-06-04",
+      "result": "PARTIAL SUCCESS (coherence fixed, partial arc fill)",
+      "results_path": "results/rung10_full.json"
+    },
+    {
+      "run_id": "rung9_frozen_anchor",
+      "where": "local CPU",
+      "date": "2026-06-04",
+      "result": "PARTIAL (co-adaptation fixed, coherence missing)",
+      "results_path": "results/rung9_full.json"
+    }
+  ],
+  "events": [
+    {
+      "id": "evt-0001",
+      "ts": "2026-06-04",
+      "action": "INIT",
+      "detail": "Project created from diff-EqM symmetry-toys investigation (rungs 1-9). Houses ladder scripts, findings, control methodology."
+    },
+    {
+      "id": "evt-0002",
+      "ts": "2026-06-04",
+      "action": "RUNG10",
+      "detail": "Coherent single-matrix operator + frozen anchor -> partial discovery success; 3-layer blocker resolved in principle."
+    },
+    {
+      "id": "evt-0003",
+      "ts": "2026-06-04",
+      "action": "RUNG11_CONCLUDE",
+      "detail": "Orbit aug rejected coverage hypothesis; gap is operator precision. Ladder concluded: discovery partial+imprecise, known-symmetry remains best lever."
+    },
+    {
+      "id": "evt-0004",
+      "ts": "2026-06-04",
+      "action": "RUNG12_SUCCESS",
+      "detail": "Group-structured generator achieves near-oracle latent symmetry discovery; precision was the gap. Verdict revised: discovery VIABLE."
+    },
+    {
+      "id": "evt-0005",
+      "ts": "2026-06-04",
+      "action": "RUNG13_SUCCESS",
+      "detail": "Prior-budget: stability-only prior (no rotation naming) reaches oracle (99%); rotation emerges. 2D-conflation caveat -> rung14 higher-dim definitive test."
+    },
+    {
+      "id": "evt-0006",
+      "ts": "2026-06-04",
+      "action": "RUNG14_SUCCESS",
+      "detail": "Class-agnostic stability prior reaches oracle in K=3 (stable!=rotation); discovers active subspace + preserves passive dim. 2D caveat dissolved. Discovery viable with minimal prior."
+    },
+    {
+      "id": "evt-0007",
+      "ts": "2026-06-04",
+      "action": "RUNG15_PARTIAL",
+      "detail": "Learned latent: recall via coverage, not coherent symmetry. Coherent discovery needs structure-aligned coords. Deferred learned-latent coherence; proceeding to rung16 richer group with clean latent."
+    },
+    {
+      "id": "evt-0008",
+      "ts": "2026-06-04",
+      "action": "RUNG16_INCONCLUSIVE_PAUSE",
+      "detail": "Screw toy inconclusive x2 (stop-rule). Scope corrected: validated for clean-rotation regime; recall coverage-confounded outside it. Toy ladder paused; bridge needs cluster 2FA."
+    },
+    {
+      "id": "evt-0009",
+      "ts": "2026-06-04",
+      "action": "EQM_BRIDGE_BUILT",
+      "detail": "v12 frozen-anchor stable-generator aug implemented (_stable_operator/v12/vK + 5 configs); local CPU smoke on real CIFAR PASS; full run blocked on cluster 2FA."
+    },
+    {
+      "id": "evt-0010",
+      "ts": "2026-06-04",
+      "action": "BRIDGE_PROXY_NEGATIVE",
+      "detail": "Fast feature-proxy: discovered stable-generator stable+beats-random but ~=base on held-out gap; mechanism fails in CIFAR feature space (not symmetry-aligned). Do not extend FID. Proxy saved hours."
+    },
+    {
+      "id": "evt-0011",
+      "ts": "2026-06-04",
+      "action": "SPATIAL_PROXY",
+      "detail": "Architecture fixed (spatial op = coherent rotation) but targeting open (anchor-matching direction-agnostic; one-sided held-out unreachable). Do not scale FID; known-aug is the lever."
+    },
+    {
+      "id": "evt-0012",
+      "ts": "2026-06-05",
+      "action": "V15_SAFE_ADVERSARIAL_NEGATIVE",
+      "detail": "Model-aware safe-adversarial aug ladder (R1 ceiling / R2 hardness gate / R3 global safe-hard / R4 conditional). Hard + conditional policies are WORSE than uniform crop at all lams; frozen-scorer hardness was a false positive. CIFAR-translation discovery exhausted v12-v15. NOT authorized for FID. Bridge concluded; need a non-generic-symmetry testbed or pivot."
+    },
+    {
+      "id": "evt-0013",
+      "ts": "2026-06-06",
+      "action": "V16_RESIDUAL_POLICY_NEGATIVE",
+      "detail": "Residual-policy ladder optimized for VALIDATION utility (the last untested objective). E1 BEST_KNOWN=crop_pad4_color. E2 learned residual SHAPE == random (delta<<noise). E3 stage curriculum TIMING == static/random. E4/FID not run (gated). 4th consecutive negative; validation-utility bilevel also converges to random. CIFAR aug discovery exhausted across all objectives/forms. Bridge CONCLUDED. Decide: non-generic-symmetry testbed / pivot / write up negative."
+    }
+  ],
+  "provenance": {
+    "origin": "projects/diff-EqM/experiments/symmetry_toys/ + documentation/symmetry-vs-mining-toy-findings-2026-06-03.md",
+    "informs": "diff-EqM v10 direction (prefer known-symmetry constraints over hard-negative mining)"
+  }
+}

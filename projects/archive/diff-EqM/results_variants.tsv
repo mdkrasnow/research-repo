@@ -1,0 +1,55 @@
+round	variant	seed	fid	status	description	git_sha	timestamp
+1	v00_vanilla	0	22.0852	BASELINE	R1 retry @ 100ep, seed 0 (job 8611605_0/dir 8612283)	3184d9f	2026-04-26T14:14:43Z
+1	v00_vanilla	1	22.5712	BASELINE	R1 retry @ 100ep, seed 1 (job 8611605_1/dir 8612575)	3184d9f	2026-04-26T14:19:38Z
+1	v00_vanilla	2	22.2810	BASELINE	R1 retry @ 100ep, seed 2 (job 8611605_2)	3184d9f	2026-04-26T14:24:02Z
+2	v03_noised_negatives	0	22.0141	ELIMINATED	R2 @ 100ep, hinge saturated (neg=0); job 9061659	00bba7e	2026-04-28T15:09:00Z
+2	v06_diffusion_recovery	0	22.2349	ELIMINATED	R2 @ 100ep, recovery active but no FID gain; job 9061660	00bba7e	2026-04-28T13:19:00Z
+2	v04_ebm_contrastive	0	436.7887	ELIMINATED	R2 @ 100ep, degenerate (base loss 7x); job 9061676	00bba7e	2026-04-28T15:39:00Z
+2	v02_score_repulsion	0	24.7996	REPLACE	R2 100ep timeout retry @ 8h; job 9287774	00bba7e	2026-04-30T00:30:00Z
+3	v03_noised_negatives	0	14.1033	REVISIT	R3 @ 150ep on variant harness; job 9564372	2c8d549	2026-05-02T07:52:00Z
+3	v06_diffusion_recovery	0	13.7298	REVISIT	R3 @ 150ep on variant harness; job 9564380	2c8d549	2026-05-02T06:52:00Z
+3	v02_score_repulsion	0	12.2617	KEEP	R3 @ 150ep on variant harness; job 9564371	2c8d549	2026-05-02T09:55:00Z
+4	v00_vanilla	0	14.1747	BASELINE	R4 apples-to-apples vanilla 150ep on variant harness; job 9703159	6ee0bc0	2026-05-03T01:00:00Z
+4	v02_score_repulsion	1	13.6455	KEEP	R4 v02b seed 1; job 9704561	a704d83	2026-05-03T07:34:00Z
+4	v02_score_repulsion	2	12.9569	KEEP	R4 v02b seed 2; job 9704566	a704d83	2026-05-03T07:30:00Z
+4	v02c_score_repulsion_lneg03	0	12.5529	KEEP	R4 lambda_neg=0.3 sweep; job 9704524	a704d83	2026-05-03T07:39:00Z
+4	v02d_score_repulsion_lneg01	0	12.5039	KEEP	R4 lambda_neg=0.1 sweep; job 9704528	a704d83	2026-05-03T07:30:00Z
+4	v02e_score_repulsion_lneg20	0	12.9148	KEEP	R4 lambda_neg=2.0 sweep; job 9704532	a704d83	2026-05-03T07:30:00Z
+4	v07_anneal_v02	0	12.2844	KEEP	R4 linear lambda anneal 1->0; job 9704559	a704d83	2026-05-03T01:08:00Z
+5	v00_vanilla	1	15.9732	BASELINE	R5 vanilla 150ep seed 1; job 9877079	a704d83	2026-05-04T01:00:00Z
+5	v00_vanilla	2	15.0423	BASELINE	R5 vanilla 150ep seed 2; job 9877093	a704d83	2026-05-04T01:00:00Z
+5	v07_anneal_v02	1	13.4295	REVISIT	R5 v07 seed 1 (multi-seed kills curriculum hypothesis); job 9877111	a704d83	2026-05-04T07:30:00Z
+5	v07_anneal_v02	2	13.2984	REVISIT	R5 v07 seed 2 (3-seed mean 13.00 ties v02); job 9877112	a704d83	2026-05-04T07:30:00Z
+5	v08_v02_plus_v06	0	12.8972	REVISIT	R5 v08 combined (no improvement over v02; mechanisms redundant); job 9877392	0b09a65	2026-05-04T05:00:00Z
+stage_b_vanilla_in1k_80ep	seed0	IN-1K-256	EqM-B/2	80ep(76@eval)	50K	31.4105	12590805+12590806	2026-05-13	BASELINE-TRUSTED (paper 32.85; Δ=-1.44)
+6	v10_hard_example	0	13.4021	KEEP	v10 PGD hard-example R6 150ep variant harness; job 13868114; beats v00 R4 baseline 14.17 by 0.77 FID (mechanism PASS — non-saturating, ratio 1.047-1.049 stable, ||δ||=0.3 throughout)	a61b352	2026-05-20T02:00:00Z
+stage_b_v10_in1k_80ep	seed0	IN-1K-256	EqM-B/2	80ep(81@eval)	50K	29.0085	15638767+16328965	2026-05-27	PHASE-1-GATE-PASS (vanilla 31.41; Δ=-2.40; gate 30.41 cleared by 1.40)
+stage_b_v10_lambda03_in1k_80ep	seed0	IN-1K-256	EqM-B/2	80ep	50K	27.0924	16376975+17683967	2026-05-31	ABLATION lambda=0.3 (vs lambda=0.1 FID 29.01, vs vanilla 31.41; Δ=-4.32 vs vanilla, -1.92 vs lambda=0.1 — bigger mining weight = bigger gain)
+capability_eval_in1k	vanilla_vs_v10	IN-1K-256	EqM-B/2	80ep	n8/50pairs	NULL	17086244	2026-05-29	CAPABILITY EVAL (paper recipe): denoise PSNR identical (22.6/18.6/15.0/11.5 both), compose both-class 0.125 BOTH (semantic pairs, EqM §5.4 grad-sum), inpaint hole-PSNR 7.89 vs 8.11. NO vanilla-vs-v10 capability gap at B/2. v10 benefit is FID-only. Caveat: paper composes at XL/2 not B/2.
+offtraj_field_robust_random	vanilla_vs_v10	IN-1K-256	EqM-B/2	80ep	5120lat	ANM_WIN_SIG	17788287	2026-06-01	EXP2 off-traj field robustness, random_l2_orthogonal: ANM-vanilla dMSE -0.0164(r0)[CI -0.0191,-0.0138] -> -0.0277(r0.1)[CI -0.0314,-0.0240] all SIG, dCos +5e-4->+6e-4. Gap widens off-traj. Paired bootstrap CI over sample_id. Small effect (0.2-0.4% rel vs vanMSE 10.3).
+offtraj_field_robust_sampler	vanilla_vs_v10	IN-1K-256	EqM-B/2	80ep	5120lat	ANM_WIN_SIG	17788329	2026-06-01	EXP2 sampler perturbs: real-v10-MINED dMSE -0.0368[CI -0.0396,-0.0340] dCos +0.00109 (LARGEST, at perturbation ANM trains on); GD-drift dMSE -0.0194[CI -0.0221,-0.0167]. Norm-reshaping RULED OUT (norm_ratio 0.730 both); peaks mid-t~0.55-0.75 not t->1. Mechanism confirmed, small. Consistent w/ B/2 NULL capability eval.
+offtraj_field_lambda03_random	vanilla_vs_v10_l03	IN-1K-256	EqM-B/2	80ep	5120lat	ANM_WIN_SIG	17829106	2026-06-01	EXP2 DOSE-RESPONSE lambda=0.3 (FID 27.09) random_orth: dMSE -0.0344(r0)->-0.0607(r0.1) dCos +0.00104->+0.00118 all SIG. ~2.1x larger than lambda=0.1 every radius. Monotonic: more mining -> bigger FID gain AND bigger field-robustness gap.
+offtraj_field_lambda03_sampler	vanilla_vs_v10_l03	IN-1K-256	EqM-B/2	80ep	5120lat	ANM_WIN_SIG	17829107	2026-06-01	EXP2 DOSE-RESPONSE lambda=0.3 sampler: MINED dMSE -0.0565 [CI -0.0594,-0.0535] dCos +0.00166 (vs l0.1 -0.0368); drift -0.0397 (vs -0.0194). All perturb types larger gap at l=0.3. At l=0.3 random-r0.1 (-0.0607) exceeds mined (-0.0565): robustness generalizes beyond mined region as mining strengthens.
+c3_ood_energy	vanilla_vs_v10	IN-1K-256	EqM-B/2	80ep	n2000x4ood	NEGATIVE_KILL	18952117	2026-06-03	C3 OOD via field-norm ||f||: gaussian/uniform AUROC=1.0 saturated, wrong_label null(~0.5), patch_shuffle vanilla 0.819 > l01 0.770 > l03 0.726 (v10 WORSE, dose-ANTI-ordered). Mechanism: off-manifold field-robustness shrinks OOD gap (van13.6->l01 10.6->l03 9.4). KILL per pre-reg. Does NOT meet C2 gate.
+c1_ext_inference_scaling	vanilla_vs_v10l03	IN-1K-256	EqM-B/2	80ep	5K-gd/ngd	NEGATIVE_KILL	18949428+18952135	2026-06-04	C1 high-NFE: vanilla gd FID 45.71(250)->47.88(1000) +2.17 turn-up; anm-l03 41.25->45.27 +4.02 (degrades MORE). Advantage shrinks -4.46->-2.61 w/ NFE. ANM residual HIGHER (5.3-6.1 vs 4.1-5.2). No scaling capability; both crash home-full Errno28. Uniform ~4FID gain survives (quality not capability). C1 killed; C2 NOT launched (gate unmet).
+bridge150_cifar	v00_vanilla	seed0	14.3145	BASE	EqM bridge 150ep CIFAR base floor	509268e	2026-06-05
+bridge150_cifar	v12_random	seed0	13.6301	NEG_CTRL_BEATS_ALL	EqM bridge 150ep random-affine aug; beat base/disc/known -> gain is generic aug regularization not discovered symmetry	509268e	2026-06-05
+bridge150_cifar	v12_discovered_orbit	seed0	14.4126	NEGATIVE_NO_BENEFIT	EqM bridge 150ep TREATMENT mixture-anchor discovered op + orbit aug; ~=base (+0.10), no FID benefit despite proxy pass	509268e	2026-06-05
+bridge150_cifar	vK_known_aug	seed0	14.8239	POS_CTRL_FAILED	EqM bridge 150ep known rotate15 aug; WORSE than base (+0.51) -> rotation is NOT a useful CIFAR symmetry; positive control fails	509268e	2026-06-05
+exp3_fidelity_diversity	v10_l03_vs_vanilla	IN-1K-256	26.8842	STRONG_SUCCESS	EqM-B/2 80ep, 49996 identical ids (4 corrupt vanilla PNGs dropped both arms), gd/250/cfg1.0/EMA, fixed seeded ref. ANM l03 FID 26.88 vs vanilla 31.27 (-4.38, CIs disjoint 27.27-27.85 vs 31.64-32.28). NO diversity tax: recall 0.7185->0.7193 flat, coverage 0.443->0.515 (+0.072), density 0.433->0.477, precision 0.581->0.604. Weak-class bottomQ FID 62.80->57.19 (-5.61, weak gain MORE). Classifier TV 0.181->0.162, cond-top1 0.433->0.483. 91% classes improve. Verdict strong_success (job 19120911).	342c504	2026-06-05T00:00:00Z
+bridge150_se2	vK_translate_crop	seed0	12.5938	POS_CTRL_WIN	known random-crop pad4; -1.72 vs base -> translation IS a strong CIFAR lever (architecture critique confirmed; cf rotation +0.51)	b51ffb4	2026-06-05
+bridge150_se2	v13_discovered_se2	seed0	14.0207	NEG_DISC_APPROX_RANDOM	SE2 discovered translation op (clean: tx-2.1 ty-2.0 det0.98 cond1.01 lin_off0.019 anchor6.29->3.67) + orbit aug; ~=random ~=base (-0.29 vs base, -0.06 vs random = noise). Single frozen op lacks per-step crop DIVERSITY; feature_shift_consistency~0.009 (incoherent, rung15 confound)	b51ffb4	2026-06-05
+bridge150_se2	v13_random_se2	seed0	14.0759	NEG_CTRL	random SE2 affine (det0.74); -0.23 vs base	b51ffb4	2026-06-05
+bridge150_se2	v10_hardneg	seed0	14.0776	COMPLETED	job 19405301 done 2026-06-06; FID(5k) ties random 14.08/base 14.31, v13_discovered 14.02; mining no edge over crop on bridge	a96b341	2026-06-06
+in1k_80ep	v10_b2_lambda03	seed0	27.2086	COMPLETED	FID 50K job 19680996; -4.20 vs vanilla 31.41; Phase1 gate PASS (<=30.41)	5bf37cb	2026-06-07
+in1k_80ep	v10_b2_lambda03	seed1	27.9230	COMPLETED	FID 50K job 19681008 (ep79 ckpt); -3.49 vs vanilla 31.41	5bf37cb	2026-06-07
+in1k_80ep	v10_b2_lambda03	seed2	27.6020	COMPLETED	FID 50K job 19681015; -3.81 vs vanilla 31.41; 3-seed mean 27.58+-0.36	5bf37cb	2026-06-07
+capability_rung1	van_s0_vs_v10_s1_step400k	n16	denoise=parity_all_gammas	inpaint_holePSNR_van7.275_v10_7.382	compose_bothrate_0.125_both	VERDICT=no_gap_capability_claim_fails
+capability_rung2	van_s0_vs_v10_s1_step400k	n32	gray_dPSNR+0.008	lowres+0.025	blur+0.013	crop+0.016	all_LPIPS_delta<=0.004	VERDICT=no_transfer_gap_ladder_killed
+capability_v2_CEF	van_s0_vs_v10_s1	n64	rescue_v10conf+0.0018	swap_all~pure_arms	edit_Bsuccess_0_both	VERDICT=null_gain_aggregate_not_trajectory_steerable
+capability_v2_RungD	van_s0_vs_v10_s1	96cell_5K	no_collapse_0nan0div	converged_dFID_-2.5..-3.2	sample_eff_v10nfe100<=van_nfe250_2.5x	starved_nfe<=25_v10~=or_worse	VERDICT=weak_positive_near_manifold
+b2_seed1_selector_repl	EqM-B/2	seed1	probe_restart_50k	24.808	vanilla_restart 27.506; oracle 15.837; Δ2.70; 23% oracle; checkpoint-specificity test — REPLICATES locked seed0 probe 24.66
+s2_seed0_selector_repl	EqM-S/2	seed0	probe_restart_50k	47.290	vanilla_restart 50.006; oracle 32.640; Δ2.72; 16% oracle; scale-axis replication test — REPLICATES locked B/2 seed0 pattern (Δ~3.29, 16-18% oracle)
+goal3_v21	v21_random_150ep	0	14.2912	completed	Goal3 negative control: random selector in v21 harness, CIFAR variant_harness 150ep	8593f74	2026-07-01
+goal3_v21	v21_magnitude_150ep	0	13.6824	completed	Goal3 ablation: magnitude selector (v20-style) in v21 harness, CIFAR variant_harness 150ep	8593f74	2026-07-01
+goal3_v21	v21_metacog_mine_150ep_shape	0	13.8680	completed	Goal3 treatment: SHAPE selector (K-step local rollout non-monotonicity) in v21 harness, CIFAR variant_harness 150ep, job 26827268. FAILS gate (worse than both v10=13.40 and v20=13.26 by >=0.3; underperforms even v21-magnitude=13.68)	8593f74	2026-07-02
