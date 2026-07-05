@@ -52,6 +52,11 @@ IMAGENET_PATH="${IMAGENET_PATH:-/n/holylabs/ydu_lab/Lab/raywang4/imagenet/train}
 CORRUPTION_MODE="${CORRUPTION_MODE:-gaussian}"
 RESULTS_DIR="results/corruption_sanity_${CORRUPTION_MODE}"
 REPO_ROOT="/n/home03/mkrasnow/research-repo"
+# home03 has a 95GB hard quota and fills easily from checkpoint syncs (past
+# incident: diff-EqM results alone consumed 73GB, deadlocking training via
+# rsync/IO stalls). Persist checkpoints to holylabs instead; only logs go
+# to home03 (small, git-tracked).
+PERSISTENT_RESULTS="${PERSISTENT_RESULTS:-/n/holylabs/ydu_lab/Lab/mkrasnow_eqm/masked-EqM/$RESULTS_DIR}"
 
 if [ ! -d "$IMAGENET_PATH" ]; then
     echo "ERROR: ImageNet data not found at $IMAGENET_PATH" >&2
@@ -59,7 +64,7 @@ if [ ! -d "$IMAGENET_PATH" ]; then
 fi
 
 mkdir -p "$WORK_DIR/projects/masked-EqM/$RESULTS_DIR"
-mkdir -p "$REPO_ROOT/projects/masked-EqM/$RESULTS_DIR"
+mkdir -p "$PERSISTENT_RESULTS"
 
 # unconditionally required by wandb_utils even with --wandb off
 export ENTITY="${ENTITY:-none}"
@@ -68,11 +73,11 @@ export PROJECT="${PROJECT:-none}"
 MASTER_PORT=$((29500 + RANDOM % 1000))
 
 # Periodic background sync so a TIMEOUT/kill doesn't strand checkpoints in
-# /tmp -- rsync results dir back to persistent storage every 10 minutes.
+# /tmp -- rsync results dir back to persistent storage (holylabs) every 10 min.
 sync_loop() {
     while true; do
         sleep 600
-        rsync -a "$WORK_DIR/projects/masked-EqM/$RESULTS_DIR/" "$REPO_ROOT/projects/masked-EqM/$RESULTS_DIR/" 2>/dev/null || true
+        rsync -a "$WORK_DIR/projects/masked-EqM/$RESULTS_DIR/" "$PERSISTENT_RESULTS/" 2>/dev/null || true
     done
 }
 sync_loop &
@@ -112,7 +117,7 @@ echo "=== Training end time: $(date) ===" >&2
 kill $SYNC_PID 2>/dev/null || true
 
 echo "=== Final syncing results ===" >&2
-rsync -av "$WORK_DIR/projects/masked-EqM/$RESULTS_DIR/" "$REPO_ROOT/projects/masked-EqM/$RESULTS_DIR/" 2>&1 | tail -10
+rsync -av "$WORK_DIR/projects/masked-EqM/$RESULTS_DIR/" "$PERSISTENT_RESULTS/" 2>&1 | tail -10
 cp train.log "$REPO_ROOT/projects/masked-EqM/slurm/logs/corrupt_sanity_${CORRUPTION_MODE}_${SLURM_JOB_ID}.log" 2>/dev/null || true
 
 echo "=== Cleaning up work directory ===" >&2
