@@ -115,11 +115,18 @@ def main(args):
             eps = torch.randn_like(x1)
             z0 = keep_mask * x1 + (1 - keep_mask) * eps
 
-            xt = gd_recover(
-                ema, z0, y, args.num_sampling_steps, args.stepsize,
-                args.sampler, args.mu,
-                hard_constrain=args.hard_constrain, keep_mask=keep_mask, x1_true=x1,
-            )
+            if args.vae_roundtrip_oracle:
+                # positive control: skip masking/model entirely, just measure
+                # the VAE's own encode->decode reconstruction floor -- the
+                # best achievable score through this pipeline with a
+                # hypothetically perfect model.
+                xt = x1
+            else:
+                xt = gd_recover(
+                    ema, z0, y, args.num_sampling_steps, args.stepsize,
+                    args.sampler, args.mu,
+                    hard_constrain=args.hard_constrain, keep_mask=keep_mask, x1_true=x1,
+                )
 
             recovered = vae.decode(xt / 0.18215).sample
             masked_region = (1 - keep_mask)
@@ -162,6 +169,8 @@ if __name__ == "__main__":
                          help="fraction of latent masked out for the recovery test")
     parser.add_argument("--hard-constrain", action="store_true",
                          help="ceiling/oracle mode: reset visible pixels to ground truth every step")
+    parser.add_argument("--vae-roundtrip-oracle", action="store_true",
+                         help="positive control: skip masking/model, just measure VAE encode->decode floor")
     parser.add_argument("--num-images", type=int, default=256)
     parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--seed", type=int, default=0)

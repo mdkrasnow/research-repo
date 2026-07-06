@@ -47,6 +47,10 @@ HARD_CONSTRAIN_FLAG=""
 if [ "${HARD_CONSTRAIN:-0}" = "1" ]; then
     HARD_CONSTRAIN_FLAG="--hard-constrain"
 fi
+VAE_ORACLE_FLAG=""
+if [ "${VAE_ROUNDTRIP_ORACLE:-0}" = "1" ]; then
+    VAE_ORACLE_FLAG="--vae-roundtrip-oracle"
+fi
 
 OUT_DIR="/n/holylabs/ydu_lab/Lab/mkrasnow_eqm/masked-EqM/eval_results"
 mkdir -p "$OUT_DIR"
@@ -58,6 +62,7 @@ python eval_masked_recovery.py \
     --num-images "${NUM_IMAGES:-256}" \
     --batch-size "${BATCH_SIZE:-16}" \
     $HARD_CONSTRAIN_FLAG \
+    $VAE_ORACLE_FLAG \
     --out "$OUT_DIR/${OUT_NAME}.json"
 
 echo "=== Eval done, output: $OUT_DIR/${OUT_NAME}.json ==="
