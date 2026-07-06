@@ -11,10 +11,12 @@
 #SBATCH --gres=gpu:1
 
 # Real sanity run for structured start-state corruption (masked-EqM).
-# Longer than corruption_smoke.sbatch: periodic checkpointing + periodic
-# background rsync-back so a TIMEOUT doesn't lose progress (eval|tee only
-# rsyncs at the end; a mid-run kill would otherwise strand checkpoints in
-# /tmp on the compute node). CORRUPTION_MODE set via --export.
+# Writes --results-dir directly to holylabs (network-mounted on compute
+# nodes) -- no local staging + rsync-back. Past version staged to /tmp and
+# rsynced at the end; that rsync failed once (exit 23) and `set -e` killed
+# the script before cleanup, losing all but the first checkpoint even
+# though training itself had completed successfully. Writing straight to
+# holylabs removes that failure mode. CORRUPTION_MODE set via --export.
 set -euo pipefail
 
 module load python/3.10.13-fasrc01 2>/dev/null || true
@@ -50,39 +52,24 @@ pip install --quiet timm diffusers accelerate torchdiffeq wandb torchvision 2>&1
 
 IMAGENET_PATH="${IMAGENET_PATH:-/n/holylabs/ydu_lab/Lab/raywang4/imagenet/train}"
 CORRUPTION_MODE="${CORRUPTION_MODE:-gaussian}"
-RESULTS_DIR="results/corruption_sanity_${CORRUPTION_MODE}"
 REPO_ROOT="/n/home03/mkrasnow/research-repo"
-# home03 has a 95GB hard quota and fills easily from checkpoint syncs (past
-# incident: diff-EqM results alone consumed 73GB, deadlocking training via
-# rsync/IO stalls). Persist checkpoints to holylabs instead; only logs go
-# to home03 (small, git-tracked).
-PERSISTENT_RESULTS="${PERSISTENT_RESULTS:-/n/holylabs/ydu_lab/Lab/mkrasnow_eqm/masked-EqM/$RESULTS_DIR}"
+# home03 has a 95GB hard quota (past incident: archived diff-EqM results
+# alone consumed 73GB, deadlocking training via rsync/IO stalls). Write
+# checkpoints straight to holylabs; only small logs go to home03.
+RESULTS_DIR="/n/holylabs/ydu_lab/Lab/mkrasnow_eqm/masked-EqM/results/corruption_sanity_${CORRUPTION_MODE}"
 
 if [ ! -d "$IMAGENET_PATH" ]; then
     echo "ERROR: ImageNet data not found at $IMAGENET_PATH" >&2
     exit 1
 fi
 
-mkdir -p "$WORK_DIR/projects/masked-EqM/$RESULTS_DIR"
-mkdir -p "$PERSISTENT_RESULTS"
+mkdir -p "$RESULTS_DIR"
 
 # unconditionally required by wandb_utils even with --wandb off
 export ENTITY="${ENTITY:-none}"
 export PROJECT="${PROJECT:-none}"
 
 MASTER_PORT=$((29500 + RANDOM % 1000))
-
-# Periodic background sync so a TIMEOUT/kill doesn't strand checkpoints in
-# /tmp -- rsync results dir back to persistent storage (holylabs) every 10 min.
-sync_loop() {
-    while true; do
-        sleep 600
-        rsync -a "$WORK_DIR/projects/masked-EqM/$RESULTS_DIR/" "$PERSISTENT_RESULTS/" 2>/dev/null || true
-    done
-}
-sync_loop &
-SYNC_PID=$!
-trap 'kill $SYNC_PID 2>/dev/null || true' EXIT
 
 TRAIN_CMD="python -m torch.distributed.run --nnodes=1 --nproc_per_node=1 --master_port=$MASTER_PORT \
     train.py \
@@ -114,10 +101,6 @@ TRAIN_EXIT=${PIPESTATUS[0]}
 echo "=== Training exit code: $TRAIN_EXIT ===" >&2
 echo "=== Training end time: $(date) ===" >&2
 
-kill $SYNC_PID 2>/dev/null || true
-
-echo "=== Final syncing results ===" >&2
-rsync -av "$WORK_DIR/projects/masked-EqM/$RESULTS_DIR/" "$PERSISTENT_RESULTS/" 2>&1 | tail -10
 cp train.log "$REPO_ROOT/projects/masked-EqM/slurm/logs/corrupt_sanity_${CORRUPTION_MODE}_${SLURM_JOB_ID}.log" 2>/dev/null || true
 
 echo "=== Cleaning up work directory ===" >&2
