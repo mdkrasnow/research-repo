@@ -2,33 +2,74 @@
   "phase": "sanity",
   "active_runs": [
     {
-      "run_id": "corrupt_sanity_gaussian_seed0_v3",
-      "job_id": "28768063",
+      "run_id": "corrupt_sanity_gaussian_seed0_v4",
+      "job_id": "28814807",
       "partition": "gpu_test",
       "status": "pending",
-      "description": "sanity: corruption-mode=gaussian (re-baseline), EqM-B/2, IN-1K, 11h cap, batch32, ckpt-every 5000; results-dir written directly to holylabs (v3, rsync-back removed)",
+      "description": "sanity: corruption-mode=gaussian (re-baseline), EqM-B/2, IN-1K, 11h cap, batch32, ckpt-every 5000; results-dir on holylabs (v4, resubmit after holylabs group quota exceeded on v3)",
       "submitted_at": "2026-07-06",
       "git_sha": "4dac50e2ba73f40629a45c1354e5ced4a1ff35b3",
       "sbatch_path": "projects/masked-EqM/slurm/jobs/corruption_sanity.sbatch",
       "expected_runtime": "11h",
       "phase": "1",
-      "gate": "step2_mask_sanity: baseline arm, rerun to recover intact checkpoints for sample/energy-ordering follow-up"
+      "gate": "step2_mask_sanity: baseline arm, need intact checkpoints for masked-recovery eval"
+    },
+    {
+      "run_id": "corrupt_sanity_mask_seed0_v4",
+      "job_id": "28814808",
+      "partition": "gpu_test",
+      "status": "pending",
+      "description": "sanity: corruption-mode=mask, mask-prob=0.5, EqM-B/2, IN-1K, 11h cap, batch32, ckpt-every 5000; results-dir on holylabs (v4, resubmit after holylabs group quota exceeded on v3)",
+      "submitted_at": "2026-07-06",
+      "git_sha": "4dac50e2ba73f40629a45c1354e5ced4a1ff35b3",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/corruption_sanity.sbatch",
+      "expected_runtime": "11h",
+      "phase": "1",
+      "gate": "step2_mask_sanity: need intact checkpoint for masked-recovery eval (treatment arm)"
+    },
+    {
+      "run_id": "corrupt_sanity_mixture_seed0",
+      "job_id": "28814819",
+      "partition": "seas_gpu",
+      "status": "pending",
+      "description": "sanity: corruption-mode=mixture (gaussian+mask+fourier weight 1,1,1), EqM-B/2, IN-1K, 11h cap, batch32, ckpt-every 5000; results-dir on holylabs. Launched ahead of isolated-arm eval per explicit user decision (accepted attribution-confound risk to hedge compute).",
+      "submitted_at": "2026-07-06",
+      "git_sha": "4dac50e2ba73f40629a45c1354e5ced4a1ff35b3",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/corruption_sanity.sbatch",
+      "expected_runtime": "11h",
+      "phase": "1",
+      "gate": "step4_mixture: not yet interpretable until step2/step3 isolated-arm results known; data collection only for now"
+    }
+  ],
+  "completed_runs": [
+    {
+      "run_id": "corrupt_sanity_gaussian_seed0_v3",
+      "job_id": "28768063",
+      "partition": "gpu_test",
+      "status": "failed",
+      "description": "sanity: corruption-mode=gaussian, v3 (results-dir direct to holylabs) -- failed immediately",
+      "submitted_at": "2026-07-06",
+      "git_sha": "4dac50e2ba73f40629a45c1354e5ced4a1ff35b3",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/corruption_sanity.sbatch",
+      "phase": "1",
+      "gate": "step2_mask_sanity",
+      "error": "OSError: Disk quota exceeded on /n/holylabs/ydu_lab/Lab/mkrasnow_eqm/... -- ydu_lab group holylabs quota was exhausted by 195GB of old archived diff-EqM checkpoints (imagenet1k_80ep_v10_b2_lambda10_seed0 alone 121GB), unrelated to raw filesystem free space (1.5PB avail, quota is separate). Deleted ~195GB of archived data (user-approved), resubmitted as v4.",
+      "exit_code": "1 (train.py crash on makedirs before any training step)"
     },
     {
       "run_id": "corrupt_sanity_mask_seed0_v3",
       "job_id": "28768085",
       "partition": "gpu_test",
-      "status": "pending",
-      "description": "sanity: corruption-mode=mask, mask-prob=0.5, EqM-B/2, IN-1K, 11h cap, batch32, ckpt-every 5000; results-dir written directly to holylabs (v3, rsync-back removed)",
+      "status": "failed",
+      "description": "sanity: corruption-mode=mask, v3 -- same quota failure as gaussian_seed0_v3",
       "submitted_at": "2026-07-06",
       "git_sha": "4dac50e2ba73f40629a45c1354e5ced4a1ff35b3",
       "sbatch_path": "projects/masked-EqM/slurm/jobs/corruption_sanity.sbatch",
-      "expected_runtime": "11h",
       "phase": "1",
-      "gate": "step2_mask_sanity: rerun to recover intact checkpoints"
-    }
-  ],
-  "completed_runs": [
+      "gate": "step2_mask_sanity",
+      "error": "same holylabs group quota exhaustion as gaussian_seed0_v3",
+      "exit_code": "1"
+    },
     {
       "run_id": "corrupt_sanity_gaussian_seed0_v2",
       "job_id": "28565949",
@@ -152,7 +193,7 @@
       "exit_code": "timeout (expected, time-cap)"
     }
   ],
-  "next_action": "fix corruption_sanity.sbatch final-rsync robustness (don't let set -e kill cleanup on rsync failure; consider writing --results-dir directly to holylabs to skip the rsync-back step entirely), then rerun to get intact checkpoints for sample-quality/energy-ordering follow-up. Loss-curve signal from this run already answers step2 gate: PASS.",
+  "next_action": "monitor v4 gaussian(28814807)/mask(28814808) + mixture(28814819) to completion, then build masked-recovery eval (3-arm: floor=gaussian, ceiling=hard-constrained oracle, treatment=mask-trained) using LPIPS gap metric on held-out images per pi-updates discussion with Yilun. Mixture launched ahead of isolated-arm results per explicit user call -- do not interpret mixture output until gaussian/mask masked-recovery gap is known.",
   "gates": {
     "step0_smoke": "PASS - all 4 corruption modes run without crash, finite loss, on real IN-1K",
     "step2_mask_sanity": "PENDING (eval metrics) - loss-curve comparison RETRACTED as gate evidence: raw train losses are NOT comparable across corruption modes. Linear-path target ut = x1 - x0; with mask x0 = m*x1+(1-m)*eps, so x1-x0 = (1-m)*(x1-eps) is zero on kept pixels; at mask_prob=0.5 expected MSE ~= half of gaussian arm's, which exactly matches observed (~5.2 vs ~11.2). The 2x gap measures task easiness, not landscape quality. Full-epoch completion (both arms, 40000 steps, no crash) does confirm training stability. Gate now requires outcome metrics on the v3 checkpoints: FID from pure-noise sampling, energy ordering E(clean)<E(corrupt)<E(noise), and/or denoising recovery vs baseline."
