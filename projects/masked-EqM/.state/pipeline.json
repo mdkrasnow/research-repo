@@ -225,6 +225,10 @@
   "next_action": "monitor v4 gaussian(28814807)/mask(28814808) + mixture(28814819) to completion, then build masked-recovery eval (3-arm: floor=gaussian, ceiling=hard-constrained oracle, treatment=mask-trained) using LPIPS gap metric on held-out images per pi-updates discussion with Yilun. Mixture launched ahead of isolated-arm results per explicit user call -- do not interpret mixture output until gaussian/mask masked-recovery gap is known.",
   "gates": {
     "step0_smoke": "PASS - all 4 corruption modes run without crash, finite loss, on real IN-1K",
-    "step2_mask_sanity": "PENDING (eval metrics) - loss-curve comparison RETRACTED as gate evidence: raw train losses are NOT comparable across corruption modes. Linear-path target ut = x1 - x0; with mask x0 = m*x1+(1-m)*eps, so x1-x0 = (1-m)*(x1-eps) is zero on kept pixels; at mask_prob=0.5 expected MSE ~= half of gaussian arm's, which exactly matches observed (~5.2 vs ~11.2). The 2x gap measures task easiness, not landscape quality. Full-epoch completion (both arms, 40000 steps, no crash) does confirm training stability. Gate now requires outcome metrics on the v3 checkpoints: FID from pure-noise sampling, energy ordering E(clean)<E(corrupt)<E(noise), and/or denoising recovery vs baseline."
+    "step2_mask_sanity": "PENDING (eval metrics) - loss-curve comparison RETRACTED as gate evidence: raw train losses are NOT comparable across corruption modes. Linear-path target ut = x1 - x0; with mask x0 = m*x1+(1-m)*eps, so x1-x0 = (1-m)*(x1-eps) is zero on kept pixels; at mask_prob=0.5 expected MSE ~= half of gaussian arm's, which exactly matches observed (~5.2 vs ~11.2). The 2x gap measures task easiness, not landscape quality. Full-epoch completion (both arms, 40000 steps, no crash) does confirm training stability. Gate now requires outcome metrics on the v3 checkpoints: FID from pure-noise sampling, energy ordering E(clean)<E(corrupt)<E(noise), and/or denoising recovery vs baseline. Eval design revised 2026-07-06: hard-constrain 'ceiling' arm dropped (invalid oracle for EqM, see documentation/pi-updates.md) -- replaced with VAE-roundtrip oracle (0.0149 masked MSE). mixture_treatment eval done (0.1403); gaussian_treatment/mask_treatment pending v5 sanity runs (jobs 28842669/28842681)."
+  },
+  "needs_user_input": {
+    "value": false,
+    "prompt": null
   }
 }
