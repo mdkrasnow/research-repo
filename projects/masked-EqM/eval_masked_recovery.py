@@ -80,6 +80,11 @@ def gd_recover(model_fn, z0, y, num_sampling_steps, stepsize, sampler, mu,
 
 
 def main(args):
+    # seed the global RNG so keep_mask/eps below are identical across
+    # separate processes (treatment vs ceiling runs) given the same --seed --
+    # otherwise each run corrupts a DIFFERENT random mask/noise and the two
+    # arms are not comparable at all.
+    torch.manual_seed(args.seed)
     device = "cuda" if torch.cuda.is_available() else "cpu"
     latent_size = args.image_size // 8
 
