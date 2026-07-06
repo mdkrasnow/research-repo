@@ -1,34 +1,35 @@
 {
   "phase": "sanity",
-  "active_runs": [
+  "active_runs": [],
+  "completed_runs": [
     {
       "run_id": "eval_gaussian_treatment",
       "job_id": "28879348",
       "partition": "gpu_test",
-      "status": "pending",
+      "status": "completed",
       "description": "masked-recovery eval on corrupt_sanity_gaussian_seed0_v5 final ckpt (0040000.pt) -- floor arm",
       "submitted_at": "2026-07-06",
       "git_sha": "838d235ae1ffdafeedbaebc7d6e5ea471f2179d8",
       "sbatch_path": "projects/masked-EqM/slurm/jobs/eval_masked_recovery.sbatch",
-      "expected_runtime": "~15min",
       "phase": "1",
-      "gate": "step2_mask_sanity: floor arm for gaussian vs mask vs mixture comparison"
+      "gate": "step2_mask_sanity: floor arm",
+      "final_metric": "mean_masked_mse=0.24237 (n=256, mask_prob=0.5, hard_constrain=false)",
+      "exit_code": "0"
     },
     {
       "run_id": "eval_mask_treatment",
       "job_id": "28879353",
       "partition": "gpu_test",
-      "status": "pending",
+      "status": "completed",
       "description": "masked-recovery eval on corrupt_sanity_mask_seed0_v5 final ckpt (0040000.pt) -- treatment arm",
       "submitted_at": "2026-07-06",
       "git_sha": "838d235ae1ffdafeedbaebc7d6e5ea471f2179d8",
       "sbatch_path": "projects/masked-EqM/slurm/jobs/eval_masked_recovery.sbatch",
-      "expected_runtime": "~15min",
       "phase": "1",
-      "gate": "step2_mask_sanity: treatment arm for gaussian vs mask vs mixture comparison"
-    }
-  ],
-  "completed_runs": [
+      "gate": "step2_mask_sanity: treatment arm",
+      "final_metric": "mean_masked_mse=0.11313 (n=256, mask_prob=0.5, hard_constrain=false)",
+      "exit_code": "0"
+    },
     {
       "run_id": "corrupt_sanity_gaussian_seed0_v5",
       "job_id": "28842669",
@@ -250,10 +251,10 @@
       "exit_code": "timeout (expected, time-cap)"
     }
   ],
-  "next_action": "monitor v4 gaussian(28814807)/mask(28814808) + mixture(28814819) to completion, then build masked-recovery eval (3-arm: floor=gaussian, ceiling=hard-constrained oracle, treatment=mask-trained) using LPIPS gap metric on held-out images per pi-updates discussion with Yilun. Mixture launched ahead of isolated-arm results per explicit user call -- do not interpret mixture output until gaussian/mask masked-recovery gap is known.",
+  "next_action": "step2_mask_sanity gate PASSED with real floor/treatment/oracle numbers (see gates.step2_mask_sanity). Next: decide whether to proceed to step3 (Fourier-only sanity) per CLAUDE.md build order, or dig into why mixture underperforms isolated mask before moving on -- human input requested via pi-updates.md draft, not yet sent.",
   "gates": {
     "step0_smoke": "PASS - all 4 corruption modes run without crash, finite loss, on real IN-1K",
-    "step2_mask_sanity": "PENDING (eval metrics) - loss-curve comparison RETRACTED as gate evidence: raw train losses are NOT comparable across corruption modes. Linear-path target ut = x1 - x0; with mask x0 = m*x1+(1-m)*eps, so x1-x0 = (1-m)*(x1-eps) is zero on kept pixels; at mask_prob=0.5 expected MSE ~= half of gaussian arm's, which exactly matches observed (~5.2 vs ~11.2). The 2x gap measures task easiness, not landscape quality. Full-epoch completion (both arms, 40000 steps, no crash) does confirm training stability. Gate now requires outcome metrics on the v3 checkpoints: FID from pure-noise sampling, energy ordering E(clean)<E(corrupt)<E(noise), and/or denoising recovery vs baseline. Eval design revised 2026-07-06: hard-constrain 'ceiling' arm dropped (invalid oracle for EqM, see documentation/pi-updates.md) -- replaced with VAE-roundtrip oracle (0.0149 masked MSE). mixture_treatment eval done (0.1403); gaussian_treatment/mask_treatment pending v5 sanity runs (jobs 28842669/28842681)."
+    "step2_mask_sanity": "PASS (2026-07-06) - masked-recovery eval, mask_prob=0.5, n=256 held-out IN-1K val images, seed=0 (RNG-matched across arms). mean_masked_mse: gaussian floor=0.24237, mask treatment=0.11313, mixture treatment=0.14025, VAE-roundtrip oracle=0.01488. normalized_gap = (floor-treatment)/(floor-oracle): mask=0.568, mixture=0.449. Mask-trained model recovers masked regions ~2.1x better than gaussian-trained model (57% of the floor-to-oracle headroom closed) -- masking the training start-state teaches the model to use visible context, which pure-Gaussian training never sees. Mixture arm captures less of the gain (45%) than isolated mask (57%), consistent with dilution across 3 arms (gaussian+mask+fourier weight 1,1,1 each) rather than a stronger combined effect -- worth flagging in PI update, not yet interpreted further pending step3 (Fourier-only) isolated result. Loss-curve comparison from earlier (mask ~5.2 vs gaussian ~11.2) is NOT part of this verdict -- retracted separately as an easiness artifact of the training target, unrelated to this outcome-metric-based PASS."
   },
   "needs_user_input": {
     "value": false,

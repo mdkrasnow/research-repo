@@ -32,3 +32,40 @@ against.
 
 **Ask of PI**: none blocking — proceeding per pre-registered plan. Flagging for visibility per
 mechanism-finding trigger in AGENTS.md PI-update protocol.
+
+## 2026-07-06 draft (step2_mask_sanity gate PASS — first real result)
+
+**Trigger**: stage exit gate pass.
+
+masked-recovery eval complete for all arms (n=256 held-out IN-1K val images, mask_prob=0.5,
+RNG-matched seed across arms, gpu_test/seas_gpu, 1 epoch / 40000 steps each, EqM-B/2, single seed):
+
+| arm | mean_masked_mse | normalized_gap |
+|---|---|---|
+| gaussian floor (baseline-trained) | 0.24237 | 0.0 (by definition) |
+| mask treatment | 0.11313 | 0.568 |
+| mixture treatment (1:1:1 gaussian/mask/fourier) | 0.14025 | 0.449 |
+| VAE-roundtrip oracle (positive control) | 0.01488 | 1.0 (by definition) |
+
+`normalized_gap = (floor_err - treatment_err) / (floor_err - oracle_err)`.
+
+**Headline**: training EqM with Bernoulli-masked start-states (not just Gaussian noise) makes the
+learned energy field ~2.1x better at recovering masked image regions than a gaussian-only-trained
+model of the same architecture/scale/epoch count. Mask-trained closes 57% of the floor-to-oracle
+gap; gaussian-only closes 0%. This is the first real outcome-metric evidence for the structured
+start-state hypothesis (step 2 of CLAUDE.md build order).
+
+**Caveat**: single seed, single scale (EqM-B/2, IN-1K, 1 epoch ~ sanity, not a paper-scale run),
+single mask_prob (0.5, matches training). No FID / energy-ordering / generation-quality check yet
+— this result is specific to the masked-recovery task, not generation quality broadly.
+
+**Notable secondary finding**: the mixture arm (gaussian+mask+fourier, weight 1:1:1) captures LESS
+of the gain (45%) than the isolated mask arm (57%), despite mask being one of its three components.
+Consistent with dilution (each arm gets 1/3 of the gradient signal) rather than synergy. Was
+launched ahead of isolated-arm results per user's explicit call (accepted attribution-confound
+risk) — this is the first data point on that confound, not yet fully interpreted (need step3
+Fourier-only isolated result to know if fourier or the dilution itself is responsible).
+
+**Ask of PI**: is single-seed, single-epoch sanity sufficient signal to proceed to step3
+(Fourier-only isolated arm) per the strict build order, or should mask arm be re-run with 2-3
+seeds first to firm up the 2.1x number before committing more compute to the next build-order step?
