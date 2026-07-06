@@ -2,33 +2,61 @@
   "phase": "sanity",
   "active_runs": [
     {
+      "run_id": "eval_gaussian_treatment",
+      "job_id": "28879348",
+      "partition": "gpu_test",
+      "status": "pending",
+      "description": "masked-recovery eval on corrupt_sanity_gaussian_seed0_v5 final ckpt (0040000.pt) -- floor arm",
+      "submitted_at": "2026-07-06",
+      "git_sha": "838d235ae1ffdafeedbaebc7d6e5ea471f2179d8",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/eval_masked_recovery.sbatch",
+      "expected_runtime": "~15min",
+      "phase": "1",
+      "gate": "step2_mask_sanity: floor arm for gaussian vs mask vs mixture comparison"
+    },
+    {
+      "run_id": "eval_mask_treatment",
+      "job_id": "28879353",
+      "partition": "gpu_test",
+      "status": "pending",
+      "description": "masked-recovery eval on corrupt_sanity_mask_seed0_v5 final ckpt (0040000.pt) -- treatment arm",
+      "submitted_at": "2026-07-06",
+      "git_sha": "838d235ae1ffdafeedbaebc7d6e5ea471f2179d8",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/eval_masked_recovery.sbatch",
+      "expected_runtime": "~15min",
+      "phase": "1",
+      "gate": "step2_mask_sanity: treatment arm for gaussian vs mask vs mixture comparison"
+    }
+  ],
+  "completed_runs": [
+    {
       "run_id": "corrupt_sanity_gaussian_seed0_v5",
       "job_id": "28842669",
       "partition": "seas_gpu",
-      "status": "pending",
-      "description": "sanity: corruption-mode=gaussian (re-baseline), EqM-B/2, IN-1K, batch32, ckpt-every 5000; results-dir on holylabs. Moved to seas_gpu (v5) -- gpu_test's MIG-sliced A100 ran ~1.85 steps/sec (4.3h remaining at step 11250/40000), seas_gpu full A100/H200 runs ~8.75 steps/sec (mixture completed full epoch in 1h22m there). Killed v4 mid-run and restarted rather than let it finish slow.",
+      "status": "completed",
+      "description": "sanity: corruption-mode=gaussian (re-baseline), EqM-B/2, IN-1K, batch32, ckpt-every 5000; results-dir on holylabs. Moved to seas_gpu (v5) for speed; landed on a slower seas_gpu node than mixture (~4.4 steps/sec vs mixture's 8.75), full epoch took ~2h37m.",
       "submitted_at": "2026-07-06",
       "git_sha": "4dac50e2ba73f40629a45c1354e5ced4a1ff35b3",
       "sbatch_path": "projects/masked-EqM/slurm/jobs/corruption_sanity.sbatch",
-      "expected_runtime": "~1.5h (seas_gpu speed)",
       "phase": "1",
-      "gate": "step2_mask_sanity: baseline arm, need intact checkpoints for masked-recovery eval"
+      "gate": "step2_mask_sanity: baseline arm, intact checkpoints for masked-recovery eval",
+      "final_metric": "loss ~11.0-11.4 stable full epoch, step 40000, exit 0, 8 intact checkpoints at .../corruption_sanity_gaussian/002-.../checkpoints/",
+      "exit_code": "0 (clean completion)"
     },
     {
       "run_id": "corrupt_sanity_mask_seed0_v5",
       "job_id": "28842681",
       "partition": "seas_gpu",
-      "status": "pending",
-      "description": "sanity: corruption-mode=mask, mask-prob=0.5, EqM-B/2, IN-1K, batch32, ckpt-every 5000; results-dir on holylabs. Moved to seas_gpu (v5), same reasoning as gaussian_seed0_v5.",
+      "status": "completed",
+      "description": "sanity: corruption-mode=mask, mask-prob=0.5, EqM-B/2, IN-1K, batch32, ckpt-every 5000; results-dir on holylabs. Moved to seas_gpu (v5), same node-speed note as gaussian_seed0_v5.",
       "submitted_at": "2026-07-06",
       "git_sha": "4dac50e2ba73f40629a45c1354e5ced4a1ff35b3",
       "sbatch_path": "projects/masked-EqM/slurm/jobs/corruption_sanity.sbatch",
-      "expected_runtime": "~1.5h (seas_gpu speed)",
       "phase": "1",
-      "gate": "step2_mask_sanity: need intact checkpoint for masked-recovery eval (treatment arm)"
-    }
-  ],
-  "completed_runs": [
+      "gate": "step2_mask_sanity: treatment arm, intact checkpoint for masked-recovery eval",
+      "final_metric": "loss ~5.0-5.4 stable full epoch, step 40000, exit 0, 8 intact checkpoints at .../corruption_sanity_mask/002-.../checkpoints/",
+      "exit_code": "0 (clean completion)"
+    },
     {
       "run_id": "corrupt_sanity_gaussian_seed0_v4",
       "job_id": "28814807",
