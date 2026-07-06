@@ -2,33 +2,61 @@
   "phase": "sanity",
   "active_runs": [
     {
+      "run_id": "eval_fourier_treatment",
+      "job_id": "28902022",
+      "partition": "gpu_test",
+      "status": "pending",
+      "description": "masked-recovery eval on corrupt_sanity_fourier_seed0 final ckpt (0040000.pt) -- isolated fourier arm",
+      "submitted_at": "2026-07-06",
+      "git_sha": "43bd9f2f41575c7516cfe0b203604cea85289e39",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/eval_masked_recovery.sbatch",
+      "expected_runtime": "~15min",
+      "phase": "1",
+      "gate": "step3_fourier_sanity"
+    },
+    {
+      "run_id": "eval_gaussian_mask_mix_treatment",
+      "job_id": "28902040",
+      "partition": "gpu_test",
+      "status": "pending",
+      "description": "masked-recovery eval on corrupt_sanity_gaussian_mask_mix_seed0 final ckpt (0040000.pt) -- arm B (gaussian+mask 2-way)",
+      "submitted_at": "2026-07-06",
+      "git_sha": "43bd9f2f41575c7516cfe0b203604cea85289e39",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/eval_masked_recovery.sbatch",
+      "expected_runtime": "~15min",
+      "phase": "1",
+      "gate": "step4_mixture (arm B)"
+    }
+  ],
+  "completed_runs": [
+    {
       "run_id": "corrupt_sanity_fourier_seed0",
       "job_id": "28888836",
       "partition": "seas_gpu",
-      "status": "pending",
-      "description": "sanity: corruption-mode=fourier, fourier-cutoff=0.25, EqM-B/2, IN-1K, batch32, ckpt-every 5000; results-dir on holylabs. Step3 per CLAUDE.md build order -- isolates fourier's own contribution, resolves whether mixture underperformance (0.449 vs mask's 0.568 normalized_gap) is due to fourier being a weak/harmful ingredient or just 3-arm dilution.",
+      "status": "completed",
+      "description": "sanity: corruption-mode=fourier, fourier-cutoff=0.25, EqM-B/2, IN-1K, batch32, ckpt-every 5000. Step3 per CLAUDE.md build order.",
       "submitted_at": "2026-07-06",
       "git_sha": "43bd9f2f41575c7516cfe0b203604cea85289e39",
       "sbatch_path": "projects/masked-EqM/slurm/jobs/corruption_sanity.sbatch",
-      "expected_runtime": "~1.5-2.5h (seas_gpu, node-speed dependent)",
       "phase": "1",
-      "gate": "step3_fourier_sanity: isolated arm, needs masked-recovery eval + FID for interpretation"
+      "gate": "step3_fourier_sanity: isolated arm training done, eval submitted (28902022)",
+      "final_metric": "loss ~8.2-8.6 stable full epoch, step 40000, exit 0, 8 intact checkpoints at .../corruption_sanity_fourier/000-.../checkpoints/",
+      "exit_code": "0 (clean completion, ~1h20m on seas_gpu 8.77 steps/sec)"
     },
     {
       "run_id": "corrupt_sanity_gaussian_mask_mix_seed0",
       "job_id": "28888839",
       "partition": "seas_gpu",
-      "status": "pending",
-      "description": "sanity: corruption-mode=mixture, weights gaussian=1.0/mask=1.0/fourier=0.0 (CLAUDE.md arm B, 2-way not 3-way). Isolates whether 3-arm mixture's underperformance (0.449 gap) vs isolated mask (0.568) is dilution (expect this 2-arm run to land between the two) or fourier-specific drag (expect this close to isolated mask's 0.568). NOTE: sbatch keys RESULTS_DIR by CORRUPTION_MODE only (=mixture), so this writes into the SAME corruption_sanity_mixture/ dir as the earlier 3-arm run, as a new numbered subdir -- track by job_id/submission timestamp at eval time, not by corruption_mode label alone.",
+      "status": "completed",
+      "description": "sanity: corruption-mode=mixture, weights gaussian=1.0/mask=1.0/fourier=0.0 (CLAUDE.md arm B, 2-way). Isolates dilution vs fourier-drag question from 3-arm mixture result.",
       "submitted_at": "2026-07-06",
       "git_sha": "43bd9f2f41575c7516cfe0b203604cea85289e39",
       "sbatch_path": "projects/masked-EqM/slurm/jobs/corruption_sanity.sbatch",
-      "expected_runtime": "~1.5-2.5h (seas_gpu, node-speed dependent)",
       "phase": "1",
-      "gate": "step4_mixture (arm B): resolves dilution-vs-fourier-drag question from 3-arm mixture result"
-    }
-  ],
-  "completed_runs": [
+      "gate": "step4_mixture (arm B): training done, eval submitted (28902040)",
+      "final_metric": "loss ~8.2-8.5 stable full epoch, step 40000, exit 0, 8 intact checkpoints at .../corruption_sanity_mixture/001-.../checkpoints/ (NOTE: same corruption_sanity_mixture/ parent dir as the earlier 3-arm run's 000-.../, distinguished by subdir number/timestamp)",
+      "exit_code": "0 (clean completion, ~1h20m on seas_gpu 8.82 steps/sec)"
+    },
     {
       "run_id": "eval_gaussian_treatment",
       "job_id": "28879348",
