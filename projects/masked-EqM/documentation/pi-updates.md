@@ -124,3 +124,58 @@ has been measured yet.
 (c) given one more isolated try at a different fourier-cutoff value before concluding, per the
     "1 retune per failing direction" rule in CLAUDE.md/AGENTS.md?
 No compute committed to any of these yet pending PI input.
+
+**Resolution (user, same day)**: option (a) — drop fourier entirely, keep gaussian+mask alive as a
+generalization/regularizer hypothesis rather than a masked-recovery contender (mask-only will
+trivially win that task, since it gets 100% of its gradient budget on exactly that skill). User's
+framing: the real question is whether gaussian+mask learns a better OVERALL energy landscape
+(global generative coverage from gaussian + local conditional-repair skill from mask) than either
+parent alone — tested via cross-task generalization (FID, energy ordering, mask_prob sweep), not
+another masked-recovery-only comparison.
+
+## 2026-07-07 draft (generation-quality FID result — resolves the mask-only vs gaussian+mask question)
+
+**Trigger**: result at gate-informing scale (generalization/generation-quality check requested by
+user in the resolution above).
+
+Built `eval_fid.py` (new, sanity-scale: 2000 unconditional samples via GD sampler, FID against
+matching real-image sample, single seed) since no FID tooling existed yet at the masked-EqM sanity
+scale. Smoke-sample-probe passed first (eyeballed generated PNGs from gaussian and mask
+checkpoints — coherent textured scenes, not noise/garbage, confirms the sampler/pipeline works
+before trusting the FID numbers).
+
+| arm | FID (n=2000) | masked-recovery normalized_gap |
+|---|---|---|
+| gaussian floor | 172.567 | 0.0 |
+| gaussian+mask (arm B) | 176.711 (+4.1) | 0.464 |
+| mask-only | 239.512 (+66.9) | 0.568 |
+
+**Headline**: this directly confirms the user's hypothesis. Mask-only wins masked-recovery
+(expected — it gets full gradient budget on that exact skill) but at a LARGE generation-quality
+cost: +66.9 FID vs baseline. Gaussian+mask nearly preserves baseline generation quality (+4.1 FID)
+while still capturing 82% of mask-only's recovery gain (0.464/0.568). This is a genuine
+generalization-vs-specialization tradeoff, not a case where one recipe dominates the other on both
+axes.
+
+**Mechanism read**: consistent with the user's proposed story — gaussian exposure teaches the
+global noise-to-data route needed for unconditional generation; mask-only narrows the model's
+training distribution toward "mostly-correct, locally-broken" states, which is excellent for
+inpainting-style recovery but leaves the model under-exposed to the far-from-manifold states pure
+noise-to-image generation requires.
+
+**Caveat (same as all prior results)**: single seed, single sanity scale (1 epoch/40k steps,
+EqM-B/2), single sample count (2000, well below the paper's 50k-sample protocol in
+sample_gd.py/README) — absolute FID values (170-240) are expected to be poor at this undertrained
+scale (paper's trusted 80-epoch baseline scores 1.90-31.41 depending on metric/scale) and should
+only be read relatively (gaussian vs mask vs arm B), not as paper-comparable numbers.
+
+**Ask of PI**: given a genuine tradeoff (not a clean winner), what should the paper claim be?
+(a) mask-only as a specialized recovery/inpainting variant, with an explicit generation-quality
+    caveat,
+(b) gaussian+mask as the general-purpose/practical recipe (smaller effect size, safer),
+(c) present both as separate contributions for different use cases, or
+(d) explore mask-heavy mixtures (3:1, 4:1 mask:gaussian, per user's earlier suggestion) to find a
+    better point on this tradeoff curve before deciding between (a)/(b)/(c)?
+No further compute committed pending this decision. Whichever direction is chosen, still needs
+Phase 2 multi-seed confirmation before this is a real paper claim (currently single-seed sanity
+scale throughout).

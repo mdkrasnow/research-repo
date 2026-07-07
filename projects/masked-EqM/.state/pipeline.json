@@ -1,47 +1,49 @@
 {
   "phase": "sanity",
-  "active_runs": [
+  "active_runs": [],
+  "completed_runs": [
     {
       "run_id": "eval_fid_gaussian",
       "job_id": "29070164",
       "partition": "gpu_test",
-      "status": "pending",
-      "description": "sanity FID (2000 samples, unconditional, GD sampler) on corrupt_sanity_gaussian_seed0_v5 final ckpt -- tests whether structured-corruption training changes generation quality vs baseline (this arm is the baseline itself).",
+      "status": "completed",
+      "description": "sanity FID (2000 samples, unconditional, GD sampler, smoke-sample-probe passed -- eyeballed samples coherent/textured, not garbage) on corrupt_sanity_gaussian_seed0_v5 final ckpt -- baseline arm.",
       "submitted_at": "2026-07-07",
       "git_sha": "0a62b4991360d9e2886fa88da4f841fd5040cbfa",
       "sbatch_path": "projects/masked-EqM/slurm/jobs/eval_fid.sbatch",
-      "expected_runtime": "~1-1.5h (2000 samples, 250 GD steps each, single GPU)",
       "phase": "1",
-      "gate": "generation-quality check: does mask/mixture training hurt FID relative to this baseline"
+      "gate": "generation-quality check",
+      "final_metric": "FID=172.567 (n=2000; high in absolute terms as expected for 1-epoch/40k-step sanity scale vs paper's 80-epoch 1.90, this is the baseline reference point)",
+      "exit_code": "0"
     },
     {
       "run_id": "eval_fid_mask",
       "job_id": "29070168",
       "partition": "gpu_test",
-      "status": "pending",
-      "description": "sanity FID (2000 samples) on corrupt_sanity_mask_seed0_v5 final ckpt -- tests whether mask-only training (best masked-recovery arm) hurts unconditional generation quality.",
+      "status": "completed",
+      "description": "sanity FID (2000 samples) on corrupt_sanity_mask_seed0_v5 final ckpt -- mask-only training, best masked-recovery arm.",
       "submitted_at": "2026-07-07",
       "git_sha": "0a62b4991360d9e2886fa88da4f841fd5040cbfa",
       "sbatch_path": "projects/masked-EqM/slurm/jobs/eval_fid.sbatch",
-      "expected_runtime": "~1-1.5h",
       "phase": "1",
-      "gate": "generation-quality check: core question for whether mask-only or gaussian+mask is the better practical recipe"
+      "gate": "generation-quality check",
+      "final_metric": "FID=239.512 (n=2000) -- +66.9 vs gaussian floor (172.567), a large generation-quality cost for mask-only's masked-recovery gain",
+      "exit_code": "0"
     },
     {
       "run_id": "eval_fid_gaussian_mask_mix",
       "job_id": "29070224",
       "partition": "seas_gpu",
-      "status": "pending",
-      "description": "sanity FID (2000 samples) on corrupt_sanity_gaussian_mask_mix_seed0 (arm B) final ckpt -- tests the user's hypothesis that gaussian+mask preserves generation quality better than mask-only, at some cost to masked-recovery.",
+      "status": "completed",
+      "description": "sanity FID (2000 samples) on corrupt_sanity_gaussian_mask_mix_seed0 (arm B) final ckpt -- tests whether gaussian+mask preserves generation quality vs mask-only.",
       "submitted_at": "2026-07-07",
       "git_sha": "0a62b4991360d9e2886fa88da4f841fd5040cbfa",
       "sbatch_path": "projects/masked-EqM/slurm/jobs/eval_fid.sbatch",
-      "expected_runtime": "~1-1.5h",
       "phase": "1",
-      "gate": "generation-quality check: does arm B's gaussian exposure buy better FID than mask-only, justifying it as the practical recipe despite lower masked-recovery gap"
-    }
-  ],
-  "completed_runs": [
+      "gate": "generation-quality check",
+      "final_metric": "FID=176.711 (n=2000) -- only +4.1 vs gaussian floor (172.567), and -62.8 vs mask-only (239.512): confirms hypothesis that gaussian exposure preserves generation quality much better than mask-only, at a real but smaller masked-recovery cost (0.464 vs 0.568 gap)",
+      "exit_code": "0"
+    },
     {
       "run_id": "eval_fourier_treatment",
       "job_id": "28902022",
@@ -347,15 +349,16 @@
       "exit_code": "timeout (expected, time-cap)"
     }
   ],
-  "next_action": "step2 (mask) and step3 (fourier) both resolved on masked-recovery metric; step4 arm B (gaussian+mask) done. Fourier is a NET-NEGATIVE ingredient for this task (see gates.step3_fourier_sanity) -- CLAUDE.md build order step4 arms C/D (fourier-containing mixtures) are now de-prioritized for the masked-recovery goal specifically. Next: decide whether to (a) proceed to Phase 2 multi-seed confirmation of isolated mask per summer-2026-plan.md, or (b) run a mask_prob/architecture sweep first, or (c) test whether fourier helps a DIFFERENT task (e.g. denoising/deblurring) before fully killing it -- fourier's negative result here is masked-recovery-specific, not a generation-quality verdict. Human input requested via pi-updates.md draft, not yet sent.",
+  "next_action": "Fourier decision RESOLVED by user 2026-07-07: dropped from build path (option a). FID generation-quality check now done, resolving the mask-only vs gaussian+mask practical-recipe question (see gates.generation_quality_fid). Result: mask-only wins masked-recovery but costs ~67 FID points vs gaussian+mask's ~4 points, at a masked-recovery cost of only 0.104 normalized_gap (0.568 vs 0.464). Next: this is a real tradeoff, not a clean winner -- decide whether the paper story is (a) mask-only as a specialized inpainting/recovery-focused variant (large recovery win, generation-quality caveat), (b) gaussian+mask as the general-purpose recipe (small but real generation-quality-preserving recovery gain), or (c) present both as separate contributions. All single-seed sanity-scale still -- Phase 2 multi-seed confirmation (per summer-2026-plan.md) needed on whichever arm(s) are chosen before this becomes a paper claim. Human input requested via pi-updates.md draft, not yet sent.",
   "gates": {
     "step0_smoke": "PASS - all 4 corruption modes run without crash, finite loss, on real IN-1K",
     "step2_mask_sanity": "PASS (2026-07-06) - masked-recovery eval, mask_prob=0.5, n=256 held-out IN-1K val images, seed=0 (RNG-matched across arms). mean_masked_mse: gaussian floor=0.24237, mask treatment=0.11313, VAE-roundtrip oracle=0.01488. normalized_gap = (floor-treatment)/(floor-oracle) = 0.568. Mask-trained model recovers masked regions ~2.1x better than gaussian-trained model (57% of the floor-to-oracle headroom closed) -- masking the training start-state teaches the model to use visible context, which pure-Gaussian training never sees. Loss-curve comparison from earlier (mask ~5.2 vs gaussian ~11.2) is NOT part of this verdict -- retracted separately as an easiness artifact of the training target, unrelated to this outcome-metric-based PASS.",
-    "step3_fourier_sanity": "RESOLVED, NEGATIVE (2026-07-06) - isolated fourier-corruption training (fourier-cutoff=0.25), same eval protocol as step2. mean_masked_mse=0.40612, WORSE than gaussian floor (0.24237). normalized_gap=-0.720 (negative -- fourier-trained model is worse at masked-recovery than a model that never saw structured corruption at all). Mechanism read: fourier low-pass corruption teaches recovery of missing HIGH-FREQUENCY detail from coarse structure, not recovery of a spatially-masked region from surrounding visible pixels -- these are different tasks, and training on one does not transfer to (and may actively hurt, via distribution mismatch) the other. This is specific to the masked-recovery metric; NOT yet evidence that fourier corruption is bad for structured-start-state EqM generally (no FID/energy-ordering check run on this ckpt).",
-    "step4_mixture_arm_B": "RESOLVED (2026-07-06) - 2-way gaussian+mask mixture (weights 1.0/1.0/0.0), same eval protocol. mean_masked_mse=0.13692, normalized_gap=0.464. Falls between isolated mask (0.568) and 3-arm mixture (0.449) as expected, but notably closer to the 3-arm mixture than to isolated mask -- confirms the 3-arm mixture's underperformance vs isolated mask is NOT primarily fourier-specific drag (arm B still loses ~0.10 gap vs pure mask despite excluding fourier entirely). Read together with step3's negative fourier result: the gap-closing recipe (gaussian:mask:fourier 1:1:1 vs 1:1:0 vs mask-only) suggests BOTH effects are real -- gradient-budget dilution (any mixing with gaussian reduces the pure-mask signal) AND fourier's own negative contribution (arm B > 3-arm mixture, i.e. removing fourier helps). Fourier's negative pull is smaller in magnitude here (only 1/3 weight) than shown by its isolated -0.720 result, consistent with a real but diluted drag."
+    "step3_fourier_sanity": "RESOLVED, NEGATIVE (2026-07-06) - isolated fourier-corruption training (fourier-cutoff=0.25), same eval protocol as step2. mean_masked_mse=0.40612, WORSE than gaussian floor (0.24237). normalized_gap=-0.720 (negative -- fourier-trained model is worse at masked-recovery than a model that never saw structured corruption at all). Mechanism read: fourier low-pass corruption teaches recovery of missing HIGH-FREQUENCY detail from coarse structure, not recovery of a spatially-masked region from surrounding visible pixels -- these are different tasks, and training on one does not transfer to (and may actively hurt, via distribution mismatch) the other. USER DECISION 2026-07-07: fourier dropped from build path entirely (option a of pi-updates.md ask).",
+    "step4_mixture_arm_B": "RESOLVED (2026-07-06) - 2-way gaussian+mask mixture (weights 1.0/1.0/0.0), same eval protocol. mean_masked_mse=0.13692, normalized_gap=0.464. Falls between isolated mask (0.568) and 3-arm mixture (0.449) as expected, but notably closer to the 3-arm mixture than to isolated mask -- confirms the 3-arm mixture's underperformance vs isolated mask is NOT primarily fourier-specific drag (arm B still loses ~0.10 gap vs pure mask despite excluding fourier entirely). Read together with step3's negative fourier result: the gap-closing recipe (gaussian:mask:fourier 1:1:1 vs 1:1:0 vs mask-only) suggests BOTH effects are real -- gradient-budget dilution (any mixing with gaussian reduces the pure-mask signal) AND fourier's own negative contribution. Fourier's negative pull is smaller in magnitude here (only 1/3 weight) than shown by its isolated -0.720 result, consistent with a real but diluted drag.",
+    "generation_quality_fid": "RESOLVED (2026-07-07) - sanity FID (2000 samples, unconditional, GD sampler 250 steps, single seed) on gaussian/mask/arm-B checkpoints. Smoke-sample-probe passed (eyeballed generated images: coherent textured scenes, not garbage/noise -- confirms sampler correctness at this early-training FID range). Results: gaussian floor FID=172.567, mask-only FID=239.512 (+66.9), gaussian+mask arm B FID=176.711 (+4.1). CONFIRMS user's hypothesis: mask-only trades substantial generation quality for its larger masked-recovery gain (0.568 vs arm B's 0.464, a 0.104 difference) -- gaussian+mask nearly preserves baseline generation quality while capturing 82% of mask-only's recovery gain. This is the key generalization-vs-specialization tradeoff the user asked to test; it is a genuine tradeoff, not a clean winner for either recipe."
   },
   "needs_user_input": {
     "value": true,
-    "prompt": "Fourier corruption isolated result is NEGATIVE for masked-recovery (normalized_gap=-0.720, worse than gaussian baseline). See documentation/pi-updates.md 2026-07-06/07 draft for full table + 3-option ask: (a) drop fourier entirely, proceed to Phase 2 (multi-seed mask confirmation) per summer-2026-plan.md, (b) keep fourier but only test it against a different task (e.g. deblurring, not masked-recovery), or (c) one retune at a different fourier-cutoff before concluding, per CLAUDE.md's 1-retune rule. No compute committed pending this decision."
+    "prompt": "Fourier question resolved (dropped). New decision point from the FID result: mask-only gets the best masked-recovery score (normalized_gap=0.568) but costs ~67 FID points vs baseline; gaussian+mask (arm B) nearly preserves generation quality (+4 FID) at a smaller recovery gain (0.464). See documentation/pi-updates.md for full write-up. Ask: should the paper story be (a) mask-only as a specialized recovery/inpainting variant with an explicit generation-quality caveat, (b) gaussian+mask as the general-purpose recipe (safer, smaller effect size), (c) present both as separate contributions/recipes for different use cases, or (d) explore mask-heavy mixtures (3:1, 4:1 mask:gaussian, as previously proposed) to find a better point on this tradeoff curve before deciding? No further compute committed pending this decision."
   }
 }

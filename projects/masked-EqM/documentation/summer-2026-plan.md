@@ -17,11 +17,16 @@ NeurIPS 2026 workshop (deadline 2026-08-29), stretch ICLR 2027 main (~2026-10-01
   normalized_gap=0.449 — underperforms isolated mask.
 - Step 3 (fourier, isolated) + step4 arm B (gaussian+mask 2-way): RESOLVED 2026-07-06/07.
   Fourier isolated normalized_gap = **-0.720 (negative, worse than gaussian baseline)** on the
-  masked-recovery task. Arm B (gaussian+mask, no fourier) = 0.464. Mixture underperformance vs
-  isolated mask is driven by BOTH gradient-dilution AND fourier's own negative pull — see
-  pi-updates.md 2026-07-06/07 draft for full table and mechanism read. Fourier arms C/D
-  de-prioritized for the masked-recovery goal pending PI decision (needs_user_input=true in
-  pipeline.json).
+  masked-recovery task. Arm B (gaussian+mask, no fourier) = 0.464. USER DECISION: fourier dropped
+  from build path entirely; gaussian+mask kept alive as a generalization/regularizer hypothesis
+  (not a masked-recovery contender — mask-only will trivially win that task).
+- Generation-quality FID (2026-07-07): built `eval_fid.py` (new, sanity-scale 2000-sample
+  unconditional FID), ran on gaussian/mask/arm-B checkpoints. Result: gaussian floor FID=172.567,
+  gaussian+mask arm B FID=176.711 (+4.1), mask-only FID=239.512 (+66.9). CONFIRMS the
+  generalization hypothesis — mask-only's larger masked-recovery gain (0.568 vs arm B's 0.464)
+  comes at a much larger generation-quality cost. Genuine tradeoff, not a clean winner. See
+  pi-updates.md 2026-07-07 draft; PI decision pending on which recipe becomes the paper claim
+  (needs_user_input=true in pipeline.json).
 
 ## Phased plan
 
@@ -63,14 +68,17 @@ deadline. ICLR fallback only if workshop timeline slips or reviewers want more s
    isolated fourier normalized_gap=-0.720, worse than gaussian baseline, on masked-recovery task
    specifically. See pi-updates.md for mechanism read and PI decision ask (drop / retest on a
    different task / one retune at different cutoff).
-3. Does the masked-recovery gain transfer to generation quality (FID) at all, or is it purely a
-   denoising-task-specific effect? (Phase 3.)
-4. What mask_prob sweep, if any, is worth doing before locking phase 4's recipe? (fourier_cutoff
-   sweep now contingent on PI's answer to the fourier retune question above.)
-5. NEW (2026-07-07): is fourier corruption's negative masked-recovery result task-specific (i.e.
-   would it help a deblurring/frequency-domain-degradation recovery task instead)? Untested —
-   would need a new eval script analogous to eval_masked_recovery.py but for fourier-degraded
-   inputs, not yet built.
+3. ~~Does the masked-recovery gain transfer to generation quality (FID) at all?~~ RESOLVED
+   2026-07-07: NO for mask-only (large -66.9 FID cost), mostly YES for gaussian+mask (-4.1 FID
+   cost). Real tradeoff between recipes, not a universal answer. See pi-updates.md 2026-07-07 draft
+   for the 4-option PI ask on which recipe becomes the paper claim.
+4. What mask_prob sweep, if any, is worth doing before locking phase 4's recipe?
+5. Fourier corruption dropped from build path per user decision 2026-07-07 — not pursuing the
+   deblurring-task-specific question raised earlier unless PI redirects.
+6. NEW (2026-07-07): would a mask-heavy mixture (3:1 or 4:1 mask:gaussian) land on a better point of
+   the recovery/generation-quality tradeoff curve than either mask-only or the current 1:1 arm B?
+   Untested — cheap to run (existing mixture_sample code), pending PI's choice among the 4 options
+   in pi-updates.md (this is explicitly option (d) there).
 
 ## Scope discipline
 
