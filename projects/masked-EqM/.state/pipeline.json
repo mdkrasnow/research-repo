@@ -3,27 +3,27 @@
   "active_runs": [
     {
       "run_id": "corrupt_sanity_gaussian_mask_1to2_seed0",
-      "job_id": "29081285",
-      "partition": "seas_gpu",
+      "job_id": "29083572",
+      "partition": "gpu_test",
       "status": "pending",
-      "description": "sanity: corruption-mode=mixture, weights gaussian=1.0/mask=2.0/fourier=0.0 (mask-heavy, user-requested Pareto sweep). Tests whether more mask weight recovers more of mask-only's masked-recovery gain (0.568) without losing arm B's (1:1) near-baseline FID (176.7 vs floor 172.6).",
+      "description": "sanity: corruption-mode=mixture, weights gaussian=1.0/mask=2.0/fourier=0.0 (mask-heavy, user-requested Pareto sweep). Tests whether more mask weight recovers more of mask-only's masked-recovery gain (0.568) without losing arm B's (1:1) near-baseline FID (176.7 vs floor 172.6). Originally submitted as job 29081285 on seas_gpu but that partition had a 7-8h priority backlog at submission time (unusual vs typical fast-clearing seas_gpu) -- cancelled and resubmitted on gpu_test (4 idle nodes at submission time), which starts immediately despite slower per-step MIG throughput (~1.85 steps/sec vs seas_gpu's ~8+), net faster per AGENTS.md 'pick by actual wait time' rule.",
       "submitted_at": "2026-07-07",
-      "git_sha": "3dfa7ce50d36a1c287d755b9bc258a26de12ff9c",
+      "git_sha": "d9d5c5c4baa847e4ae24b44e376e16d74a503106",
       "sbatch_path": "projects/masked-EqM/slurm/jobs/corruption_sanity.sbatch",
-      "expected_runtime": "~1.5h (seas_gpu)",
+      "expected_runtime": "~6h (gpu_test MIG slice, ~1.85 steps/sec, 40000 steps)",
       "phase": "1",
       "gate": "pareto sweep: gaussian:mask ratio vs recovery/FID tradeoff (writes into corruption_sanity_mixture/ dir, distinguish by job_id/timestamp)"
     },
     {
       "run_id": "corrupt_sanity_gaussian_mask_1to3_seed0",
-      "job_id": "29081287",
-      "partition": "seas_gpu",
+      "job_id": "29083573",
+      "partition": "gpu_test",
       "status": "pending",
-      "description": "sanity: corruption-mode=mixture, weights gaussian=1.0/mask=3.0/fourier=0.0 (more mask-heavy). Per user's decision rule: run 1:4 only if this 1:3 point preserves FID within ~10-15 of gaussian floor.",
+      "description": "sanity: corruption-mode=mixture, weights gaussian=1.0/mask=3.0/fourier=0.0 (more mask-heavy). Per user's decision rule: run 1:4 only if this 1:3 point preserves FID within ~10-15 of gaussian floor. Originally job 29081287 on seas_gpu, resubmitted on gpu_test for same reason as 1:2 above.",
       "submitted_at": "2026-07-07",
-      "git_sha": "3dfa7ce50d36a1c287d755b9bc258a26de12ff9c",
+      "git_sha": "d9d5c5c4baa847e4ae24b44e376e16d74a503106",
       "sbatch_path": "projects/masked-EqM/slurm/jobs/corruption_sanity.sbatch",
-      "expected_runtime": "~1.5h (seas_gpu)",
+      "expected_runtime": "~6h (gpu_test MIG slice, ~1.85 steps/sec, 40000 steps)",
       "phase": "1",
       "gate": "pareto sweep: gaussian:mask ratio vs recovery/FID tradeoff (writes into corruption_sanity_mixture/ dir, distinguish by job_id/timestamp)"
     }
@@ -387,6 +387,6 @@
   "needs_user_input": {
     "value": false,
     "prompt": null,
-    "resolved_2026-07-07": "User chose option (d) -- run a tight gaussian:mask Pareto sweep (1:2, 1:3, 1:4-if-warranted) before locking the recipe, then likely land on (b)/(c): gaussian+mask as general-purpose recipe, mask-only as specialized recovery ablation. Decision rule set by user: if 1:2 or 1:3 closes more of the recovery gap while FID stays within ~10-15 of gaussian floor, promote that ratio as the main recipe; if FID degrades sharply as mask weight increases, keep 1:1 arm B as the general-purpose recipe. 1:2 (job 29081285) and 1:3 (job 29081287) launched on seas_gpu; 1:4 to be launched only if 1:3 preserves FID per the rule. Fourier remains dropped."
+    "resolved_2026-07-07": "User chose option (d) -- run a tight gaussian:mask Pareto sweep (1:2, 1:3, 1:4-if-warranted) before locking the recipe, then likely land on (b)/(c): gaussian+mask as general-purpose recipe, mask-only as specialized recovery ablation. Decision rule set by user: if 1:2 or 1:3 closes more of the recovery gap while FID stays within ~10-15 of gaussian floor, promote that ratio as the main recipe; if FID degrades sharply as mask weight increases, keep 1:1 arm B as the general-purpose recipe. 1:2 (job 29083572) and 1:3 (job 29083573) launched on gpu_test (moved from seas_gpu after hitting a 7-8h priority backlog there); 1:4 to be launched only if 1:3 preserves FID per the rule. Fourier remains dropped."
   }
 }
