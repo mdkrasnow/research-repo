@@ -69,3 +69,58 @@ Fourier-only isolated result to know if fourier or the dilution itself is respon
 **Ask of PI**: is single-seed, single-epoch sanity sufficient signal to proceed to step3
 (Fourier-only isolated arm) per the strict build order, or should mask arm be re-run with 2-3
 seeds first to firm up the 2.1x number before committing more compute to the next build-order step?
+
+(Superseded below — user approved proceeding to step3 immediately; result landed same day.)
+
+## 2026-07-06/07 draft (step3 fourier RESOLVED NEGATIVE + arm B mixture — significant pivot)
+
+**Trigger**: significant pivot (fourier de-prioritized for this task) + result at gate-informing scale.
+
+Ran step3 (isolated fourier-only sanity) and a 2-way gaussian+mask mixture (CLAUDE.md arm B)
+same day, same eval protocol as the step2 result above (n=256, seed 0, mask_prob=0.5):
+
+| arm | mean_masked_mse | normalized_gap |
+|---|---|---|
+| gaussian floor | 0.24237 | 0.0 |
+| **mask (isolated)** | **0.11313** | **0.568** |
+| gaussian+mask (arm B, 2-way) | 0.13692 | 0.464 |
+| gaussian+mask+fourier (3-way) | 0.14025 | 0.449 |
+| **fourier (isolated)** | **0.40612** | **-0.720** |
+| VAE-roundtrip oracle | 0.01488 | 1.0 |
+
+**Headline finding**: fourier low-pass corruption, trained in isolation, makes the model WORSE
+than the gaussian-only baseline at masked-region recovery (negative normalized_gap = -0.720 — worse
+than doing nothing special). This is a genuine negative result, not noise-level: it's the single
+most extreme number in the whole table, in the wrong direction.
+
+**Why this makes mechanistic sense**: fourier low-pass corruption trains the model to reconstruct
+missing HIGH-FREQUENCY detail from coarse global structure (a deblurring-like task). Bernoulli
+masking trains the model to reconstruct a spatially-missing region from surrounding visible pixels
+(an inpainting-like task). These are different recovery skills. Training on one does not transfer
+to, and apparently actively interferes with, the other — plausible mechanism: fourier training
+biases the learned field toward frequency-domain corrections that are a poor prior for the
+spatially-local, high-magnitude corrections the masked-recovery task needs.
+
+**Mixture picture now resolved**: arm B (gaussian+mask, no fourier) scores 0.464 — between isolated
+mask (0.568) and the original 3-arm mixture (0.449), but closer to the 3-arm number. This means the
+3-arm mixture's underperformance vs isolated mask is driven by BOTH (a) gradient-budget dilution
+(splitting signal across arms costs ~0.10 gap even with fourier excluded) AND (b) fourier's own
+negative pull (present but diluted to 1/3 weight in the 3-arm case, vs -0.720 in isolation).
+
+**Practical implication for the paper story**: CLAUDE.md's build-order arms C (gaussian+fourier)
+and D (gaussian+mask+fourier) are now de-prioritized for the masked-recovery goal specifically --
+adding fourier to any mixture aimed at this task looks actively counterproductive based on this
+data. This does NOT mean fourier corruption is dead for the project broadly: this is one task
+(masked-region recovery) at one scale (sanity) with one seed. Fourier could still matter for (a) a
+different downstream task (e.g. deblurring/denoising recovery, which CLAUDE.md also lists as a
+metric to check), or (b) generation quality (FID) independent of masked-recovery, neither of which
+has been measured yet.
+
+**Ask of PI**: given this negative result, should Fourier corruption be:
+(a) dropped entirely from further build-order steps (proceed straight to mask-only Phase 2/3 per
+    summer-2026-plan.md),
+(b) kept but only tested for hypothesized non-masking tasks (deblurring-style recovery, if that's
+    still of interest), or
+(c) given one more isolated try at a different fourier-cutoff value before concluding, per the
+    "1 retune per failing direction" rule in CLAUDE.md/AGENTS.md?
+No compute committed to any of these yet pending PI input.

@@ -14,9 +14,14 @@ NeurIPS 2026 workshop (deadline 2026-08-29), stretch ICLR 2027 main (~2026-10-01
   Masked-recovery eval: mask-trained normalized_gap=0.568 vs gaussian floor=0.0, oracle=1.0 —
   mask-trained model recovers masked regions ~2.1x better than gaussian-only baseline.
 - Step 4 partial (3-arm mixture, launched early per explicit user call, arm D-equivalent):
-  normalized_gap=0.449 — underperforms isolated mask, cause (dilution vs fourier drag) unresolved.
-- Step 3 (fourier) + step4 arm B (gaussian+mask 2-way) launched 2026-07-06 (jobs 28888836,
-  28888839) specifically to resolve the mixture question.
+  normalized_gap=0.449 — underperforms isolated mask.
+- Step 3 (fourier, isolated) + step4 arm B (gaussian+mask 2-way): RESOLVED 2026-07-06/07.
+  Fourier isolated normalized_gap = **-0.720 (negative, worse than gaussian baseline)** on the
+  masked-recovery task. Arm B (gaussian+mask, no fourier) = 0.464. Mixture underperformance vs
+  isolated mask is driven by BOTH gradient-dilution AND fourier's own negative pull — see
+  pi-updates.md 2026-07-06/07 draft for full table and mechanism read. Fourier arms C/D
+  de-prioritized for the masked-recovery goal pending PI decision (needs_user_input=true in
+  pipeline.json).
 
 ## Phased plan
 
@@ -51,13 +56,21 @@ deadline. ICLR fallback only if workshop timeline slips or reviewers want more s
 
 ## Open questions (track here, resolve via debate/PI update as they come up)
 
-1. Mixture recipe: does gaussian+mask alone (2-way) recover most of isolated mask's gain, or does
-   any dilution hurt? (Answering now via job 28888839.)
-2. Is fourier corruption a net-positive ingredient on its own, independent of mixture dilution?
-   (Answering now via job 28888836.)
+1. ~~Mixture recipe: does gaussian+mask alone (2-way) recover most of isolated mask's gain?~~
+   RESOLVED 2026-07-06/07: arm B=0.464 gap, between 3-arm mixture (0.449) and isolated mask (0.568)
+   — both dilution and fourier's negative pull contribute.
+2. ~~Is fourier corruption a net-positive ingredient on its own?~~ RESOLVED 2026-07-06/07: NO —
+   isolated fourier normalized_gap=-0.720, worse than gaussian baseline, on masked-recovery task
+   specifically. See pi-updates.md for mechanism read and PI decision ask (drop / retest on a
+   different task / one retune at different cutoff).
 3. Does the masked-recovery gain transfer to generation quality (FID) at all, or is it purely a
    denoising-task-specific effect? (Phase 3.)
-4. What mask_prob / fourier_cutoff sweep, if any, is worth doing before locking phase 4's recipe?
+4. What mask_prob sweep, if any, is worth doing before locking phase 4's recipe? (fourier_cutoff
+   sweep now contingent on PI's answer to the fourier retune question above.)
+5. NEW (2026-07-07): is fourier corruption's negative masked-recovery result task-specific (i.e.
+   would it help a deblurring/frequency-domain-degradation recovery task instead)? Untested —
+   would need a new eval script analogous to eval_masked_recovery.py but for fourier-degraded
+   inputs, not yet built.
 
 ## Scope discipline
 
