@@ -1,6 +1,33 @@
 {
   "phase": "sanity",
-  "active_runs": [],
+  "active_runs": [
+    {
+      "run_id": "corrupt_sanity_gaussian_mask_1to2_seed0",
+      "job_id": "29081285",
+      "partition": "seas_gpu",
+      "status": "pending",
+      "description": "sanity: corruption-mode=mixture, weights gaussian=1.0/mask=2.0/fourier=0.0 (mask-heavy, user-requested Pareto sweep). Tests whether more mask weight recovers more of mask-only's masked-recovery gain (0.568) without losing arm B's (1:1) near-baseline FID (176.7 vs floor 172.6).",
+      "submitted_at": "2026-07-07",
+      "git_sha": "3dfa7ce50d36a1c287d755b9bc258a26de12ff9c",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/corruption_sanity.sbatch",
+      "expected_runtime": "~1.5h (seas_gpu)",
+      "phase": "1",
+      "gate": "pareto sweep: gaussian:mask ratio vs recovery/FID tradeoff (writes into corruption_sanity_mixture/ dir, distinguish by job_id/timestamp)"
+    },
+    {
+      "run_id": "corrupt_sanity_gaussian_mask_1to3_seed0",
+      "job_id": "29081287",
+      "partition": "seas_gpu",
+      "status": "pending",
+      "description": "sanity: corruption-mode=mixture, weights gaussian=1.0/mask=3.0/fourier=0.0 (more mask-heavy). Per user's decision rule: run 1:4 only if this 1:3 point preserves FID within ~10-15 of gaussian floor.",
+      "submitted_at": "2026-07-07",
+      "git_sha": "3dfa7ce50d36a1c287d755b9bc258a26de12ff9c",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/corruption_sanity.sbatch",
+      "expected_runtime": "~1.5h (seas_gpu)",
+      "phase": "1",
+      "gate": "pareto sweep: gaussian:mask ratio vs recovery/FID tradeoff (writes into corruption_sanity_mixture/ dir, distinguish by job_id/timestamp)"
+    }
+  ],
   "completed_runs": [
     {
       "run_id": "eval_fid_gaussian",
@@ -358,7 +385,8 @@
     "generation_quality_fid": "RESOLVED (2026-07-07) - sanity FID (2000 samples, unconditional, GD sampler 250 steps, single seed) on gaussian/mask/arm-B checkpoints. Smoke-sample-probe passed (eyeballed generated images: coherent textured scenes, not garbage/noise -- confirms sampler correctness at this early-training FID range). Results: gaussian floor FID=172.567, mask-only FID=239.512 (+66.9), gaussian+mask arm B FID=176.711 (+4.1). CONFIRMS user's hypothesis: mask-only trades substantial generation quality for its larger masked-recovery gain (0.568 vs arm B's 0.464, a 0.104 difference) -- gaussian+mask nearly preserves baseline generation quality while capturing 82% of mask-only's recovery gain. This is the key generalization-vs-specialization tradeoff the user asked to test; it is a genuine tradeoff, not a clean winner for either recipe."
   },
   "needs_user_input": {
-    "value": true,
-    "prompt": "Fourier question resolved (dropped). New decision point from the FID result: mask-only gets the best masked-recovery score (normalized_gap=0.568) but costs ~67 FID points vs baseline; gaussian+mask (arm B) nearly preserves generation quality (+4 FID) at a smaller recovery gain (0.464). See documentation/pi-updates.md for full write-up. Ask: should the paper story be (a) mask-only as a specialized recovery/inpainting variant with an explicit generation-quality caveat, (b) gaussian+mask as the general-purpose recipe (safer, smaller effect size), (c) present both as separate contributions/recipes for different use cases, or (d) explore mask-heavy mixtures (3:1, 4:1 mask:gaussian, as previously proposed) to find a better point on this tradeoff curve before deciding? No further compute committed pending this decision."
+    "value": false,
+    "prompt": null,
+    "resolved_2026-07-07": "User chose option (d) -- run a tight gaussian:mask Pareto sweep (1:2, 1:3, 1:4-if-warranted) before locking the recipe, then likely land on (b)/(c): gaussian+mask as general-purpose recipe, mask-only as specialized recovery ablation. Decision rule set by user: if 1:2 or 1:3 closes more of the recovery gap while FID stays within ~10-15 of gaussian floor, promote that ratio as the main recipe; if FID degrades sharply as mask weight increases, keep 1:1 arm B as the general-purpose recipe. 1:2 (job 29081285) and 1:3 (job 29081287) launched on seas_gpu; 1:4 to be launched only if 1:3 preserves FID per the rule. Fourier remains dropped."
   }
 }
