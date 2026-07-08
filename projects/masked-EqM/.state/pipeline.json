@@ -26,45 +26,6 @@
       "expected_runtime": "~6h (gpu_test MIG slice, ~1.85 steps/sec, 40000 steps)",
       "phase": "1",
       "gate": "pareto sweep: gaussian:mask ratio vs recovery/FID tradeoff"
-    },
-    {
-      "run_id": "eval_energy_gaussian",
-      "job_id": "29235781",
-      "partition": "seas_gpu",
-      "status": "pending",
-      "description": "energy-ordering check (CLAUDE.md diagnostic 3, field-norm proxy since ebm=none) on gaussian floor ckpt. New eval, built during overnight downtime while 1:2/1:3 training runs -- forward-pass-only, no training compute needed. Checks ||f(clean)|| < ||f(mask-corrupt)|| < ||f(noise)||.",
-      "submitted_at": "2026-07-07",
-      "git_sha": "60e23f4f2de590269554986f2177e6c4b409caa2",
-      "sbatch_path": "projects/masked-EqM/slurm/jobs/eval_energy_ordering.sbatch",
-      "expected_runtime": "~5-10min",
-      "phase": "1",
-      "gate": "energy_ordering (CLAUDE.md diagnostic 3)"
-    },
-    {
-      "run_id": "eval_energy_mask",
-      "job_id": "29235784",
-      "partition": "seas_gpu",
-      "status": "pending",
-      "description": "energy-ordering check on mask-only ckpt.",
-      "submitted_at": "2026-07-07",
-      "git_sha": "60e23f4f2de590269554986f2177e6c4b409caa2",
-      "sbatch_path": "projects/masked-EqM/slurm/jobs/eval_energy_ordering.sbatch",
-      "expected_runtime": "~5-10min",
-      "phase": "1",
-      "gate": "energy_ordering (CLAUDE.md diagnostic 3)"
-    },
-    {
-      "run_id": "eval_energy_gaussian_mask_mix",
-      "job_id": "29235795",
-      "partition": "seas_gpu",
-      "status": "pending",
-      "description": "energy-ordering check on gaussian+mask arm B (1:1) ckpt.",
-      "submitted_at": "2026-07-07",
-      "git_sha": "60e23f4f2de590269554986f2177e6c4b409caa2",
-      "sbatch_path": "projects/masked-EqM/slurm/jobs/eval_energy_ordering.sbatch",
-      "expected_runtime": "~5-10min",
-      "phase": "1",
-      "gate": "energy_ordering (CLAUDE.md diagnostic 3)"
     }
   ],
   "_incidents": [
@@ -80,6 +41,48 @@
     }
   ],
   "completed_runs": [
+    {
+      "run_id": "eval_energy_gaussian",
+      "job_id": "29235781",
+      "partition": "seas_gpu",
+      "status": "completed",
+      "description": "energy-ordering check (CLAUDE.md diagnostic 3, field-norm proxy) on gaussian floor ckpt.",
+      "submitted_at": "2026-07-07",
+      "git_sha": "60e23f4f2de590269554986f2177e6c4b409caa2",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/eval_energy_ordering.sbatch",
+      "phase": "1",
+      "gate": "energy_ordering (CLAUDE.md diagnostic 3)",
+      "final_metric": "field_norm: clean=29.83, corrupt=304.25, noise=250.12. ordering_holds=FALSE (corrupt > noise) -- gaussian-only model has never seen masked/corrupt states during training, off-distribution input produces erratic/inflated field response.",
+      "exit_code": "0"
+    },
+    {
+      "run_id": "eval_energy_mask",
+      "job_id": "29235784",
+      "partition": "seas_gpu",
+      "status": "completed",
+      "description": "energy-ordering check on mask-only ckpt.",
+      "submitted_at": "2026-07-07",
+      "git_sha": "60e23f4f2de590269554986f2177e6c4b409caa2",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/eval_energy_ordering.sbatch",
+      "phase": "1",
+      "gate": "energy_ordering (CLAUDE.md diagnostic 3)",
+      "final_metric": "field_norm: clean=15.53, corrupt=202.62, noise=182.27. ordering_holds=FALSE (corrupt > noise) -- mask-only model has never seen pure-gaussian-noise x0 during training, same off-distribution failure mode as gaussian-only but for noise instead of masks.",
+      "exit_code": "0"
+    },
+    {
+      "run_id": "eval_energy_gaussian_mask_mix",
+      "job_id": "29235795",
+      "partition": "seas_gpu",
+      "status": "completed",
+      "description": "energy-ordering check on gaussian+mask arm B (1:1) ckpt.",
+      "submitted_at": "2026-07-07",
+      "git_sha": "60e23f4f2de590269554986f2177e6c4b409caa2",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/eval_energy_ordering.sbatch",
+      "phase": "1",
+      "gate": "energy_ordering (CLAUDE.md diagnostic 3)",
+      "final_metric": "field_norm: clean=24.52, corrupt=199.89, noise=248.35. ordering_holds=TRUE -- ONLY arm B (trained on both gaussian and mask corruption) achieves correct qualitative field-response ordering across the full state space. Second, mechanistically independent confirmation of the same generalization story as the FID result (172.6/176.7/239.5): exposure to both corruption types during training is necessary for a well-calibrated field geometry, not just for preserving generation quality.",
+      "exit_code": "0"
+    },
     {
       "run_id": "corrupt_sanity_gaussian_mask_1to2_seed0",
       "job_id": "29083572",
@@ -461,7 +464,8 @@
     "step2_mask_sanity": "PASS (2026-07-06) - masked-recovery eval, mask_prob=0.5, n=256 held-out IN-1K val images, seed=0 (RNG-matched across arms). mean_masked_mse: gaussian floor=0.24237, mask treatment=0.11313, VAE-roundtrip oracle=0.01488. normalized_gap = (floor-treatment)/(floor-oracle) = 0.568. Mask-trained model recovers masked regions ~2.1x better than gaussian-trained model (57% of the floor-to-oracle headroom closed) -- masking the training start-state teaches the model to use visible context, which pure-Gaussian training never sees. Loss-curve comparison from earlier (mask ~5.2 vs gaussian ~11.2) is NOT part of this verdict -- retracted separately as an easiness artifact of the training target, unrelated to this outcome-metric-based PASS.",
     "step3_fourier_sanity": "RESOLVED, NEGATIVE (2026-07-06) - isolated fourier-corruption training (fourier-cutoff=0.25), same eval protocol as step2. mean_masked_mse=0.40612, WORSE than gaussian floor (0.24237). normalized_gap=-0.720 (negative -- fourier-trained model is worse at masked-recovery than a model that never saw structured corruption at all). Mechanism read: fourier low-pass corruption teaches recovery of missing HIGH-FREQUENCY detail from coarse structure, not recovery of a spatially-masked region from surrounding visible pixels -- these are different tasks, and training on one does not transfer to (and may actively hurt, via distribution mismatch) the other. USER DECISION 2026-07-07: fourier dropped from build path entirely (option a of pi-updates.md ask).",
     "step4_mixture_arm_B": "RESOLVED (2026-07-06) - 2-way gaussian+mask mixture (weights 1.0/1.0/0.0), same eval protocol. mean_masked_mse=0.13692, normalized_gap=0.464. Falls between isolated mask (0.568) and 3-arm mixture (0.449) as expected, but notably closer to the 3-arm mixture than to isolated mask -- confirms the 3-arm mixture's underperformance vs isolated mask is NOT primarily fourier-specific drag (arm B still loses ~0.10 gap vs pure mask despite excluding fourier entirely). Read together with step3's negative fourier result: the gap-closing recipe (gaussian:mask:fourier 1:1:1 vs 1:1:0 vs mask-only) suggests BOTH effects are real -- gradient-budget dilution (any mixing with gaussian reduces the pure-mask signal) AND fourier's own negative contribution. Fourier's negative pull is smaller in magnitude here (only 1/3 weight) than shown by its isolated -0.720 result, consistent with a real but diluted drag.",
-    "generation_quality_fid": "RESOLVED (2026-07-07) - sanity FID (2000 samples, unconditional, GD sampler 250 steps, single seed) on gaussian/mask/arm-B checkpoints. Smoke-sample-probe passed (eyeballed generated images: coherent textured scenes, not garbage/noise -- confirms sampler correctness at this early-training FID range). Results: gaussian floor FID=172.567, mask-only FID=239.512 (+66.9), gaussian+mask arm B FID=176.711 (+4.1). CONFIRMS user's hypothesis: mask-only trades substantial generation quality for its larger masked-recovery gain (0.568 vs arm B's 0.464, a 0.104 difference) -- gaussian+mask nearly preserves baseline generation quality while capturing 82% of mask-only's recovery gain. This is the key generalization-vs-specialization tradeoff the user asked to test; it is a genuine tradeoff, not a clean winner for either recipe."
+    "generation_quality_fid": "RESOLVED (2026-07-07) - sanity FID (2000 samples, unconditional, GD sampler 250 steps, single seed) on gaussian/mask/arm-B checkpoints. Smoke-sample-probe passed (eyeballed generated images: coherent textured scenes, not garbage/noise -- confirms sampler correctness at this early-training FID range). Results: gaussian floor FID=172.567, mask-only FID=239.512 (+66.9), gaussian+mask arm B FID=176.711 (+4.1). CONFIRMS user's hypothesis: mask-only trades substantial generation quality for its larger masked-recovery gain (0.568 vs arm B's 0.464, a 0.104 difference) -- gaussian+mask nearly preserves baseline generation quality while capturing 82% of mask-only's recovery gain. This is the key generalization-vs-specialization tradeoff the user asked to test; it is a genuine tradeoff, not a clean winner for either recipe.",
+    "energy_ordering": "RESOLVED (2026-07-07) - field-norm proxy (||f(x)||, since ebm=none has no scalar energy head) on gaussian/mask/arm-B checkpoints, n=256, mask_prob=0.5. Checks E(clean) < E(corrupt) < E(noise) per CLAUDE.md diagnostic 3. clean < corrupt holds for all three arms (all recognize near-manifold states as low-field). But corrupt vs noise ordering ONLY holds for arm B (gaussian+mask): gaussian floor has corrupt=304.2 > noise=250.1 (FAILS, never trained on masked states -- off-distribution), mask-only has corrupt=202.6 > noise=182.3 (FAILS, never trained on pure noise -- off-distribution), arm B has corrupt=199.9 < noise=248.4 (HOLDS). This is a SECOND, mechanistically independent line of evidence for the same generalization argument as generation_quality_fid: training on both corruption types produces a model whose field response is well-calibrated across the whole state space, not just one whose FID happens to be preserved. Single-arm checkpoints each show a specific off-distribution failure mode matching exactly what they were never trained on."
   },
   "needs_user_input": {
     "value": false,

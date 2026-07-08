@@ -179,3 +179,54 @@ only be read relatively (gaussian vs mask vs arm B), not as paper-comparable num
 No further compute committed pending this decision. Whichever direction is chosen, still needs
 Phase 2 multi-seed confirmation before this is a real paper claim (currently single-seed sanity
 scale throughout).
+
+**Resolution (user, same day)**: option (d) -- run a tight gaussian:mask sweep (1:2, 1:3, 1:4-if-
+warranted) before locking the recipe. Decision rule: if 1:2/1:3 closes more of the recovery gap
+while FID stays within ~10-15 of gaussian floor, promote it as the main recipe; if FID degrades
+sharply, keep 1:1 arm B. Sweep launched (details below); one incident along the way (results-dir
+race between the 1:2 and 1:3 jobs silently mixed their checkpoints -- caught, root-caused, fixed,
+relaunched cleanly, no impact on final numbers). Sweep results pending as of this entry.
+
+## 2026-07-07 draft (energy-ordering result — second independent confirmation of the generalization story)
+
+**Trigger**: result at gate-informing scale, built proactively during overnight downtime while the
+1:2/1:3 sweep trains (CLAUDE.md diagnostic #3 was on the "what to measure" list but unbuilt).
+
+Built `eval_energy_ordering.py`: these checkpoints have no scalar energy head (`ebm='none'`), so
+per EqM's own framing (the field IS the energy gradient) the mechanistically-justified proxy is
+field norm ||f(x)|| — should be near 0 at the data manifold, large away from it. This also matches
+the prior diff-EqM finding already in memory that raw energy scalars were a dead diagnostic while
+field/descent-shape-based measures carried real signal.
+
+Checked E(clean) < E(corrupt) < E(noise) (mask_prob=0.5, n=256, single seed) on the same three
+checkpoints as the FID result:
+
+| arm | clean | corrupt | noise | ordering holds |
+|---|---|---|---|---|
+| gaussian floor | 29.83 | 304.25 | 250.12 | **NO** (corrupt > noise) |
+| mask-only | 15.53 | 202.62 | 182.27 | **NO** (corrupt > noise) |
+| gaussian+mask (arm B) | 24.52 | 199.89 | 248.35 | **YES** |
+
+**Headline**: clean < corrupt holds everywhere (all three models correctly recognize near-manifold
+states as low-field). But corrupt-vs-noise ordering only holds for arm B. Gaussian-only has never
+seen masked states during training — its field response to a masked input is inflated/erratic
+(off-distribution). Mask-only has never seen pure Gaussian noise — same failure, mirrored. Only
+arm B, trained on both corruption types, has a field response that's correctly calibrated across
+the full state space it might encounter.
+
+**Why this matters**: this is a SECOND, mechanistically independent line of evidence for the exact
+same generalization argument the FID result made (172.6/176.7/239.5 FID ordering). FID says
+"gaussian+mask preserves sample quality"; this says "gaussian+mask preserves correct field
+geometry off the training corruption type it specialized in." Different measurement, same
+conclusion, from a diagnostic that isn't even sensitive to sample quality — this is a materially
+stronger case that gaussian+mask is really learning a more complete/generalizable energy landscape,
+not narrowly optimizing whatever single metric happened to be checked.
+
+**Caveat**: single seed, sanity scale, n=256, field-norm is a proxy (no ground-truth energy value
+to compare against since ebm=none) — same scale caveats as everything else this week.
+
+**Ask of PI**: no new decision needed — this strengthens the case for whichever of (a)/(b)/(c)/(d)
+gets chosen once the sweep lands, particularly for (b)/(c) (gaussian+mask as general-purpose or
+co-equal recipe). Flagging because it's a strong, unprompted secondary confirmation worth having in
+the paper regardless of the final recipe decision -- suggest including both FID and energy-ordering
+as complementary "generalization" evidence in whatever the final writeup is.
