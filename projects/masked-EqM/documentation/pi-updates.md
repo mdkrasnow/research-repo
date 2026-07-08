@@ -270,10 +270,14 @@ recovery_mse on the two hardest/most novel corruptions:
 |---|---|---|---|
 | gaussian | 0.768 | 0.229 | 4/9 |
 | mask-only | 0.666 | **0.160** | 5/9 |
-| **arm B (1:1)** | **0.649** | 0.169 | 6/9 |
+| **arm B (1:1)** | **0.649** | 0.169 | **8/9** |
 | 1:2 | 0.681 | 0.163 | 7/9 |
 | 1:3 | 0.668 | 0.171 | 7/9 |
-| **1:4** | 0.659 | 0.166 | **9/9** |
+| **1:4** | 0.659 | 0.166 | **8/9** |
+
+(Correction 2026-07-08: an earlier draft of this table miscounted arm B as 6/9 and 1:4 as a
+"perfect" 9/9. Recounted directly from the raw per-corruption JSON — both are actually tied at
+8/9, each failing only on mask_p0.9. Fixed here and in pipeline.json.)
 
 **The central finding**: on block_mask, only **1:1 and 1:4** beat BOTH pure arms simultaneously —
 genuine compositional generalization, not interpolation between two memorized skills. 1:2 and 1:3
@@ -284,8 +288,9 @@ cleanly — 1:2/1:3 are the wrong choice if the generalization claim matters, ev
 "better" numbers on paper.
 
 On noisy_masked, no mixture arm yet beats mask-only (0.160) — all mixtures beat gaussian but not
-mask-only. And 1:4 is the *only* checkpoint with perfect field-ordering (9/9) — every other
-checkpoint fails on the highest-severity corruptions (mask_p0.9, gaussian σ=1.0).
+mask-only. Arm B and 1:4 are tied for best field-ordering (8/9, both fail only on the hardest
+corruption, mask_p0.9); 1:2/1:3 are next best (7/9, also failing gaussian σ=1.0); gaussian-only and
+mask-only trail (4/9 and 5/9).
 
 ### The tension, stated plainly
 

@@ -90,7 +90,8 @@ deadline. ICLR fallback only if workshop timeline slips or reviewers want more s
    `eval_generalization.py`, tested all 6 checkpoints on 9 unseen/composed corruptions. Only 1:1
    and 1:4 beat BOTH gaussian-only and mask-only on block_mask (compositional-generalization
    evidence); 1:2/1:3 do NOT, despite better raw Pareto numbers. No mixture yet beats mask-only on
-   noisy_masked. 1:4 has perfect (9/9) field-ordering, the only checkpoint that does. See
+   noisy_masked. Arm B and 1:4 are tied for best field-ordering (8/9 each, corrected 2026-07-08
+   from an earlier miscount that claimed arm B=6/9 and 1:4="perfect" 9/9). See
    pi-updates.md 2026-07-08 draft, Table 2, for the full tension and 3-option PI ask (a: lead with
    Pareto/1:3-1:4, b: lead with generalization/1:1-1:4, c: present both, 1:4 flagship + 1:1
    ablation).
