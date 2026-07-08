@@ -42,23 +42,27 @@
     },
     {
       "run_id": "corrupt_sanity_gaussian_mask_1to4_seed2",
-      "job_id": "29403308",
+      "job_id": "29406749",
       "partition": "seas_gpu",
-      "status": "pending",
-      "description": "Phase 2 multi-seed replicate: 1:4 gaussian:mask, seed=2. With seed0 (already have) this gives 3 seeds each for arm B and 1:4, matching the summer-2026-plan.md Phase 2 target. Left on seas_gpu queue (ETA estimate ~19:50).",
+      "status": "failed",
+      "description": "Phase 2 multi-seed replicate: 1:4 gaussian:mask, seed=2. With seed0 (already have) this gives 3 seeds each for arm B and 1:4, matching the summer-2026-plan.md Phase 2 target. Left on seas_gpu queue (ETA estimate ~19:50). (resubmit after pruning old intermediate ckpts, freed ~130G)",
       "submitted_at": "2026-07-08",
       "git_sha": "2fd254f536f7989329eebfd94c77737ad2e21d56",
       "sbatch_path": "projects/masked-EqM/slurm/jobs/corruption_sanity.sbatch",
       "expected_runtime": "~5-6h queue wait + ~1.5h train if seas_gpu clears on schedule, else move to gpu_test once a slot frees",
       "phase": "2",
-      "gate": "phase2_multiseed_confirmation"
+      "gate": "phase2_multiseed_confirmation",
+      "error": "holylabs group quota 4.0Ti/4.0Ti hard cap exceeded"
     }
   ],
   "_incidents": [
     {
       "date": "2026-07-07",
       "title": "Results-dir race: two concurrent same-corruption-mode jobs silently mixed checkpoints",
-      "jobs_affected": ["29083572", "29083573"],
+      "jobs_affected": [
+        "29083572",
+        "29083573"
+      ],
       "description": "Launched 1:2 and 1:3 gaussian:mask sanity runs (both corruption_mode=mixture) within the same second. corruption_sanity.sbatch keys RESULTS_DIR only by CORRUPTION_MODE (not job ID), and train.py's experiment_index = len(glob(RESULTS_DIR/*)) is a classic TOCTOU race -- both processes computed index=002 and wrote to the SAME .../corruption_sanity_mixture/002-EqM-B-2-Linear-velocity-None/ directory, confirmed via both jobs' logs showing identical 'Experiment directory created at ...002-...' at the same timestamp (2026-07-07 11:31:44). Both jobs ran to completion (exit 0, 8 checkpoints present at steps 5000-40000) but each checkpoint file's actual weights (1:2 vs 1:3 mask ratio) are INDETERMINATE -- whichever process's torch.save() won the race for that step. These checkpoints must NOT be used for eval; discarding entirely.",
       "root_cause": "corruption_sanity.sbatch RESULTS_DIR keyed by CORRUPTION_MODE only; train.py experiment_index has no locking/atomicity for concurrent writers to the same results_dir.",
       "fix": "corruption_sanity.sbatch RESULTS_DIR now includes ${SLURM_JOB_ID} unconditionally, eliminating any possibility of two jobs sharing a results dir regardless of corruption_mode or submission timing. Committed 17217f4.",
