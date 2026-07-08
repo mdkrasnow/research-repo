@@ -2,52 +2,17 @@
   "phase": "sanity",
   "active_runs": [
     {
-      "run_id": "eval_gaussian_mask_1to2_treatment",
-      "job_id": "29278629",
+      "run_id": "corrupt_sanity_gaussian_mask_1to4_seed0",
+      "job_id": "29287267",
       "partition": "gpu_test",
       "status": "pending",
-      "description": "masked-recovery eval on clean 1:2 gaussian:mask ckpt (job 29233398).",
+      "description": "sanity: corruption-mode=mixture, weights gaussian=1.0/mask=4.0/fourier=0.0. Launched per user's pre-approved decision rule: 1:3 preserved FID (177.996, well under the ~188 threshold) so continue the mask-heavy sweep. 1:2 and 1:3 BOTH dominated arm B (1:1) on both axes simultaneously (higher masked-recovery gap AND lower/equal FID) -- 1:2: gap=0.502/FID=176.19, 1:3: gap=0.513/FID=177.996, vs arm B: gap=0.464/FID=176.711. Testing whether this Pareto-dominance trend continues at 1:4 or reverses.",
       "submitted_at": "2026-07-08",
-      "git_sha": "048385728b8327b833539cb7d01ab4788b5abc90",
-      "sbatch_path": "projects/masked-EqM/slurm/jobs/eval_masked_recovery.sbatch",
+      "git_sha": "9b3055f6c35ab997a0ac63ae69c565c35e4bd7e2",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/corruption_sanity.sbatch",
+      "expected_runtime": "~6h (gpu_test MIG slice, ~1.85 steps/sec, 40000 steps)",
       "phase": "1",
-      "gate": "pareto sweep"
-    },
-    {
-      "run_id": "eval_gaussian_mask_1to3_treatment",
-      "job_id": "29278636",
-      "partition": "gpu_test",
-      "status": "pending",
-      "description": "masked-recovery eval on clean 1:3 gaussian:mask ckpt (job 29233403).",
-      "submitted_at": "2026-07-08",
-      "git_sha": "048385728b8327b833539cb7d01ab4788b5abc90",
-      "sbatch_path": "projects/masked-EqM/slurm/jobs/eval_masked_recovery.sbatch",
-      "phase": "1",
-      "gate": "pareto sweep"
-    },
-    {
-      "run_id": "eval_fid_gaussian_mask_1to2",
-      "job_id": "29284107",
-      "partition": "gpu_test",
-      "status": "pending",
-      "description": "sanity FID on clean 1:2 gaussian:mask ckpt. Originally job 29278663 on seas_gpu but that queue estimated a 5h wait (Priority) -- cancelled and resubmitted on gpu_test (idle nodes available, QOS slot freed after masked-recovery evals completed).",
-      "submitted_at": "2026-07-08",
-      "git_sha": "048385728b8327b833539cb7d01ab4788b5abc90",
-      "sbatch_path": "projects/masked-EqM/slurm/jobs/eval_fid.sbatch",
-      "phase": "1",
-      "gate": "pareto sweep"
-    },
-    {
-      "run_id": "eval_fid_gaussian_mask_1to3",
-      "job_id": "29284113",
-      "partition": "gpu_test",
-      "status": "pending",
-      "description": "sanity FID on clean 1:3 gaussian:mask ckpt. Originally job 29278665 on seas_gpu, resubmitted on gpu_test for same reason as 1:2 above.",
-      "submitted_at": "2026-07-08",
-      "git_sha": "048385728b8327b833539cb7d01ab4788b5abc90",
-      "sbatch_path": "projects/masked-EqM/slurm/jobs/eval_fid.sbatch",
-      "phase": "1",
-      "gate": "pareto sweep"
+      "gate": "pareto sweep: gaussian:mask ratio vs recovery/FID tradeoff"
     }
   ],
   "_incidents": [
@@ -63,6 +28,62 @@
     }
   ],
   "completed_runs": [
+    {
+      "run_id": "eval_gaussian_mask_1to2_treatment",
+      "job_id": "29278629",
+      "partition": "gpu_test",
+      "status": "completed",
+      "description": "masked-recovery eval on clean 1:2 gaussian:mask ckpt (job 29233398).",
+      "submitted_at": "2026-07-08",
+      "git_sha": "048385728b8327b833539cb7d01ab4788b5abc90",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/eval_masked_recovery.sbatch",
+      "phase": "1",
+      "gate": "pareto sweep",
+      "final_metric": "mean_masked_mse=0.12816 (n=256), normalized_gap=0.502 -- beats arm B (0.464)",
+      "exit_code": "0"
+    },
+    {
+      "run_id": "eval_gaussian_mask_1to3_treatment",
+      "job_id": "29278636",
+      "partition": "gpu_test",
+      "status": "completed",
+      "description": "masked-recovery eval on clean 1:3 gaussian:mask ckpt (job 29233403).",
+      "submitted_at": "2026-07-08",
+      "git_sha": "048385728b8327b833539cb7d01ab4788b5abc90",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/eval_masked_recovery.sbatch",
+      "phase": "1",
+      "gate": "pareto sweep",
+      "final_metric": "mean_masked_mse=0.12564 (n=256), normalized_gap=0.513 -- beats arm B (0.464) and 1:2 (0.502)",
+      "exit_code": "0"
+    },
+    {
+      "run_id": "eval_fid_gaussian_mask_1to2",
+      "job_id": "29284107",
+      "partition": "gpu_test",
+      "status": "completed",
+      "description": "sanity FID on clean 1:2 gaussian:mask ckpt (resubmitted from seas_gpu after 5h backlog estimate there).",
+      "submitted_at": "2026-07-08",
+      "git_sha": "048385728b8327b833539cb7d01ab4788b5abc90",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/eval_fid.sbatch",
+      "phase": "1",
+      "gate": "pareto sweep",
+      "final_metric": "FID=176.190 (n=2000) -- essentially matches arm B (176.711), better than baseline+4.1 by a hair",
+      "exit_code": "0"
+    },
+    {
+      "run_id": "eval_fid_gaussian_mask_1to3",
+      "job_id": "29284113",
+      "partition": "gpu_test",
+      "status": "completed",
+      "description": "sanity FID on clean 1:3 gaussian:mask ckpt.",
+      "submitted_at": "2026-07-08",
+      "git_sha": "048385728b8327b833539cb7d01ab4788b5abc90",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/eval_fid.sbatch",
+      "phase": "1",
+      "gate": "pareto sweep",
+      "final_metric": "FID=177.996 (n=2000) -- +1.3 vs arm B, well under the 188 threshold, triggered 1:4 launch per decision rule",
+      "exit_code": "0"
+    },
     {
       "run_id": "corrupt_sanity_gaussian_mask_1to2_seed0_v2",
       "job_id": "29233398",
