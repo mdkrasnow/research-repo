@@ -87,7 +87,8 @@ TRAIN_CMD="python -m torch.distributed.run --nnodes=1 --nproc_per_node=1 --maste
     --fourier-cutoff ${FOURIER_CUTOFF:-0.25} \
     --gaussian-weight ${GAUSSIAN_WEIGHT:-1.0} \
     --mask-weight ${MASK_WEIGHT:-0.0} \
-    --fourier-weight ${FOURIER_WEIGHT:-0.0}"
+    --fourier-weight ${FOURIER_WEIGHT:-0.0} \
+    --global-seed ${GLOBAL_SEED:-0}"
 
 echo "=== corruption_mode=$CORRUPTION_MODE ===" >&2
 echo "=== Command: $TRAIN_CMD ===" >&2
