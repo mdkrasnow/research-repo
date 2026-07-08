@@ -2,33 +2,73 @@
   "phase": "sanity",
   "active_runs": [
     {
-      "run_id": "corrupt_sanity_gaussian_mask_1to2_seed0",
-      "job_id": "29083572",
+      "run_id": "corrupt_sanity_gaussian_mask_1to2_seed0_v2",
+      "job_id": "29233398",
       "partition": "gpu_test",
       "status": "pending",
-      "description": "sanity: corruption-mode=mixture, weights gaussian=1.0/mask=2.0/fourier=0.0 (mask-heavy, user-requested Pareto sweep). Tests whether more mask weight recovers more of mask-only's masked-recovery gain (0.568) without losing arm B's (1:1) near-baseline FID (176.7 vs floor 172.6). Originally submitted as job 29081285 on seas_gpu but that partition had a 7-8h priority backlog at submission time (unusual vs typical fast-clearing seas_gpu) -- cancelled and resubmitted on gpu_test (4 idle nodes at submission time), which starts immediately despite slower per-step MIG throughput (~1.85 steps/sec vs seas_gpu's ~8+), net faster per AGENTS.md 'pick by actual wait time' rule.",
+      "description": "sanity: corruption-mode=mixture, weights gaussian=1.0/mask=2.0/fourier=0.0. RELAUNCH after v1 (job 29083572) results-dir race corruption (see completed_runs entry for 29083572/29083573 and _incidents). Uses fixed sbatch (results dir now keyed by SLURM_JOB_ID, no collision possible).",
       "submitted_at": "2026-07-07",
-      "git_sha": "d9d5c5c4baa847e4ae24b44e376e16d74a503106",
+      "git_sha": "17217f4e0813f62a3074e65979bb2fe16099d780",
       "sbatch_path": "projects/masked-EqM/slurm/jobs/corruption_sanity.sbatch",
       "expected_runtime": "~6h (gpu_test MIG slice, ~1.85 steps/sec, 40000 steps)",
       "phase": "1",
-      "gate": "pareto sweep: gaussian:mask ratio vs recovery/FID tradeoff (writes into corruption_sanity_mixture/ dir, distinguish by job_id/timestamp)"
+      "gate": "pareto sweep: gaussian:mask ratio vs recovery/FID tradeoff"
+    },
+    {
+      "run_id": "corrupt_sanity_gaussian_mask_1to3_seed0_v2",
+      "job_id": "29233403",
+      "partition": "gpu_test",
+      "status": "pending",
+      "description": "sanity: corruption-mode=mixture, weights gaussian=1.0/mask=3.0/fourier=0.0. RELAUNCH after v1 (job 29083573) results-dir race corruption. Uses fixed sbatch.",
+      "submitted_at": "2026-07-07",
+      "git_sha": "17217f4e0813f62a3074e65979bb2fe16099d780",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/corruption_sanity.sbatch",
+      "expected_runtime": "~6h (gpu_test MIG slice, ~1.85 steps/sec, 40000 steps)",
+      "phase": "1",
+      "gate": "pareto sweep: gaussian:mask ratio vs recovery/FID tradeoff"
+    }
+  ],
+  "_incidents": [
+    {
+      "date": "2026-07-07",
+      "title": "Results-dir race: two concurrent same-corruption-mode jobs silently mixed checkpoints",
+      "jobs_affected": ["29083572", "29083573"],
+      "description": "Launched 1:2 and 1:3 gaussian:mask sanity runs (both corruption_mode=mixture) within the same second. corruption_sanity.sbatch keys RESULTS_DIR only by CORRUPTION_MODE (not job ID), and train.py's experiment_index = len(glob(RESULTS_DIR/*)) is a classic TOCTOU race -- both processes computed index=002 and wrote to the SAME .../corruption_sanity_mixture/002-EqM-B-2-Linear-velocity-None/ directory, confirmed via both jobs' logs showing identical 'Experiment directory created at ...002-...' at the same timestamp (2026-07-07 11:31:44). Both jobs ran to completion (exit 0, 8 checkpoints present at steps 5000-40000) but each checkpoint file's actual weights (1:2 vs 1:3 mask ratio) are INDETERMINATE -- whichever process's torch.save() won the race for that step. These checkpoints must NOT be used for eval; discarding entirely.",
+      "root_cause": "corruption_sanity.sbatch RESULTS_DIR keyed by CORRUPTION_MODE only; train.py experiment_index has no locking/atomicity for concurrent writers to the same results_dir.",
+      "fix": "corruption_sanity.sbatch RESULTS_DIR now includes ${SLURM_JOB_ID} unconditionally, eliminating any possibility of two jobs sharing a results dir regardless of corruption_mode or submission timing. Committed 17217f4.",
+      "recovery_action": "Relaunched both runs cleanly as jobs 29233398 (1:2) and 29233403 (1:3) with the fixed sbatch.",
+      "lesson": "Never launch two jobs with the same corruption_mode close together without a job-scoped results dir -- this applies retroactively to the earlier arm-B mixture run (job 28888839) and the original 3-arm mixture run (job 28814819), which were NOT launched concurrently with same-mode siblings so are believed unaffected, but the results-dir-collision risk existed for all of them before this fix."
+    }
+  ],
+  "completed_runs": [
+    {
+      "run_id": "corrupt_sanity_gaussian_mask_1to2_seed0",
+      "job_id": "29083572",
+      "partition": "gpu_test",
+      "status": "INVALID -- discarded",
+      "description": "sanity: corruption-mode=mixture, weights gaussian=1.0/mask=2.0/fourier=0.0. Training completed (exit 0, 8 checkpoints step 5000-40000) but results-dir race with sibling job 29083573 (see _incidents) means checkpoint contents are an indeterminate mix of 1:2 and 1:3 weights. DO NOT USE for eval. Relaunched clean as job 29233398.",
+      "submitted_at": "2026-07-07",
+      "git_sha": "d9d5c5c4baa847e4ae24b44e376e16d74a503106",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/corruption_sanity.sbatch",
+      "phase": "1",
+      "gate": "pareto sweep -- INVALIDATED, see _incidents",
+      "final_metric": "N/A -- discarded due to results-dir race, see _incidents entry",
+      "exit_code": "0 (misleading -- process succeeded but wrote to a shared/corrupted results dir)"
     },
     {
       "run_id": "corrupt_sanity_gaussian_mask_1to3_seed0",
       "job_id": "29083573",
       "partition": "gpu_test",
-      "status": "pending",
-      "description": "sanity: corruption-mode=mixture, weights gaussian=1.0/mask=3.0/fourier=0.0 (more mask-heavy). Per user's decision rule: run 1:4 only if this 1:3 point preserves FID within ~10-15 of gaussian floor. Originally job 29081287 on seas_gpu, resubmitted on gpu_test for same reason as 1:2 above.",
+      "status": "INVALID -- discarded",
+      "description": "sanity: corruption-mode=mixture, weights gaussian=1.0/mask=3.0/fourier=0.0. Same results-dir race as sibling job 29083572 (see _incidents). DO NOT USE for eval. Relaunched clean as job 29233403.",
       "submitted_at": "2026-07-07",
       "git_sha": "d9d5c5c4baa847e4ae24b44e376e16d74a503106",
       "sbatch_path": "projects/masked-EqM/slurm/jobs/corruption_sanity.sbatch",
-      "expected_runtime": "~6h (gpu_test MIG slice, ~1.85 steps/sec, 40000 steps)",
       "phase": "1",
-      "gate": "pareto sweep: gaussian:mask ratio vs recovery/FID tradeoff (writes into corruption_sanity_mixture/ dir, distinguish by job_id/timestamp)"
-    }
-  ],
-  "completed_runs": [
+      "gate": "pareto sweep -- INVALIDATED, see _incidents",
+      "final_metric": "N/A -- discarded due to results-dir race, see _incidents entry",
+      "exit_code": "0 (misleading -- process succeeded but wrote to a shared/corrupted results dir)"
+    },
     {
       "run_id": "eval_fid_gaussian",
       "job_id": "29070164",
