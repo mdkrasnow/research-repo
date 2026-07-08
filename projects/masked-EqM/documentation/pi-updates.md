@@ -230,3 +230,81 @@ gets chosen once the sweep lands, particularly for (b)/(c) (gaussian+mask as gen
 co-equal recipe). Flagging because it's a strong, unprompted secondary confirmation worth having in
 the paper regardless of the final recipe decision -- suggest including both FID and energy-ordering
 as complementary "generalization" evidence in whatever the final writeup is.
+
+## 2026-07-08 draft (Pareto sweep complete + cross-corruption generalization suite — recipe choice now genuinely two-way)
+
+**Trigger**: result at gate-informing scale, resolving both the ratio-sweep and the follow-up
+generalization question the user asked to test explicitly.
+
+### Table 1 — Pareto sweep (gaussian:mask ratio, all sanity scale, single seed)
+
+| arm | masked-recovery gap | FID |
+|---|---|---|
+| gaussian floor | 0.0 | 172.567 |
+| arm B (1:1) | 0.464 | 176.711 |
+| **1:2** | 0.502 | 176.190 |
+| **1:3** | 0.513 | 177.996 |
+| **1:4** | 0.518 | 178.511 |
+| mask-only | 0.568 | 239.512 |
+
+1:2, 1:3, and 1:4 all **Pareto-dominate** arm B — strictly better gap AND equal-or-lower FID, not a
+tradeoff. Gap climbs monotonically 1:1→1:4 while FID stays flat near the gaussian floor (all within
++6, nowhere near mask-only's +66.9). The trend has not reversed by 1:4 — we don't yet know where
+the ceiling is; sweep stops at 1:4 because that's what was pre-approved, not because performance
+degraded.
+
+(One incident during this sweep: a results-dir race corrupted the first 1:2/1:3 training attempt —
+caught, root-caused, fixed at the sbatch level, cleanly relaunched. All numbers above are from the
+clean run.)
+
+### Table 2 — Cross-corruption generalization (built `eval_generalization.py` per user request)
+
+All 6 checkpoints (gaussian, mask, 1:1, 1:2, 1:3, 1:4) evaluated on 9 corruptions never explicitly
+optimized for at this exact severity/composition: Bernoulli mask p=0.25/0.75/0.9 (trained at
+p=0.5), block mask, stroke mask, Gaussian noise σ=0.3/0.6/1.0, and **noisy_masked** — a composition
+matching neither pure training distribution, the single most informative test.
+
+recovery_mse on the two hardest/most novel corruptions:
+
+| arm | block_mask | noisy_masked | ordering_holds (9 corruptions) |
+|---|---|---|---|
+| gaussian | 0.768 | 0.229 | 4/9 |
+| mask-only | 0.666 | **0.160** | 5/9 |
+| **arm B (1:1)** | **0.649** | 0.169 | 6/9 |
+| 1:2 | 0.681 | 0.163 | 7/9 |
+| 1:3 | 0.668 | 0.171 | 7/9 |
+| **1:4** | 0.659 | 0.166 | **9/9** |
+
+**The central finding**: on block_mask, only **1:1 and 1:4** beat BOTH pure arms simultaneously —
+genuine compositional generalization, not interpolation between two memorized skills. 1:2 and 1:3
+fall back above mask-only's floor **despite having strictly better raw Pareto numbers** (higher
+gap, lower FID) than 1:1. Pareto-optimality on the trained corruption and compositional
+generalization to novel corruptions are NOT the same axis, and this sweep does not co-optimize them
+cleanly — 1:2/1:3 are the wrong choice if the generalization claim matters, even though they're the
+"better" numbers on paper.
+
+On noisy_masked, no mixture arm yet beats mask-only (0.160) — all mixtures beat gaussian but not
+mask-only. And 1:4 is the *only* checkpoint with perfect field-ordering (9/9) — every other
+checkpoint fails on the highest-severity corruptions (mask_p0.9, gaussian σ=1.0).
+
+### The tension, stated plainly
+
+- **Best practical recipe** (masked-recovery + FID on the trained task): 1:3 or 1:4.
+- **Best generalization-claim recipe** (genuinely learned a general repair field, not memorized two
+  corruptions): 1:1 or 1:4 — NOT 1:2/1:3, despite their better raw numbers.
+- **1:4 is the only ratio that's strong on both axes** — best Pareto gap in the sweep AND clears
+  the compositional bar AND has perfect field-ordering. If forced to pick one recipe for
+  everything, 1:4 is the least compromised choice.
+
+**Ask of PI**: which framing does the paper lead with?
+(a) "Structured start-states improve recovery while preserving generation quality" → 1:3 or 1:4,
+    straightforward Pareto story, easiest to write up.
+(b) "Structured start-states teach a genuinely more general repair field, not just two memorized
+    corruptions" → 1:1 or 1:4, the stronger and more novel scientific claim, but built on a single
+    corruption type per checkpoint at sanity scale — needs the most careful multi-seed/scale
+    confirmation before publishing.
+(c) Present both: 1:4 as the flagship recipe, 1:1 as a supporting ablation showing the
+    generalization property first appears even at equal weighting.
+All of this is single-seed, sanity-scale (1 epoch/40k steps). Whichever ratio is chosen needs Phase
+2 multi-seed confirmation (per summer-2026-plan.md) before it's a real paper claim. No further
+compute launched pending this decision.

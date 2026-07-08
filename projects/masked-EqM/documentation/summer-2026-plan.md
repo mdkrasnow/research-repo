@@ -24,9 +24,14 @@ NeurIPS 2026 workshop (deadline 2026-08-29), stretch ICLR 2027 main (~2026-10-01
   unconditional FID), ran on gaussian/mask/arm-B checkpoints. Result: gaussian floor FID=172.567,
   gaussian+mask arm B FID=176.711 (+4.1), mask-only FID=239.512 (+66.9). CONFIRMS the
   generalization hypothesis — mask-only's larger masked-recovery gain (0.568 vs arm B's 0.464)
-  comes at a much larger generation-quality cost. Genuine tradeoff, not a clean winner. See
-  pi-updates.md 2026-07-07 draft; PI decision pending on which recipe becomes the paper claim
-  (needs_user_input=true in pipeline.json).
+  comes at a much larger generation-quality cost. Genuine tradeoff, not a clean winner.
+- Gaussian:mask Pareto sweep + cross-corruption generalization (2026-07-08): 1:2/1:3/1:4 all
+  Pareto-dominate arm B on trained-corruption gap+FID, but only 1:1 and 1:4 show genuine
+  compositional generalization (beat both pure arms on block_mask) -- 1:2/1:3 do not, despite
+  better raw numbers. 1:4 is the least-compromised single choice (best gap in sweep + clears
+  generalization bar + perfect field-ordering). See pi-updates.md 2026-07-08 draft for full tables;
+  PI decision pending on which recipe/framing the paper leads with (needs_user_input=true in
+  pipeline.json).
 
 ## Phased plan
 
@@ -75,10 +80,26 @@ deadline. ICLR fallback only if workshop timeline slips or reviewers want more s
 4. What mask_prob sweep, if any, is worth doing before locking phase 4's recipe?
 5. Fourier corruption dropped from build path per user decision 2026-07-07 — not pursuing the
    deblurring-task-specific question raised earlier unless PI redirects.
-6. NEW (2026-07-07): would a mask-heavy mixture (3:1 or 4:1 mask:gaussian) land on a better point of
-   the recovery/generation-quality tradeoff curve than either mask-only or the current 1:1 arm B?
-   Untested — cheap to run (existing mixture_sample code), pending PI's choice among the 4 options
-   in pi-updates.md (this is explicitly option (d) there).
+6. ~~Would a mask-heavy mixture (1:2/1:3/1:4 gaussian:mask) land on a better point of the
+   recovery/FID tradeoff curve than 1:1 arm B?~~ RESOLVED 2026-07-08: YES on raw Pareto numbers —
+   1:2 (gap=0.502/FID=176.19), 1:3 (0.513/178.0), 1:4 (0.518/178.5) all Pareto-dominate arm B
+   (0.464/176.71). Trend hadn't reversed by 1:4; ceiling not yet found, sweep stopped at 1:4 as
+   pre-approved. See pi-updates.md 2026-07-08 draft, Table 1.
+7. ~~Does gaussian+mask training learn a genuinely general repair field, or memorize two exact
+   corruptions?~~ RESOLVED 2026-07-08: PARTIALLY, and NOT the same recipe that wins Table 1. Built
+   `eval_generalization.py`, tested all 6 checkpoints on 9 unseen/composed corruptions. Only 1:1
+   and 1:4 beat BOTH gaussian-only and mask-only on block_mask (compositional-generalization
+   evidence); 1:2/1:3 do NOT, despite better raw Pareto numbers. No mixture yet beats mask-only on
+   noisy_masked. 1:4 has perfect (9/9) field-ordering, the only checkpoint that does. See
+   pi-updates.md 2026-07-08 draft, Table 2, for the full tension and 3-option PI ask (a: lead with
+   Pareto/1:3-1:4, b: lead with generalization/1:1-1:4, c: present both, 1:4 flagship + 1:1
+   ablation).
+8. NEW (2026-07-08): would 1:5/1:6+ continue the Pareto-dominance trend, or is there a ceiling
+   between 1:4 and mask-only where it collapses toward mask-only's FID disaster? Untested — user
+   did not pre-approve past 1:4, pending redirect.
+9. NEW (2026-07-08): does noisy_masked have a mixture ratio that beats mask-only (0.160)? None of
+   1:1-1:4 do yet (best is 1:2 at 0.163). Untested whether a different ratio or a dedicated
+   noisy+masked training arm (not yet built) would close this specific gap.
 
 ## Scope discipline
 
