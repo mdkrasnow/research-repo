@@ -56,7 +56,7 @@ REPO_ROOT="/n/home03/mkrasnow/research-repo"
 # home03 has a 95GB hard quota (past incident: archived diff-EqM results
 # alone consumed 73GB, deadlocking training via rsync/IO stalls). Write
 # checkpoints straight to holylabs; only small logs go to home03.
-RESULTS_DIR="/n/holylabs/ydu_lab/Lab/mkrasnow_eqm/masked-EqM/results/corruption_sanity_${CORRUPTION_MODE}"
+RESULTS_DIR="/n/holylabs/ydu_lab/Lab/mkrasnow_eqm/masked-EqM/results/corruption_sanity_${CORRUPTION_MODE}_job${SLURM_JOB_ID}"
 
 if [ ! -d "$IMAGENET_PATH" ]; then
     echo "ERROR: ImageNet data not found at $IMAGENET_PATH" >&2
