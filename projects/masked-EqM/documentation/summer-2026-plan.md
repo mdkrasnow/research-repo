@@ -37,6 +37,13 @@ NeurIPS 2026 workshop (deadline 2026-08-29), stretch ICLR 2027 main (~2026-10-01
   178.03+-0.61. Gap ranges do not overlap across seeds -- tradeoff is a real, seed-stable effect,
   not single-seed noise. Same shape as seed0: 1:4 wins recovery, arm B wins FID. PI call still
   pending on flagship recipe (needs_user_input=true in pipeline.json).
+- Generalization grid, 3-seed (2026-07-09): RETRACTION of 2026-07-08 block_mask claim. All 6
+  recipes now have seed1/seed2 on the full 9-corruption suite. block_mask: gaussian 0.7264+-0.0399,
+  mask 0.6783+-0.0222, 1:1 0.6708+-0.0389, 1:2 0.6683+-0.0300, 1:3 0.6624+-0.0095, 1:4
+  0.6762+-0.0191 -- heavy overlap, no ratio distinguishable, "1:1/1:4 uniquely generalize" was
+  single-seed noise. noisy_masked DOES hold: mask-only 0.1586+-0.0012 stays clearly best, no
+  mixture close, tight non-overlapping spreads. See pi-updates.md 2026-07-09 for full tables and
+  recommendation (drop compositional-generalization claim, lead with Pareto tradeoff instead).
 
 ## Phased plan
 
@@ -90,15 +97,14 @@ deadline. ICLR fallback only if workshop timeline slips or reviewers want more s
    (0.464/176.71). Trend hadn't reversed by 1:4; ceiling not yet found, sweep stopped at 1:4 as
    pre-approved. See pi-updates.md 2026-07-08 draft, Table 1.
 7. ~~Does gaussian+mask training learn a genuinely general repair field, or memorize two exact
-   corruptions?~~ RESOLVED 2026-07-08: PARTIALLY, and NOT the same recipe that wins Table 1. Built
-   `eval_generalization.py`, tested all 6 checkpoints on 9 unseen/composed corruptions. Only 1:1
-   and 1:4 beat BOTH gaussian-only and mask-only on block_mask (compositional-generalization
-   evidence); 1:2/1:3 do NOT, despite better raw Pareto numbers. No mixture yet beats mask-only on
-   noisy_masked. Arm B and 1:4 are tied for best field-ordering (8/9 each, corrected 2026-07-08
-   from an earlier miscount that claimed arm B=6/9 and 1:4="perfect" 9/9). See
-   pi-updates.md 2026-07-08 draft, Table 2, for the full tension and 3-option PI ask (a: lead with
-   Pareto/1:3-1:4, b: lead with generalization/1:1-1:4, c: present both, 1:4 flagship + 1:1
-   ablation).
+   corruptions?~~ RESOLVED 2026-07-08 single-seed, RETRACTED 2026-07-09 at 3 seeds. Single-seed
+   claimed only 1:1/1:4 beat both pure arms on block_mask; 3-seed replication shows heavy
+   overlapping spread (sd up to 0.04) and no ratio is distinguishable — that was noise, not a real
+   compositional-generalization effect. noisy_masked result DOES hold at 3 seeds: mask-only stays
+   clearly, tightly best, no mixture close. Field-ordering (8/9 tie, arm B & 1:4) was only ever
+   checked at seed0 — not yet replicated, flagged as an open gap. Recommendation now: drop the
+   compositional-generalization claim, lead with the Pareto tradeoff (arm B vs 1:4, confirmed
+   3-seed) instead. See pi-updates.md 2026-07-09 for full tables.
 8. NEW (2026-07-08): would 1:5/1:6+ continue the Pareto-dominance trend, or is there a ceiling
    between 1:4 and mask-only where it collapses toward mask-only's FID disaster? Untested — user
    did not pre-approve past 1:4, pending redirect.

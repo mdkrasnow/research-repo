@@ -339,3 +339,51 @@ consistently ~2-3 points better than 1:4.
 This does not resolve the (a)/(b)/(c) framing ask above — it just means whichever framing is
 chosen now rests on solid multi-seed ground instead of single-seed sanity numbers. Re-raising the
 same ask now that Phase 2 has passed.
+
+---
+
+## 2026-07-09: Generalization grid — 3-seed correction, block_mask claim retracted
+
+Per user request, ran seed1/seed2 for all 6 recipes (gaussian, mask, 1:1, 1:2, 1:3, 1:4) on the
+full cross-corruption generalization suite (9 corruption types), completing a true 3-seed grid
+where previously only seed0 existed for 4 of the 6 recipes.
+
+**Retraction**: the 2026-07-08 claim "only 1:1 and 1:4 show genuine compositional generalization
+(beat both pure arms on block_mask); 1:2/1:3 do not" does NOT survive 3 seeds.
+
+| block_mask MSE (lower=better) | mean ± sd (n=3) |
+|---|---|
+| gaussian | 0.7264 ± 0.0399 |
+| mask | 0.6783 ± 0.0222 |
+| 1:1 | 0.6708 ± 0.0389 |
+| 1:2 | 0.6683 ± 0.0300 |
+| 1:3 | 0.6624 ± 0.0095 |
+| 1:4 | 0.6762 ± 0.0191 |
+
+All mixture ratios overlap heavily (sd up to 0.04 against gaps of ~0.01-0.06 between means) — no
+ratio is statistically distinguishable from another on this corruption. 1:3 (previously said to
+NOT generalize) now has the lowest mean and tightest spread; 1:1/1:4 (previously the "generalizing"
+pair) are not distinguishable from mask-only. The single-seed ranking was noise. **No block_mask
+compositional-generalization claim should go in the paper based on this evidence.**
+
+`noisy_masked` DOES hold up at 3 seeds — mask-only remains clearly, tightly best:
+
+| noisy_masked MSE | mean ± sd (n=3) |
+|---|---|
+| gaussian | 0.2293 ± 0.0072 |
+| mask | 0.1586 ± 0.0012 |
+| 1:1 | 0.1663 ± 0.0027 |
+| 1:2 | 0.1668 ± 0.0033 |
+| 1:3 | 0.1669 ± 0.0031 |
+| 1:4 | 0.1674 ± 0.0019 |
+
+No mixture beats mask-only here, confirmed robustly (non-overlapping, tight spreads). Consistent
+with the single-seed finding.
+
+**Net effect on the framing ask (2026-07-08, options a/b/c)**: option (b)/(c) — leading with a
+"genuinely general repair field" claim — loses its main piece of evidence (block_mask). What
+survives 3-seed scrutiny is the Pareto tradeoff (arm B vs 1:4 on trained-corruption recovery gap
++ FID, confirmed 2026-07-08) and mask-only's noisy_masked advantage. Recommend **option (a)**:
+lead with the straightforward Pareto/recipe-selection story (1:4, or present arm B/1:4 as two
+points on a tradeoff curve), and drop the compositional-generalization claim entirely unless a
+different, better-powered test surfaces real signal. Re-raising PI ask with this update.
