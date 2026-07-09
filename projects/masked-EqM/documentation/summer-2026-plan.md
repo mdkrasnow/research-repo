@@ -32,6 +32,11 @@ NeurIPS 2026 workshop (deadline 2026-08-29), stretch ICLR 2027 main (~2026-10-01
   generalization bar + perfect field-ordering). See pi-updates.md 2026-07-08 draft for full tables;
   PI decision pending on which recipe/framing the paper leads with (needs_user_input=true in
   pipeline.json).
+- Phase 2 multi-seed confirmation (2026-07-08): PASS for both arm B and 1:4, 3 seeds each.
+  Arm B: recovery gap 0.467+-0.0055, FID 175.74+-1.35. 1:4: recovery gap 0.518+-0.0015, FID
+  178.03+-0.61. Gap ranges do not overlap across seeds -- tradeoff is a real, seed-stable effect,
+  not single-seed noise. Same shape as seed0: 1:4 wins recovery, arm B wins FID. PI call still
+  pending on flagship recipe (needs_user_input=true in pipeline.json).
 
 ## Phased plan
 
@@ -40,11 +45,10 @@ Exit gate: step2 mask PASS (done), step3 fourier result + arm B result (running)
 Decision point once both land: is mixture underperformance dilution or fourier-specific? Either
 answer feeds directly into what mixture recipe to scale.
 
-### Phase 2 — multi-seed confirmation
-Once phase 1's arm picture is settled (which corruption(s) actually help), re-run the winning
-arm(s) at 2-3 seeds, same sanity scale, to rule out single-seed noise on the masked-recovery gap.
-Exit gate: mean normalized_gap held across seeds (no formal p-value threshold set yet — TBD with
-PI, analogous to diff-EqM's 3-seed Welch-t discipline).
+### Phase 2 — multi-seed confirmation (PASS 2026-07-08)
+Re-ran arm B and 1:4 at 3 seeds each, same sanity scale. Exit gate (mean normalized_gap held
+across seeds): PASS — arm B 0.467±0.0055, 1:4 0.518±0.0015, non-overlapping ranges across all 3
+seeds each. Recovery gap and FID tradeoff both replicate the seed0 shape.
 
 ### Phase 3 — outcome-metric breadth
 Sanity scale but broaden the win beyond masked-recovery MSE: FID from pure-noise sampling (does

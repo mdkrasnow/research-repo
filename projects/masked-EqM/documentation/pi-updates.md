@@ -313,3 +313,29 @@ mask-only trail (4/9 and 5/9).
 All of this is single-seed, sanity-scale (1 epoch/40k steps). Whichever ratio is chosen needs Phase
 2 multi-seed confirmation (per summer-2026-plan.md) before it's a real paper claim. No further
 compute launched pending this decision.
+
+---
+
+## 2026-07-08 (later): Phase 2 multi-seed confirmation — PASS
+
+Per the ask above ("no further compute launched pending this decision"), user explicitly requested
+replicates before the framing decision was made, reasoning multi-seed confirmation informs which
+framing is defensible. Ran arm B (1:1) and 1:4 at 2 additional seeds each (seed1, seed2; seed0
+already had numbers from the sweep), same sanity scale (EqM-B/2, IN-1K, 1 epoch/40k steps).
+
+| Recipe | recovery gap (mean±sd, n=3) | FID (mean±sd, n=3) |
+|---|---|---|
+| arm B (1:1) | 0.467 ± 0.0055 | 175.74 ± 1.35 |
+| 1:4 | 0.518 ± 0.0015 | 178.03 ± 0.61 |
+
+Per-seed values — arm B gap: [0.464, 0.4733, 0.4637]; 1:4 gap: [0.518, 0.5168, 0.5197]. Gap ranges
+do not overlap across any seed pairing (arm B max 0.473 < 1:4 min 0.517) — this is a real,
+seed-stable separation, not single-seed noise. FID also holds the same shape each seed: arm B
+consistently ~2-3 points better than 1:4.
+
+**Phase 2 exit gate: PASS.** Tradeoff from the original sweep is confirmed, not an artifact:
+1:4 wins recovery by ~11% relative, arm B wins FID by ~2.3 points, every seed, no exceptions.
+
+This does not resolve the (a)/(b)/(c) framing ask above — it just means whichever framing is
+chosen now rests on solid multi-seed ground instead of single-seed sanity numbers. Re-raising the
+same ask now that Phase 2 has passed.
