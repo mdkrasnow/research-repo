@@ -387,3 +387,46 @@ survives 3-seed scrutiny is the Pareto tradeoff (arm B vs 1:4 on trained-corrupt
 lead with the straightforward Pareto/recipe-selection story (1:4, or present arm B/1:4 as two
 points on a tradeoff curve), and drop the compositional-generalization claim entirely unless a
 different, better-powered test surfaces real signal. Re-raising PI ask with this update.
+
+---
+
+## 2026-07-09 (later): Phase 2 confirmation COMPLETE — 1:4 promoted flagship
+
+Filled remaining gaps per user's explicit gate: FID+recovery(p=0.5) for gaussian/mask seed1/2,
+field-ordering for all 4 recipes (gaussian, mask, 1:1, 1:4) x 3 seeds. No new ratios, no fourier
+run (per explicit instruction).
+
+### Full 3-seed summary
+
+| Metric | gaussian | mask | 1:1 | 1:4 |
+|---|---|---|---|---|
+| FID (mean±sd) | 173.49±1.36 | 241.00±1.48 | 175.74±1.35 | 178.03±0.61 |
+| recovery gap p=0.5 (mean±sd) | 0.014±0.028 | 0.571±0.003 | 0.467±0.0056 | 0.518±0.0016 |
+| block_mask MSE (mean±sd) | 0.7264±0.0399 | 0.6783±0.0222 | 0.6708±0.0389 | 0.6762±0.0191 |
+| noisy_masked MSE (mean±sd) | 0.2293±0.0072 | 0.1586±0.0012 | 0.1663±0.0027 | 0.1674±0.0019 |
+| field-ordering pass | 0/3 | 0/3 | 3/3 | 3/3 |
+
+### Gate evaluation (pre-registered by user)
+
+- FID budget: 1:4 is +4.54 over gaussian-only — comfortably inside the +10/+15 window. PASS.
+- block_mask, seed-by-seed, 1:4 vs BOTH pure arms: beats both at seed0/seed1, loses to both at
+  seed2 → 2/3 seeds. PASS (meets "at least 2/3" threshold).
+- 1:1 shows the identical per-seed pattern (beats both at seed0/seed1, loses at seed2) — also
+  2/3 — but its block_mask spread (sd 0.0389) is looser than 1:4's (sd 0.0191), so 1:1 is not the
+  "more robust" alternative that would trigger the present-both branch.
+
+**Decision per pre-registered gate: promote 1:4 as the flagship recipe.**
+
+### New result this round: field-ordering is a clean, seed-stable qualitative split
+
+Not previously seen this clearly — gaussian-only and mask-only both FAIL the energy-ordering check
+(E(clean) < E(corrupt) < E(noise)) at all 3 seeds, specifically because E(corrupt) > E(noise) in
+both cases (the corrupted state has HIGHER field norm than pure noise, backwards from the intended
+ordering). Both mixture recipes (1:1, 1:4) PASS at all 3 seeds, no exceptions. This is a genuinely
+new, clean qualitative distinction the pure arms lack — worth including in the writeup as a
+distinct piece of evidence for why gaussian+mask mixture training produces a better-behaved energy
+landscape, separate from the FID/recovery tradeoff numbers.
+
+Phase 2 gate (multi-seed confirmation, all 4 sub-metrics) is now fully closed. No open confirmation
+work remains for arm 1:1/1:4 at sanity scale. Per user's standing instruction: no 1:5/1:6 sweep, no
+new eval types, until further direction.

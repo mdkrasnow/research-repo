@@ -44,6 +44,13 @@ NeurIPS 2026 workshop (deadline 2026-08-29), stretch ICLR 2027 main (~2026-10-01
   single-seed noise. noisy_masked DOES hold: mask-only 0.1586+-0.0012 stays clearly best, no
   mixture close, tight non-overlapping spreads. See pi-updates.md 2026-07-09 for full tables and
   recommendation (drop compositional-generalization claim, lead with Pareto tradeoff instead).
+- Phase 2 confirmation COMPLETE, 1:4 PROMOTED FLAGSHIP (2026-07-09): filled remaining gaps
+  (FID+recovery p=0.5 for gaussian/mask seed1/2; field-ordering for gaussian/mask/1:1/1:4 x 3
+  seeds each -- was seed0-only before). Pre-registered gate: 1:4 FID +4.54 over gaussian (within
+  +10/+15 budget) AND beats both pure arms on block_mask in 2/3 seeds -> PROMOTE 1:4. New clean
+  result: field-ordering is a stable qualitative split -- gaussian/mask both FAIL (E(corrupt) >
+  E(noise), backwards) at all 3 seeds; 1:1/1:4 both PASS at all 3 seeds. See pi-updates.md
+  2026-07-09 (later) for full table. No 1:5/1:6 sweep or new eval types launched, per user gate.
 
 ## Phased plan
 
