@@ -58,7 +58,12 @@ PY
 git_sha="$(cd "$root" && git rev-parse HEAD)"
 
 # Sync only the slurm directory to remote (for sbatch scripts and log directory structure).
-rsync -az --delete \
+# --exclude=logs/ + no --delete on logs/: local logs/ only has .gitkeep (logs
+# aren't committed), so a bare --delete wipes in-flight/completed jobs' output
+# files on remote -- including for jobs that haven't started yet, breaking
+# their --output path and causing an immediate SLURM-level failure before the
+# script even runs. (Incident 2026-07-14: wiped 6 running/queued jobs' logs.)
+rsync -az --delete --exclude='logs/' \
   -e "ssh -p $port -o BatchMode=yes -o ControlPath=$control_path" \
   "$root/projects/$project_slug/slurm/" \
   "$user@$host:$remote_root/projects/$project_slug/slurm/"
