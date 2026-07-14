@@ -38,7 +38,7 @@ git checkout "${GIT_SHA}" 2>&1 | tail -5 || {
 }
 
 cd projects/masked-EqM
-pip install --quiet timm diffusers accelerate torchvision 2>&1 | tail -10
+pip install --quiet timm diffusers accelerate torchvision lpips 2>&1 | tail -10
 
 VAL_PATH="${VAL_PATH:-/n/holylabs/ydu_lab/Lab/raywang4/imagenet/val}"
 OUT_DIR="/n/holylabs/ydu_lab/Lab/mkrasnow_eqm/masked-EqM/eval_results"
