@@ -78,18 +78,30 @@ def main():
     x_clean = th.cat(xs, dim=0)[:args.num_images]
     x1 = th.cat(latents, dim=0)[:args.num_images]
 
-    def decode(z0):
-        return vae.decode(z0 / 0.18215).sample
+    decode_bs = args.batch_size
+
+    def decode_chunked(z0):
+        # decode in small chunks -- full-batch VAE decode OOMs on the
+        # MIG-sliced gpu_test 20GB card (8GB single-alloc conv activation
+        # for 256 images at once)
+        outs = []
+        for i in range(0, z0.shape[0], decode_bs):
+            outs.append(vae.decode(z0[i:i + decode_bs] / 0.18215).sample)
+        return th.cat(outs, dim=0)
 
     def lpips_dist(z0):
-        recon = decode(z0).clamp(-1, 1)
-        return lpips_fn(recon, x_clean.clamp(-1, 1)).mean().item()
+        dists = []
+        for i in range(0, z0.shape[0], decode_bs):
+            recon = decode_chunked(z0[i:i + decode_bs]).clamp(-1, 1)
+            clean = x_clean[i:i + decode_bs].clamp(-1, 1)
+            dists.append(lpips_fn(recon, clean).flatten())
+        return th.cat(dists).mean().item()
 
     def latent_mse(z0):
         return ((z0 - x1) ** 2).mean().item()
 
     def pixel_mse(z0):
-        return ((decode(z0) - x_clean) ** 2).mean().item()
+        return ((decode_chunked(z0) - x_clean) ** 2).mean().item()
 
     with th.no_grad():
         mask_z0 = mask_corrupt(x1, args.mask_prob)
