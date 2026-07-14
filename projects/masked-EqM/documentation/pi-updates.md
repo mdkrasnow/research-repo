@@ -485,3 +485,51 @@ All mask-family checkpoints recover blur roughly 2x worse than any blur-trained 
 **Verdict per family**: FAILED / did not clear promotion gate. The masking→blur generalization does not hold at the strength needed to promote a flagship blur recipe. If pursued further, would need either a milder blur severity calibration or architecture-level accommodation, since blur's destructiveness to generation (not its recoverability) is the binding constraint.
 
 No new corruption families, ratio sweeps, or eval types launched beyond what this gate closure required, per your standing restriction.
+
+## 2026-07-14 draft (BLOCKER — holylabs group quota exhausted, all 18 fourier/downsample jobs killed)
+
+**Trigger**: blocker needing PI input (all in-flight compute for the current extension is down).
+
+Per your instruction to run fourier/downsample corruption families with all 3 seeds launched
+immediately (no seed0 gate wait, same override pattern as the blur extension), I:
+1. Implemented `downsample_corrupt` (bilinear down/up-sample) and wired it through
+   transport/train_utils/train.py/corruption_sanity.sbatch alongside the pre-existing
+   `fourier_corrupt`.
+2. LPIPS-calibrated severity to match the p=0.5 mask task (same method as blur): `downsample_factor
+   = 2.4615`, `fourier_cutoff = 0.4181` (mask target LPIPS 0.7549, matched to within 0.004-0.008).
+3. Wrote `eval_fourier_recovery.py` / `eval_downsample_recovery.py` (mirroring `eval_blur_recovery.py`).
+4. Launched all 18 training jobs (2 families x 3 arms x 3 seeds) on seas_gpu.
+
+**What went wrong**: two distinct infra failures, both diagnosed and root-caused:
+
+- **Fixed**: `scripts/cluster/remote_submit.sh`'s `rsync --delete` wiped the remote
+  `slurm/logs/` directory (local mirror only has `.gitkeep`) when I submitted an unrelated pruner
+  job mid-run, breaking `--output` paths for jobs not yet started and causing delayed failures for
+  jobs that already had an open file handle to the now-unlinked log file. Fixed by excluding
+  `logs/` from the rsync delete (commit 529b175). This should not recur.
+
+- **NOT fixable by me**: the `ydu_lab` shared group holylabs quota is at its **hard 4.0Ti/4.0Ti
+  cap** (confirmed via `quota -g ydu_lab /n/holylabs`, 2026-07-14 18:40). masked-EqM's own
+  `results/` directory is only ~109G, and the standing checkpoint pruner (job 31063543, keeps only
+  the anchor + latest-2 checkpoints per run dir) is working correctly — the quota pressure is
+  external, from other members of the shared group. This killed every one of the 18 jobs: 12 that
+  had been training cleanly for 30-40 minutes died mid-run (`mkdir`/checkpoint-write failures), and
+  every immediate resubmission attempt failed within ~1 minute (quota now blocks even creating the
+  results directory). This is the same quota failure mode documented during the blur extension
+  (`diff_eqm_holylabs_quota` precedent), just now hitting a hard wall instead of a transient spike.
+
+**Current state**: all 18 fourier/downsample jobs are in `completed_runs` marked `failed` with the
+quota-exhaustion error. I am **not** blindly resubmitting again immediately, since the last batch
+failed in ~1 minute — further attempts right now would just burn scheduler slots for no benefit.
+
+**Ask of PI**: this is blocking all further compute for the fourier/downsample extension. Options,
+none of which I can execute unilaterally:
+1. Ask the `ydu_lab` group admin (or Yilun/whoever manages the shared quota) to free space, or
+   temporarily raise the group quota.
+2. Point future masked-EqM runs at a different storage location not sharing this quota (e.g. a
+   personal scratch allocation) if one exists.
+3. Simply wait and periodically retry (usage may drop as other members' jobs finish/get pruned) —
+   I can keep polling and resubmit automatically once space frees, if that's acceptable.
+
+I'll keep monitoring quota headroom and resubmit all 18 as soon as `quota -g ydu_lab` shows
+meaningful free space, unless you'd rather I pursue option 1 or 2 first.
