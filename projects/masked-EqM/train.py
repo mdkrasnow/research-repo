@@ -195,8 +195,10 @@ def main(args):
         corruption_mode=args.corruption_mode,
         mask_prob=args.mask_prob,
         fourier_cutoff=args.fourier_cutoff,
+        blur_sigma=args.blur_sigma,
         gaussian_weight=args.gaussian_weight,
         mask_weight=args.mask_weight,
+        blur_weight=args.blur_weight,
         fourier_weight=args.fourier_weight,
     )  # default: velocity;
     transport_sampler = Sampler(transport)

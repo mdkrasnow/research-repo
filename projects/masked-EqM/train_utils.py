@@ -11,18 +11,22 @@ def parse_transport_args(parser):
     group.add_argument("--sample-eps", type=float)
     group.add_argument("--train-eps", type=float)
     group.add_argument("--corruption-mode", type=str, default="gaussian",
-        choices=["gaussian", "mask", "fourier", "mixture"],
-        help="x0 start-state family: Gaussian (baseline), Bernoulli mask, Fourier low-pass, or weighted mixture")
+        choices=["gaussian", "mask", "fourier", "blur", "mixture"],
+        help="x0 start-state family: Gaussian (baseline), Bernoulli mask, Fourier low-pass, Gaussian blur, or weighted mixture")
     group.add_argument("--mask-prob", type=float, default=0.5,
         help="fraction of latent elements replaced by noise under mask corruption")
     group.add_argument("--fourier-cutoff", type=float, default=0.25,
         help="fraction of radial frequency band kept under Fourier corruption")
+    group.add_argument("--blur-sigma", type=float, default=1.0,
+        help="Gaussian blur kernel sigma (latent-space pixels) under blur corruption")
     group.add_argument("--gaussian-weight", type=float, default=1.0,
         help="mixture weight lambda_G (only used when --corruption-mode mixture)")
     group.add_argument("--mask-weight", type=float, default=0.0,
         help="mixture weight lambda_M (only used when --corruption-mode mixture)")
     group.add_argument("--fourier-weight", type=float, default=0.0,
         help="mixture weight lambda_F (only used when --corruption-mode mixture)")
+    group.add_argument("--blur-weight", type=float, default=0.0,
+        help="mixture weight lambda_B (only used when --corruption-mode mixture)")
 
 
 def parse_ode_args(parser):

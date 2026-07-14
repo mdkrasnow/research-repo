@@ -9,9 +9,11 @@ def create_transport(
     corruption_mode="gaussian",
     mask_prob=0.5,
     fourier_cutoff=0.25,
+    blur_sigma=1.0,
     gaussian_weight=1.0,
     mask_weight=0.0,
     fourier_weight=0.0,
+    blur_weight=0.0,
 ):
     """function for creating Transport object
     **Note**: model prediction defaults to velocity
@@ -71,9 +73,11 @@ def create_transport(
         corruption_mode=corruption_mode,
         mask_prob=mask_prob,
         fourier_cutoff=fourier_cutoff,
+        blur_sigma=blur_sigma,
         gaussian_weight=gaussian_weight,
         mask_weight=mask_weight,
         fourier_weight=fourier_weight,
+        blur_weight=blur_weight,
     )
     
     return state

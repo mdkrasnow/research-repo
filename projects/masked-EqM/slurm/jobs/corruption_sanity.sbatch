@@ -85,9 +85,11 @@ TRAIN_CMD="python -m torch.distributed.run --nnodes=1 --nproc_per_node=1 --maste
     --corruption-mode $CORRUPTION_MODE \
     --mask-prob ${MASK_PROB:-0.5} \
     --fourier-cutoff ${FOURIER_CUTOFF:-0.25} \
+    --blur-sigma ${BLUR_SIGMA:-1.0} \
     --gaussian-weight ${GAUSSIAN_WEIGHT:-1.0} \
     --mask-weight ${MASK_WEIGHT:-0.0} \
     --fourier-weight ${FOURIER_WEIGHT:-0.0} \
+    --blur-weight ${BLUR_WEIGHT:-0.0} \
     --global-seed ${GLOBAL_SEED:-0}"
 
 echo "=== corruption_mode=$CORRUPTION_MODE ===" >&2
