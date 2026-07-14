@@ -61,6 +61,17 @@ def blur_corrupt(x1, sigma):
     return x
 
 
+def downsample_corrupt(x1, factor):
+    """z0 = Upsample(Downsample(x1, 1/factor), original_size), bilinear both
+    ways -- removes high-frequency detail while preserving coarse structure,
+    a third variant on the mask/blur "coarse-structure-kept, detail-destroyed"
+    theme (spatial resampling instead of erasure or smoothing). Deterministic
+    given x1 and factor, like blur_corrupt -- no noise injected."""
+    h, w = x1.shape[-2:]
+    small = F.interpolate(x1, scale_factor=1.0 / factor, mode="bilinear", align_corners=False)
+    return F.interpolate(small, size=(h, w), mode="bilinear", align_corners=False)
+
+
 def _radial_lowpass_mask(hw, cutoff, device):
     """Build a [H,W] radial low-pass mask; cutoff in (0,1] is the fraction
     of max radius kept (frequencies within cutoff*max_radius pass through)."""
@@ -84,14 +95,17 @@ def fourier_corrupt(x1, cutoff):
 
 
 def mixture_sample(x1, gaussian_weight, mask_weight, fourier_weight,
-                    mask_prob, fourier_cutoff, blur_weight=0.0, blur_sigma=1.0):
+                    mask_prob, fourier_cutoff, blur_weight=0.0, blur_sigma=1.0,
+                    downsample_weight=0.0, downsample_factor=4.0):
     """Per-sample arm draw (categorical over normalized weights) across
-    the batch; dispatches each sample to gaussian/mask/fourier/blur corruption.
-    Gaussian arm = th.randn_like(x1), identical to baseline Transport.sample.
-    Keeps a local arm_idx tensor (not returned in v1) so a future return-value
-    change for diagnostics is a one-line addition, not a rewrite."""
+    the batch; dispatches each sample to exactly one of
+    gaussian/mask/fourier/blur/downsample corruption (categorical draw,
+    never blended within a sample). Gaussian arm = th.randn_like(x1),
+    identical to baseline Transport.sample. Keeps a local arm_idx tensor
+    (not returned in v1) so a future return-value change for diagnostics
+    is a one-line addition, not a rewrite."""
     weights = th.tensor(
-        [gaussian_weight, mask_weight, fourier_weight, blur_weight],
+        [gaussian_weight, mask_weight, fourier_weight, blur_weight, downsample_weight],
         device=x1.device, dtype=th.float,
     )
     arm_idx = th.multinomial(weights, x1.shape[0], replacement=True)
@@ -100,11 +114,13 @@ def mixture_sample(x1, gaussian_weight, mask_weight, fourier_weight,
     mask_x0 = mask_corrupt(x1, mask_prob)
     fourier_x0 = fourier_corrupt(x1, fourier_cutoff)
     blur_x0 = blur_corrupt(x1, blur_sigma)
+    downsample_x0 = downsample_corrupt(x1, downsample_factor)
 
     view_shape = (-1, *([1] * (x1.dim() - 1)))
     x0 = th.where((arm_idx == 0).view(view_shape), gaussian_x0, mask_x0)
     x0 = th.where((arm_idx == 2).view(view_shape), fourier_x0, x0)
     x0 = th.where((arm_idx == 3).view(view_shape), blur_x0, x0)
+    x0 = th.where((arm_idx == 4).view(view_shape), downsample_x0, x0)
     return x0
 
 
@@ -114,13 +130,15 @@ if __name__ == "__main__":
         (mask_corrupt, dict(mask_prob=0.5)),
         (fourier_corrupt, dict(cutoff=0.25)),
         (blur_corrupt, dict(sigma=1.5)),
+        (downsample_corrupt, dict(factor=4.0)),
     ]:
         x0 = fn(x1, **kwargs)
         assert x0.shape == x1.shape
         assert x0.dtype == x1.dtype
         assert x0.device == x1.device
     x0 = mixture_sample(x1, gaussian_weight=1.0, mask_weight=1.0, fourier_weight=1.0,
-                         mask_prob=0.5, fourier_cutoff=0.25, blur_weight=1.0, blur_sigma=1.5)
+                         mask_prob=0.5, fourier_cutoff=0.25, blur_weight=1.0, blur_sigma=1.5,
+                         downsample_weight=1.0, downsample_factor=4.0)
     assert x0.shape == x1.shape
     assert x0.dtype == x1.dtype
     assert x0.device == x1.device

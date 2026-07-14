@@ -196,10 +196,12 @@ def main(args):
         mask_prob=args.mask_prob,
         fourier_cutoff=args.fourier_cutoff,
         blur_sigma=args.blur_sigma,
+        downsample_factor=args.downsample_factor,
         gaussian_weight=args.gaussian_weight,
         mask_weight=args.mask_weight,
         blur_weight=args.blur_weight,
         fourier_weight=args.fourier_weight,
+        downsample_weight=args.downsample_weight,
     )  # default: velocity;
     transport_sampler = Sampler(transport)
     vae = AutoencoderKL.from_pretrained(f"stabilityai/sd-vae-ft-{args.vae}").to(device)
