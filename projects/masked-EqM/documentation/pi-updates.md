@@ -430,3 +430,58 @@ landscape, separate from the FID/recovery tradeoff numbers.
 Phase 2 gate (multi-seed confirmation, all 4 sub-metrics) is now fully closed. No open confirmation
 work remains for arm 1:1/1:4 at sanity scale. Per user's standing instruction: no 1:5/1:6 sweep, no
 new eval types, until further direction.
+
+## 2026-07-14: Blur extension COMPLETE — Phase 2 seed0 gate FAILED, no promotion
+
+**Question**: does the masking generalization principle (structured start-state training preserves generation while gaining recovery ability) replicate for a second corruption family, Gaussian blur?
+
+**Setup**: blur_corrupt() added to transport pipeline (depthwise Gaussian conv on VAE latent, same choke point as mask/fourier). Severity calibrated via pixel-space LPIPS matching to the p=0.5 mask task (raw latent-MSE matching was impossible: mask's noise-replacement has unbounded MSE contribution, blur's smoothing is bounded — see blur-calibration.md). Calibrated sigma = 1.1029. Trained blur-only, gaussian:blur 1:1, gaussian:blur 1:4, all 3 seeds each, EqM-B/2 IN-1K sanity scale (1 epoch/40k steps), same protocol as blur-only/mask family.
+
+### FID (unconditional generation, 3-seed mean ± SD)
+| Arm | FID |
+|---|---|
+| gaussian-only (baseline) | 173.49 ± 1.38 |
+| blur-only | 387.80 ± 1.61 |
+| gaussian:blur 1:1 | 188.72 ± 2.04 (+15.2 vs gaussian) |
+| gaussian:blur 1:4 | 208.07 ± 2.00 (+34.6 vs gaussian) |
+
+### Blur-recovery MSE / LPIPS at trained severity (sigma=1.1029, 3-seed mean ± SD)
+| Arm | MSE | LPIPS |
+|---|---|---|
+| blur-only | 0.03403 ± 0.00079 | 0.177 ± 0.003 |
+| gaussian:blur 1:1 | 0.03904 ± 0.00038 (+14.75% vs blur-only) | 0.224 ± 0.004 |
+| gaussian:blur 1:4 | 0.03756 ± 0.00030 (+10.4% vs blur-only) | 0.210 ± 0.003 |
+
+### Pre-registered gate (seed0): FAILED
+Gate required, per mixed arm: FID within +10 of gaussian-only AND blur MSE within 15% of blur-only.
+- 1:1: FID fails (+15.2 > +10); MSE passes (+14.75% < 15%). Overall: FAIL.
+- 1:4: FID fails (+34.6 > +10); MSE passes (+10.4% < 15%). Overall: FAIL.
+Neither arm clears both criteria. **No promotion.** Per pre-registered rule: stop after seed0, explain failure (seeds 1/2 were already trained per your earlier explicit override to parallelize compute; their evals are reported here for transparency only, not as confirmatory data toward a passed gate).
+
+### Severity-generalization grid (seed0, mean masked-region-free full-image MSE)
+| sigma | blur-only | 1:1 | 1:4 |
+|---|---|---|---|
+| 0.5 | 0.0255 | 0.0236 | 0.0228 |
+| 1.1029 (trained) | 0.0334 | 0.0388 | 0.0379 |
+| 2.0 | 0.1568 | 0.1240 | 0.1207 |
+| 4.0 | 0.1881 | 0.1670 | 0.1632 |
+
+Notable: at the trained severity, blur-only wins (as expected, in-distribution). At higher held-out severities (2.0, 4.0), **both mixture arms recover better than blur-only** despite blur-only being blur-specialized — a real but narrow generalization-adjacent signal, not large enough to rescue the gate (FID failure dominates).
+
+### Zero-shot blur recovery on existing mask-family checkpoints (sigma=1.1029, no blur training at all)
+| Checkpoint | MSE | LPIPS |
+|---|---|---|
+| gaussian-only | 0.0718 | 0.700 |
+| mask-only | 0.0670 | 0.727 |
+| gaussian:mask 1:1 | 0.0893 | 0.681 |
+| gaussian:mask 1:4 | 0.0713 | 0.702 |
+
+All mask-family checkpoints recover blur roughly 2x worse than any blur-trained checkpoint (0.067-0.089 vs 0.034-0.039) — expected; no cross-corruption-family transfer for free.
+
+### Direct answer: did the masking result replicate for blur?
+
+**No.** The masking principle does NOT cleanly replicate for Gaussian blur at this scale. Blur is a categorically more destructive corruption to EqM's unconditional generation than masking was — blur-only FID (~388) is over 2x worse than gaussian baseline (~173), vs masking's much milder generation cost. Mixing gaussian with blur substantially recovers generation quality relative to blur-only (FID drops from ~388 to ~189-208) and the mixed arms get within-tolerance blur-recovery MSE, but the generation-quality cost remains too high (+15 to +35 FID) to clear the pre-registered +10 FID budget. The one genuine positive: mixture arms show better held-out severity-generalization than blur-only itself, echoing the mask result's qualitative flavor (structured mixing produces better-behaved recovery across severities) — but this is a narrower, weaker version of the masking finding, not a full replication.
+
+**Verdict per family**: FAILED / did not clear promotion gate. The masking→blur generalization does not hold at the strength needed to promote a flagship blur recipe. If pursued further, would need either a milder blur severity calibration or architecture-level accommodation, since blur's destructiveness to generation (not its recoverability) is the binding constraint.
+
+No new corruption families, ratio sweeps, or eval types launched beyond what this gate closure required, per your standing restriction.
