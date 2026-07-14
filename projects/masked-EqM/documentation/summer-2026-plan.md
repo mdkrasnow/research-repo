@@ -51,6 +51,18 @@ NeurIPS 2026 workshop (deadline 2026-08-29), stretch ICLR 2027 main (~2026-10-01
   result: field-ordering is a stable qualitative split -- gaussian/mask both FAIL (E(corrupt) >
   E(noise), backwards) at all 3 seeds; 1:1/1:4 both PASS at all 3 seeds. See pi-updates.md
   2026-07-09 (later) for full table. No 1:5/1:6 sweep or new eval types launched, per user gate.
+- Blur extension COMPLETE, GATE FAILED, no promotion (2026-07-14): built second structured
+  start-state family (Gaussian blur, depthwise conv on VAE latent). Severity calibrated via
+  pixel-space LPIPS matching to p=0.5 mask task (raw MSE matching impossible -- see
+  blur-calibration.md). Trained blur-only, gaussian:blur 1:1, gaussian:blur 1:4, 3 seeds each.
+  Pre-registered gate (FID within +10 of gaussian AND blur-MSE within 15% of blur-only) FAILED
+  for both mixed arms: 1:1 FID +15.2 over gaussian (fails), 1:4 FID +34.6 (fails); MSE passes for
+  both (+14.75%/+10.4%) but FID failure dominates. blur-only itself is far more destructive to
+  generation than mask-only ever was (FID ~388 vs gaussian ~173, vs masking's much milder cost).
+  Narrow positive: mixture arms generalize better than blur-only at held-out severities (2.0,
+  4.0 sigma), echoing masking's qualitative flavor but far too weak to clear the gate. Direct
+  answer: masking principle does NOT replicate for blur at this scale/severity. See pi-updates.md
+  2026-07-14 for full 3-seed tables, severity grid, zero-shot cross-family recovery.
 
 ## Phased plan
 
