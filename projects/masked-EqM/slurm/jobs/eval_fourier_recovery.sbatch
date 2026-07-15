@@ -51,6 +51,14 @@ VAE_ORACLE_FLAG=""
 if [ "${VAE_ROUNDTRIP_ORACLE:-0}" = "1" ]; then
     VAE_ORACLE_FLAG="--vae-roundtrip-oracle"
 fi
+SAVE_IMAGES_FLAG=""
+if [ "${SAVE_IMAGES:-0}" = "1" ]; then
+    SAVE_IMAGES_FLAG="--save-images"
+fi
+MANIFEST_ARGS=""
+if [ -n "${MANIFEST:-}" ]; then
+    MANIFEST_ARGS="--manifest ${MANIFEST}"
+fi
 
 OUT_DIR="/n/holylabs/ydu_lab/Lab/mkrasnow_eqm/masked-EqM/eval_results"
 mkdir -p "$OUT_DIR"
@@ -59,9 +67,11 @@ python eval_fourier_recovery.py \
     --ckpt "$CKPT" \
     --data-path "$VAL_PATH" \
     $CUTOFF_ARGS \
-    --num-images "${NUM_IMAGES:-256}" \
+    --num-images "${NUM_IMAGES:-1024}" \
     --batch-size "${BATCH_SIZE:-16}" \
     $VAE_ORACLE_FLAG \
+    $SAVE_IMAGES_FLAG \
+    $MANIFEST_ARGS \
     --out "$OUT_DIR/${OUT_NAME}.json"
 
 echo "=== Fourier-recovery eval done, output: $OUT_DIR/${OUT_NAME}.json ==="
