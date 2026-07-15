@@ -1305,19 +1305,6 @@
       "gate": "seed0 gate: FID within +10 of gaussian, task MSE within 15% of family-only baseline"
     },
     {
-      "run_id": "corrupt_sanity_gaussian_mask_1to1_seed0_retrain",
-      "job_id": "31468810",
-      "partition": "gpu_test",
-      "status": "pending",
-      "description": "Preregistered replication (2026-07-15 runbook): retrain missing G+M 1:1 seed0 (original armB seed0 job28888839 ckpt was pruned off holylabs). corruption_mode=mixture, gaussian_weight=1, mask_weight=1, mask_prob=0.5, global_seed=0, identical EqM-B/2 1-epoch setup. Needed to restore matched 3-seed triplet (gaussian/mask/G+M) for decisive statistical replication of G+M->fourier LPIPS result.",
-      "submitted_at": "2026-07-15",
-      "git_sha": "380e316590756eaf0cdcaac0d7a1523ea2c1ea08",
-      "sbatch_path": "projects/masked-EqM/slurm/jobs/corruption_sanity.sbatch",
-      "expected_runtime": "~2-4h (11h cap)",
-      "phase": "4",
-      "gate": "Stage 1 preregistered gate: GM beats both parents mean LPIPS; hierarchical 95% CIs exclude zero after Holm; >=2/3 seeds beat both parents; FID within +15 of gaussian; positive direction >=3/5 cutoffs"
-    },
-    {
       "run_id": "fourier_repl_gaussian_seed2_primary",
       "job_id": "31472654",
       "partition": "gpu_test",
@@ -1550,6 +1537,19 @@
       "expected_runtime": "~1h",
       "phase": "4",
       "gate": "n/a (data-completeness fix)"
+    },
+    {
+      "run_id": "corrupt_sanity_gaussian_mask_1to1_seed0_retrain_v2",
+      "job_id": "31539672",
+      "partition": "seas_gpu",
+      "status": "pending",
+      "description": "Resubmit of G+M 1:1 seed0 retrain (job31468810 cancelled at 45%% progress per user request to move from gpu_test MIG slice to seas_gpu full A100 for faster per-step rate -- train.py does not support resuming step counter/dataloader position, only reloading weights, so a true resume was not possible; restarting from step 0 was the only option that preserves the identical 1-epoch protocol). Same config: corruption_mode=mixture, gaussian_weight=1, mask_weight=1, mask_prob=0.5, global_seed=0.",
+      "submitted_at": "2026-07-15",
+      "git_sha": "40c72f71af5707239a84e3add05b2ae3a15e5b77",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/corruption_sanity.sbatch",
+      "expected_runtime": "TBD -- monitoring actual steps/sec on seas_gpu vs gpu_test 1.85",
+      "phase": "4",
+      "gate": "Stage 1 preregistered gate (see pi-updates.md 2026-07-15 runbook)"
     }
   ],
   "_incidents": [
@@ -4098,6 +4098,20 @@
       "phase": "4",
       "gate": "does mixture beat BOTH single-objective parents on held-out corruption under perceptual metric (LPIPS), not just MSE",
       "final_metric": "mse=0.0814 lpips=0.7001"
+    },
+    {
+      "run_id": "corrupt_sanity_gaussian_mask_1to1_seed0_retrain",
+      "job_id": "31468810",
+      "partition": "gpu_test",
+      "status": "cancelled",
+      "description": "Preregistered replication (2026-07-15 runbook): retrain missing G+M 1:1 seed0 (original armB seed0 job28888839 ckpt was pruned off holylabs). corruption_mode=mixture, gaussian_weight=1, mask_weight=1, mask_prob=0.5, global_seed=0, identical EqM-B/2 1-epoch setup. Needed to restore matched 3-seed triplet (gaussian/mask/G+M) for decisive statistical replication of G+M->fourier LPIPS result.",
+      "submitted_at": "2026-07-15",
+      "git_sha": "380e316590756eaf0cdcaac0d7a1523ea2c1ea08",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/corruption_sanity.sbatch",
+      "expected_runtime": "~2-4h (11h cap)",
+      "phase": "4",
+      "gate": "Stage 1 preregistered gate: GM beats both parents mean LPIPS; hierarchical 95% CIs exclude zero after Holm; >=2/3 seeds beat both parents; FID within +15 of gaussian; positive direction >=3/5 cutoffs",
+      "final_metric": "cancelled at step ~18000/40000 (45% done) per user request to restart on seas_gpu for faster per-step rate"
     }
   ],
   "next_action": "Pareto sweep (1:1-1:4) AND cross-corruption generalization suite (6 checkpoints x 9 corruptions) both complete -- see gates.pareto_sweep_complete and gates.cross_corruption_generalization. Central finding: raw Pareto-optimality (1:3/1:4 win on trained-corruption gap+FID) and compositional generalization (only 1:1 and 1:4 beat both pure arms on block_mask) point to different recipes -- 1:2/1:3 are Pareto-better but generalize worse than 1:1, while 1:4 is good on both axes. Awaiting user decision (needs_user_input) on which framing the paper leads with, since that determines the recipe to carry into Phase 2 multi-seed confirmation. No further compute should be launched until that choice is made -- do not invent new sweep points or eval types without explicit user direction.",
