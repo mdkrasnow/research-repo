@@ -63,6 +63,30 @@ NeurIPS 2026 workshop (deadline 2026-08-29), stretch ICLR 2027 main (~2026-10-01
   4.0 sigma), echoing masking's qualitative flavor but far too weak to clear the gate. Direct
   answer: masking principle does NOT replicate for blur at this scale/severity. See pi-updates.md
   2026-07-14 for full 3-seed tables, severity grid, zero-shot cross-family recovery.
+- Fourier + downsample extension COMPLETE, sanity-scale gate PASS but cross-generalization
+  hypothesis FAILED (2026-07-15): built two more structured start-state families (Fourier
+  radial low-pass and bilinear downsample-then-upsample on VAE latent, LPIPS-calibrated severity:
+  cutoff=0.4181, factor=2.4615). Trained only/1:1/1:4 arms per family, 3 seeds each (1:4
+  deprioritized per user, not analyzed in depth). Baseline correction mid-session: sanity-scale
+  gaussian FID floor is ~173.5 (3-seed: 172.57/172.83/175.08), NOT diff-EqM's archived 80-epoch
+  31.41 -- different project/scale, do not reuse across projects.
+  Sanity-scale result: both 1:1 mixtures PASS (fourier 1:1 FID ~182, +8; downsample 1:1 FID ~187,
+  +13/+14, passed under user's relaxed cutoff) -- generation quality near baseline, recovery MSE
+  near the single-family supervised ceiling for their own trained corruption.
+  Cross-generalization matrix (the stronger claim -- does mixed training expand the basin of
+  attraction to *unseen* corruptions, not just retain the two trained ones): ran full off-diagonal
+  matrix, every 1:1 mixture zero-shot evaluated on the other unseen corruptions, 3 seeds. Result:
+  HYPOTHESIS NOT SUPPORTED. Mask<->Fourier are not a shared "partial-observation" family --
+  gaussian+fourier 1:1 transfers *worse* to mask (0.315) than plain gaussian-only (0.242). No
+  mixture beats both single-objective parents on any off-diagonal cell. One narrow positive:
+  gaussian+fourier 1:1 -> downsample is the best zero-shot downsample result (0.086), most likely
+  because fourier low-pass and downsample are both literally low-pass operations in frequency
+  space (signal-processing overlap), not evidence of general energy-landscape robustness.
+  Recommendation: restrict paper claim to "diverse mixture preserves multitask capability without
+  degrading generation" (a real, modest result across masking/fourier/downsample), drop the
+  zero-shot-generalization claim. See pi-updates.md 2026-07-15 for full matrix + tables.
+  needs_user_input=true in pipeline.json -- PI read requested on whether multitask-only framing
+  is still publication-worthy before further compute on this direction.
 
 ## Phased plan
 

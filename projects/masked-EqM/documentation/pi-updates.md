@@ -572,3 +572,72 @@ recommendation, if you want me to proceed autonomously, is option 1 (reduced con
 e.g. 6-at-a-time batches) combined with option 2 (KEEP_LATEST=1) — this is within my control and
 doesn't depend on anyone else freeing quota. Let me know if you'd rather I pursue the admin/storage
 route first, or if reduced-concurrency-and-proceed is fine.
+
+## 2026-07-15 result: fourier/downsample sanity-scale outcome + cross-generalization matrix (Phase 4)
+
+**Trigger**: all 18 fourier/downsample sanity-scale FID/recovery evals completed, plus 20
+additional zero-shot cross-generalization evals requested by the user following a design
+discussion with Yilun's framing. Reporting the full result now that the matrix is closed out.
+
+### Correct baseline (important correction mid-session)
+
+The sanity-scale gaussian FID floor for this project is **~173.5** (172.57/172.83/175.08 across
+3 seeds, ckpt step 0040000), NOT the archived diff-EqM 80-epoch trusted baseline of 31.41 — that
+number is a different project, different training scale (80ep vs 1ep/40k steps), and does not
+apply here. All FID comparisons below use ~173.5.
+
+### FID + recovery, single-family mixtures (fourier, downsample)
+
+| arm | family | FID (Δ vs 173.5) | recovery MSE (own corruption) | ceiling (only-arm) MSE |
+|---|---|---|---|---|
+| only | fourier | n/a (no gen task) | 0.068 | — |
+| 1:1 | fourier | ~182 (+8, pass) | 0.074 | 0.068 |
+| only | downsample | n/a (no gen task) | 0.114 | — |
+| 1:1 | downsample | ~187 (+13/+14, pass by user's relaxed cutoff) | 0.110 | 0.114 |
+
+Both 1:1 mixtures pass: generation FID near baseline, recovery near the supervised ceiling.
+1:4 arms deprioritized per user request, not analyzed further.
+
+### Cross-generalization matrix (zero-shot: eval on a corruption the model never trained on)
+
+Following the discussion of what Yilun's "try other initializations outside these two" question
+really implies, ran the full off-diagonal matrix — every 1:1 mixture evaluated on the *other*
+unseen corruption(s), 3 seeds each, mean MSE:
+
+| trained on | → mask | → fourier | → downsample |
+|---|---|---|---|
+| gaussian-only | 0.242 | 0.228 | 0.097 |
+| mask-only | ceiling (~0.11-0.13) | 0.185 | 0.075 |
+| fourier-only | — | ceiling 0.068 | — |
+| downsample-only | — | — | ceiling 0.113 |
+| G+M 1:1 | ceiling | 0.203 | 0.096 |
+| G+F 1:1 | 0.315 (worse than gaussian-only) | ceiling ~0.182 | 0.086 (best zero-shot cell) |
+| G+D 1:1 | 0.226 (~ties gaussian-only) | 0.246 (worse than gaussian-only) | ceiling ~0.109 |
+
+**Interpretation — hypothesis not supported, no clean story**:
+- Mask↔Fourier are **not** a shared "partial-observation recovery" family: G+F transfers *worse*
+  than plain gaussian-only to mask (0.315 vs 0.242). This falsifies the cleanest candidate
+  explanation from the design discussion.
+- No mixture beats **both** single-objective parents on any off-diagonal cell — the strongest
+  form of the synergy claim (mixed training broadens the basin of attraction generally) is not
+  supported by this data.
+- One narrow positive: G+F 1:1 → downsample is the best zero-shot downsample result across all
+  mixtures (0.086, beating even G+M's 0.096 and gaussian-only's 0.097). Most likely explanation:
+  fourier low-pass and downsample-then-upsample are both literally low-pass operations in
+  frequency space, so this reads as **signal-processing overlap**, not a general "structured
+  corruption" capability. Not evidence for the broader energy-landscape-robustness claim.
+
+**Net assessment**: the sanity-scale single-family mixtures (fourier 1:1, downsample 1:1) each
+individually preserve generation + recovery capability for their *own* trained corruption (a
+real, if modest, result). But the cross-generalization test — the stronger claim Yilun was
+actually asking about — does not show it. Recommend not pursuing the "general energy-landscape
+robustness" framing further without a different mechanism; if anything, restrict the paper claim
+to "diverse mixture training preserves multitask capability without degrading generation,"
+dropping the zero-shot-generalization claim.
+
+**Ask of PI**: no blocker, this is a result report. Flagging because it's a negative result on
+what may have been the paper's central claim — wanted this in front of you before further
+compute is spent extending this direction (e.g. more corruption families, ratio sweeps). My
+recommendation is to pause new fourier/downsample mixture compute pending your read on whether
+the multitask-only framing is still publication-worthy, or whether a different mechanism should
+be tried next.
