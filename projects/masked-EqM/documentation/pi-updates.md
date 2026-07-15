@@ -533,3 +533,42 @@ none of which I can execute unilaterally:
 
 I'll keep monitoring quota headroom and resubmit all 18 as soon as `quota -g ydu_lab` shows
 meaningful free space, unless you'd rather I pursue option 1 or 2 first.
+
+## 2026-07-15 draft (BLOCKER, 2nd occurrence — quota re-exhausted, escalating past retry)
+
+**Trigger**: same blocker recurring a second time (project stop-condition: same failure repeats
+across two attempts → escalate, don't blind-retry a third time).
+
+After SSH access was restored and `quota -g ydu_lab` showed free space (live mkdir probe confirmed
+writable), I resubmitted all 18 jobs. All 18 ran cleanly for ~1-1.3h, then **all failed
+simultaneously** again. Root cause (confirmed via `quota -g ydu_lab`): the group hit 4.0Ti/4.0Ti
+again. `.err` logs are empty for all 18 — this matches the documented stdout-pipe-block-on-quota
+failure mode (job hangs rather than erroring, then gets killed) rather than a clean crash.
+
+**Why it refilled so fast**: masked-EqM's own `results/` directory grew from ~109G to ~208G during
+that ~1.3h window — the 18 parallel B/2 trainings started writing checkpoints (every 5000 steps),
+and even with the standing pruner correctly keeping only anchor + latest-2 per run dir, 18 dirs ×
+~3 checkpoints × ~2GB ≈ 100G+ minimum footprint. The shared group was evidently *already* near its
+cap from other members' usage, so our own unavoidable minimum footprint alone pushed it over.
+
+**Implication**: running all 18 jobs fully in parallel is not sustainable at current group quota
+headroom, independent of how aggressively I prune our own checkpoints. This isn't a fixable-by-me
+infra bug like the earlier `remote_submit.sh` issue — it's a resource-contention ceiling.
+
+**Options I can execute if you want me to proceed without further input**:
+1. Reduce concurrency: run the 18 jobs in smaller sequential batches (e.g. 6 at a time) so peak
+   simultaneous checkpoint footprint stays low, at the cost of ~3x longer wall-clock to finish all
+   18.
+2. Reduce the pruner's `KEEP_LATEST` from 2 to 1 (saves ~36G of our own footprint, may not be
+   enough on its own given the margin was already this thin).
+3. Both of the above combined.
+
+**Options requiring your/admin input**: same three as the 2026-07-14 draft (admin frees space or
+raises quota; different storage location; or just keep waiting for other members' usage to drop).
+
+**Ask of PI**: I've set `needs_user_input=true` again and am NOT resubmitting all 18 in parallel
+a third time without a chosen mitigation, per the "same failure twice → escalate" rule. My default
+recommendation, if you want me to proceed autonomously, is option 1 (reduced concurrency,
+e.g. 6-at-a-time batches) combined with option 2 (KEEP_LATEST=1) — this is within my control and
+doesn't depend on anyone else freeing quota. Let me know if you'd rather I pursue the admin/storage
+route first, or if reduced-concurrency-and-proceed is fine.
