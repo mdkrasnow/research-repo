@@ -6,12 +6,23 @@ Fourier-recovery eval for structured start-state EqM checkpoints (Fourier
 low-pass corruption family, extended 2026-07-14 alongside blur/downsample
 to test whether the masking result generalizes to a spectral corruption).
 
+Preregistered-replication upgrade (2026-07-15): every checkpoint MUST see
+the identical 1024-image manifest and the identical per-image encoded
+latent (x1) + corrupted latent (z0) at each cutoff, so cross-model deltas
+are not confounded by different random draws. This is achieved with a
+per-image torch.Generator seeded by (base_seed, image_index) -- NOT by
+caching tensors to disk -- so no shared-state file is needed and the
+determinism holds regardless of batch composition or run order. The
+radial low-pass mask + noise-injection math is copied from
+transport.corruption.fourier_corrupt verbatim (not imported) solely to
+thread a generator into the noise draw; sampler/model behavior is
+unchanged.
+
 Given a checkpoint, corrupts held-out real images with radial Fourier
-low-pass (same transport.corruption.fourier_corrupt used in training),
-starts the GD/NAG sampler from that corrupted latent instead of pure
-noise, and measures full-image recovery MSE (and LPIPS if available) vs
-the original. Whole-image corruption (no held-out visible region), so no
-keep_mask/hard-constrain ceiling arm -- only positive control is
+low-pass, starts the GD/NAG sampler from that corrupted latent instead of
+pure noise, and measures full-image recovery MSE + LPIPS vs the original.
+Whole-image corruption (no held-out visible region), so no keep_mask/
+hard-constrain ceiling arm -- only positive control is
 --vae-roundtrip-oracle. Works zero-shot on ANY checkpoint regardless of
 training corruption family (pass --cutoff-grid to sweep severities).
 """
@@ -25,10 +36,10 @@ import torch
 from diffusers.models import AutoencoderKL
 from torchvision import transforms
 from torchvision.datasets import ImageFolder
+from torchvision.utils import save_image
 
 from download import find_model
 from models import EqM_models
-from transport.corruption import fourier_corrupt
 
 try:
     import lpips
@@ -82,8 +93,58 @@ def gd_recover(model_fn, z0, y, num_sampling_steps, stepsize, sampler, mu):
     return xt
 
 
+def build_or_load_manifest(dataset, manifest_path, num_images, base_seed):
+    """Fixed manifest of dataset indices + labels, shared across every
+    checkpoint evaluated for this replication. If manifest_path exists,
+    load it verbatim (ignores num_images/base_seed) so re-running never
+    silently drifts the image set. Otherwise draw num_images indices with
+    a manifest-dedicated RNG and persist immediately."""
+    if manifest_path and os.path.exists(manifest_path):
+        with open(manifest_path) as f:
+            manifest = json.load(f)
+        return manifest["indices"], manifest["labels"]
+
+    generator = torch.Generator().manual_seed(base_seed)
+    indices = torch.randperm(len(dataset), generator=generator)[:num_images].tolist()
+    labels = [dataset.samples[i][1] for i in indices]
+    if manifest_path:
+        os.makedirs(os.path.dirname(manifest_path) or ".", exist_ok=True)
+        with open(manifest_path, "w") as f:
+            json.dump({"indices": indices, "labels": labels, "base_seed": base_seed,
+                       "num_images": num_images}, f, indent=2)
+    return indices, labels
+
+
+def radial_lowpass_mask(hw, cutoff, device):
+    """Verbatim copy of transport.corruption._radial_lowpass_mask -- kept
+    local (not imported) so this file has zero coupling to training-time
+    corruption code; any future change there cannot silently alter what
+    this eval measures."""
+    h, w = hw
+    fy = torch.fft.fftfreq(h, device=device).view(h, 1).expand(h, w)
+    fx = torch.fft.fftfreq(w, device=device).view(1, w).expand(h, w)
+    radius = torch.sqrt(fy ** 2 + fx ** 2)
+    max_radius = radius.max()
+    return (radius <= cutoff * max_radius).float()
+
+
+def deterministic_fourier_corrupt(x1_single, cutoff, generator, device):
+    """Per-image deterministic version of transport.corruption.fourier_corrupt:
+    identical math, but the injected noise spectrum is drawn from a
+    per-image torch.Generator (CPU) instead of the global RNG, so the same
+    image index always yields the same z0 regardless of which checkpoint
+    is being evaluated or what order images are batched in. x1_single is
+    a single [C,H,W] latent (no batch dim)."""
+    x1 = x1_single.unsqueeze(0)
+    x1_fft = torch.fft.fft2(x1, norm="ortho")
+    mask = radial_lowpass_mask(x1.shape[-2:], cutoff, x1.device)
+    noise = torch.randn(x1.shape, generator=generator).to(device=device, dtype=x1.dtype)
+    eps_fft = torch.fft.fft2(noise, norm="ortho")
+    z0_fft = mask * x1_fft + (1 - mask) * eps_fft
+    return torch.fft.ifft2(z0_fft, norm="ortho").real.squeeze(0)
+
+
 def main(args):
-    torch.manual_seed(args.seed)
     device = "cuda" if torch.cuda.is_available() else "cpu"
     latent_size = args.image_size // 8
 
@@ -102,23 +163,46 @@ def main(args):
         transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5], inplace=True),
     ])
     dataset = ImageFolder(args.data_path, transform=transform)
-    generator = torch.Generator().manual_seed(args.seed)
-    indices = torch.randperm(len(dataset), generator=generator)[:args.num_images].tolist()
+    indices, labels = build_or_load_manifest(dataset, args.manifest, args.num_images, args.manifest_seed)
 
     cutoffs = [float(c) for c in args.cutoff_grid.split(",")] if args.cutoff_grid else [args.cutoff]
+
+    samples_dir = None
+    if args.save_images:
+        samples_dir = args.out.rsplit(".json", 1)[0] + "_samples"
+        os.makedirs(samples_dir, exist_ok=True)
 
     per_cutoff = {}
     with torch.no_grad():
         for cutoff in cutoffs:
-            mse_errs, lpips_errs = [], []
+            per_image = []
             for start in range(0, len(indices), args.batch_size):
-                batch_idx = indices[start:start + args.batch_size]
-                xs, ys = zip(*(dataset[i] for i in batch_idx))
+                batch_slice = slice(start, start + args.batch_size)
+                batch_idx = indices[batch_slice]
+                batch_labels = labels[batch_slice]
+                xs = [dataset[i][0] for i in batch_idx]
                 x = torch.stack(xs).to(device)
-                y = torch.tensor(ys).to(device)
+                y = torch.tensor(batch_labels).to(device)
 
-                x1 = vae.encode(x).latent_dist.sample().mul_(0.18215)
-                z0 = fourier_corrupt(x1, cutoff)
+                # per-image deterministic VAE sample: same image index ->
+                # same x1 for every checkpoint (encode-seed independent of
+                # model/order). diffusers' DiagonalGaussianDistribution.sample
+                # accepts a generator kwarg for exactly this purpose.
+                dist = vae.encode(x).latent_dist
+                x1_list = []
+                for j, idx in enumerate(batch_idx):
+                    gen = torch.Generator().manual_seed(args.encode_seed_offset + idx)
+                    x1_j = dist.mean[j:j + 1] + dist.std[j:j + 1] * torch.randn(
+                        dist.mean[j:j + 1].shape, generator=gen).to(device=device, dtype=dist.mean.dtype)
+                    x1_list.append(x1_j)
+                x1 = torch.cat(x1_list, dim=0).mul_(0.18215)
+
+                z0_list = []
+                for j, idx in enumerate(batch_idx):
+                    gen = torch.Generator().manual_seed(args.corrupt_seed_offset + idx * 1000 + int(cutoff * 1000))
+                    z0_j = deterministic_fourier_corrupt(x1[j] / 0.18215, cutoff, gen, device)
+                    z0_list.append((z0_j * 0.18215).unsqueeze(0))
+                z0 = torch.cat(z0_list, dim=0)
 
                 if args.vae_roundtrip_oracle:
                     xt = x1
@@ -129,23 +213,38 @@ def main(args):
                     )
 
                 recovered = vae.decode(xt / 0.18215).sample
-                err = ((recovered - x) ** 2).mean(dim=[1, 2, 3])
-                mse_errs.extend(err.cpu().tolist())
-
+                mse = ((recovered - x) ** 2).mean(dim=[1, 2, 3])
+                lp = None
                 if lpips_fn is not None:
                     lp = lpips_fn(recovered.clamp(-1, 1), x.clamp(-1, 1)).flatten()
-                    lpips_errs.extend(lp.cpu().tolist())
 
+                for j, idx in enumerate(batch_idx):
+                    out_path = None
+                    if samples_dir is not None:
+                        out_path = os.path.join(samples_dir, f"cutoff{cutoff}_idx{idx}.png")
+                        save_image(recovered[j].clamp(-1, 1) * 0.5 + 0.5, out_path)
+                    per_image.append({
+                        "index": idx,
+                        "label": int(batch_labels[j]),
+                        "mse": float(mse[j].item()),
+                        "lpips": float(lp[j].item()) if lp is not None else None,
+                        "out_path": out_path,
+                    })
+
+            mses = [r["mse"] for r in per_image]
+            lpipses = [r["lpips"] for r in per_image if r["lpips"] is not None]
             per_cutoff[str(cutoff)] = {
-                "mean_mse": sum(mse_errs) / len(mse_errs),
-                "mean_lpips": (sum(lpips_errs) / len(lpips_errs)) if lpips_errs else None,
-                "num_images": len(mse_errs),
+                "mean_mse": sum(mses) / len(mses),
+                "mean_lpips": (sum(lpipses) / len(lpipses)) if lpipses else None,
+                "num_images": len(mses),
+                "per_image": per_image,
             }
             print(f"cutoff={cutoff} mean_mse={per_cutoff[str(cutoff)]['mean_mse']:.5f} "
                   f"mean_lpips={per_cutoff[str(cutoff)]['mean_lpips']}")
 
     result = {
         "ckpt": args.ckpt,
+        "manifest": args.manifest,
         "cutoffs": cutoffs,
         "vae_roundtrip_oracle": args.vae_roundtrip_oracle,
         "has_lpips": lpips_fn is not None,
@@ -172,16 +271,28 @@ if __name__ == "__main__":
     parser.add_argument("--num-sampling-steps", type=int, default=250)
     parser.add_argument("--sampler", type=str, default="gd", choices=["gd", "ngd"])
     parser.add_argument("--mu", type=float, default=0.3)
-    parser.add_argument("--cutoff", type=float, default=0.25,
+    parser.add_argument("--cutoff", type=float, default=0.4181,
                          help="single fourier cutoff for the recovery test (ignored if --cutoff-grid set)")
     parser.add_argument("--cutoff-grid", type=str, default=None,
-                         help="comma-separated list of cutoffs for a held-out severity grid, e.g. '0.1,0.25,0.5,0.75'")
+                         help="comma-separated list of cutoffs for a held-out severity grid, e.g. '0.20,0.30,0.4181,0.55,0.70'")
     parser.add_argument("--vae-roundtrip-oracle", action="store_true",
                          help="positive control: skip fourier/model, just measure VAE encode->decode floor")
     parser.add_argument("--no-lpips", action="store_true", help="skip LPIPS even if installed")
-    parser.add_argument("--num-images", type=int, default=256)
+    parser.add_argument("--num-images", type=int, default=1024)
     parser.add_argument("--batch-size", type=int, default=16)
-    parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--manifest", type=str, default=None,
+                         help="path to a fixed index/label manifest JSON; created if missing, "
+                              "loaded verbatim (ignoring --num-images/--manifest-seed) if present -- "
+                              "MUST be the same file for every checkpoint in a replication so all "
+                              "models see identical images")
+    parser.add_argument("--manifest-seed", type=int, default=0,
+                         help="RNG seed used only when creating a new manifest")
+    parser.add_argument("--encode-seed-offset", type=int, default=1_000_000,
+                         help="base seed for per-image deterministic VAE latent sampling")
+    parser.add_argument("--corrupt-seed-offset", type=int, default=2_000_000,
+                         help="base seed for per-image deterministic corruption noise")
+    parser.add_argument("--save-images", action="store_true",
+                         help="save recovered PNGs per image/cutoff to <out>_samples/")
     parser.add_argument("--out", type=str, default="eval_results/fourier_recovery.json")
     args = parser.parse_args()
     main(args)
