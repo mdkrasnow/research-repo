@@ -29,6 +29,12 @@ from torchvision.datasets import ImageFolder
 from download import find_model
 from models import EqM_models
 
+try:
+    import lpips
+    _HAS_LPIPS = True
+except ImportError:
+    _HAS_LPIPS = False
+
 torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
 
@@ -92,6 +98,10 @@ def main(args):
                           args.uncond, args.ebm, device)
     vae = AutoencoderKL.from_pretrained(f"stabilityai/sd-vae-ft-{args.vae}").to(device)
 
+    lpips_fn = None
+    if _HAS_LPIPS and not args.no_lpips:
+        lpips_fn = lpips.LPIPS(net="alex").to(device)
+
     transform = transforms.Compose([
         transforms.Resize(args.image_size),
         transforms.CenterCrop(args.image_size),
@@ -103,6 +113,7 @@ def main(args):
     indices = torch.randperm(len(dataset), generator=generator)[:args.num_images].tolist()
 
     errs = []
+    lpips_errs = []
     with torch.no_grad():
         for start in range(0, len(indices), args.batch_size):
             batch_idx = indices[start:start + args.batch_size]
@@ -136,18 +147,28 @@ def main(args):
                   (masked_region_px.sum(dim=[1, 2, 3]) * x.shape[1] + 1e-8)
             errs.extend(err.cpu().tolist())
 
+            if lpips_fn is not None:
+                # full-image perceptual distance (LPIPS is not naturally
+                # maskable pixelwise -- same convention as
+                # eval_fourier_recovery.py / eval_downsample_recovery.py)
+                lp = lpips_fn(recovered.clamp(-1, 1), x.clamp(-1, 1)).flatten()
+                lpips_errs.extend(lp.cpu().tolist())
+
     result = {
         "ckpt": args.ckpt,
         "num_images": len(errs),
         "mask_prob": args.mask_prob,
         "hard_constrain": args.hard_constrain,
+        "has_lpips": lpips_fn is not None,
         "mean_masked_mse": sum(errs) / len(errs),
+        "mean_lpips": (sum(lpips_errs) / len(lpips_errs)) if lpips_errs else None,
         "per_image_mse": errs,
     }
     os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
     with open(args.out, "w") as f:
         json.dump(result, f, indent=2)
-    print(f"mean_masked_mse={result['mean_masked_mse']:.5f} over {len(errs)} images -> {args.out}")
+    print(f"mean_masked_mse={result['mean_masked_mse']:.5f} mean_lpips={result['mean_lpips']} "
+          f"over {len(errs)} images -> {args.out}")
 
 
 if __name__ == "__main__":
@@ -171,6 +192,7 @@ if __name__ == "__main__":
                          help="ceiling/oracle mode: reset visible pixels to ground truth every step")
     parser.add_argument("--vae-roundtrip-oracle", action="store_true",
                          help="positive control: skip masking/model, just measure VAE encode->decode floor")
+    parser.add_argument("--no-lpips", action="store_true", help="skip LPIPS even if installed")
     parser.add_argument("--num-images", type=int, default=256)
     parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--seed", type=int, default=0)
