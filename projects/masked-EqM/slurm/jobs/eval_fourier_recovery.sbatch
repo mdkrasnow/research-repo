@@ -45,7 +45,10 @@ VAL_PATH="${VAL_PATH:-/n/holylabs/ydu_lab/Lab/raywang4/imagenet/val}"
 OUT_NAME="${OUT_NAME:-fourier_recovery}"
 CUTOFF_ARGS="--cutoff ${CUTOFF:-0.25}"
 if [ -n "${CUTOFF_GRID:-}" ]; then
-    CUTOFF_ARGS="--cutoff-grid ${CUTOFF_GRID}"
+    # CUTOFF_GRID is semicolon-separated (not comma) because sbatch --export
+    # itself uses commas to split NAME=VALUE pairs -- a comma-separated
+    # value here silently corrupts the export list and can hang submission.
+    CUTOFF_ARGS="--cutoff-grid $(echo "$CUTOFF_GRID" | tr ';' ',')"
 fi
 VAE_ORACLE_FLAG=""
 if [ "${VAE_ROUNDTRIP_ORACLE:-0}" = "1" ]; then
