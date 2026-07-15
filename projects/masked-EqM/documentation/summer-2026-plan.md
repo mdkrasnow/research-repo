@@ -87,6 +87,19 @@ NeurIPS 2026 workshop (deadline 2026-08-29), stretch ICLR 2027 main (~2026-10-01
   zero-shot-generalization claim. See pi-updates.md 2026-07-15 for full matrix + tables.
   needs_user_input=true in pipeline.json -- PI read requested on whether multitask-only framing
   is still publication-worthy before further compute on this direction.
+- LPIPS correction to cross-generalization matrix (2026-07-15, same day): MSE-only matrix above
+  UNDERSTATED the result -- added LPIPS to eval_masked_recovery.py (previously MSE-only) and
+  re-ran full matrix on perceptual metric. Found 2 genuine "beats both single-objective parents"
+  cells: G+M 1:1 -> fourier LPIPS 0.579 (vs gaussian-only 0.611, mask-only 0.647) -- strongest,
+  confirmed real, not an MSE artifact; and G+D 1:1 -> mask LPIPS 0.584 (vs gaussian-only 0.594,
+  downsample-only 0.774) -- new, invisible under MSE. G+M 1:4 (checked, no retrain needed) also
+  passes on fourier but weaker than 1:1 (0.598) -- more mask weight dilutes rather than
+  strengthens the effect. 4 of 6 off-diagonal cells still fail (G+F->mask, G+D->fourier,
+  G+F/G+M->downsample no signal). Revised claim: "mixed training produces emergent perceptual
+  generalization to certain (not all) unseen corruptions" -- narrower than universal robustness,
+  stronger than pure negative. See pi-updates.md 2026-07-15 (later) for full table.
+  needs_user_input=true still set -- PI call pending on whether 2-cell result is pub-worthy as-is
+  vs pursuing cross-corruption-consistency loss / 3-source leave-one-out next.
 
 ## Phased plan
 

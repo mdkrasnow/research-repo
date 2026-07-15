@@ -641,3 +641,68 @@ compute is spent extending this direction (e.g. more corruption families, ratio 
 recommendation is to pause new fourier/downsample mixture compute pending your read on whether
 the multitask-only framing is still publication-worthy, or whether a different mechanism should
 be tried next.
+
+## 2026-07-15 (later) UPDATE: LPIPS reveals 2 genuine "beats both parents" cells -- prior MSE-only verdict was too pessimistic
+
+**Trigger**: user correctly flagged that MSE alone is misleading for perceptual recovery quality
+(mask-only's low MSE was hiding blurry/mean reconstructions with much worse LPIPS). Added LPIPS
+support to `eval_masked_recovery.py` (previously MSE-only, unlike the fourier/downsample recovery
+scripts which already had it) and ran the full cross-generalization matrix on LPIPS: every
+single-objective specialist + every 1:1 mixture, evaluated on every corruption, including mask
+(12 new jobs). Also checked whether the existing G+M 1:4 checkpoint (no retrain) transfers
+differently than 1:1 (2 more jobs).
+
+### Full LPIPS matrix (lower = better; ceiling = own-corruption specialist, ~ = trained-on, not zero-shot)
+
+| trained on | -> mask | -> fourier | -> downsample |
+|---|---|---|---|
+| gaussian-only | 0.594 | 0.611 | 0.687 |
+| mask-only | ceiling 0.321 | 0.647 | 0.722 |
+| fourier-only | 0.657 | ceiling 0.300 | (not run, deprioritized) |
+| downsample-only | 0.774 | (not run, deprioritized) | ceiling 0.489 |
+| G+M 1:1 (armB) | ~trained | **0.579** | 0.685 |
+| G+M 1:4 | ~trained | 0.598 | 0.700 |
+| G+F 1:1 | 0.599 | ~trained | 0.686 |
+| G+D 1:1 | **0.584** | 0.622 | ~trained |
+
+### "Beats both single-objective parents" -- the correct bar (not just beats gaussian-only)
+
+- **G+M 1:1 -> fourier: CONFIRMED REAL, STRONGEST CELL.** 0.579 beats gaussian-only (0.611) AND
+  mask-only (0.647). This survives the perceptual metric and is the cleanest emergent
+  cross-objective generalization result in the whole matrix.
+- **G+M 1:4 -> fourier: also passes, but weaker than 1:1** (0.598 vs 0.579). Ratio direction
+  matters: more mask weight (1:4) does NOT help transfer more than balanced (1:1) -- if anything
+  it dilutes the effect. No reason to prefer 1:4 for this generalization claim.
+- **G+D 1:1 -> mask: NEW, second confirmed cell.** 0.584 beats gaussian-only (0.594) AND
+  downsample-only (0.774). Invisible under MSE (MSE table showed G+D~gaussian-only, a tie) --
+  only visible perceptually.
+- G+F 1:1 -> mask: FAILS (0.599, loses to gaussian-only's 0.594).
+- G+D 1:1 -> fourier: FAILS (0.622, loses to gaussian-only's 0.611).
+- G+F 1:1 -> downsample, G+M 1:1 -> downsample: no clear signal either way (~ties gaussian-only).
+
+### Revised interpretation
+
+Prior 2026-07-15 (earlier) verdict of "hypothesis not supported, no clean story" was **too
+pessimistic** -- it was reading MSE, which under-weights perceptual quality and can favor blurry
+mean reconstructions (mask-only's downsample MSE beat the downsample specialist ceiling while its
+LPIPS was worst-in-table -- a red flag, not a win). Under LPIPS, the picture is: **2 of 6
+off-diagonal cells show genuine emergent generalization** (mixture beats both single-objective
+parents), **4 do not**. Not universal, not zero -- narrower and metric-dependent, but real.
+
+**Candidate paper claim**: "Joint Gaussian-mask (and separately Gaussian-downsample) training
+produces perceptual recovery from certain unseen corruptions that neither single-objective parent
+achieves alone, while retaining near-baseline generation FID -- an effect specific to which
+corruptions are combined, not a general property of mixture training." This is closer to Yilun's
+ask than either the pure "multitask" framing or the fully negative reading.
+
+**Not yet done** (deferred, flagged for PI call before spending more compute): rigorous replication
+of G+M->fourier with more seeds (blocked -- armB seed0 checkpoint was pruned off holylabs, would
+require retraining to recover a true 3rd seed), paired bootstrap CIs, multiple fourier cutoffs, and
+the cross-corruption-consistency loss / 3-source leave-one-out experiment the user's message
+proposed as fallback if this came back weak. Recommend holding those until you've seen this result,
+since the two positive cells found here may already be enough for a modest but real claim without
+new training runs.
+
+**Ask of PI**: `needs_user_input=true` set. Requesting your read on whether the 2-cell positive
+(G+M->fourier, G+D->mask) is sufficient for a paper claim as-is, or whether to pursue the harder
+consistency-loss/leave-one-out route next.
