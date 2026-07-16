@@ -111,6 +111,24 @@ NeurIPS 2026 workshop (deadline 2026-08-29), stretch ICLR 2027 main (~2026-10-01
   within gate). Stage 2 (seeds 3-5) not auto-triggered since strict gate is 4/5, not 5/5.
   needs_user_input=true -- PI call: extend to n=5 or land claim on mask-only comparison alone.
   See pi-updates.md 2026-07-15 (final) for full tables and qualitative grids.
+- n=5 checkpoint (2026-07-16): delta_G drifted toward null (mean 0.0029->0.00047, Holm p
+  0.176->0.817) as seeds 3,4 completed. Per predeclared stopping rule, neither stop condition
+  triggered (CI still includes zero, mean hasn't reversed sign) -- continue to n=8, no inference
+  yet. delta_M stayed robust (Holm p<0.0001 throughout). needs_user_input=true for PI call on n=8
+  vs stopping here.
+- Harder-cutoff experiment (2026-07-16, same day): re-analyzed the SAME n=5 checkpoints (no
+  retrain) at the already-collected cutoffs 0.20/0.30 (vs primary 0.4181). **Cutoff 0.20 PASSES
+  the full 3-part gate**: G+M mean LPIPS lower than both parents, both hierarchical CIs exclude
+  zero after Holm (delta_G p=0.0008, delta_M p<0.0001), 4/5 seeds beat both parents. Cutoff 0.30
+  fails on CI significance for delta_G (p=0.318) despite 4/5 seeds and correct direction.
+  Severity-response is monotone and clean: delta_G shrinks from +0.0043 (0.20) -> +0.0019 (0.30)
+  -> +0.0005 (0.4181, null). CONCLUSION: mixed Gaussian+mask training DOES broaden recovery to
+  unseen Fourier corruption, but only when the corruption is severe (cutoff <=0.20); at milder
+  unseen corruption the effect is not reliable. Real, narrower, defensible result -- not the
+  universal claim, not a pure null either. MSE flagged again as misleading (mask-only wins MSE at
+  every cutoff despite worst LPIPS -- blurry-reconstruction artifact). Qualitative grids built at
+  both cutoffs (4 selection types x 2 cutoffs, no cherry-picking). See pi-updates.md 2026-07-16
+  harder-cutoff section for full tables.
 
 ## Phased plan
 

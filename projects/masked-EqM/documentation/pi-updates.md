@@ -920,3 +920,72 @@ prevent me from calling that early. delta_M remains robust and essentially uncha
 the final call per the rule, or stop here and report the n=5 checkpoint as the practical final
 result (acknowledging that stops outside the predeclared rule are a deviation, but may be
 justified by cost/benefit if the drift-to-null pattern is convincing enough on its own).
+
+## 2026-07-16 Harder-cutoff experiment: DOES G+M RELIABLY BEAT BOTH PARENTS AT SEVERE UNSEEN FOURIER?
+
+**Trigger**: user's simplest-next-experiment request -- reuse the existing n=5 matched checkpoints
+(no retrain) and test the harder Fourier cutoffs (0.20, 0.30) already collected in the secondary-
+cutoff sweep, applying a strict 3-part gate. No new corruption families, ratio sweeps, or
+objectives -- purely a re-analysis + qualitative-grid pass on data already in hand from the n=5
+replication, plus 4 new image-saving eval jobs (gaussian/mask/G+M seed1 + fourier-specialist) to
+get PNGs for the grids at 0.20/0.30 (the earlier secondary-cutoff runs didn't save images).
+
+### Full 3-cutoff comparison, n=5 seeds, primary metric LPIPS
+
+| cutoff | GM mean LPIPS < both parents | delta_G (95% CI, Holm p) | delta_M (95% CI, Holm p) | seeds beating both | GATE |
+|---|---|---|---|---|---|
+| **0.20** | yes (0.7008 avg vs 0.7050/0.7305) | **+0.00425, CI [0.0011, 0.0079], p=0.0008** | +0.02974, CI [0.0275, 0.0324], p<0.0001 | **4/5** | **PASS** |
+| 0.30 | yes | +0.00190, CI [-0.0029, 0.0065], p=0.318 (includes zero) | +0.02561, CI [0.0225, 0.0297], p<0.0001 | 4/5 | FAIL (criterion 2) |
+| 0.4181 | marginal | +0.00047, CI [-0.0061, 0.0055], p=0.817 | +0.01284, CI [0.0096, 0.0168], p<0.0001 | 3/5 | FAIL |
+
+**Cutoff 0.20 passes all three preregistered criteria**:
+1. G+M mean LPIPS lower than both parents. PASS.
+2. Both hierarchical 95% CIs exclude zero after Holm correction. PASS (delta_G Holm p=0.0008,
+   delta_M Holm p<0.0001 -- both significant).
+3. >=4/5 seeds beat both parents. PASS (4/5, only seed4 fails).
+
+Severity-response pattern is now unambiguous across all 3 cutoffs: delta_G shrinks monotonically
+as corruption gets milder (0.20: +0.0043 -> 0.30: +0.0019 -> 0.4181: +0.0005), moving from
+significant to non-significant to null. delta_M stays large and significant throughout but also
+shrinks with milder corruption (0.0297 -> 0.0256 -> 0.0128).
+
+### Secondary metrics (MSE, per-image win rates), n=5 seeds pooled (5120 image-seed pairs)
+
+| cutoff | mean MSE gaussian/mask/GM | win-rate GM<gaussian (LPIPS) | win-rate GM<mask (LPIPS) |
+|---|---|---|---|
+| 0.20 | 0.1049 / 0.0797 / 0.1079 | 68.6% | 91.4% |
+| 0.30 | 0.0828 / 0.0625 / 0.0831 | 58.7% | 87.5% |
+| 0.4181 | 0.0619 / 0.0483 / 0.0603 | 56.7% | 71.5% |
+
+**Caveat flagged again**: mask-only has the LOWEST MSE at every cutoff despite having the WORST
+LPIPS -- consistent with the earlier-documented "blurry mean reconstruction" pattern (mask-only
+produces pixel-safe but perceptually poor recoveries). MSE is not trustworthy as the primary
+metric here; LPIPS (the preregistered primary) is what the gate is evaluated on.
+
+### Qualitative grids (cutoffs 0.20 and 0.30, seed1 representative checkpoint + fourier-specialist)
+
+8 grids built (fixed-random/largest-wins/largest-losses/nearest-median x 2 cutoffs), columns
+gaussian/mask/G+M/fourier-specialist, no cherry-picking (selections computed programmatically from
+the full synergy distribution, all 4 selection types shown side by side including losses).
+Not yet independently reviewed by a human for whether the LPIPS gain reflects real texture/edge
+recovery vs superficial sharpening -- recommend a visual pass before citing in a paper, same
+caveat as the earlier 0.4181 grids.
+
+### CONCLUSION (per user's predeclared framing)
+
+**A harder cutoff (0.20) DOES pass the full gate.** Mixed Gaussian+mask training measurably helps
+recovery from unseen Fourier corruption when the corruption is severe enough (cutoff 0.20, i.e.
+most high/mid-frequency content replaced by noise) -- both statistically (Holm-corrected CIs
+excluding zero for both parent comparisons) and at the seed level (4/5). At milder corruption
+(0.30, 0.4181) the effect either falls short of significance (0.30) or trends null (0.4181).
+
+**Honest framing for the paper**: "Gaussian+mask 1:1 mixture training broadens the model's
+recovery capability to an unseen Fourier corruption, but only when that corruption is severe
+enough to destroy most of the image's fine structure (cutoff <=0.20 in this severity scale);
+at milder unseen corruption the mixture's advantage over Gaussian-only is not statistically
+reliable." This is a real, narrower, defensible positive result -- not the strong universal claim,
+but also not the null result the n=3/n=5 analysis at 0.4181 alone would have suggested.
+
+**No further seeds/cutoffs launched per user's explicit scope limit** (no new corruption
+families, ratio sweeps, or training objectives this round). The n=8 stopping-rule question for
+cutoff 0.4181 (previous section) remains open and separate from this result.
