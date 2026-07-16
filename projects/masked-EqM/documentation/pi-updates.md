@@ -861,3 +861,30 @@ Recommend option 3 as the lowest-friction default (I'll poll every ~15-20 min an
 6 jobs the moment a probe succeeds), but flagging in case you'd rather pursue 1 or 2 first, or
 decide Stage 2 isn't worth the wait and the n=3 result (mask-only decisive, gaussian-only
 provisional) should stand as the final reported outcome.
+
+### Resubmit attempt #2 also failed (4th cumulative occurrence) -- quota is volatile, stopping here
+
+User asked to resubmit; a live write-probe succeeded at that moment, so all 6 jobs were
+resubmitted. Result: **all 6 failed again**, within 1-60 minutes:
+- gaussian_seed3: ran to step ~10150 (past the earlier failure point) then hit the same
+  quota-triggered logging OSError mid-training.
+- mask_seed4, gm_seed3: separate failure -- `AssertionError: Training currently requires at
+  least one GPU` despite `nvidia-smi` passing the script's own check. Likely a second bad/flaky
+  node (not investigated further, quota is the dominant blocker).
+- gaussian_seed4, mask_seed3, gm_seed4: `mkdir: ... Disk quota exceeded` at job start.
+
+Conclusion: the holylabs `ydu_lab` group quota is **volatile** -- it flickers writable/unwritable
+on a timescale of minutes because other lab members are actively using the same shared quota.
+A write-probe succeeding at time T does not mean the 6-job batch will all get through before the
+window closes again. This is not fixable by anything we control (our own footprint is already
+pruned to anchor+final only).
+
+**Stopping further blind resubmission attempts.** `needs_user_input=true` set. Recommend one of:
+1. Escalate to the `ydu_lab` admin/PI for a dedicated allocation or temporary quota bump for this
+   replication's remaining compute (6 short training jobs, ~2.5h each, ~2GB/checkpoint at
+   anchor+final pruning).
+2. Retry later at a lower-traffic time (e.g. overnight), submitting 1-2 jobs at a time instead of
+   6, accepting a much longer wall-clock.
+3. Accept the n=3 result as final: mask-only comparison decisive (Holm p<0.0001, 3/3 seeds),
+   gaussian-only comparison provisional/inconclusive (2/3 seeds, CI crosses zero) -- and report
+   that as the honest, final preregistered outcome without further seeds.
