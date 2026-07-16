@@ -888,3 +888,35 @@ pruned to anchor+final only).
 3. Accept the n=3 result as final: mask-only comparison decisive (Holm p<0.0001, 3/3 seeds),
    gaussian-only comparison provisional/inconclusive (2/3 seeds, CI crosses zero) -- and report
    that as the honest, final preregistered outcome without further seeds.
+
+## 2026-07-16 n=5 CHECKPOINT (per predeclared stopping rule) -- continue to n=8, no inference yet
+
+Seeds 3,4 completed (after two infra detours: home03 filled to 100%% because the pruner wasn't
+retargeted there, fixed by adding a RESULTS_ROOT override and rerunning; a stray pruner instance
+raced ahead of job submission and exited instantly, relaunched correctly). Full n=5 gate:
+
+| | n=3 | n=5 |
+|---|---|---|
+| delta_G mean | +0.0029 | **+0.00047** |
+| delta_G 95% CI | [-0.0018, +0.0067] | [-0.0061, +0.0055] |
+| delta_G Holm p | 0.176 | **0.817** |
+| delta_M mean | +0.0144 | +0.0128 |
+| delta_M 95% CI | [+0.0090, +0.0202] | [+0.0096, +0.0168] |
+| delta_M Holm p | <0.0001 | <0.0001 |
+| seeds beating both parents | 2/3 | 3/5 |
+| cutoffs positive direction | 4/5 | 4/5 |
+
+Per the stopping rule (predeclared above): STOP only if the CI excludes zero OR the mean reverses
+sign. **Neither triggers at n=5** -- delta_G's CI still straddles zero, and the mean is still
+(barely) positive. Per the rule, **this means continue to n=8, no inference at n=5.**
+
+Honest observation (not yet a conclusion, since the rule forbids inference here): delta_G is
+drifting toward null as seeds accumulate (mean 0.0029->0.00047, Holm p 0.176->0.817, CI widening
+around zero) -- this pattern is more consistent with "no real effect vs gaussian-only" than with
+"needs more power to resolve a real small effect," but the predeclared rule exists precisely to
+prevent me from calling that early. delta_M remains robust and essentially unchanged across n=3->n=5.
+
+**Ask of PI**: proceed to seeds 5,6,7 (3 more trainings x3 arms = 9 jobs) to reach n=8 and make
+the final call per the rule, or stop here and report the n=5 checkpoint as the practical final
+result (acknowledging that stops outside the predeclared rule are a deviation, but may be
+justified by cost/benefit if the drift-to-null pattern is convincing enough on its own).
