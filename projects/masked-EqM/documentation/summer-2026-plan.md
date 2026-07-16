@@ -100,6 +100,17 @@ NeurIPS 2026 workshop (deadline 2026-08-29), stretch ICLR 2027 main (~2026-10-01
   stronger than pure negative. See pi-updates.md 2026-07-15 (later) for full table.
   needs_user_input=true still set -- PI call pending on whether 2-cell result is pub-worthy as-is
   vs pursuing cross-corruption-consistency loss / 3-source leave-one-out next.
+- Preregistered 3-seed replication of G+M->fourier (2026-07-15, final): built a fixed 1024-image
+  manifest evaluator with per-image deterministic inputs + hierarchical bootstrap analysis, retrained
+  the missing G+M seed0 (2 infra incidents en route: stale cached sbatch script from skipping
+  remote_submit.sh's rsync; holylabs quota hard cap at first checkpoint write, same recurring
+  failure -- both resolved, see pi-updates.md). Preregistered gate: 4/5 criteria pass. G+M beats
+  mask-only decisively (delta_M 95% CI [0.009,0.020], Holm p<0.0001, 3/3 seeds, 4/5 cutoffs).
+  G+M beats gaussian-only directionally (2/3 seeds, 4/5 cutoffs) but the hierarchical CI for
+  delta_G includes zero at n=3 seeds -- NOT yet statistically decisive. FID 176.03 (+2.5, well
+  within gate). Stage 2 (seeds 3-5) not auto-triggered since strict gate is 4/5, not 5/5.
+  needs_user_input=true -- PI call: extend to n=5 or land claim on mask-only comparison alone.
+  See pi-updates.md 2026-07-15 (final) for full tables and qualitative grids.
 
 ## Phased plan
 

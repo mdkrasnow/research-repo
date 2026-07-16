@@ -706,3 +706,107 @@ new training runs.
 **Ask of PI**: `needs_user_input=true` set. Requesting your read on whether the 2-cell positive
 (G+M->fourier, G+D->mask) is sufficient for a paper claim as-is, or whether to pursue the harder
 consistency-loss/leave-one-out route next.
+
+## 2026-07-15 (final) PREREGISTERED REPLICATION RESULT: G+M 1:1 -> unseen Fourier
+
+**Trigger**: user requested a decisive, preregistered 3-seed replication of the strongest single
+cell above (G+M 1:1 -> fourier LPIPS), with a fixed-manifest evaluator, hierarchical bootstrap,
+Holm correction, qualitative grids, and a preregistered gate -- to settle whether that cell is a
+real effect or single-seed noise, before committing to any paper claim.
+
+### What was built
+- Upgraded `eval_fourier_recovery.py`: persisted 1024-image manifest shared across every
+  checkpoint, per-image deterministic (index-seeded) VAE encode + Fourier corruption so every
+  model sees bit-identical inputs, per-image MSE/LPIPS/index/label/PNG output, 5-cutoff support
+  (primary 0.4181, secondary 0.20/0.30/0.55/0.70).
+- `analyze_fourier_replication.py`: hierarchical paired bootstrap (resample seeds, then images
+  within the resampled seed, 10k draws), Holm-corrected 95% CIs for delta_G (gaussian-GM) and
+  delta_M (mask-GM), per-seed beats-both-parents table, cutoff-direction table.
+- Qualitative grids (16 fixed-random / 16 largest-wins / 16 largest-losses / 16 nearest-median,
+  columns gaussian/mask/GM/fourier-specialist) + a blinded randomized-column A/B sheet with a
+  separately-stored answer key.
+- Retrained the missing G+M 1:1 seed0 (original armB seed0 checkpoint was pruned off holylabs).
+  Two infra incidents during this: (1) a stale cached sbatch script on the cluster from bypassing
+  `remote_submit.sh`'s rsync step silently ran the OLD eval script version -- fixed by rsyncing
+  `slurm/` before every direct sbatch call going forward; (2) the retrain hit the holylabs
+  ydu_lab group quota hard cap (4.0Ti/4.0Ti) at its first checkpoint write, the same recurring
+  failure documented in AGENTS.md -- fixed by pruning all `corruption_sanity_*` result dirs down
+  to anchor+final checkpoint only, verifying a live mkdir probe succeeds (quota display is
+  cached/stale, not live), and running a standing pruner alongside the resubmitted training job.
+  Also per user request, moved the retrain from gpu_test (MIG slice, 1.85 steps/sec) to seas_gpu
+  (full A100, 4.3 steps/sec, ~2.3x faster) after confirming train.py has no true step-resume
+  (only weight-reload), so a restart-from-scratch was required either way.
+
+### Checkpoints (matched seed triplets, all EqM-B/2 IN-1K 1-epoch/40k-step sanity scale)
+gaussian-only seed0/1/2, mask-only seed0/1/2, G+M 1:1 seed0 (new, job31549055) /seed1/seed2 (prior).
+
+### Primary cutoff (0.4181) results, full 1024-image manifest, 3 matched seeds
+
+| seed | gaussian LPIPS | mask LPIPS | G+M LPIPS | beats both parents |
+|---|---|---|---|---|
+| 0 | 0.5091 | 0.5198 | 0.5110 | **NO** (worse than gaussian-only) |
+| 1 | 0.5143 | 0.5279 | 0.5075 | YES |
+| 2 | 0.5168 | 0.5270 | 0.5132 | YES |
+
+Grand means: gaussian=0.5134, mask=0.5249, G+M=0.5106 -- G+M mean is lower (better) than both.
+
+Hierarchical bootstrap (10k draws, resample seeds then images):
+- delta_G (gaussian - G+M): mean=+0.0029, 95% CI=[-0.0018, +0.0067], Holm p=0.176 -- **includes
+  zero, NOT significant**.
+- delta_M (mask - G+M): mean=+0.0144, 95% CI=[+0.0090, +0.0202], Holm p<0.0001 -- excludes zero,
+  significant.
+- Seeds beating both parents: **2/3**.
+
+### Secondary cutoff grid (direction only)
+| cutoff | delta_G | delta_M | positive |
+|---|---|---|---|
+| 0.20 | +0.0063 | +0.0311 | yes |
+| 0.30 | +0.0047 | +0.0274 | yes |
+| 0.4181 | +0.0029 | +0.0144 | yes |
+| 0.55 | +0.0063 | +0.0043 | yes |
+| 0.70 | +0.0081 | -0.0058 | **no** |
+
+4/5 cutoffs positive direction (fails only at 0.70, the mildest corruption, where mask-only's
+near-oracle recovery of a barely-corrupted image wins outright -- expected at the low-severity
+end, not a red flag).
+
+### FID + masked-recovery sanity check on new G+M seed0
+FID = 176.03 (matched gaussian floor ~173.5, **+2.5** -- well within the +15 gate). Masked-recovery
+LPIPS = 0.367 (consistent with seed1=0.370, seed2=0.370 -- trained mask capability intact).
+
+### Preregistered gate verdict (5 criteria, cutoff 0.4181)
+1. G+M mean LPIPS lower than both parents -- **PASS** (0.5106 < 0.5134 and < 0.5249).
+2. Both hierarchical 95% CIs exclude zero after Holm -- **FAIL** (delta_G's CI includes zero;
+   delta_M's does not).
+3. >=2/3 matched seeds beat both parents -- **PASS** (2/3).
+4. New G+M FID within +15 of matched gaussian FID -- **PASS** (+2.5).
+5. Positive direction at >=3/5 cutoffs -- **PASS** (4/5).
+
+**4/5 criteria pass. Criterion 2 -- the strictest one -- fails.** Root cause: seed0 is an outlier
+where G+M lost to gaussian-only (though still beat mask-only), which widens the delta_G bootstrap
+CI enough to cross zero. The effect vs mask-only is robust and highly significant across all three
+seeds and 4/5 cutoffs. The effect vs gaussian-only is directionally positive in 2/3 seeds and 4/5
+cutoffs but not yet statistically decisive at n=3.
+
+**Honest read, not a claimed success**: this is a real, seed-stable win over mask-only and a
+probable-but-not-yet-proven win over gaussian-only. Per the runbook's own Stage 2 rule (only
+proceed if Stage 1 passes), the strict gate did not fully pass, so **Stage 2 (seeds 3,4, target
+n=5) is not automatically triggered** -- flagging for your call: extend to n=5 to try to resolve
+delta_G's significance (my read: 2/3 seeds positive + 4/5 cutoffs positive is a reasonable prior
+that n=5 would tip it, but not guaranteed), or treat the mask-only comparison as the headline
+result and drop/soften the gaussian-only comparison claim.
+
+### Qualitative grids
+Built from 62 unique images (union of 4 selection sets) at full resolution: `grid_fixed_random.png`,
+`grid_largest_wins.png`, `grid_largest_losses.png`, `grid_nearest_median.png` (columns:
+gaussian/mask/G+M/fourier-specialist), plus a blinded randomized-column A/B sheet
+(`ab_sheet_blinded.png`) with a separately stored answer key (`ab_sheet_answer_key.json`) so a
+human reviewer isn't biased by column identity. Selections/synergy values recorded per-image;
+built from seed1 (the clearest "beats both parents" seed) as the representative qualitative case
+-- the quantitative gate above is what should be trusted for the overall verdict, not the grids.
+Not yet independently reviewed for whether LPIPS gains reflect real texture/edge recovery vs
+sharpening artifacts -- recommend a human pass over the grids before citing this in a paper.
+
+**Ask of PI**: `needs_user_input=true`. Gate is 4/5, not a clean pass -- your call on whether to
+extend to n=5 (Stage 2) to try to resolve criterion 2, or land the paper claim on the (already
+solid) mask-only comparison alone.
