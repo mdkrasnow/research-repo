@@ -989,3 +989,109 @@ but also not the null result the n=3/n=5 analysis at 0.4181 alone would have sug
 **No further seeds/cutoffs launched per user's explicit scope limit** (no new corruption
 families, ratio sweeps, or training objectives this round). The n=8 stopping-rule question for
 cutoff 0.4181 (previous section) remains open and separate from this result.
+
+---
+
+## 2026-07-16 (later): Fourier severity sweep (cutoffs 0.05/0.10/0.15, full 6-point curve)
+
+No retraining. Reused the same 5 matched checkpoints per model (gaussian/mask/gm seeds 0-4) and
+the fourier-only specialist (seed0) from the n=5 replication, evaluated on the identical frozen
+1024-image manifest, identical per-image deterministic encode/corrupt pipeline
+(`eval_fourier_recovery.py`, unmodified), at 3 new cutoffs (0.05, 0.10, 0.15) in addition to the
+existing 0.20/0.30/0.4181. 16 eval jobs submitted (job31893540-31893952), all completed cleanly,
+no infra failures this round (one SSH ControlMaster drop mid-poll, resolved by user re-running
+`ssh_bootstrap.sh`, no data loss).
+
+### Full 6-point severity curve, n=5 seeds, primary metric LPIPS
+
+| cutoff | G | M | GM | Fourier-spec | delta_G (Holm-CI) | delta_M (Holm-CI) | pG_holm | pM_holm | seeds beat both | winG | winM | gap% closed |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0.05 | 0.8300 | 0.8580 | 0.8279 | 0.8870 | +0.0022 [+0.0002,+0.0049] | +0.0301 [+0.0282,+0.0324] | 0.103 | <0.0001 | 4/5 | 0.587 | 0.856 | -3.8% |
+| 0.10 | 0.7685 | 0.7946 | 0.7633 | 0.8202 | +0.0053 [+0.0024,+0.0081] | +0.0313 [+0.0297,+0.0326] | <0.0001 | <0.0001 | 5/5 | 0.707 | 0.897 | -10.2% |
+| 0.15 | 0.7402 | 0.7659 | 0.7352 | 0.7941 | +0.0050 [+0.0022,+0.0083] | +0.0307 [+0.0289,+0.0324] | <0.0001 | <0.0001 | 5/5 | 0.703 | 0.911 | -9.3% |
+| 0.20 | 0.7050 | 0.7305 | 0.7007 | 0.7626 | +0.0043 [+0.0011,+0.0081] | +0.0297 [+0.0275,+0.0325] | 0.005 | <0.0001 | 4/5 | 0.686 | 0.914 | -7.4% |
+| 0.30 | 0.6373 | 0.6610 | 0.6354 | 0.6865 | +0.0019 [-0.0028,+0.0065] | +0.0256 [+0.0226,+0.0295] | 0.573 | <0.0001 | 4/5 | 0.587 | 0.875 | -3.9% |
+| 0.4181 | 0.5116 | 0.5240 | 0.5112 | 0.5033 | +0.0005 [-0.0062,+0.0055] | +0.0128 [+0.0096,+0.0168] | 0.809 | <0.0001 | 3/5 | 0.567 | 0.715 | +5.6% |
+
+(All p-values Holm-corrected across all 12 tests -- 2 deltas x 6 cutoffs. CIs are hierarchical
+paired bootstrap, 10k resamples, seed-then-image.)
+
+Secondary MSE (gaussian/mask/GM): 0.200/0.163/0.205 (0.05) -> 0.143/0.113/0.148 (0.10) ->
+0.123/0.095/0.127 (0.15) -> 0.105/0.080/0.108 (0.20) -> 0.083/0.063/0.083 (0.30) ->
+0.062/0.048/0.060 (0.4181). Same "mask-only wins MSE, loses LPIPS" pattern as before at every
+cutoff -- MSE is not trustworthy here, treated as secondary throughout.
+
+### Interpretation: NOT a monotone severity-response. A narrow sweet spot.
+
+The originally hypothesized pattern (monotone growth of delta_G as corruption gets more severe)
+does **not** hold across the full 6-point curve. delta_G traces an inverted-U:
+
+- Rises from 0.4181 (null, +0.0005, ns) -> 0.30 (+0.0019, ns) -> 0.20 (+0.0043, Holm p=0.005) ->
+  peaks at 0.10-0.15 (+0.0050/+0.0053, Holm p<0.0001, 5/5 seeds beat both parents)
+- Then **falls back down** at the most severe cutoff tested, 0.05 (+0.0022, Holm p=0.103, back to
+  non-significant, 4/5 seeds).
+
+Per the user's predeclared interpretation branches: this matches **"the effect peaks near [a
+severity value] and then declines"** -- narrow severity sweet spot, not "mixed training helps
+more and more as corruption gets more severe." The reliable band, by the full 3-part gate (GM
+beats both parents in mean; both CIs exclude zero after Holm; >=4/5 seeds), is **cutoffs 0.10-0.20**
+inclusive. Outside that band in either direction (0.05 too severe, 0.30/0.4181 too mild) the
+delta_G signal is not statistically reliable, even though the point estimate stays positive at
+every cutoff tested.
+
+delta_M (mask-vs-GM) is the opposite story: rock solid, Holm p<0.0001 at literally every cutoff
+from 0.05 to 0.4181, magnitude roughly flat (0.026-0.031) across the harsh end (0.05-0.30) and
+only meaningfully shrinking at the mildest cutoff (0.4181: 0.0128). Mask-only comparison was never
+in doubt; it is the gaussian-only comparison whose reliability is cutoff-dependent.
+
+### Caveat: the fourier-specialist reference itself breaks down at extreme severity
+
+The normalized "fraction of specialist gap closed" metric is **not interpretable as-is at the
+severe end**. At cutoffs 0.05/0.10/0.15/0.20/0.30, the fourier-only specialist's own LPIPS
+(0.887/0.820/0.794/0.763/0.687) is *worse* than gaussian-only (0.830/0.769/0.740/0.705/0.637) --
+i.e. the supervised-on-fourier reference model underperforms an unrelated-corruption baseline at
+the corruption family it was ostensibly built for. This flips the sign of the gap-closure
+fraction (all negative, -3.8% to -10.2%) at those cutoffs -- not because GM is doing *worse*
+relative to the specialist, but because the specialist reference itself is an unreliable yardstick
+outside its training regime (it was trained at the project's default `--fourier-cutoff 0.25`,
+close to 0.30/0.4181, and generalizes poorly to unseen, more severe cutoffs it never saw during
+its own training). Only at the mildest cutoff (0.4181, closest to its training cutoff) does the
+specialist beat both baselines and does gap-closure read as a genuine positive number (+5.6%).
+**Do not cite the gap-closure numbers at cutoffs <=0.30 as evidence of anything about GM's
+relative capability** -- they are an artifact of the specialist reference's own severity-response,
+which was never characterized or gated before this sweep. A fair specialist-gap comparison would
+require the specialist itself to be evaluated across a matched severity sweep during ITS OWN
+training, which is out of scope here (no new training this round, per explicit instruction).
+
+### Qualitative grids (cutoffs 0.05, 0.10, 0.15)
+
+12 grids built (fixed-random/largest-wins/largest-losses/nearest-median x 3 cutoffs), columns
+clean/corrupted/gaussian/mask/GM/fourier-specialist recovery, no cherry-picking (selections
+computed programmatically from the full per-image delta_G distribution). Plus 3 blinded
+gaussian-vs-GM A/B sheets (randomized column order per row, separate answer-key JSON), one per new
+cutoff. At the most severe cutoff (0.05), qualitative inspection is warranted before trusting the
+LPIPS numbers as "successful recovery" in any strong sense -- 0.05 keeps only the lowest ~5% of
+radial frequency content, i.e. almost pure DC/coarse structure; recoveries at this severity should
+be expected to lose fine identity-level detail regardless of which model produced them, and lower
+LPIPS there may reflect "less wrong guessing" rather than genuine content recovery. Recommend a
+human visual pass on the 0.05 grids specifically before any claim stronger than "delta_G is
+directionally positive but not reliable at this most-severe cutoff."
+
+### CONCLUSION
+
+The severity sweep **refines, not strengthens**, the harder-cutoff result from the previous
+section. Gaussian+mask 1:1 mixture training's zero-shot advantage on unseen Fourier corruption is
+real and statistically reliable specifically in the range **cutoff 0.10-0.20** (most/all of the
+3-part gate passes), weakens at the edges of the tested range (0.05 too severe: point estimate
+positive but not significant; 0.30/0.4181 too mild: non-significant/null), and the specialist-gap
+normalization is not trustworthy as a metric outside the specialist's own training regime. Honest
+framing for the paper: "mixed Gaussian+mask training's zero-shot Fourier-recovery advantage over
+gaussian-only is concentrated in a moderate-to-severe corruption band (cutoff ~0.10-0.20 in this
+scale) and is not reliable at either the mildest or the most severe corruption levels tested; the
+mask-only comparison, by contrast, is robust across the entire severity range tested." This is
+narrower than "more severe = more benefit" but is a real, defensible, non-monotone finding worth
+reporting as such -- monotone stories that don't hold up under a fuller sweep are exactly the kind
+of overclaim this project's gating discipline exists to catch.
+
+No new training, ratio sweeps, or corruption families launched, per explicit scope limit. The n=8
+stopping-rule question for cutoff 0.4181 (from the original replication) remains open and separate.

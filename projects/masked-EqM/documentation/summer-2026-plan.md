@@ -197,6 +197,23 @@ deadline. ICLR fallback only if workshop timeline slips or reviewers want more s
    1:1-1:4 do yet (best is 1:2 at 0.163). Untested whether a different ratio or a dedicated
    noisy+masked training arm (not yet built) would close this specific gap.
 
+## Fourier zero-shot severity sweep (2026-07-16)
+
+Reused existing matched seed0-4 checkpoints (gaussian/mask/gm) + fourier specialist (seed0), no
+retrain, evaluated unseen-Fourier-recovery LPIPS at 6 cutoffs (0.05,0.10,0.15,0.20,0.30,0.4181) on
+the same frozen 1024-image manifest. **Result is a narrow severity sweet spot, not a monotone
+trend**: delta_G (gaussian-vs-GM) is statistically reliable (Holm-corrected CI excludes zero,
+>=4/5 seeds beat both parents) only in the **0.10-0.20 cutoff band**, peaking at 0.10-0.15
+(5/5 seeds). It is non-significant at both the milder end (0.30, 0.4181 — matches prior finding)
+and, newly, at the most severe cutoff tested (0.05). delta_M (mask-vs-GM) stays significant at
+every cutoff 0.05-0.4181. Caveat: the fourier-specialist reference model itself degrades badly at
+severe cutoffs (underperforms gaussian-only at 0.05-0.30), so the normalized specialist-gap-closure
+metric is not trustworthy outside the specialist's own ~0.25-0.4181 training regime — flagged, not
+used for headline claims. Full curve, plots, 12 qualitative grids + 3 blinded A/B sheets, and honest
+writeup in pi-updates.md 2026-07-16 (later) draft. No new training/ratio/corruption-family work
+launched (explicit scope limit this round). n=8 stopping-rule decision for cutoff 0.4181 remains
+open and separate.
+
 ## Scope discipline
 
 Same as CLAUDE.md: no jump to IN-1K-scale confirmation runs without passing the current stage's
