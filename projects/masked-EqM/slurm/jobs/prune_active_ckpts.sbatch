@@ -23,7 +23,7 @@
 # (batches of ~6 instead of all 18 parallel) as the primary mitigation.
 set -uo pipefail
 
-RESULTS_ROOT="/n/holylabs/ydu_lab/Lab/mkrasnow_eqm/masked-EqM/results"
+RESULTS_ROOT="${RESULTS_ROOT:-/n/holylabs/ydu_lab/Lab/mkrasnow_eqm/masked-EqM/results}"
 KEEP_LATEST=1
 ANCHOR_STEP="0005000"
 
