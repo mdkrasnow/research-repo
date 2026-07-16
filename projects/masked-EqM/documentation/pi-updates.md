@@ -831,3 +831,33 @@ significant):
 
 This rule is recorded here BEFORE seeds 3,4 are launched/evaluated, per the user's explicit
 instruction to predeclare before running.
+
+### BLOCKER: Stage 2 training failed, holylabs quota exhausted (3rd occurrence)
+
+All 6 seed3/4 jobs (gaussian/mask/G+M seed3, seed4) FAILED within ~20-40 min with
+`OSError: [Errno 122] Disk quota exceeded` on the holylabs `ydu_lab` group filesystem
+(4.0Ti/4.0Ti hard cap). This is the exact same failure mode documented on 2026-07-14 and again
+2026-07-15 (earlier in this doc) -- a recurring, NOT-yet-permanently-fixed blocker.
+
+Steps taken before escalating (not blind-retrying):
+1. Cleaned up all 6 failed jobs' partial result dirs.
+2. Ran a live `mkdir` probe on the results filesystem: **still fails** ("Disk quota exceeded")
+   even after removing our own partial dirs -- confirms the group is externally exhausted by
+   other lab members' usage, not primarily our own footprint this time (unlike the 2026-07-15
+   incident, where our own 18-parallel-job checkpoint footprint was the proximate cause).
+3. Per the project's "same failure twice -> escalate, don't blind-retry" rule, and since this is
+   now the 3rd occurrence of this exact failure, I am **not** resubmitting a 4th time without a
+   chosen mitigation.
+
+`needs_user_input=true` set. This blocks Stage 2 (seeds 3,4) of the fourier replication entirely
+-- none of the three arms' extra seeds exist yet. Options, none executable by me unilaterally:
+1. Ask the `ydu_lab` group admin to free space or raise quota (I cannot do this).
+2. Point Stage 2 checkpoints at a different storage location not sharing this quota, if one
+   exists (unknown to me -- would need PI/admin to confirm an alternative path).
+3. Wait and periodically retry as other members' usage drops (I can keep polling and resubmit
+   automatically once a live-write probe succeeds, if that's acceptable).
+
+Recommend option 3 as the lowest-friction default (I'll poll every ~15-20 min and resubmit the
+6 jobs the moment a probe succeeds), but flagging in case you'd rather pursue 1 or 2 first, or
+decide Stage 2 isn't worth the wait and the n=3 result (mask-only decisive, gaussian-only
+provisional) should stand as the final reported outcome.
