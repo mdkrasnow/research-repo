@@ -810,3 +810,24 @@ sharpening artifacts -- recommend a human pass over the grids before citing this
 **Ask of PI**: `needs_user_input=true`. Gate is 4/5, not a clean pass -- your call on whether to
 extend to n=5 (Stage 2) to try to resolve criterion 2, or land the paper claim on the (already
 solid) mask-only comparison alone.
+
+## 2026-07-15 (Stage 2, predeclared) Extending to seeds 3,4 with a fixed stopping rule
+
+**Trigger**: user's read of the 4/5 gate confirms mask-only comparison is solid, gaussian-only
+comparison is a "promising near-miss" (small effect, seed0 an outlier not a collapse -- G+M
+seed0=0.5110 is in-line with other G+M seeds, gaussian seed0=0.5091 is the unusually strong one).
+Directed to extend to matched seeds 3,4, holding manifest/corruptions/cutoffs/sampler/metrics/
+bootstrap frozen, WITH a predeclared stopping rule (to avoid p-hacking by adding seeds until
+significant):
+
+**PREDECLARED STOPPING RULE (fixed before seeds 3,4 are evaluated):**
+1. Evaluate at n=5 total seeds (0-4) for gaussian-only, mask-only, G+M.
+2. STOP and report as final if EITHER: the Holm-corrected delta_G 95% CI excludes zero, OR the
+   mean delta_G reverses sign (goes negative).
+3. OTHERWISE continue to n=8 total seeds (need seeds 5,6,7 too) and make the final inference at
+   n=8, not before.
+4. No inference or reporting of "significant" between n=5 and n=8 if the n=5 stopping condition
+   isn't met -- n=5 in that case is a checkpoint only, not a result.
+
+This rule is recorded here BEFORE seeds 3,4 are launched/evaluated, per the user's explicit
+instruction to predeclare before running.
