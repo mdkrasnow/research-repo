@@ -1578,32 +1578,6 @@
       "gate": "Stage 2 predeclared stopping rule (see pi-updates.md 2026-07-15 Stage 2 section)"
     },
     {
-      "run_id": "corrupt_sanity_gaussian_seed4_v2",
-      "job_id": "31630017",
-      "partition": "seas_gpu",
-      "status": "pending",
-      "description": "Stage 2 resubmit after quota cleared (live probe succeeded): gaussian-only seed4. See pi-updates.md 2026-07-16 blocker note.",
-      "submitted_at": "2026-07-16",
-      "git_sha": "fc1a32efb7c71b481e66e76eee678167933662aa",
-      "sbatch_path": "projects/masked-EqM/slurm/jobs/corruption_sanity.sbatch",
-      "expected_runtime": "~2.5-3h at seas_gpu 4.3 steps/sec",
-      "phase": "4",
-      "gate": "Stage 2 predeclared stopping rule (see pi-updates.md 2026-07-15 Stage 2 section)"
-    },
-    {
-      "run_id": "corrupt_sanity_mask_seed3_v2",
-      "job_id": "31630064",
-      "partition": "seas_gpu",
-      "status": "pending",
-      "description": "Stage 2 resubmit after quota cleared (live probe succeeded): mask-only seed3. See pi-updates.md 2026-07-16 blocker note.",
-      "submitted_at": "2026-07-16",
-      "git_sha": "fc1a32efb7c71b481e66e76eee678167933662aa",
-      "sbatch_path": "projects/masked-EqM/slurm/jobs/corruption_sanity.sbatch",
-      "expected_runtime": "~2.5-3h at seas_gpu 4.3 steps/sec",
-      "phase": "4",
-      "gate": "Stage 2 predeclared stopping rule (see pi-updates.md 2026-07-15 Stage 2 section)"
-    },
-    {
       "run_id": "corrupt_sanity_mask_seed4_v2",
       "job_id": "31630117",
       "partition": "seas_gpu",
@@ -1654,6 +1628,32 @@
       "expected_runtime": "auto-exits with training jobs",
       "phase": "4",
       "gate": "n/a (infra)"
+    },
+    {
+      "run_id": "corrupt_sanity_gaussian_seed4_v3",
+      "job_id": "31642163",
+      "partition": "seas_gpu",
+      "status": "pending",
+      "description": "gaussian-only seed4, resubmit excluding bad node holygpu8a27503",
+      "submitted_at": "2026-07-16",
+      "git_sha": "9625c9a5afa47abafcec4bc8540da569b26d2ef7",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/corruption_sanity.sbatch",
+      "expected_runtime": "~2.5-3h",
+      "phase": "4",
+      "gate": "Stage 2 predeclared stopping rule"
+    },
+    {
+      "run_id": "corrupt_sanity_mask_seed3_v3",
+      "job_id": "31642249",
+      "partition": "seas_gpu",
+      "status": "pending",
+      "description": "mask-only seed3, resubmit excluding bad node holygpu8a27503",
+      "submitted_at": "2026-07-16",
+      "git_sha": "9625c9a5afa47abafcec4bc8540da569b26d2ef7",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/corruption_sanity.sbatch",
+      "expected_runtime": "~2.5-3h",
+      "phase": "4",
+      "gate": "Stage 2 predeclared stopping rule"
     }
   ],
   "_incidents": [
@@ -4384,6 +4384,34 @@
       "phase": "4",
       "gate": "Stage 2 predeclared stopping rule (see pi-updates.md 2026-07-15 Stage 2 section)",
       "error": "OSError Disk quota exceeded (holylabs ydu_lab group, 4.0Ti/4.0Ti hard cap) -- 3rd occurrence of this documented failure mode. Escalating per same-failure-twice rule; NOT blind-retrying a 4th time. Partial dirs cleaned up."
+    },
+    {
+      "run_id": "corrupt_sanity_gaussian_seed4_v2",
+      "job_id": "31630017",
+      "partition": "seas_gpu",
+      "status": "failed",
+      "description": "Stage 2 resubmit after quota cleared (live probe succeeded): gaussian-only seed4. See pi-updates.md 2026-07-16 blocker note.",
+      "submitted_at": "2026-07-16",
+      "git_sha": "fc1a32efb7c71b481e66e76eee678167933662aa",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/corruption_sanity.sbatch",
+      "expected_runtime": "~2.5-3h at seas_gpu 4.3 steps/sec",
+      "phase": "4",
+      "gate": "Stage 2 predeclared stopping rule (see pi-updates.md 2026-07-15 Stage 2 section)",
+      "error": "Hit bad node holygpu8a27503 (GPU in ERR! hardware state per nvidia-smi -- ECC/ERR flags, not a quota or script issue). Resubmitted with --exclude=holygpu8a27503."
+    },
+    {
+      "run_id": "corrupt_sanity_mask_seed3_v2",
+      "job_id": "31630064",
+      "partition": "seas_gpu",
+      "status": "failed",
+      "description": "Stage 2 resubmit after quota cleared (live probe succeeded): mask-only seed3. See pi-updates.md 2026-07-16 blocker note.",
+      "submitted_at": "2026-07-16",
+      "git_sha": "fc1a32efb7c71b481e66e76eee678167933662aa",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/corruption_sanity.sbatch",
+      "expected_runtime": "~2.5-3h at seas_gpu 4.3 steps/sec",
+      "phase": "4",
+      "gate": "Stage 2 predeclared stopping rule (see pi-updates.md 2026-07-15 Stage 2 section)",
+      "error": "Hit bad node holygpu8a27503 (GPU in ERR! hardware state per nvidia-smi -- ECC/ERR flags, not a quota or script issue). Resubmitted with --exclude=holygpu8a27503."
     }
   ],
   "next_action": "Pareto sweep (1:1-1:4) AND cross-corruption generalization suite (6 checkpoints x 9 corruptions) both complete -- see gates.pareto_sweep_complete and gates.cross_corruption_generalization. Central finding: raw Pareto-optimality (1:3/1:4 win on trained-corruption gap+FID) and compositional generalization (only 1:1 and 1:4 beat both pure arms on block_mask) point to different recipes -- 1:2/1:3 are Pareto-better but generalize worse than 1:1, while 1:4 is good on both axes. Awaiting user decision (needs_user_input) on which framing the paper leads with, since that determines the recipe to carry into Phase 2 multi-seed confirmation. No further compute should be launched until that choice is made -- do not invent new sweep points or eval types without explicit user direction.",
