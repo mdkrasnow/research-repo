@@ -214,6 +214,29 @@ writeup in pi-updates.md 2026-07-16 (later) draft. No new training/ratio/corrupt
 launched (explicit scope limit this round). n=8 stopping-rule decision for cutoff 0.4181 remains
 open and separate.
 
+## Recovery convergence-curve diagnostic (2026-07-19)
+
+Checked whether the strongest severity-sweep result (delta_G peak at cutoff 0.10, +0.0053 LPIPS)
+is a genuine landscape/endpoint difference or an artifact of the arbitrary 250-step GD recovery
+horizon, before pursuing retraining-based levers to grow the effect. No retrain -- same seed0-4
+gaussian/mask/gm checkpoints, cutoff fixed at 0.10, single trajectory per image recorded at steps
+{0,25,50,100,250,500,1000} (new `gd_recover_multi` in `eval_fourier_recovery.py`, bit-identical to
+separate single-step calls, unit-tested before submission). **Result: the gap is real and persists
+to 1000 steps (4x the original horizon) — never reverses or vanishes — but it peaks at 250
+(+0.0053) and shrinks ~40% by 1000 (+0.0032), and gaussian partially catches up given more compute**
+(matches GM's old 250-step target by step 500). So the 250-step headline number overstates the
+converged/steady-state gap (closer to +0.003-0.004). MSE for gaussian/GM rises sharply past step
+250 (overshoot/drift) even as LPIPS keeps marginally improving -- 250-500 steps, not 1000, is the
+best common stopping point if pixel fidelity matters at all. **Critical caveat**: qualitative grids
+show NONE of the three models achieve recognizable object-identity recovery at cutoff 0.10 at any
+step tested (including GM's best-case wins) -- outputs are generic blurry color blobs across the
+board, so this whole comparison is "which model fails less," not "which model succeeds." Extending
+the recovery horizon is therefore **not** a lever that grows the effect (it shrinks it and adds
+MSE-side cost) -- retraining-based levers (ratio sweep, mask-prob tune, scale) remain the more
+promising next moves for enlarging the effect size, pending a variant proposal per standing
+discipline. Full table/plots/16 grids/writeup in pi-updates.md 2026-07-19 and
+`documentation/convergence_2026-07-19/`.
+
 ## Scope discipline
 
 Same as CLAUDE.md: no jump to IN-1K-scale confirmation runs without passing the current stage's

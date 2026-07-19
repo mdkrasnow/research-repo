@@ -1095,3 +1095,130 @@ of overclaim this project's gating discipline exists to catch.
 
 No new training, ratio sweeps, or corruption families launched, per explicit scope limit. The n=8
 stopping-rule question for cutoff 0.4181 (from the original replication) remains open and separate.
+
+## 2026-07-19: Recovery convergence-curve experiment (is the 250-step G+M advantage real, or a horizon artifact?)
+
+Motivating question: the strongest severity-sweep result (delta_G peak at cutoff 0.10, +0.0053
+LPIPS, Holm p<0.0001) is modest in absolute size. Before investing in retraining-based levers
+(ratio sweep, mask-prob tune, scale-up -- all require new training + a variant proposal), checked
+the cheapest possible explanation first: is +0.0053 at 250 steps a genuine landscape/endpoint
+difference between gaussian-only and G+M, or an artifact of stopping the GD recovery sampler at an
+arbitrary 250-step horizon? No retraining used -- same 5 matched seed0-4 checkpoints
+(gaussian/mask/gm) as every prior experiment, fourier cutoff fixed at the reliable-band value 0.10.
+
+**Method.** Extended `eval_fourier_recovery.py` with `gd_recover_multi()`: a single GD trajectory
+per image records LPIPS/MSE at steps {0, 25, 50, 100, 250, 500, 1000} instead of running 7 separate
+250-step-style evaluations. Verified bit-identical to calling the original single-step
+`gd_recover()` at each step count separately (unit-tested locally with a dummy model function
+before submitting any cluster jobs). 15 eval jobs (3 models x 5 seeds), all completed cleanly, no
+retries needed (13/15 on seas_gpu in 10-20min each; 2/15 on gpu_test's MIG-sliced A100 in ~35-39min
+-- slower hardware, not a stall). Hierarchical paired bootstrap (resample seeds, then images within
+seed, 10k draws) + Holm correction across 14 tests (2 deltas x 7 steps), same machinery as the
+severity sweep.
+
+### Full results table (fourier cutoff 0.10, 5 seeds, 1024 images)
+
+| step | LPIPS_G | LPIPS_M | LPIPS_GM | delta_G (Holm-CI) | delta_M (Holm-CI) | pG_holm | pM_holm | seeds beat both | winG | winM | MSE_G | MSE_M | MSE_GM |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0.7833 | 0.7833 | 0.7833 | +0.0000 [-0.0000,+0.0000] | +0.0000 [-0.0000,+0.0000] | 0.377 | 0.370 | 1/5 | 0.281 | 0.362 | 0.1123 | 0.1123 | 0.1123 |
+| 25 | 0.7942 | 0.8019 | 0.7920 | +0.0022 [+0.0013,+0.0030] | +0.0099 [+0.0092,+0.0107] | <0.0001 | <0.0001 | 5/5 | 0.770 | 0.923 | 0.1124 | 0.1116 | 0.1122 |
+| 50 | 0.7889 | 0.8026 | 0.7858 | +0.0031 [+0.0014,+0.0046] | +0.0168 [+0.0156,+0.0180] | 0.0016 | <0.0001 | 4/5 | 0.783 | 0.940 | 0.1145 | 0.1117 | 0.1146 |
+| 100 | 0.7808 | 0.8001 | 0.7765 | +0.0044 [+0.0025,+0.0064] | +0.0236 [+0.0221,+0.0251] | <0.0001 | <0.0001 | 5/5 | 0.784 | 0.933 | 0.1194 | 0.1120 | 0.1208 |
+| **250 (original horizon)** | **0.7685** | **0.7946** | **0.7633** | **+0.0053 [+0.0024,+0.0081]** | **+0.0313 [+0.0297,+0.0326]** | **<0.0001** | **<0.0001** | **5/5** | 0.706 | 0.897 | 0.1426 | 0.1133 | 0.1475 |
+| 500 | 0.7609 | 0.7880 | 0.7572 | +0.0037 [+0.0017,+0.0057] | +0.0308 [+0.0295,+0.0320] | <0.0001 | <0.0001 | 5/5 | 0.627 | 0.852 | 0.1935 | 0.1163 | 0.1943 |
+| 1000 | 0.7580 | 0.7776 | 0.7548 | +0.0032 [+0.0012,+0.0048] | +0.0228 [+0.0209,+0.0245] | 0.0072 | <0.0001 | 4/5 | 0.565 | 0.784 | 0.2948 | 0.1263 | 0.2557 |
+
+Step-0 row is a built-in sanity check, not a result: at step 0 no model computation has happened
+(xt = z0, the raw corrupted latent), so all three models must decode to the identical image via the
+shared VAE -- confirmed, all three columns agree to 4 decimals, validating the pipeline is wired
+correctly (shared manifest/latents/corruption across models, as required).
+
+Best LPIPS achieved (all three models, best step within the tested range):
+gaussian 0.7580 @ step 1000; mask 0.7776 @ step 1000; GM 0.7548 @ step 1000 -- **none of the three
+models had plateaued or reversed in LPIPS by step 1000**; the true LPIPS optimum for all three may
+lie beyond 1000 steps (untested, out of scope for this diagnostic).
+
+Step-to-threshold (does gaussian/mask ever reach GM's old 250-step target, or GM's best?):
+gaussian reaches GM's 250-step LPIPS (0.7633) by step 500 -- i.e. **~2x the compute** closes that
+specific gap. Neither gaussian nor mask ever reaches GM's own best value (0.7548) within the 1000
+steps tested.
+
+Per-image monotonicity (fraction of images whose LPIPS is non-increasing across all 7 recorded
+steps, averaged over 5 seeds): gaussian 19.9%, mask 9.6%, GM 23.6%. **The large majority of
+individual image trajectories are non-monotonic** even though the aggregate mean curves look
+smooth -- population-level "convergence" claims should not be read as well-behaved per-image
+convergence.
+
+### Answers to the five interpretation questions
+
+1. **Does the G+M advantage persist at 500 and 1000 steps?** Yes. delta_G stays positive with a
+   Holm-significant CI excluding 0 at every step from 25 through 1000 (1000-step p_holm=0.0072,
+   still <0.05). It never vanishes or reverses within the tested range.
+2. **Does the gap grow, shrink, or reverse with more optimization?** It grows from step 0 to a peak
+   at 250 (+0.0053), then **shrinks** by roughly 40% from 250 to 1000 (+0.0053 -> +0.0032), but does
+   not reverse and does not disappear.
+3. **Does G+M converge faster even if final endpoints tie?** The endpoints do *not* tie -- GM's
+   best (0.7548) stays below gaussian's best (0.7580) at the max step tested, and gaussian never
+   catches GM's own best within 4x the original compute. There is a real convergence-speed
+   component (gaussian recovers about 40% of the peak gap given 4x more steps), riding on top of a
+   persistent endpoint gap that does not close.
+4. **Is the 250-step result a genuine landscape difference or an under-convergence artifact?**
+   Both, in different proportions. The *existence* of a GM advantage is genuine -- it survives 4x
+   more optimization steps and never crosses zero. But the *magnitude* reported at 250
+   (+0.0053) overstates the converged/persistent gap; a fairer steady-state estimate is closer to
+   the 500-1000 range (+0.003 to +0.004).
+5. **Does additional sampling eventually damage any model through overshoot/drift?** Yes, clearly,
+   in MSE: gaussian's MSE rises monotonically past step 250 (0.143 -> 0.194 -> 0.295) and GM's
+   nearly matches that rise (0.148 -> 0.194 -> 0.256), while LPIPS keeps only marginally improving
+   over the same range -- classic pixel-level drift that a perceptual metric under-penalizes.
+   Mask-only's MSE stays comparatively flat (0.113 -> 0.116 -> 0.126), consistent with a more
+   conservative (and weaker) recovery. **Qualitative grids confirm this visually**: step-1000
+   outputs show visibly more oversaturated/neon color artifacts than step-250 outputs on the same
+   images (e.g. dog-on-grass and red-panda rows in the fixed-random grid), even though mean LPIPS
+   at step 1000 is nominally lower.
+
+### Critical caveat -- per the qualitative-support rule, this is NOT "successful recovery"
+
+At fourier cutoff 0.10, **none of the three models reconstruct recognizable object identity at any
+recovery step from 100 through 1000**, including in the "largest GM wins" selection (the cases most
+favorable to the headline result). Outputs across all models and steps are generic blurry
+color-region reconstructions -- birds, dogs, boats, and food all collapse to smudged color blobs
+with no recoverable structure. The entire delta_G/delta_M effect, while statistically robust under
+hierarchical bootstrap, is a comparison between **three different degrees of failure** to recover
+the image at this severity, not a comparison between one model succeeding and another failing.
+Per the pre-registered rule for this experiment, lower LPIPS here should not be described as
+"successful recovery" -- it should be described exactly as measured: a modest, real, but
+qualitatively unconvincing shift in how badly each model fails.
+
+### CONCLUSION
+
+Composite classification (none of the four pre-registered single-outcome bins fits cleanly, so
+reporting the honest composite): **the G+M advantage over gaussian-only at cutoff 0.10 is a real,
+persistent, mostly-endpoint effect with a genuine but partial convergence-speed component layered
+on top, and it plateaus/attenuates rather than growing with more optimization.** Concretely: (a)
+the gap never reverses or disappears through 1000 steps (4x the original horizon) -- rules out pure
+horizon-artifact; (b) gaussian does partially catch up given more compute (~40% of the peak gap
+closes by 1000 steps, and gaussian matches GM's *old* 250-step target by step 500) -- rules out
+"pure endpoint, zero speed component"; (c) the 250-step number overstates the steady-state gap,
+which is closer to +0.003-0.004 by 500-1000 steps -- the original headline number was inflated by
+~40-60% relative to the converged value; (d) MSE for gaussian/GM degrades sharply past step 250 even
+as LPIPS keeps nominally improving, so **250-500 steps, not 1000, is the best common stopping point**
+if pixel fidelity is weighted at all alongside perceptual similarity; (e) **none of this constitutes
+"successful recovery"** in any strong sense at cutoff 0.10 -- qualitative grids show generic
+blurry-blob outputs from every model at every step, so the whole comparison should be framed as
+"which model fails less," not "which model succeeds."
+
+Implication for the "make the effect bigger" brainstorm this experiment was checking: extending the
+recovery horizon is **not** a lever that meaningfully grows the effect (it shrinks the gap by ~40%
+relative to the 250-step peak, and introduces MSE-side overshoot as a cost). Retraining-based levers
+(mixture ratio sweep, mask-prob tune, model scale) remain the more promising directions, but any of
+those require a variant proposal + mechanism check before code, per standing project discipline.
+
+Deliverables: `eval_fourier_recovery.py` (`gd_recover_multi`, `--record-steps`/`--save-steps`/
+`--subset-indices`), `eval_fourier_convergence.sbatch`, `analyze_convergence.py`,
+`convergence_analysis.json`, 5 plots (`conv_plot1-5_*.png`), 16 qualitative grids (4 steps x 4
+selections, `grids_convergence/`), all in
+`projects/masked-EqM/documentation/convergence_2026-07-19/`. 15 eval jobs + 3 targeted
+grid-asset jobs (seed1 only, 64-image subset, steps 100/250/500/1000) tracked in `pipeline.json`.
+No retraining, ratio sweeps, corruption families, restart-selection experiments, or alternative
+objectives launched, per explicit scope limit.
