@@ -93,6 +93,44 @@ def gd_recover(model_fn, z0, y, num_sampling_steps, stepsize, sampler, mu):
     return xt
 
 
+def gd_recover_multi(model_fn, z0, y, record_steps, stepsize, sampler, mu):
+    """Single trajectory, records xt at every step in record_steps (must
+    include 0, ascending). Step label L matches gd_recover's convention
+    exactly: gd_recover(..., num_sampling_steps=L, ...) performs L-1 update
+    iterations, so recording L here after `L-1` iterations reproduces
+    bit-identical output to calling gd_recover(num_sampling_steps=L)
+    separately -- this just avoids the redundant re-simulation of shared
+    prefix steps across 7 separate calls."""
+    record_steps = sorted(set(record_steps))
+    assert record_steps[0] == 0, "record_steps must include 0 (the corrupted start state)"
+    max_step = record_steps[-1]
+    xt = z0
+    t = torch.ones((z0.shape[0],)).to(z0)
+    m = torch.zeros_like(xt)
+    recorded = {0: xt.clone()}
+    targets = record_steps[1:]
+    next_i = 0
+    n_iters = max_step - 1
+    for it in range(n_iters):
+        if sampler == "gd":
+            out = model_fn(xt, t, y)
+            if not torch.is_tensor(out):
+                out = out[0]
+        else:  # ngd
+            x_ = xt + stepsize * m * mu
+            out = model_fn(x_, t, y)
+            if not torch.is_tensor(out):
+                out = out[0]
+            m = out
+        xt = xt + out * stepsize
+        t = t + stepsize
+        label = it + 2  # L-1 updates done <=> label L (matches gd_recover convention)
+        if next_i < len(targets) and label == targets[next_i]:
+            recorded[label] = xt.clone()
+            next_i += 1
+    return recorded
+
+
 def build_or_load_manifest(dataset, manifest_path, num_images, base_seed):
     """Fixed manifest of dataset indices + labels, shared across every
     checkpoint evaluated for this replication. If manifest_path exists,
@@ -165,7 +203,15 @@ def main(args):
     dataset = ImageFolder(args.data_path, transform=transform)
     indices, labels = build_or_load_manifest(dataset, args.manifest, args.num_images, args.manifest_seed)
 
+    if args.subset_indices:
+        with open(args.subset_indices) as f:
+            subset = set(json.load(f))
+        pairs = [(i, l) for i, l in zip(indices, labels) if i in subset]
+        indices, labels = [p[0] for p in pairs], [p[1] for p in pairs]
+
     cutoffs = [float(c) for c in args.cutoff_grid.split(",")] if args.cutoff_grid else [args.cutoff]
+    record_steps = [int(s) for s in args.record_steps.split(",")] if args.record_steps else None
+    save_steps = set(int(s) for s in args.save_steps.split(",")) if args.save_steps else (set(record_steps) if record_steps else None)
 
     samples_dir = None
     if args.save_images:
@@ -175,7 +221,8 @@ def main(args):
     per_cutoff = {}
     with torch.no_grad():
         for cutoff in cutoffs:
-            per_image = []
+            per_step_image = {s: [] for s in record_steps} if record_steps else None
+            per_image = [] if not record_steps else None
             for start in range(0, len(indices), args.batch_size):
                 batch_slice = slice(start, start + args.batch_size)
                 batch_idx = indices[batch_slice]
@@ -204,6 +251,31 @@ def main(args):
                     z0_list.append((z0_j * 0.18215).unsqueeze(0))
                 z0 = torch.cat(z0_list, dim=0)
 
+                if record_steps is not None:
+                    assert not args.vae_roundtrip_oracle, "oracle mode not supported in --record-steps mode"
+                    xt_by_step = gd_recover_multi(
+                        ema, z0, y, record_steps, args.stepsize, args.sampler, args.mu,
+                    )
+                    for step, xt in xt_by_step.items():
+                        recovered = vae.decode(xt / 0.18215).sample
+                        mse = ((recovered - x) ** 2).mean(dim=[1, 2, 3])
+                        lp = None
+                        if lpips_fn is not None:
+                            lp = lpips_fn(recovered.clamp(-1, 1), x.clamp(-1, 1)).flatten()
+                        for j, idx in enumerate(batch_idx):
+                            out_path = None
+                            if samples_dir is not None and step in save_steps:
+                                out_path = os.path.join(samples_dir, f"cutoff{cutoff}_step{step}_idx{idx}.png")
+                                save_image(recovered[j].clamp(-1, 1) * 0.5 + 0.5, out_path)
+                            per_step_image[step].append({
+                                "index": idx,
+                                "label": int(batch_labels[j]),
+                                "mse": float(mse[j].item()),
+                                "lpips": float(lp[j].item()) if lp is not None else None,
+                                "out_path": out_path,
+                            })
+                    continue
+
                 if args.vae_roundtrip_oracle:
                     xt = x1
                 else:
@@ -231,6 +303,23 @@ def main(args):
                         "out_path": out_path,
                     })
 
+            if record_steps is not None:
+                per_step = {}
+                for step in record_steps:
+                    plist = per_step_image[step]
+                    mses = [r["mse"] for r in plist]
+                    lpipses = [r["lpips"] for r in plist if r["lpips"] is not None]
+                    per_step[str(step)] = {
+                        "mean_mse": sum(mses) / len(mses),
+                        "mean_lpips": (sum(lpipses) / len(lpipses)) if lpipses else None,
+                        "num_images": len(mses),
+                        "per_image": plist,
+                    }
+                    print(f"cutoff={cutoff} step={step} mean_mse={per_step[str(step)]['mean_mse']:.5f} "
+                          f"mean_lpips={per_step[str(step)]['mean_lpips']}")
+                per_cutoff[str(cutoff)] = {"record_steps": record_steps, "per_step": per_step}
+                continue
+
             mses = [r["mse"] for r in per_image]
             lpipses = [r["lpips"] for r in per_image if r["lpips"] is not None]
             per_cutoff[str(cutoff)] = {
@@ -246,6 +335,7 @@ def main(args):
         "ckpt": args.ckpt,
         "manifest": args.manifest,
         "cutoffs": cutoffs,
+        "record_steps": record_steps,
         "vae_roundtrip_oracle": args.vae_roundtrip_oracle,
         "has_lpips": lpips_fn is not None,
         "per_cutoff": per_cutoff,
@@ -293,6 +383,19 @@ if __name__ == "__main__":
                          help="base seed for per-image deterministic corruption noise")
     parser.add_argument("--save-images", action="store_true",
                          help="save recovered PNGs per image/cutoff to <out>_samples/")
+    parser.add_argument("--record-steps", type=str, default=None,
+                         help="comma-separated ascending step counts (must include 0) to record along "
+                              "one recovery trajectory, e.g. '0,25,50,100,250,500,1000' -- convergence-"
+                              "curve mode. Mutually exclusive with --vae-roundtrip-oracle. When set, "
+                              "output is nested per_cutoff[cutoff]['per_step'][step] instead of flat "
+                              "per_cutoff[cutoff]['per_image']")
+    parser.add_argument("--save-steps", type=str, default=None,
+                         help="comma-separated subset of --record-steps at which to save images "
+                              "(only used with --save-images); default = all record-steps")
+    parser.add_argument("--subset-indices", type=str, default=None,
+                         help="path to a JSON file with a flat list of dataset indices to restrict "
+                              "evaluation to a subset of --manifest (e.g. for targeted qualitative-grid "
+                              "recovery runs); labels looked up from the manifest, order preserved")
     parser.add_argument("--out", type=str, default="eval_results/fourier_recovery.json")
     args = parser.parse_args()
     main(args)
