@@ -319,7 +319,25 @@ def main(args):
                     torch.save(checkpoint, checkpoint_path)
                     logger.info(f"Saved checkpoint to {checkpoint_path}")
                 dist.barrier()
-                
+
+        # Save an epoch-boundary checkpoint regardless of step/ckpt_every
+        # alignment -- resume via --ckpt does not restore train_steps/epoch/
+        # RNG state, so matched multi-epoch comparisons rely on retraining
+        # from scratch through a fixed epoch count and reading these off
+        # directly, not on resuming from a step checkpoint mid-run.
+        if rank == 0:
+            checkpoint = {
+                "model": model.module.state_dict(),
+                "ema": ema.state_dict(),
+                "opt": opt.state_dict(),
+                "args": args,
+                "epoch": epoch + 1,
+            }
+            epoch_checkpoint_path = f"{checkpoint_dir}/epoch{epoch + 1:02d}.pt"
+            torch.save(checkpoint, epoch_checkpoint_path)
+            logger.info(f"Saved epoch checkpoint to {epoch_checkpoint_path}")
+        dist.barrier()
+
     model.eval()  # important! This disables randomized embedding dropout
     # do any sampling/FID calculation/etc. with ema (or model) in eval mode ...
 
