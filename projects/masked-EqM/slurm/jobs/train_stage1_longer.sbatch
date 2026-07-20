@@ -94,6 +94,17 @@ TRAIN_CMD="python -m torch.distributed.run --nnodes=1 --nproc_per_node=1 --maste
     --blur-weight ${BLUR_WEIGHT:-0.0} \
     --downsample-weight ${DOWNSAMPLE_WEIGHT:-0.0} \
     --global-seed ${GLOBAL_SEED:-0}"
+if [ -n "${RESUME_CKPT:-}" ]; then
+    # Resume from a prior epoch-boundary checkpoint (model/ema/opt restored,
+    # per train.py) to finish remaining epochs after a quota-kill mid-run.
+    # NOT true continuation: train_steps/epoch/RNG state aren't saved, so
+    # this job's internal epoch counter restarts at 0 and replays the
+    # original epoch-0 data shuffle order rather than a novel one -- see
+    # pipeline.json 2026-07-20 resume-vs-retrain decision. This job's own
+    # epoch01.pt etc. must be relabeled to the arm's true global epoch
+    # number after completion (handled by the caller, not this script).
+    TRAIN_CMD="$TRAIN_CMD --ckpt ${RESUME_CKPT}"
+fi
 
 echo "=== run_tag=$RUN_TAG corruption_mode=$CORRUPTION_MODE ===" >&2
 echo "=== Command: $TRAIN_CMD ===" >&2
