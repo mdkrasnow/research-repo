@@ -81,7 +81,7 @@ TRAIN_CMD="python -m torch.distributed.run --nnodes=1 --nproc_per_node=1 --maste
     --epochs ${EPOCHS:-5} \
     --image-size 256 \
     --log-every 50 \
-    --ckpt-every 5000 \
+    --ckpt-every ${CKPT_EVERY:-999999999} \
     --results-dir $RESULTS_DIR \
     --corruption-mode $CORRUPTION_MODE \
     --mask-prob ${MASK_PROB:-0.5} \

@@ -6,7 +6,7 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
 #SBATCH --mem=4GB
-#SBATCH --time=06:00:00
+#SBATCH --time=48:00:00
 #SBATCH --partition=shared
 
 # Standing pruner for masked-EqM results dirs on holylabs.
@@ -20,6 +20,16 @@
 # Auto-exits once no corrupt-sanity/stage1 jobs remain in queue. Mirrors
 # the diff-EqM quota-deadlock mitigation (see AGENTS.md); scoped to
 # masked-EqM only, do not read/touch projects/archive/diff-EqM.
+# --time bumped 6h->48h (2026-07-20) after the pruner TIMEOUT'd mid-run
+# during a 6+ hour Stage1 5-epoch training batch, leaving quota unprotected
+# for the back half and re-blowing it -- all 9 Stage1 jobs died a second
+# time. Root cause of the *quota pressure itself* fixed separately in
+# train_stage1_longer.sbatch: --ckpt-every raised from 5000 to effectively
+# disabled (999999999) for multi-epoch runs, since Stage1 only needs the
+# epoch-boundary checkpoints (epoch01..05.pt) -- the periodic 5000-step
+# checkpointing was inherited from the 1-epoch corruption_sanity template
+# and was writing ~8 x 2GB ckpts/epoch/arm for no reason at 5-epoch scale
+# (~720GB across 9 arms vs ~90GB needed). This pruner remains a backstop.
 # KEEP_LATEST reduced 2->1 and poll tightened 300s->120s (2026-07-15) after
 # the group quota (already near its 4.0Ti cap externally) was pushed over
 # by our own ~100G checkpoint footprint even at KEEP_LATEST=2 -- see
