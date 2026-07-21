@@ -140,7 +140,7 @@ if __name__ == "__main__":
     parser.add_argument("--num-classes", type=int, default=1000)
     parser.add_argument("--vae", type=str, choices=["ema", "mse"], default="ema")
     parser.add_argument("--uncond", type=bool, default=True)
-    parser.add_argument("--ebm", type=str, choices=["none", "l2", "dot", "mean"], default="none")
+    parser.add_argument("--ebm", type=str, choices=["none", "l2", "dot", "mean", "scalar"], default="none")
     parser.add_argument("--stepsize", type=float, default=0.0017)
     parser.add_argument("--num-sampling-steps", type=int, default=250)
     parser.add_argument("--sampler", type=str, default="gd", choices=["gd", "ngd"])

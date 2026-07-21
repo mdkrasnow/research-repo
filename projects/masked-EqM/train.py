@@ -143,7 +143,7 @@ def main(args):
         experiment_index = len(glob(f"{args.results_dir}/*"))
         model_string_name = args.model.replace("/", "-")  # e.g., SiT-XL/2 --> SiT-XL-2 (for naming folders)
         experiment_name = f"{experiment_index:03d}-{model_string_name}-" \
-                        f"{args.path_type}-{args.prediction}-{args.loss_weight}"
+                        f"{args.path_type}-{args.prediction}-{args.loss_weight}-ebm-{args.ebm}"
         experiment_dir = f"{args.results_dir}/{experiment_name}"  # Create an experiment folder
         checkpoint_dir = f"{experiment_dir}/checkpoints"  # Stores saved model checkpoints
         os.makedirs(checkpoint_dir, exist_ok=True)
@@ -368,7 +368,7 @@ if __name__ == "__main__":
                         help="Toggle to enable Dispersive Loss")
     parser.add_argument("--uncond", type=bool, default=True,
                         help="disable/enable noise conditioning")
-    parser.add_argument("--ebm", type=str, choices=["none", "l2", "dot", "mean"], default="none",
+    parser.add_argument("--ebm", type=str, choices=["none", "l2", "dot", "mean", "scalar"], default="none",
                         help="energy formulation")
 
     parse_transport_args(parser)

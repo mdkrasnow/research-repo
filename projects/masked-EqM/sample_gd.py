@@ -235,7 +235,7 @@ if __name__ == "__main__":
     parser.add_argument("--num-fid-samples", type=int, default=50000)
     parser.add_argument("--uncond", type=bool, default=True,
                         help="disable/enable noise conditioning")
-    parser.add_argument("--ebm", type=str, choices=["none", "l2", "dot", "mean"], default="none",
+    parser.add_argument("--ebm", type=str, choices=["none", "l2", "dot", "mean", "scalar"], default="none",
                         help="energy formulation")
     parse_transport_args(parser)
     args = parser.parse_args()
