@@ -869,6 +869,32 @@
       "expected_runtime": "~1-1.5h",
       "phase": "1",
       "gate": "Stage 1 promotion gate frozen-eval input"
+    },
+    {
+      "run_id": "stage1_gm_seed2_resumeB",
+      "job_id": "33736148",
+      "partition": "seas_gpu",
+      "status": "pending",
+      "description": "gm(mixture) resumed from epoch03.pt (holylabs, safe), +2 epochs to global ep05. WRITES to /n/home03/mkrasnow/masked-EqM-stage1-results (per user 2026-07-20: redirect checkpoint writes off the shared/pinned ydu_lab quota onto per-user home03 quota, 35GB free at submission time). Monitor home03 usage does not approach its own 95GB cap.",
+      "submitted_at": "2026-07-20",
+      "git_sha": "c93755d677ad742c8ece30b1f474b29f59f2d96b",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/train_stage1_longer.sbatch",
+      "expected_runtime": "varies by remaining epoch count",
+      "phase": "1",
+      "gate": "Stage 1 promotion gate (3rd quota incident recovery: writes redirected to home03)"
+    },
+    {
+      "run_id": "stage1_gm_seed0_v4",
+      "job_id": "33736159",
+      "partition": "seas_gpu",
+      "status": "pending",
+      "description": "gm(mixture) resumed from epoch01.pt (holylabs, safe), +4 epochs to global ep05. Same home03 redirect as above.",
+      "submitted_at": "2026-07-20",
+      "git_sha": "c93755d677ad742c8ece30b1f474b29f59f2d96b",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/train_stage1_longer.sbatch",
+      "expected_runtime": "varies by remaining epoch count",
+      "phase": "1",
+      "gate": "Stage 1 promotion gate (3rd quota incident recovery: writes redirected to home03)"
     }
   ],
   "_incidents": [
@@ -6777,8 +6803,7 @@
     }
   },
   "needs_user_input": {
-    "value": true,
-    "prompt": "Stage1 v3: 3rd distinct disk-quota incident. gm_seed2 (had epoch01-03 safe) and gm_seed0_v3 (had epoch01 safe) both died on checkpoint write. Unlike the first 2 incidents, this one is NOT something I can fix myself -- our total results footprint is only ~175GB of the shared 4TiB ydu_lab lab quota; the other ~3.9TB is other lab members usage, and live-write probe confirms zero headroom right now. 7/9 Stage1 arms are otherwise on track (4 complete: gaussian_s1/s0v2/s2, mask_s2; 3 in-flight: mask_s0v3 close to epoch3, mask_s1v3 mid-training, gm_s1v3 not yet started). Options: (A) wait and periodically retry the live-write probe, resuming gm_seed2/gm_seed0_v3 once headroom reappears (passive, no guaranteed timeline, other lab usage may free up on its own); (B) ask user to reach out to PI/lab admin about the shared quota being pinned at 100% (a lab-wide problem beyond this one experiment); (C) proceed with only 7/9 arms for now (gaussian all 3 + mask all 3 = 6, plus gm_seed1 pending) and treat gm arm as incomplete/best-effort, revisiting later. Recommend (A) short-term (cheap, no action needed) combined with flagging (B) to the user since a lab-wide quota pinned at 100% will keep causing this regardless of what this project does."
+    "value": false
   },
   "debugging_notes": [
     {
