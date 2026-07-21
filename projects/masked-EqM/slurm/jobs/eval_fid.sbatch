@@ -45,7 +45,7 @@ CKPT="${CKPT:?CKPT must be set}"
 VAL_PATH="${VAL_PATH:-/n/holylabs/ydu_lab/Lab/raywang4/imagenet/val}"
 OUT_NAME="${OUT_NAME:-fid}"
 
-OUT_DIR="/n/holylabs/ydu_lab/Lab/mkrasnow_eqm/masked-EqM/eval_results"
+OUT_DIR="${OUT_DIR:-/n/holylabs/ydu_lab/Lab/mkrasnow_eqm/masked-EqM/eval_results}"
 mkdir -p "$OUT_DIR"
 
 python eval_fid.py \

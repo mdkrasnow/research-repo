@@ -63,7 +63,7 @@ if [ -n "${MANIFEST:-}" ]; then
     MANIFEST_ARGS="--manifest ${MANIFEST}"
 fi
 
-OUT_DIR="/n/holylabs/ydu_lab/Lab/mkrasnow_eqm/masked-EqM/eval_results"
+OUT_DIR="${OUT_DIR:-/n/holylabs/ydu_lab/Lab/mkrasnow_eqm/masked-EqM/eval_results}"
 mkdir -p "$OUT_DIR"
 
 python eval_fourier_recovery.py \

@@ -52,7 +52,7 @@ if [ "${VAE_ROUNDTRIP_ORACLE:-0}" = "1" ]; then
     VAE_ORACLE_FLAG="--vae-roundtrip-oracle"
 fi
 
-OUT_DIR="/n/holylabs/ydu_lab/Lab/mkrasnow_eqm/masked-EqM/eval_results"
+OUT_DIR="${OUT_DIR:-/n/holylabs/ydu_lab/Lab/mkrasnow_eqm/masked-EqM/eval_results}"
 mkdir -p "$OUT_DIR"
 
 python eval_masked_recovery.py \
