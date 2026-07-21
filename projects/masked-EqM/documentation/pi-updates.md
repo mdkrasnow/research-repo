@@ -1222,3 +1222,101 @@ selections, `grids_convergence/`), all in
 grid-asset jobs (seed1 only, 64-image subset, steps 100/250/500/1000) tracked in `pipeline.json`.
 No retraining, ratio sweeps, corruption families, restart-selection experiments, or alternative
 objectives launched, per explicit scope limit.
+
+## 2026-07-21: Stage 1 matched longer-training curve — GATE FAILS, effect does not grow with training
+
+**Trigger**: stage exit gate evaluated (Stage 1 promotion decision) + bug invalidating prior
+process (epoch-2 under-evaluation, see below) + significant pivot recommendation (kill Stage 1,
+move to Stage 2 structured masking).
+
+**Question**: does the 250-step/1-epoch cutoff-0.10 Fourier-recovery advantage of Gaussian+mask
+1:1 over Gaussian-only (delta_G approx +0.0053, established prior work) grow if the models are
+trained for more epochs (2, 3, 5) instead of just 1? This is the second of two independent "make
+the effect bigger via more compute" hypotheses tested — the first (extend recovery steps at
+inference from 250->1000) already failed (2026-07-19 convergence-curve finding: effect *shrinks*
+~40% with more inference compute). This experiment tests the training-time analog.
+
+**Method**: matched Gaussian-only / mask-only / Gaussian+mask-1:1 EqM-B/2 arms, screening seeds
+0-2, retrained from scratch through 5 epochs each (train.py's `--ckpt` resume does not restore
+train_steps/epoch/RNG state, so mid-run resumption after infra failures used the same
+retrain-with-resume methodology throughout, documented per-incident in `pipeline.json`). Frozen
+eval at epochs {1,2,3,5}: Fourier-recovery LPIPS/MSE (cutoff 0.10, 250 steps, frozen 1024-image
+manifest, identical cached latents across all arms), generation FID (2000 samples), and trained
+mask-recovery LPIPS (mask_prob=0.5). Hierarchical paired bootstrap (resample seeds then images
+within seed, 10,000 draws, Holm correction across 8 tests = 2 deltas x 4 epochs).
+
+**Infrastructure note (why this took so long)**: hit 3 distinct disk-quota incidents on the shared
+`ydu_lab` group quota (4.0Ti hard cap) during the overnight run. First: standing pruner wasn't
+launched before submitting the batch, quota already near cap from historical unpruned dirs. Second:
+pruner itself hit its own 6h SBATCH walltime and died mid-run, quota re-exhausted; root-caused and
+fixed by disabling the periodic 5000-step checkpointing entirely for multi-epoch runs (Stage 1 only
+needs the 5 epoch-boundary saves, not ~40 intermediate step-checkpoints per arm) and bumping the
+pruner's walltime to 48h. Third: the shared quota was pinned at 100% by *other lab members'
+usage* (our own footprint was only ~175GB of the 4TiB cap) — not fixable unilaterally; per user
+direction, redirected the remaining arms' checkpoint writes to per-user home03 storage (95GB quota,
+comfortably sufficient) to route around it entirely.
+
+**Self-caught bug (documented for process improvement)**: during a full 9-arm x 4-epoch audit
+before running this analysis, found that epoch 2 (a gate epoch, {1,2,3,5}) had been repeatedly and
+incorrectly judged as "not gate" during live overnight monitoring, across 6 of 9 arms. For 3 of
+those (gm_seed0, mask_seed1, gm_seed1) this led to actively deleting the epoch-2 checkpoint file
+during proactive quota cleanup, not just skipping its eval. Recovered by regenerating each via a
+1-epoch resume from the arm's epoch-1 checkpoint (same resume methodology already in use, no new
+deviation) and firing the missed evals. Also found and retried 3 evals that had silently failed
+mid-quota-incident (computed successfully, died writing the output JSON). Final audit confirmed
+all 108 required outputs (9 arms x 4 epochs x 3 eval types) present before analysis.
+
+### Results (3-seed screening, hierarchical bootstrap, Holm-corrected)
+
+| epoch | LPIPS_G | LPIPS_M | LPIPS_GM | delta_G | CI_G (95%) | p_G (Holm) | delta_M | CI_M (95%) | p_M (Holm) | seeds beat both | winG | winM | FID_G | FID_M | FID_GM |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | 0.7669 | 0.7938 | 0.7635 | +0.0034 | [-0.0002,+0.0069] | 0.065 | +0.0303 | [+0.0276,+0.0331] | <0.0001 | 2/3 | 0.630 | 0.897 | 173.8 | 239.5 | 175.8 |
+| 2 | 0.7740 | 0.7950 | 0.7728 | +0.0012 | [+0.0004,+0.0023] | 0.0006 | +0.0222 | [+0.0158,+0.0263] | <0.0001 | 3/3 | 0.557 | 0.874 | 154.2 | 231.3 | 161.7 |
+| **3** | **0.7783** | **0.7952** | **0.7754** | **+0.0029** | **[+0.0009,+0.0055]** | **<0.0001** | **+0.0199** | **[+0.0143,+0.0274]** | **<0.0001** | **3/3** | **0.652** | 0.875 | 145.5 | 237.4 | 155.5 |
+| **5** | **0.7811** | **0.7960** | **0.7794** | **+0.0017** | **[+0.0003,+0.0029]** | **0.0036** | **+0.0166** | **[+0.0089,+0.0273]** | **<0.0001** | **3/3** | **0.623** | 0.860 | 135.7 | 244.7 | 145.0 |
+
+Plots (6, `documentation/stage1_longer_training_2026-07-21/`): delta_G vs epoch, delta_M vs epoch,
+absolute LPIPS vs epoch (all 3 arms), seed-level delta_G trajectories, FID vs epoch, mask-recovery
+LPIPS vs epoch.
+
+### Pre-registered gate (bold rows above are the check points, epoch 3 and 5)
+
+| condition | epoch 3 | epoch 5 |
+|---|---|---|
+| mean delta_G >= 0.008 | **FAIL** (0.0029) | **FAIL** (0.0017) |
+| CI excludes zero | pass | pass |
+| 3/3 screening seeds beat both parents | pass | pass |
+| per-image win rate vs Gaussian >= 75% | **FAIL** (65.2%) | **FAIL** (62.3%) |
+| FID within +15 of Gaussian-only | pass (+9.95) | pass (+9.31) |
+| mask-recovery not materially regressed | pass (improves monotonically with epoch) | pass |
+
+**Gate result: FAIL at both checkpoints.** Two of six required conditions fail at every candidate
+promotion point — the magnitude threshold misses by 2.5-4.7x, and per-image win rate tops out at
+~65% (never approaches the 75% bar). delta_M remains robust and highly significant throughout
+(GM clearly and reliably beats mask-only), consistent with all prior work — only delta_G (vs
+Gaussian-only) is the weak, non-growing signal.
+
+**Honest conclusion on whether the effect grew**: no. delta_G does not show a monotone or even a
+clearly positive trend across epochs (1->2->3->5: +0.0034, +0.0012, +0.0029, +0.0017) — it is
+noisy and flat, fluctuating in a narrow band well below the promotion threshold, with the largest
+(and least significant, CI crosses zero) point estimate at epoch 1. Seed-level trajectories
+(plot 4) show no seed consistently trending toward the threshold with more training. Combined with
+the 2026-07-19 finding that extending inference-time recovery steps also does not grow the effect
+(it shrinks it), both of the two independently-testable "throw more compute at it" hypotheses have
+now failed. The cutoff-0.10 delta_G advantage over Gaussian-only appears to be a small, real, but
+apparently fixed-magnitude effect at this model scale/architecture, not one that responds to either
+more training or more inference compute.
+
+**Per Stage 1 gate-fail rule**: do not continue training blindly beyond epoch 5. Per the
+pre-registered plan, next step is Stage 2 (structured-mask corruption, intended to teach semantic
+completion more strongly than independent elementwise masking) — NOT started; requires a new
+variant proposal + mechanism check before any code, per standing project discipline. Flagged to
+user rather than auto-started.
+
+**5-seed confirmation**: not run (only applies on gate pass, per spec).
+
+Code + data + plots: `projects/masked-EqM/documentation/stage1_longer_training_2026-07-21/`
+(`analyze_stage1.py`, `plot_stage1.py`, `stage1_analysis.json`, 6 PNGs). All 15+ training jobs and
+36+ eval jobs (plus quota-incident remediation jobs) tracked in `pipeline.json` active_runs ->
+completed_runs, including 3 debugging_notes entries documenting the quota incidents and the
+epoch-2 bug for process-improvement reference.

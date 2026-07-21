@@ -1,5 +1,5 @@
 {
-  "phase": "1-data-complete",
+  "phase": "1-gate-failed",
   "active_runs": [
     {
       "run_id": "prune_active_ckpts_stage1",
@@ -7702,7 +7702,7 @@
   },
   "needs_user_input": {
     "value": true,
-    "prompt": "Stage1 data collection is now FULLY complete: all 9 arms (gaussian/mask/gm x seed0-2) x all 4 gate epochs (1,2,3,5) x all 3 eval types (fourier LPIPS, FID, mask-recovery LPIPS) = 108/108 outputs confirmed present via full audit (2026-07-21). This followed a rough night: 3 disk-quota incidents (2 fixable, 1 required redirecting checkpoint writes to home03 with user permission), a checkpoint relabeling bug (caught, no eval contaminated), and a systematic epoch2 under-evaluation bug I found+fixed during my own audit (3 checkpoints had to be regenerated via 1-epoch resume since I had deleted them by mistake). Ready for the next step per your original spec: hierarchical bootstrap analysis (resample seeds then images, 10k draws, Holm-adjusted p) across all 5 epochs, 6 required plots, and explicit evaluation of the 6-condition Stage1 promotion gate. I am pausing here rather than auto-running this analysis, since it is a bigger step you likely want visibility into first -- say go whenever ready."
+    "prompt": "Stage 1 (matched longer-training curve) analysis complete: GATE FAILS at both epoch3 and epoch5 checkpoints. delta_G peaks at +0.0029 (epoch3) and +0.0017 (epoch5), both far under the 0.008 promotion threshold; per-image win rate vs Gaussian-only tops out at 65% (needs 75%). No monotone growth across epochs 1/2/3/5. delta_M remains robust/significant throughout (unaffected). Combined with the 2026-07-19 finding that more inference-time recovery steps also does not grow the effect, BOTH independent more-compute levers are now ruled out. Per pre-registered rule: did not train past epoch 5, did not auto-start Stage 2. Full writeup: pi-updates.md 2026-07-21, summer-2026-plan.md, documentation/stage1_longer_training_2026-07-21/ (analysis code, 6 plots, JSON). Decision needed: proceed to Stage 2 (structured-mask corruption) per the pre-registered plan -- this requires a new variant proposal + mechanism check before any code is written, per standing project discipline. Not started; awaiting your direction."
   },
   "debugging_notes": [
     {

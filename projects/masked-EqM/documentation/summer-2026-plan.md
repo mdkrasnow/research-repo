@@ -237,6 +237,33 @@ promising next moves for enlarging the effect size, pending a variant proposal p
 discipline. Full table/plots/16 grids/writeup in pi-updates.md 2026-07-19 and
 `documentation/convergence_2026-07-19/`.
 
+## Stage 1: matched longer-training curve — GATE FAILS (2026-07-21)
+
+Tested the second of two independent "grow the cutoff-0.10 delta_G effect via more compute"
+hypotheses: does training longer (2/3/5 epochs vs the original 1) grow it, now that the first
+hypothesis (more inference-time recovery steps, 2026-07-19 above) already failed? Matched
+gaussian/mask/gm EqM-B/2 arms, screening seeds 0-2, retrained through 5 epochs, frozen eval at
+epochs {1,2,3,5} (cutoff 0.10, 250 steps, frozen manifest), hierarchical bootstrap (10k draws,
+Holm-corrected). **Result: gate FAILS at both epoch-3 and epoch-5 checkpoints** — delta_G tops
+out at +0.0029 (epoch3) and +0.0017 (epoch5), both well under the 0.008 promotion threshold, and
+per-image win rate vs Gaussian-only never exceeds 65% (needs 75%). delta_G does not trend upward
+with epoch (1->2->3->5: +0.0034, +0.0012, +0.0029, +0.0017 — noisy/flat, peak is the
+least-significant epoch-1 point). delta_M (vs mask-only) remains robust and highly significant
+throughout, unaffected. **Both "throw more compute at it" levers (inference steps, training
+epochs) are now ruled out** — the cutoff-0.10 delta_G effect appears to be a small, real,
+fixed-magnitude property of this architecture/scale, not something that grows with more compute
+in either direction. Per gate-fail rule, did not train blindly past epoch 5. Next per pre-registered
+plan: Stage 2 (structured-mask corruption) — not started, requires new variant proposal + mechanism
+check before any code. Full table/plots/gate breakdown in pi-updates.md 2026-07-21 and
+`documentation/stage1_longer_training_2026-07-21/`.
+
+Overnight execution note: hit 3 disk-quota incidents (shared lab quota pinned at 100% partly by
+other lab members' usage, not fixable unilaterally in the third case — redirected remaining
+checkpoint/eval writes to home03 per user direction) and self-caught an epoch-2 gate-epoch
+under-evaluation bug during a full pre-analysis audit (3 checkpoints had to be regenerated via
+1-epoch resume after being mistakenly deleted). All recovered before running the final analysis;
+full incident log in `pipeline.json` debugging_notes.
+
 ## Scope discipline
 
 Same as CLAUDE.md: no jump to IN-1K-scale confirmation runs without passing the current stage's
