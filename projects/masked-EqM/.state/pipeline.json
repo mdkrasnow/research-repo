@@ -7424,6 +7424,10 @@
     {
       "date": "2026-07-21",
       "note": "Audit before showing tentative data revealed 3 silent eval gaps: gaussian_seed2 epoch5 (jobs 33710912/25/26, all FAILED -- computed mean_lpips=0.779 successfully but died writing JSON during 3rd quota incident), gm_seed2 epoch2 (never fired -- overlooked when relabeling jumped straight to epoch3), mask_seed0 epoch1 (never fired -- original mask_seed0_v3 job death only triggered an epoch3 eval, epoch1 was overlooked). All 3 checkpoints confirmed intact on holylabs, retried to home03 (jobs above). Lesson: FAILED job states from the quota-incident window need re-auditing against the full gate-epoch matrix (1,2,3,5 x 9 arms = 36 required eval-triples), not just spot-checked as I went."
+    },
+    {
+      "date": "2026-07-21",
+      "note": "FULL AUDIT of gate-epoch coverage (1,2,3,5 x 9 arms = 36 required eval-triples) found epoch2 systematically under-evaluated: I repeatedly misjudged epoch2 as non-gate during live monitoring (gate set is {1,2,3,5}, 2 IS included) across gaussian_seed0, mask_seed0, mask_seed1, gm_seed0, gm_seed1, gm_seed2 -- 6 of 9 arms affected. Worse: for gm_seed0/mask_seed1/gm_seed1, this misjudgment led me to actively DELETE the epoch2 checkpoint file during proactive quota cleanup (thinking it superseded/non-gate), not just skip evaluating it. Recovery: gaussian_seed0/mask_seed0/gm_seed2 checkpoints were still on disk -- fired direct evals (33920094-218). gm_seed0/mask_seed1/gm_seed1 epoch2 files were genuinely gone -- regenerated via 1-epoch resume from their epoch1 checkpoint (jobs 33920292/33920312/33920319), same resume methodology already used/accepted throughout this experiment (same shuffle-reset caveat, not a new deviation). Root cause: no systematic per-arm gate-epoch checklist was kept during the incremental all-night monitoring loop -- relied on ad hoc per-event judgment which had a recurring blind spot for epoch2 specifically. Should build the full 9x4 matrix explicitly before declaring Stage1 data-collection complete next time."
     }
   ]
 }
