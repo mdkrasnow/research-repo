@@ -6892,6 +6892,10 @@
     {
       "date": "2026-07-20",
       "note": "Relabeling bug caught+fixed during Stage1 v3 monitoring: for multi-epoch RESUME jobs, inferred a new epoch checkpoint had landed from step-count crossing a 40000-step boundary, without verifying the source epoch0N.pt file was actually new (vs the same single file from a prior check). Duplicated gaussian_seed0_v2 epoch04 as epoch05, and gaussian_seed2 epoch03 as epoch04 (confirmed via md5sum match). Both caught before any eval was fired against them (checked which epochs had evals queued -- neither bad file was used), deleted immediately. Fix going forward: before relabeling, verify the source jobs own checkpoints dir actually contains a NEW epoch0N.pt filename not previously copied, not just that training step count has crossed a boundary."
+    },
+    {
+      "date": "2026-07-21",
+      "note": "gm_seed2 epoch04.pt cannot be consolidated into its canonical holylabs dir (stage1_gm_seed2_job33546181) -- holylabs still zero headroom (cp failed EDQUOT). Left as the sole copy at /n/home03/mkrasnow/masked-EqM-stage1-results/stage1_gm_seed2_resumeB_job33736148/000-EqM-B-2-Linear-velocity-None/checkpoints/epoch01.pt (NOT deleted, this is now the only copy of global epoch04 for this arm). epoch04 is not a gate epoch so no eval blocked. Consolidate into holylabs once it frees up; until then eval/relabel logic must check both locations for this arm."
     }
   ]
 }
