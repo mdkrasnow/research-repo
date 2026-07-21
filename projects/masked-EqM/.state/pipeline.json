@@ -334,19 +334,6 @@
       "exit_code": 0
     },
     {
-      "run_id": "stage1_gm_seed2_resume",
-      "job_id": "33663515",
-      "partition": "seas_gpu",
-      "status": "pending",
-      "description": "gm(mixture) resumed from epoch01.pt, +4 epochs to reach epoch05",
-      "submitted_at": "2026-07-20",
-      "git_sha": "c93755d677ad742c8ece30b1f474b29f59f2d96b",
-      "sbatch_path": "projects/masked-EqM/slurm/jobs/train_stage1_longer.sbatch",
-      "expected_runtime": "varies by remaining epoch count",
-      "phase": "1",
-      "gate": "Stage 1 promotion gate (resume-vs-retrain decision: user chose resume-with-progress, 2026-07-20)"
-    },
-    {
       "run_id": "stage1_mask_seed0_v3",
       "job_id": "33663517",
       "partition": "seas_gpu",
@@ -365,19 +352,6 @@
       "partition": "seas_gpu",
       "status": "pending",
       "description": "mask retrained from scratch, 5 epochs (no surviving progress from v2)",
-      "submitted_at": "2026-07-20",
-      "git_sha": "c93755d677ad742c8ece30b1f474b29f59f2d96b",
-      "sbatch_path": "projects/masked-EqM/slurm/jobs/train_stage1_longer.sbatch",
-      "expected_runtime": "varies by remaining epoch count",
-      "phase": "1",
-      "gate": "Stage 1 promotion gate (resume-vs-retrain decision: user chose resume-with-progress, 2026-07-20)"
-    },
-    {
-      "run_id": "stage1_gm_seed0_v3",
-      "job_id": "33663521",
-      "partition": "seas_gpu",
-      "status": "pending",
-      "description": "gm(mixture) retrained from scratch, 5 epochs (no surviving progress from v2)",
       "submitted_at": "2026-07-20",
       "git_sha": "c93755d677ad742c8ece30b1f474b29f59f2d96b",
       "sbatch_path": "projects/masked-EqM/slurm/jobs/train_stage1_longer.sbatch",
@@ -6745,6 +6719,34 @@
       "phase": "1",
       "gate": "Stage 1 promotion gate (see pipeline.json needs_user_input / pi-updates.md)",
       "error": "2nd disk-quota incident 2026-07-20: pruner (33554698) TIMEOUT at its 6h SBATCH limit mid-run, quota re-exhausted afterward by periodic 5000-step checkpoints, killed all 9 jobs. Progress at death: gm_seed1_v2 (0 epochs -- same). Root cause fixed: --ckpt-every disabled for multi-epoch runs (train_stage1_longer.sbatch), pruner walltime 6h->48h. Surviving epoch-boundary checkpoints preserved on disk. Resume-vs-retrain-remaining policy pending user decision."
+    },
+    {
+      "run_id": "stage1_gm_seed2_resume",
+      "job_id": "33663515",
+      "partition": "seas_gpu",
+      "status": "failed",
+      "description": "gm(mixture) resumed from epoch01.pt, +4 epochs to reach epoch05",
+      "submitted_at": "2026-07-20",
+      "git_sha": "c93755d677ad742c8ece30b1f474b29f59f2d96b",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/train_stage1_longer.sbatch",
+      "expected_runtime": "varies by remaining epoch count",
+      "phase": "1",
+      "gate": "Stage 1 promotion gate (resume-vs-retrain decision: user chose resume-with-progress, 2026-07-20)",
+      "error": "3rd distinct disk-quota incident 2026-07-20: lab-wide ydu_lab group quota (4.0Ti hard cap) pinned at 100% again, this time NOT caused by our own pruner lapsing (pruner 33663769 confirmed still running throughout) or by excess step-checkpointing (already disabled) -- our total footprint is only ~175GB of the 4096GB cap, so this is driven by OTHER lab members usage, outside our control. Live write probe FAILED (not just theoretical -- confirmed no headroom at all). gm_seed2 died attempting global epoch04 (had epoch01-03 safely preserved already). gm_seed0_v3 died attempting its own epoch02 (had epoch01 safely preserved). Paused resubmission pending user input -- see needs_user_input."
+    },
+    {
+      "run_id": "stage1_gm_seed0_v3",
+      "job_id": "33663521",
+      "partition": "seas_gpu",
+      "status": "failed",
+      "description": "gm(mixture) retrained from scratch, 5 epochs (no surviving progress from v2)",
+      "submitted_at": "2026-07-20",
+      "git_sha": "c93755d677ad742c8ece30b1f474b29f59f2d96b",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/train_stage1_longer.sbatch",
+      "expected_runtime": "varies by remaining epoch count",
+      "phase": "1",
+      "gate": "Stage 1 promotion gate (resume-vs-retrain decision: user chose resume-with-progress, 2026-07-20)",
+      "error": "3rd distinct disk-quota incident 2026-07-20: lab-wide ydu_lab group quota (4.0Ti hard cap) pinned at 100% again, this time NOT caused by our own pruner lapsing (pruner 33663769 confirmed still running throughout) or by excess step-checkpointing (already disabled) -- our total footprint is only ~175GB of the 4096GB cap, so this is driven by OTHER lab members usage, outside our control. Live write probe FAILED (not just theoretical -- confirmed no headroom at all). gm_seed2 died attempting global epoch04 (had epoch01-03 safely preserved already). gm_seed0_v3 died attempting its own epoch02 (had epoch01 safely preserved). Paused resubmission pending user input -- see needs_user_input."
     }
   ],
   "next_action": "Pareto sweep (1:1-1:4) AND cross-corruption generalization suite (6 checkpoints x 9 corruptions) both complete -- see gates.pareto_sweep_complete and gates.cross_corruption_generalization. Central finding: raw Pareto-optimality (1:3/1:4 win on trained-corruption gap+FID) and compositional generalization (only 1:1 and 1:4 beat both pure arms on block_mask) point to different recipes -- 1:2/1:3 are Pareto-better but generalize worse than 1:1, while 1:4 is good on both axes. Awaiting user decision (needs_user_input) on which framing the paper leads with, since that determines the recipe to carry into Phase 2 multi-seed confirmation. No further compute should be launched until that choice is made -- do not invent new sweep points or eval types without explicit user direction.",
@@ -6776,7 +6778,7 @@
   },
   "needs_user_input": {
     "value": true,
-    "prompt": "Stage1 2nd quota incident (2026-07-20): all 9 training jobs died again when the pruner hit its own 6h walltime and quota re-exhausted from periodic step-checkpoints. Root cause fixed (ckpt-every disabled, pruner walltime 48h). Surviving progress per arm (screening seeds 0-2): gaussian seed0=epoch3, seed1=epoch4, seed2=epoch2; mask seed0=0, seed1=0, seed2=epoch4; gm seed0=0, seed1=0, seed2=epoch1. Need a decision: (A) retrain ALL 9 arms from scratch again for full methodological consistency (expensive, discards ~20+ GPU-hours of already-completed epochs), or (B) resume the arms with real progress (gaussian all 3, mask seed2) from their last surviving epoch checkpoint to finish remaining epochs, retrain-from-scratch only the 4 arms with zero progress (mask seed0/1, gm seed0/1/2) -- cheaper but introduces a known deviation for resumed arms: because train.py does not save/restore the epoch/RNG counter, the resumed run replays the same epoch-0 data shuffle order for its additional epoch(s) rather than a novel shuffle, and gets a fresh AdamW moment-estimate warm restart from the saved optimizer state rather than true continuity. Recommend option B given the scale of already-sunk compute, but this is a real methodology tradeoff worth your explicit call before resubmitting."
+    "prompt": "Stage1 v3: 3rd distinct disk-quota incident. gm_seed2 (had epoch01-03 safe) and gm_seed0_v3 (had epoch01 safe) both died on checkpoint write. Unlike the first 2 incidents, this one is NOT something I can fix myself -- our total results footprint is only ~175GB of the shared 4TiB ydu_lab lab quota; the other ~3.9TB is other lab members usage, and live-write probe confirms zero headroom right now. 7/9 Stage1 arms are otherwise on track (4 complete: gaussian_s1/s0v2/s2, mask_s2; 3 in-flight: mask_s0v3 close to epoch3, mask_s1v3 mid-training, gm_s1v3 not yet started). Options: (A) wait and periodically retry the live-write probe, resuming gm_seed2/gm_seed0_v3 once headroom reappears (passive, no guaranteed timeline, other lab usage may free up on its own); (B) ask user to reach out to PI/lab admin about the shared quota being pinned at 100% (a lab-wide problem beyond this one experiment); (C) proceed with only 7/9 arms for now (gaussian all 3 + mask all 3 = 6, plus gm_seed1 pending) and treat gm arm as incomplete/best-effort, revisiting later. Recommend (A) short-term (cheap, no action needed) combined with flagging (B) to the user since a lab-wide quota pinned at 100% will keep causing this regardless of what this project does."
   },
   "debugging_notes": [
     {
