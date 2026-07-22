@@ -202,6 +202,7 @@ def main(args):
         blur_weight=args.blur_weight,
         fourier_weight=args.fourier_weight,
         downsample_weight=args.downsample_weight,
+        structured_mask_weight=args.structured_mask_weight,
     )  # default: velocity;
     transport_sampler = Sampler(transport)
     vae = AutoencoderKL.from_pretrained(f"stabilityai/sd-vae-ft-{args.vae}").to(device)

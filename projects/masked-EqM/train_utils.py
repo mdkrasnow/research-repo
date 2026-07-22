@@ -11,8 +11,8 @@ def parse_transport_args(parser):
     group.add_argument("--sample-eps", type=float)
     group.add_argument("--train-eps", type=float)
     group.add_argument("--corruption-mode", type=str, default="gaussian",
-        choices=["gaussian", "mask", "fourier", "blur", "downsample", "mixture"],
-        help="x0 start-state family: Gaussian (baseline), Bernoulli mask, Fourier low-pass, Gaussian blur, downsample/upsample, or weighted mixture")
+        choices=["gaussian", "mask", "fourier", "blur", "downsample", "structured_mask", "mixture"],
+        help="x0 start-state family: Gaussian (baseline), Bernoulli mask, Fourier low-pass, Gaussian blur, downsample/upsample, structured mask (blocks/patches/regions/minority-elementwise), or weighted mixture")
     group.add_argument("--mask-prob", type=float, default=0.5,
         help="fraction of latent elements replaced by noise under mask corruption")
     group.add_argument("--fourier-cutoff", type=float, default=0.25,
@@ -31,6 +31,8 @@ def parse_transport_args(parser):
         help="mixture weight lambda_B (only used when --corruption-mode mixture)")
     group.add_argument("--downsample-weight", type=float, default=0.0,
         help="mixture weight lambda_D (only used when --corruption-mode mixture)")
+    group.add_argument("--structured-mask-weight", type=float, default=0.0,
+        help="mixture weight lambda_SM for structured mask (only used when --corruption-mode mixture)")
 
 
 def parse_ode_args(parser):

@@ -59,6 +59,7 @@ python eval_masked_recovery.py \
     --ckpt "$CKPT" \
     --data-path "$VAL_PATH" \
     --mask-prob "${MASK_PROB:-0.5}" \
+    --mask-mode "${MASK_MODE:-elementwise}" \
     --num-images "${NUM_IMAGES:-256}" \
     --batch-size "${BATCH_SIZE:-16}" \
     $HARD_CONSTRAIN_FLAG \

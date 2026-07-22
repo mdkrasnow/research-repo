@@ -58,6 +58,7 @@ class Transport:
         fourier_weight=0.0,
         blur_weight=0.0,
         downsample_weight=0.0,
+        structured_mask_weight=0.0,
     ):
         path_options = {
             PathType.LINEAR: path.ICPlan,
@@ -80,6 +81,7 @@ class Transport:
         self.fourier_weight = fourier_weight
         self.blur_weight = blur_weight
         self.downsample_weight = downsample_weight
+        self.structured_mask_weight = structured_mask_weight
 
     def prior_logp(self, z):
         '''
@@ -138,12 +140,15 @@ class Transport:
             x0 = corruption.blur_corrupt(x1, self.blur_sigma)
         elif self.corruption_mode == "downsample":
             x0 = corruption.downsample_corrupt(x1, self.downsample_factor)
+        elif self.corruption_mode == "structured_mask":
+            x0 = corruption.structured_mask_corrupt(x1, self.mask_prob)
         elif self.corruption_mode == "mixture":
             x0 = corruption.mixture_sample(
                 x1, self.gaussian_weight, self.mask_weight, self.fourier_weight,
                 self.mask_prob, self.fourier_cutoff,
                 blur_weight=self.blur_weight, blur_sigma=self.blur_sigma,
                 downsample_weight=self.downsample_weight, downsample_factor=self.downsample_factor,
+                structured_mask_weight=self.structured_mask_weight,
             )
         else:
             raise NotImplementedError(self.corruption_mode)

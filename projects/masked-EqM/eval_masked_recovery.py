@@ -28,6 +28,7 @@ from torchvision.datasets import ImageFolder
 
 from download import find_model
 from models import EqM_models
+from transport import corruption
 
 try:
     import lpips
@@ -122,7 +123,10 @@ def main(args):
             y = torch.tensor(ys).to(device)
 
             x1 = vae.encode(x).latent_dist.sample().mul_(0.18215)
-            keep_mask = (torch.rand_like(x1[:, :1]) > args.mask_prob).float()
+            if args.mask_mode == "structured":
+                keep_mask = corruption.make_structured_mask(x1, args.mask_prob)
+            else:
+                keep_mask = (torch.rand_like(x1[:, :1]) > args.mask_prob).float()
             eps = torch.randn_like(x1)
             z0 = keep_mask * x1 + (1 - keep_mask) * eps
 
@@ -158,6 +162,7 @@ def main(args):
         "ckpt": args.ckpt,
         "num_images": len(errs),
         "mask_prob": args.mask_prob,
+        "mask_mode": args.mask_mode,
         "hard_constrain": args.hard_constrain,
         "has_lpips": lpips_fn is not None,
         "mean_masked_mse": sum(errs) / len(errs),
@@ -188,6 +193,10 @@ if __name__ == "__main__":
     parser.add_argument("--mu", type=float, default=0.3)
     parser.add_argument("--mask-prob", type=float, default=0.5,
                          help="fraction of latent masked out for the recovery test")
+    parser.add_argument("--mask-mode", type=str, default="elementwise",
+                         choices=["elementwise", "structured"],
+                         help="elementwise Bernoulli mask (original) or structured mask "
+                              "(blocks/patches/regions/minority-elementwise, Stage 2)")
     parser.add_argument("--hard-constrain", action="store_true",
                          help="ceiling/oracle mode: reset visible pixels to ground truth every step")
     parser.add_argument("--vae-roundtrip-oracle", action="store_true",

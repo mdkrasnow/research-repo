@@ -16,6 +16,7 @@ def create_transport(
     fourier_weight=0.0,
     blur_weight=0.0,
     downsample_weight=0.0,
+    structured_mask_weight=0.0,
 ):
     """function for creating Transport object
     **Note**: model prediction defaults to velocity
@@ -82,6 +83,7 @@ def create_transport(
         fourier_weight=fourier_weight,
         blur_weight=blur_weight,
         downsample_weight=downsample_weight,
+        structured_mask_weight=structured_mask_weight,
     )
-    
+
     return state
