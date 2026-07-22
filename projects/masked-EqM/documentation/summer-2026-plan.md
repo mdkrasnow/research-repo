@@ -264,6 +264,33 @@ under-evaluation bug during a full pre-analysis audit (3 checkpoints had to be r
 1-epoch resume after being mistakenly deleted). All recovered before running the final analysis;
 full incident log in `pipeline.json` debugging_notes.
 
+## Stage 2: structured-mask corruption — IN PROGRESS (2026-07-22)
+
+User directive: pivot to structured-mask at the 1-epoch budget, since it changes the completion
+signal itself (the likely bottleneck) rather than throwing more compute at the existing
+elementwise-mask recipe, while keeping the frozen Fourier eval entirely unseen. Variant proposal
+written before any code (`documentation/stage2_structured_mask_proposal_2026-07-22.md`), per
+AGENTS.md. Implemented `structured_mask` corruption (`transport/corruption.py`): per-sample
+categorical draw over 4 spatial mask families (block 0.35, patch-4x4 0.35, irregular flood-fill
+region 0.20, minority elementwise 0.10), same `z0 = m*x1 + (1-m)*eps` form as the original
+elementwise mask, no Fourier-domain operations. Smoke-tested locally (CPU) before commit.
+
+Real-GPU smoke validation (2 jobs, gaussian control + structmask) caught an infra issue before it
+cost real time: structured-mask corruption runs at ~0.75-0.80 steps/sec vs gaussian's 1.85
+(per-sample Python mask-generation overhead), projecting ~14h/epoch — exceeds gpu_test's 12h
+partition cap. First structmask attempt cancelled ~10min in and resubmitted on seas_gpu (20h
+walltime, no cap). All 9 arms (3 screening seeds x {gaussian-only, structured-mask-only,
+gaussian+structured-mask 1:1}) submitted 2026-07-22 (6 concurrent + 3 queued via
+`--dependency=afterany`, per the 6-concurrent-job cap). Freed 35GB of stale, already-analyzed
+Stage1 checkpoints from home03 (was at 92%/7.7GB free) before launching.
+
+Next: once training completes, frozen Fourier eval (cutoff 0.10, 250 steps,
+`manifest_fourier_repl_1024.json`, reused verbatim/unchanged) + structured-mask-recovery eval
+(new `--mask-mode structured` on `eval_masked_recovery.py`) + FID on all 9 checkpoints,
+hierarchical bootstrap, evaluate against the 5 pre-registered Stage 2 gate conditions (delta_G >=
+0.010, 3/3 seeds beat both parents, win rate >75%, FID within +15, structured-mask recovery
+strong).
+
 ## Scope discipline
 
 Same as CLAUDE.md: no jump to IN-1K-scale confirmation runs without passing the current stage's
