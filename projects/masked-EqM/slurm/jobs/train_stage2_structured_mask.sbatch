@@ -23,6 +23,18 @@
 # third of which was the shared ydu_lab quota pinned at 100% by other lab
 # members' usage and not fixable unilaterally; routing around holylabs
 # entirely avoids repeating that failure mode.
+#
+# FIX 2026-07-22 (4th home03 quota incident): originally shipped with
+# --ckpt-every 5000 (copied from corruption_sanity.sbatch), which saved a
+# ~2GB step-checkpoint every 5000 steps in addition to the final epoch01.pt
+# unconditional save. Across up to 8 concurrent/sequential 1-epoch arms this
+# accumulated ~42GB of entirely redundant intermediate checkpoints (Stage 2
+# only ever evaluates the single end-of-epoch checkpoint, never an
+# intermediate one) and filled home03's 95GB quota to 100%, which in turn
+# caused a long-running job to stall ~46min then die and caused new
+# submissions to fail within seconds of starting. Disabled periodic
+# checkpointing entirely (matches train_stage1_longer.sbatch's own fix from
+# the same root cause) -- CKPT_EVERY is now overridable but defaults off.
 set -euo pipefail
 
 module load python/3.10.13-fasrc01 2>/dev/null || true
@@ -84,7 +96,7 @@ TRAIN_CMD="python -m torch.distributed.run --nnodes=1 --nproc_per_node=1 --maste
     --epochs 1 \
     --image-size 256 \
     --log-every 50 \
-    --ckpt-every 5000 \
+    --ckpt-every ${CKPT_EVERY:-999999999} \
     --results-dir $RESULTS_DIR \
     --corruption-mode $CORRUPTION_MODE \
     --mask-prob ${MASK_PROB:-0.5} \
