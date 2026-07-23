@@ -1,6 +1,6 @@
 # Direct-energy campaign
 
-Updated: 2026-07-23T21:47:17.275301+00:00
+Updated: 2026-07-23T21:47:49.470141+00:00
 
 | Stage | Status | Job |
 |---|---|---|
@@ -8,7 +8,7 @@ Updated: 2026-07-23T21:47:17.275301+00:00
 | 0_evaluator_gpu_regression | RUNNING | 34683562 |
 | 1_infrastructure | PASS |  |
 | 2_fixed_batch | PASS |  |
-| 3_pilot | RUNNING | 34687844 |
+| 3_pilot | RUNNING | 34687878 |
 | 3_pilot_initial | RUNNING | 34685755 |
 | 4_sample_probe | RETRYING |  |
 | 4_sample_probe_initial | RUNNING | 34686567 |
@@ -26,3 +26,4 @@ Updated: 2026-07-23T21:47:17.275301+00:00
 | 34686567 | 4_sample_probe_initial | completed | 1830983 |
 | 34687332 | 3_pilot | completed | afd679e |
 | 34687844 | 3_pilot | running | afd679e |
+| 34687878 | 3_pilot | pending | afd679e |
