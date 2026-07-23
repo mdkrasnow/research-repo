@@ -69,16 +69,18 @@ def gd_recover(model_fn, z0, y, num_sampling_steps, stepsize, sampler, mu):
     m = torch.zeros_like(xt)
     for _ in range(num_sampling_steps - 1):
         if sampler == "gd":
-            out = model_fn(xt, t, y)
-            if not torch.is_tensor(out):
-                out = out[0]
+            model_input = xt
         else:  # ngd
-            x_ = xt + stepsize * m * mu
-            out = model_fn(x_, t, y)
-            if not torch.is_tensor(out):
-                out = out[0]
+            model_input = xt + stepsize * m * mu
+        ebm = getattr(getattr(model_fn, "__self__", None), "ebm", "none")
+        with torch.set_grad_enabled(ebm != "none"):
+            out = model_fn(model_input, t, y)
+        if not torch.is_tensor(out):
+            out = out[0]
+        out = out.detach()
+        if sampler != "gd":
             m = out
-        xt = xt + out * stepsize
+        xt = (xt + out * stepsize).detach()
         t = t + stepsize
     return xt
 
@@ -168,7 +170,7 @@ if __name__ == "__main__":
     parser.add_argument("--num-classes", type=int, default=1000)
     parser.add_argument("--vae", type=str, choices=["ema", "mse"], default="ema")
     parser.add_argument("--uncond", type=bool, default=True)
-    parser.add_argument("--ebm", type=str, choices=["none", "l2", "dot", "mean"], default="none")
+    parser.add_argument("--ebm", type=str, choices=["none", "l2", "dot", "mean", "direct"], default="none")
     parser.add_argument("--stepsize", type=float, default=0.0017)
     parser.add_argument("--num-sampling-steps", type=int, default=250)
     parser.add_argument("--sampler", type=str, default="gd", choices=["gd", "ngd"])

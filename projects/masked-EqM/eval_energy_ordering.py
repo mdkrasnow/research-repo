@@ -59,7 +59,7 @@ def field_norm(model, x, y, device):
     """Mean per-sample L2 norm of the field f(x, t=0, y) -- proxy for
     distance from equilibrium (see module docstring)."""
     t = torch.zeros((x.shape[0],), device=device)
-    with torch.no_grad():
+    with torch.set_grad_enabled(model.ebm != "none"):
         out = model(x, t, y)
         if not torch.is_tensor(out):
             out = out[0]
@@ -136,7 +136,7 @@ if __name__ == "__main__":
     parser.add_argument("--num-classes", type=int, default=1000)
     parser.add_argument("--vae", type=str, choices=["ema", "mse"], default="ema")
     parser.add_argument("--uncond", type=bool, default=True)
-    parser.add_argument("--ebm", type=str, choices=["none", "l2", "dot", "mean"], default="none")
+    parser.add_argument("--ebm", type=str, choices=["none", "l2", "dot", "mean", "direct"], default="none")
     parser.add_argument("--mask-prob", type=float, default=0.5)
     parser.add_argument("--num-images", type=int, default=256)
     parser.add_argument("--batch-size", type=int, default=16)

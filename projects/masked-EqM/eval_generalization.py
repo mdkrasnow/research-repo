@@ -135,17 +135,20 @@ def gd_recover(model_fn, z0, y, num_sampling_steps, stepsize):
     xt = z0
     t = torch.zeros((z0.shape[0],)).to(z0)
     for _ in range(num_sampling_steps - 1):
-        out = model_fn(xt, t, y)
+        ebm = getattr(getattr(model_fn, "__self__", None), "ebm", "none")
+        with torch.set_grad_enabled(ebm != "none"):
+            out = model_fn(xt, t, y)
         if not torch.is_tensor(out):
             out = out[0]
-        xt = xt + out * stepsize
+        out = out.detach()
+        xt = (xt + out * stepsize).detach()
         t = t + stepsize
     return xt
 
 
 def field_norm(model, x, y):
     t = torch.zeros((x.shape[0],), device=x.device)
-    with torch.no_grad():
+    with torch.set_grad_enabled(model.ebm != "none"):
         out = model(x, t, y)
         if not torch.is_tensor(out):
             out = out[0]
@@ -248,7 +251,7 @@ if __name__ == "__main__":
     parser.add_argument("--num-classes", type=int, default=1000)
     parser.add_argument("--vae", type=str, choices=["ema", "mse"], default="ema")
     parser.add_argument("--uncond", type=bool, default=True)
-    parser.add_argument("--ebm", type=str, choices=["none", "l2", "dot", "mean"], default="none")
+    parser.add_argument("--ebm", type=str, choices=["none", "l2", "dot", "mean", "direct"], default="none")
     parser.add_argument("--stepsize", type=float, default=0.0017)
     parser.add_argument("--num-sampling-steps", type=int, default=250)
     parser.add_argument("--num-images", type=int, default=128)
