@@ -1,6 +1,6 @@
 # Direct-energy campaign
 
-Updated: 2026-07-23T21:47:49.470141+00:00
+Updated: 2026-07-23T22:02:02.806505+00:00
 
 | Stage | Status | Job |
 |---|---|---|
@@ -10,8 +10,9 @@ Updated: 2026-07-23T21:47:49.470141+00:00
 | 2_fixed_batch | PASS |  |
 | 3_pilot | RUNNING | 34687878 |
 | 3_pilot_initial | RUNNING | 34685755 |
-| 4_sample_probe | RETRYING |  |
+| 4_sample_probe | PASS |  |
 | 4_sample_probe_initial | RUNNING | 34686567 |
+| 5_scale_audit | RUNNING |  |
 
 | Job | Stage | Status | Commit |
 |---|---|---|---|
@@ -25,5 +26,8 @@ Updated: 2026-07-23T21:47:49.470141+00:00
 | 34686264 | 4_sample_probe_initial | completed | 1830983 |
 | 34686567 | 4_sample_probe_initial | completed | 1830983 |
 | 34687332 | 3_pilot | completed | afd679e |
-| 34687844 | 3_pilot | running | afd679e |
-| 34687878 | 3_pilot | pending | afd679e |
+| 34687844 | 3_pilot | completed | afd679e |
+| 34687878 | 3_pilot | completed | afd679e |
+| 34688459 | 4_sample_probe | completed | 1c5e6f0 |
+| 34688460 | 4_sample_probe | completed | 1c5e6f0 |
+| 34688865 | 4_sample_probe | completed | 1c5e6f0 |
