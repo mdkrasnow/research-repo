@@ -12,7 +12,7 @@ def main(a):
  torch.manual_seed(a.seed); device=torch.device("cuda"); out=Path(a.output);out.mkdir(parents=True,exist_ok=True)
  if a.ebm!="none": torch.backends.cuda.enable_flash_sdp(False);torch.backends.cuda.enable_mem_efficient_sdp(False)
  model=EqM_models[a.model](input_size=a.image_size//8,num_classes=a.num_classes,uncond=True,ebm=a.ebm).to(device)
- state=torch.load(a.ckpt,map_location=device);model.load_state_dict(state["model"]);model.eval()
+ state=torch.load(a.ckpt,map_location=device);model.load_state_dict(state.get("ema",state["model"]));model.eval()
  for p in model.parameters():p.requires_grad_(False)
  z=torch.randn(a.num_samples,4,a.image_size//8,a.image_size//8,device=device); y=torch.arange(a.num_samples,device=device)%a.num_classes; t=torch.ones(a.num_samples,device=device); trajectory=[];start=time.time()
  ctx=torch.nn.attention.sdpa_kernel(torch.nn.attention.SDPBackend.MATH) if a.ebm!="none" else __import__('contextlib').nullcontext()
