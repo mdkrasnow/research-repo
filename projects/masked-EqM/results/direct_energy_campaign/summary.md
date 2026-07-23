@@ -1,9 +1,27 @@
 # Direct-energy campaign
 
-Updated: 2026-07-23T20:58:05.239656+00:00
+Updated: 2026-07-23T21:42:56.321143+00:00
 
 | Stage | Status | Job |
 |---|---|---|
 | 0_audit | PASS |  |
+| 0_evaluator_gpu_regression | RUNNING | 34683562 |
 | 1_infrastructure | PASS |  |
-| 0_evaluator_gpu_regression | RUNNING | 34682673 |
+| 2_fixed_batch | PASS |  |
+| 3_pilot | RUNNING |  |
+| 3_pilot_initial | RUNNING | 34685755 |
+| 4_sample_probe_initial | RUNNING | 34686567 |
+| 4_sample_probe | RETRYING |  |
+
+| Job | Stage | Status | Commit |
+|---|---|---|---|
+| 34683562 | 0_evaluator_gpu_regression | completed | 92dc605 |
+| 34684087 | 2_fixed_batch | failed | 92dc605 |
+| 34684474 | 2_fixed_batch | completed | 06607e6 |
+| 34685330 | 3_pilot_initial | completed | 304287e |
+| 34685362 | 3_pilot_initial | completed | 304287e |
+| 34685755 | 3_pilot_initial | completed | 304287e |
+| 34686252 | 4_sample_probe_initial | completed | 1830983 |
+| 34686264 | 4_sample_probe_initial | completed | 1830983 |
+| 34686567 | 4_sample_probe_initial | completed | 1830983 |
+| 34687332 | 3_pilot | running | afd679e |
