@@ -135,7 +135,7 @@ def gd_recover(model_fn, z0, y, num_sampling_steps, stepsize):
     xt = z0
     t = torch.zeros((z0.shape[0],)).to(z0)
     for _ in range(num_sampling_steps - 1):
-        ebm = getattr(getattr(model_fn, "__self__", None), "ebm", "none")
+        ebm = getattr(model_fn, "ebm", getattr(getattr(model_fn, "__self__", None), "ebm", "none"))
         with torch.set_grad_enabled(ebm != "none"):
             out = model_fn(xt, t, y)
         if not torch.is_tensor(out):
