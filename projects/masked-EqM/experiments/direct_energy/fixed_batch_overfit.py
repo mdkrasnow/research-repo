@@ -5,6 +5,7 @@ import argparse
 import json
 import os
 import subprocess
+import sys
 import time
 from pathlib import Path
 
@@ -13,6 +14,10 @@ import torch.nn.functional as F
 from diffusers.models import AutoencoderKL
 from torchvision import transforms
 from torchvision.datasets import ImageFolder
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 from models import EqM_models
 from experiments.direct_energy.gates import fixed_batch_gate
