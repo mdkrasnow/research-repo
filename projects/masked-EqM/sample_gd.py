@@ -111,12 +111,21 @@ def main(args):
     if args.ckpt is not None:
         ckpt_path = args.ckpt
         state_dict = find_model(ckpt_path)
-        if 'model' in state_dict.keys():
-            model.load_state_dict(state_dict["model"])
-            ema.load_state_dict(state_dict["ema"])
-        else:
-            model.load_state_dict(state_dict)
-            ema.load_state_dict(state_dict)
+        try:
+            if 'model' in state_dict.keys():
+                model.load_state_dict(state_dict["model"])
+                ema.load_state_dict(state_dict["ema"])
+            else:
+                model.load_state_dict(state_dict)
+                ema.load_state_dict(state_dict)
+        except RuntimeError as error:
+            if args.ebm == 'direct':
+                raise RuntimeError(
+                    "--ebm direct requires a direct-energy checkpoint. "
+                    "Vector-output EqM checkpoints have final_layer.* parameters "
+                    "and cannot load into the energy_head.* architecture."
+                ) from error
+            raise
 
         ema = ema.to(device)
         model = model.to(device)
@@ -183,19 +192,29 @@ def main(args):
                 model_kwargs = dict(y=y)
             xt = z
             m = torch.zeros_like(xt).to(xt).to(device)
-            for i in range(args.num_sampling_steps-1):
+            for _ in range(args.num_sampling_steps - 1):
                 if args.sampler == 'gd':
-                    out = model_fn(xt, t, y, args.cfg_scale)
-                    if not torch.is_tensor(out):
-                        out = out[0]
+                    model_input = xt
+                elif args.sampler == 'ngd':
+                    model_input = xt + args.stepsize * m * args.mu
+                else:
+                    raise ValueError(f"Unknown sampler: {args.sampler}")
+
+                # Explicit-energy models need input autograd, while VAE work
+                # and the rest of sampling remain inference-only.
+                with torch.set_grad_enabled(args.ebm != 'none'):
+                    if use_cfg:
+                        out = model_fn(model_input, t, y, args.cfg_scale)
+                    else:
+                        out = model_fn(model_input, t, y)
+
+                if not torch.is_tensor(out):
+                    out = out[0]
+                out = out.detach()
                 if args.sampler == 'ngd':
-                    x_ = xt + args.stepsize*m*args.mu
-                    out = model_fn(x_, t, y, args.cfg_scale)
-                    if not torch.is_tensor(out):
-                        out = out[0]
                     m = out
-                
-                xt = xt + out*args.stepsize
+
+                xt = (xt + out * args.stepsize).detach()
                 t += args.stepsize
             if use_cfg:
                 xt, _ = xt.chunk(2, dim=0)
@@ -235,8 +254,8 @@ if __name__ == "__main__":
     parser.add_argument("--num-fid-samples", type=int, default=50000)
     parser.add_argument("--uncond", type=bool, default=True,
                         help="disable/enable noise conditioning")
-    parser.add_argument("--ebm", type=str, choices=["none", "l2", "dot", "mean", "scalar"], default="none",
-                        help="energy formulation")
+    parser.add_argument("--ebm", type=str, choices=["none", "l2", "dot", "mean", "direct"], default="none",
+                        help="'direct' uses a scalar E_theta(x) and returns -grad_x E_theta(x)")
     parse_transport_args(parser)
     args = parser.parse_args()
     main(args)

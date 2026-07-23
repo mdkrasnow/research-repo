@@ -174,13 +174,22 @@ def main(args):
     if args.ckpt is not None:
         ckpt_path = args.ckpt
         state_dict = find_model(ckpt_path)
-        if 'model' in state_dict.keys():
-            model.load_state_dict(state_dict["model"])
-            ema.load_state_dict(state_dict["ema"])
-            opt.load_state_dict(state_dict["opt"])
-        else:
-            model.load_state_dict(state_dict)
-            ema.load_state_dict(state_dict)
+        try:
+            if 'model' in state_dict.keys():
+                model.load_state_dict(state_dict["model"])
+                ema.load_state_dict(state_dict["ema"])
+                opt.load_state_dict(state_dict["opt"])
+            else:
+                model.load_state_dict(state_dict)
+                ema.load_state_dict(state_dict)
+        except RuntimeError as error:
+            if args.ebm == 'direct':
+                raise RuntimeError(
+                    "--ebm direct requires a direct-energy checkpoint. "
+                    "Vector-output EqM checkpoints have final_layer.* parameters "
+                    "and cannot load into the energy_head.* architecture."
+                ) from error
+            raise
 
         ema = ema.to(device)
         model = model.to(device)
@@ -369,8 +378,8 @@ if __name__ == "__main__":
                         help="Toggle to enable Dispersive Loss")
     parser.add_argument("--uncond", type=bool, default=True,
                         help="disable/enable noise conditioning")
-    parser.add_argument("--ebm", type=str, choices=["none", "l2", "dot", "mean", "scalar"], default="none",
-                        help="energy formulation")
+    parser.add_argument("--ebm", type=str, choices=["none", "l2", "dot", "mean", "direct"], default="none",
+                        help="'direct' uses a scalar E_theta(x) and returns -grad_x E_theta(x)")
 
     parse_transport_args(parser)
     args = parser.parse_args()

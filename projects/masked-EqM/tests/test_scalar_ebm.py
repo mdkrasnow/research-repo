@@ -1,5 +1,5 @@
 """
-Sanity tests for the ebm='scalar' direct scalar-energy parameterization.
+Sanity tests for the ebm='direct' scalar-energy parameterization.
 
 Checks, per the pre-launch test plan:
   1. Field shape, finiteness, and gradient flow into the scalar head at
@@ -7,7 +7,8 @@ Checks, per the pre-launch test plan:
      initialization by contrast).
   2. Finite-difference check that the returned field is -grad_x E (sign and
      value), for both forward and forward_with_cfg (full-channel guidance).
-  3. Sampling under torch.no_grad() still produces a nonzero-graph-free field.
+  3. Sampling enables autograd only around the energy-model forward and
+     detaches every trajectory step.
 
 Run: python tests/test_scalar_ebm.py  (CPU, ~seconds)
 """
@@ -20,6 +21,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from models import EqM_models
 
 torch.manual_seed(0)
+DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
 def make_model(ebm):
@@ -32,7 +34,7 @@ def make_model(ebm):
         ebm=ebm,
     )
     model.eval()
-    return model
+    return model.to(DEVICE)
 
 
 def perturb_from_init(model, std=0.02):
@@ -45,14 +47,14 @@ def perturb_from_init(model, std=0.02):
 
 
 def batch(n=2):
-    z = torch.randn(n, 4, 4, 4)
-    t = torch.rand(n)
-    y = torch.randint(0, 10, (n,))
+    z = torch.randn(n, 4, 4, 4, device=DEVICE)
+    t = torch.rand(n, device=DEVICE)
+    y = torch.randint(0, 10, (n,), device=DEVICE)
     return z, t, y
 
 
 def test_shape_and_grad_flow():
-    model = make_model('scalar')
+    model = make_model('direct')
     model.train()
     z, t, y = batch()
     target = torch.randn_like(z)
@@ -64,10 +66,22 @@ def test_shape_and_grad_flow():
     loss = (field - target).square().mean()
     loss.backward()
 
-    grad = model.energy_head.proj.weight.grad
+    grad = model.energy_head.linear.weight.grad
     assert grad is not None
-    assert grad.norm() > 0, "scalar head got zero gradient at zero init"
-    print(f"PASS shape+gradflow: scalar proj grad norm {grad.norm():.3e} > 0 at zero init")
+    assert grad.norm() > 0, "direct energy head got zero gradient at zero init"
+    print(f"PASS shape+gradflow: direct head grad norm {grad.norm():.3e} > 0 at zero init")
+
+    # Once the scalar projection has moved off zero, the transformer receives
+    # the higher-order gradient too.
+    with torch.no_grad():
+        model.energy_head.linear.weight.add_(0.02)
+    model.zero_grad(set_to_none=True)
+    field = model(z, t, y, train=True)
+    (field - target).square().mean().backward()
+    backbone_grad = model.x_embedder.proj.weight.grad
+    assert backbone_grad is not None and torch.isfinite(backbone_grad).all()
+    assert backbone_grad.norm() > 0
+    print(f"PASS backbone gradient after head update: {backbone_grad.norm():.3e}")
 
 
 def test_l2_degenerate_init():
@@ -104,7 +118,7 @@ def finite_difference_check(model, forward_fn, z, t, y, eps=1e-3, direction=None
 
 
 def test_field_is_neg_grad_energy():
-    model = make_model('scalar')
+    model = make_model('direct')
     perturb_from_init(model)
     z, t, y = batch()
 
@@ -117,13 +131,16 @@ def test_field_is_neg_grad_energy():
 
 
 def test_cfg_full_channel_conservative():
-    model = make_model('scalar')
+    model = make_model('direct')
     perturb_from_init(model)
     n = 2
-    z_half = torch.randn(n, 4, 4, 4)
+    z_half = torch.randn(n, 4, 4, 4, device=DEVICE)
     z = torch.cat([z_half, z_half], 0)
-    t = torch.rand(n).repeat(2)
-    y = torch.cat([torch.randint(0, 10, (n,)), torch.randint(0, 10, (n,))])
+    t = torch.rand(n, device=DEVICE).repeat(2)
+    y = torch.cat([
+        torch.randint(0, 10, (n,), device=DEVICE),
+        torch.randint(0, 10, (n,), device=DEVICE),
+    ])
     cfg_scale = 4.0
 
     def fwd(z, t, y, get_energy):
@@ -143,19 +160,35 @@ def test_cfg_full_channel_conservative():
     print("PASS cfg: full-channel guided field == -grad_x E_cfg, halves duplicated")
 
 
-def test_sampling_under_no_grad():
-    model = make_model('scalar')
+def test_sampling_graph_lifecycle():
+    model = make_model('direct')
     perturb_from_init(model)
     z, t, y = batch()
 
+    xt = z
     with torch.no_grad():
-        field = model(z, t, y, train=False)
+        for _ in range(3):
+            with torch.set_grad_enabled(True):
+                field = model(xt, t, y, train=False)
+            field = field.detach()
+            xt = (xt + 0.01 * field).detach()
+            assert not field.requires_grad
+            assert not xt.requires_grad
+            assert torch.isfinite(xt).all()
+    print("PASS sampling graph lifecycle: finite detached field and sample at every step")
 
-    assert field.shape == z.shape
-    assert torch.isfinite(field).all()
-    assert field.abs().sum() > 0, "field silently zero under no_grad (grad-context bug)"
-    assert not field.requires_grad, "field must not retain graph across sampling steps"
-    print(f"PASS no_grad sampling: nonzero field (|f| sum {field.abs().sum():.3e}), no retained graph")
+
+def test_existing_modes():
+    z, t, y = batch()
+    for ebm in ('none', 'dot', 'l2'):
+        model = make_model(ebm)
+        model.train()
+        field = model(z, t, y, train=ebm != 'none')
+        assert field.shape == z.shape
+        assert torch.isfinite(field).all()
+        if ebm != 'none':
+            field.square().mean().backward()
+    print("PASS regression modes: none, dot, and l2 instantiate, forward, and backward")
 
 
 if __name__ == '__main__':
@@ -167,5 +200,6 @@ if __name__ == '__main__':
         test_l2_degenerate_init()
         test_field_is_neg_grad_energy()
         test_cfg_full_channel_conservative()
-        test_sampling_under_no_grad()
-    print("\nALL SCALAR-EBM SANITY TESTS PASSED")
+        test_sampling_graph_lifecycle()
+        test_existing_modes()
+    print("\nALL DIRECT-ENERGY SANITY TESTS PASSED")

@@ -141,10 +141,9 @@ class FinalLayer(nn.Module):
 
 class ScalarEnergyHead(nn.Module):
     """
-    Maps the final transformer representation to one scalar energy per image.
-    Mean pooling (no CLS token exists) keeps the output scale independent of
-    the number of patches. Energy is only identified up to an additive
-    constant under gradient matching, so the projection has no bias.
+    Maps the final transformer tokens directly to one scalar energy per
+    input sample. Summing patch contributions makes the energy extensive,
+    matching the spatial sums in the existing dot/L2 energy parameterizations.
     """
     def __init__(self, hidden_size):
         super().__init__()
@@ -153,13 +152,13 @@ class ScalarEnergyHead(nn.Module):
             nn.SiLU(),
             nn.Linear(hidden_size, 2 * hidden_size, bias=True)
         )
-        self.proj = nn.Linear(hidden_size, 1, bias=False)
+        self.linear = nn.Linear(hidden_size, 1, bias=True)
 
     def forward(self, x, c):
         shift, scale = self.adaLN_modulation(c).chunk(2, dim=1)
         x = modulate(self.norm_final(x), shift, scale)
-        pooled = x.mean(dim=1)
-        return self.proj(pooled).squeeze(-1)  # (N,)
+        token_energies = self.linear(x).squeeze(-1)
+        return token_energies.sum(dim=1)
 
 
 class EqM(nn.Module):
@@ -202,7 +201,7 @@ class EqM(nn.Module):
         self.ebm = ebm
         # Instantiate exactly one output head: permanently unused parameters
         # break DDP gradient synchronization unless find_unused_parameters=True.
-        if self.ebm == 'scalar':
+        if self.ebm == 'direct':
             self.final_layer = None
             self.energy_head = ScalarEnergyHead(hidden_size)
         else:
@@ -240,19 +239,17 @@ class EqM(nn.Module):
             nn.init.constant_(block.adaLN_modulation[-1].weight, 0)
             nn.init.constant_(block.adaLN_modulation[-1].bias, 0)
 
-        # Zero-out output layers:
-        if self.final_layer is not None:
+        # Zero-out the active output head.
+        if self.ebm == 'direct':
+            nn.init.constant_(self.energy_head.adaLN_modulation[-1].weight, 0)
+            nn.init.constant_(self.energy_head.adaLN_modulation[-1].bias, 0)
+            nn.init.constant_(self.energy_head.linear.weight, 0)
+            nn.init.constant_(self.energy_head.linear.bias, 0)
+        else:
             nn.init.constant_(self.final_layer.adaLN_modulation[-1].weight, 0)
             nn.init.constant_(self.final_layer.adaLN_modulation[-1].bias, 0)
             nn.init.constant_(self.final_layer.linear.weight, 0)
             nn.init.constant_(self.final_layer.linear.bias, 0)
-        if self.energy_head is not None:
-            nn.init.constant_(self.energy_head.adaLN_modulation[-1].weight, 0)
-            nn.init.constant_(self.energy_head.adaLN_modulation[-1].bias, 0)
-            # Zero proj gives an initially zero field, matching vanilla EqM's
-            # zeroed FinalLayer. Unlike the quadratic l2 construction, E = w^T h
-            # is linear in w, so w = 0 is not a stationary parameter point.
-            nn.init.constant_(self.energy_head.proj.weight, 0)
 
     def unpatchify(self, x):
         """
@@ -276,57 +273,62 @@ class EqM(nn.Module):
         t: (N,) tensor of diffusion timesteps
         y: (N,) tensor of class labels
         """
-        needs_energy_grad = self.ebm != 'none'
-        # Preserve the caller's grad state for vanilla EqM, but force gradients
-        # on for energy models so autograd.grad works during sampling under
-        # torch.no_grad() (the official sampling loop wraps model calls in it).
-        with torch.set_grad_enabled(torch.is_grad_enabled() or needs_energy_grad):
-            if needs_energy_grad:
-                # A fresh leaf avoids retaining graphs across sampling steps.
-                x0 = x0.detach().requires_grad_(True)
-            if self.uncond: # removes noise/time conditioning by setting to 0
-                t = torch.zeros_like(t)
-            act = []
-            x = self.x_embedder(x0) + self.pos_embed  # (N, T, D), where T = H * W / patch_size ** 2
-            t = self.t_embedder(t)                   # (N, D)
-            y = self.y_embedder(y, self.training)    # (N, D)
-            c = t + y                                # (N, D)
-            for block in self.blocks:
-                x = block(x, c)                      # (N, T, D)
-                act.append(x)
+        if self.ebm != 'none':
+            x0.requires_grad_(True)
 
-            if self.ebm == 'scalar':
-                # Directly parameterized scalar energy; the returned field is
-                # -grad_x E, so the gd sampler x <- x + eta * field descends E.
-                E = self.energy_head(x, c)           # (N,)
-                x = -torch.autograd.grad([E.sum()], [x0], create_graph=train, retain_graph=train)[0]
-                if get_energy:
-                    return x, E
-                if return_act:
-                    return x, act
-                return x
+        if self.uncond: # removes noise/time conditioning by setting to 0
+            t = torch.zeros_like(t)
+        act = []
+        x = self.x_embedder(x0) + self.pos_embed  # (N, T, D), where T = H * W / patch_size ** 2
+        t = self.t_embedder(t)                   # (N, D)
+        y = self.y_embedder(y, self.training)    # (N, D)
+        c = t + y                                # (N, D)
+        for block in self.blocks:
+            x = block(x, c)                      # (N, T, D)
+            act.append(x)
 
-            x = self.final_layer(x, c)                # (N, T, patch_size ** 2 * out_channels)
-            x = self.unpatchify(x)                   # (N, out_channels, H, W)
+        if self.ebm == 'direct':
+            E = self.energy_head(x, c)
+            # The EqM target and sampler use the sampling direction, so
+            # return -grad E: x <- x + eta * field is gradient descent on E.
+            field = -torch.autograd.grad(
+                outputs=E.sum(), inputs=x0, create_graph=train,
+            )[0]
+        else:
+            field = self.final_layer(x, c)             # (N, T, patch_size ** 2 * out_channels)
+            field = self.unpatchify(field)             # (N, out_channels, H, W)
             if self.learn_sigma:
-                x, _ = x.chunk(2, dim=1)
+                field, _ = field.chunk(2, dim=1)
 
-            # explicit energy
-            E=0
+            # Preserve the existing derived-energy parameterizations.
+            E = 0
             if self.ebm == 'l2':
-                E = -torch.sum(x**2, dim=(1,2,3))/2
-                x = torch.autograd.grad([E.sum()],[x0],create_graph=train)[0]
-            if self.ebm == 'dot':
-                E = torch.sum(x*x0, dim=(1,2,3))
-                x = torch.autograd.grad([E.sum()],[x0],create_graph=train)[0]
-            if self.ebm == 'mean':
-                E = torch.sum(x*x0, dim=(1,2,3))
-                x = torch.autograd.grad([E.sum()],[x0],create_graph=train)[0]
-            if get_energy:
-                return x, -E
-            if return_act:
-                return x, act
-            return x
+                internal_potential = -torch.sum(field**2, dim=(1, 2, 3)) / 2
+                if internal_potential.requires_grad:
+                    field = torch.autograd.grad(
+                        internal_potential.sum(), x0, create_graph=train,
+                    )[0]
+                E = -internal_potential
+            elif self.ebm == 'dot':
+                internal_potential = torch.sum(field * x0, dim=(1, 2, 3))
+                if internal_potential.requires_grad:
+                    field = torch.autograd.grad(
+                        internal_potential.sum(), x0, create_graph=train,
+                    )[0]
+                E = -internal_potential
+            elif self.ebm == 'mean':
+                internal_potential = torch.sum(field * x0, dim=(1, 2, 3))
+                if internal_potential.requires_grad:
+                    field = torch.autograd.grad(
+                        internal_potential.sum(), x0, create_graph=train,
+                    )[0]
+                E = -internal_potential
+
+        if get_energy:
+            return field, E
+        if return_act:
+            return field, act
+        return field
 
     def forward_with_cfg(self, x, t, y, cfg_scale, return_act=False, get_energy=False, train=False):
         """
@@ -339,7 +341,7 @@ class EqM(nn.Module):
         if get_energy:
             x, E = model_out
             model_out=x
-        if self.ebm == 'scalar':
+        if self.ebm == 'direct':
             # Coordinate-subset guidance (the 3-channel split below) destroys
             # conservativeness. Guide ALL channels: the guided field is then
             # -grad of E_cfg = E_uncond + s * (E_cond - E_uncond).
