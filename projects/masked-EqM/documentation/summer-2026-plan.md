@@ -264,7 +264,7 @@ under-evaluation bug during a full pre-analysis audit (3 checkpoints had to be r
 1-epoch resume after being mistakenly deleted). All recovered before running the final analysis;
 full incident log in `pipeline.json` debugging_notes.
 
-## Stage 2: structured-mask corruption — IN PROGRESS (2026-07-22)
+## Stage 2: structured-mask corruption — GATE FAILED / KILLED (2026-07-23)
 
 User directive: pivot to structured-mask at the 1-epoch budget, since it changes the completion
 signal itself (the likely bottleneck) rather than throwing more compute at the existing
@@ -284,12 +284,16 @@ gaussian+structured-mask 1:1}) submitted 2026-07-22 (6 concurrent + 3 queued via
 `--dependency=afterany`, per the 6-concurrent-job cap). Freed 35GB of stale, already-analyzed
 Stage1 checkpoints from home03 (was at 92%/7.7GB free) before launching.
 
-Next: once training completes, frozen Fourier eval (cutoff 0.10, 250 steps,
-`manifest_fourier_repl_1024.json`, reused verbatim/unchanged) + structured-mask-recovery eval
-(new `--mask-mode structured` on `eval_masked_recovery.py`) + FID on all 9 checkpoints,
-hierarchical bootstrap, evaluate against the 5 pre-registered Stage 2 gate conditions (delta_G >=
-0.010, 3/3 seeds beat both parents, win rate >75%, FID within +15, structured-mask recovery
-strong).
+Final result (2026-07-23): all 9 arms completed and all 27 outputs passed audit. Hierarchical
+bootstrap on the frozen Fourier endpoint shows the central hypothesis reversed sign:
+delta_G = **-0.00640**, 95% CI [-0.00893,-0.00360], Holm p<0.0001; the mixed treatment loses to
+Gaussian in 3/3 seeds and wins only 27.6% of images (gate requires >75%). It does learn strong
+structured recovery (LPIPS 0.349 vs Gaussian 0.607) and preserves generation (FID 178.49 vs
+173.90, +4.60), so code/harness and both controls work; the transfer mechanism itself fails.
+Structured training improves Fourier MSE while worsening Fourier LPIPS, another blurry-output
+metric disagreement; preregistered LPIPS governs. **Gate: 2/5 PASS -> KILL.** No ratio retune,
+longer training, scaling, or qualitative grids. See
+`documentation/postmortem-structured-mask-2026-07-23.md`.
 
 ## Scope discipline
 

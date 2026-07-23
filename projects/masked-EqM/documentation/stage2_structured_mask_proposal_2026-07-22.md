@@ -142,3 +142,12 @@ direction.
   `.sbatch` verbatim, no parameter or subset changes.
 - Qualitative grids only for a promoted candidate (per directive) — not built speculatively before
   the gate is evaluated.
+
+## Final verdict (2026-07-23)
+
+**GATE FAILED (2/5 pass); direction killed.** Frozen-Fourier delta_G reversed sign:
+-0.00640, 95% CI [-0.00893,-0.00360], Holm p<0.0001. Treatment loses to Gaussian in 3/3 seeds
+and has 27.6% per-image win rate. FID (+4.60) and trained structured recovery pass, confirming
+the implementation and controls work, but the proposed cross-corruption mechanism does not.
+No optional ratio follow-up, longer training, or scaling. Full results and mechanism read:
+`postmortem-structured-mask-2026-07-23.md`.

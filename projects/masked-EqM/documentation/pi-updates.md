@@ -1320,3 +1320,42 @@ Code + data + plots: `projects/masked-EqM/documentation/stage1_longer_training_2
 36+ eval jobs (plus quota-incident remediation jobs) tracked in `pipeline.json` active_runs ->
 completed_runs, including 3 debugging_notes entries documenting the quota incidents and the
 epoch-2 bug for process-improvement reference.
+
+## 2026-07-23: Stage 2 structured-mask corruption — GATE FAILS, branch killed
+
+**Trigger**: stage exit gate failed + significant branch termination requiring PI visibility.
+
+**Question**: does replacing independent Bernoulli masking with spatially contiguous masks teach
+semantic completion strongly enough to improve zero-shot perceptual recovery from severe unseen
+Fourier low-pass corruption?
+
+**Method**: one-epoch EqM-B/2, matched seeds 0–2, Gaussian-only / structured-mask-only /
+Gaussian+structured-mask 1:1. Frozen cutoff-0.10 Fourier recovery on the unchanged 1,024-image
+manifest, trained structured-mask recovery, and 2K FID. Hierarchical paired bootstrap, 10k draws,
+Holm correction across parent comparisons.
+
+| arm | Fourier LPIPS | structured-recovery LPIPS | FID |
+|---|---:|---:|---:|
+| Gaussian | 0.7667 ± 0.0011 | 0.6067 ± 0.0032 | 173.90 ± 0.76 |
+| structured-mask | 0.7882 ± 0.0010 | **0.3268 ± 0.0010** | 231.32 ± 2.75 |
+| Gaussian + structured-mask | 0.7731 ± 0.0024 | 0.3488 ± 0.0006 | 178.49 ± 1.21 |
+
+**Gate: FAIL (2/5 pass).** delta_G is **-0.00640**, 95% CI [-0.00893,-0.00360],
+Holm p<0.0001: the treatment is significantly *worse* than Gaussian on the preregistered
+perceptual endpoint. It loses to Gaussian in 3/3 seeds and wins only 27.6% of images (>75%
+required). FID passes (+4.60) and trained structured recovery passes strongly, confirming the
+code/harness and controls work. The mechanism—not implementation—failed.
+
+Structured training does improve Fourier MSE while worsening LPIPS, consistent with the prior
+warning that MSE rewards blurry reconstructions. LPIPS was preregistered and governs.
+
+**Action taken**: branch killed per rule. No ratio retune (allowed only if transfer improved but
+FID failed), no longer training, no scaling, no speculative qualitative grids. Full audit,
+analysis, raw outputs, and postmortem are in
+`documentation/stage2_structured_mask_2026-07-23/` and
+`documentation/postmortem-structured-mask-2026-07-23.md`.
+
+**Ask of PI/user**: choose the next research direction. This result rules out both "more compute
+on elementwise masking" (Stage 1) and "stronger spatial completion signal" (Stage 2) as ways to
+grow the severe-Fourier perceptual transfer effect at this scale. No new experiment will launch
+without a fresh mechanism proposal.
