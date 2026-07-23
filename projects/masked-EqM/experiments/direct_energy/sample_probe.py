@@ -12,7 +12,7 @@ def main(a):
  torch.manual_seed(a.seed); device=torch.device("cuda"); out=Path(a.output);out.mkdir(parents=True,exist_ok=True)
  if a.ebm!="none": torch.backends.cuda.enable_flash_sdp(False);torch.backends.cuda.enable_mem_efficient_sdp(False)
  model=EqM_models[a.model](input_size=a.image_size//8,num_classes=a.num_classes,uncond=True,ebm=a.ebm).to(device)
- state=torch.load(a.ckpt,map_location=device);model.load_state_dict(state.get("ema",state["model"]));model.eval()
+ state=torch.load(a.ckpt,map_location=device);weights=state.get(a.weights,state["model"]);model.load_state_dict(weights);model.eval()
  for p in model.parameters():p.requires_grad_(False)
  z=torch.randn(a.num_samples,4,a.image_size//8,a.image_size//8,device=device); y=torch.arange(a.num_samples,device=device)%a.num_classes; t=torch.ones(a.num_samples,device=device); trajectory=[];start=time.time()
  ctx=torch.nn.attention.sdpa_kernel(torch.nn.attention.SDPBackend.MATH) if a.ebm!="none" else __import__('contextlib').nullcontext()
@@ -27,4 +27,4 @@ def main(a):
  for i,img in enumerate(images):save_image(img,out/f"{i:03d}.png",normalize=True,value_range=(-1,1))
  (out/"trajectory.json").write_text(json.dumps({"ebm":a.ebm,"runtime_seconds":time.time()-start,"trajectory":trajectory},indent=2)+"\n")
 if __name__=="__main__":
- p=argparse.ArgumentParser();p.add_argument("--ckpt",required=True);p.add_argument("--output",required=True);p.add_argument("--ebm",choices=["none","dot","direct"],required=True);p.add_argument("--model",default="EqM-S/2",choices=list(EqM_models.keys()));p.add_argument("--image-size",type=int,default=256);p.add_argument("--num-classes",type=int,default=1000);p.add_argument("--vae",default="ema");p.add_argument("--num-samples",type=int,default=16);p.add_argument("--steps",type=int,default=50);p.add_argument("--stepsize",type=float,default=.003);p.add_argument("--seed",type=int,default=123);main(p.parse_args())
+ p=argparse.ArgumentParser();p.add_argument("--ckpt",required=True);p.add_argument("--output",required=True);p.add_argument("--ebm",choices=["none","dot","direct"],required=True);p.add_argument("--model",default="EqM-S/2",choices=list(EqM_models.keys()));p.add_argument("--image-size",type=int,default=256);p.add_argument("--num-classes",type=int,default=1000);p.add_argument("--vae",default="ema");p.add_argument("--weights",choices=["model","ema"],default="model");p.add_argument("--num-samples",type=int,default=16);p.add_argument("--steps",type=int,default=50);p.add_argument("--stepsize",type=float,default=.003);p.add_argument("--seed",type=int,default=123);main(p.parse_args())
