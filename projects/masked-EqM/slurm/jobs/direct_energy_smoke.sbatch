@@ -30,8 +30,9 @@ git fetch --depth=50 origin main
 git checkout "$GIT_SHA" || { git fetch --unshallow origin; git checkout "$GIT_SHA"; }
 
 cd projects/masked-EqM
-pip install --quiet timm
+pip install --quiet timm diffusers torchvision
 python tests/test_scalar_ebm.py 2>&1 | tee direct_energy_smoke.log
+python tests/test_direct_eval_samplers.py 2>&1 | tee -a direct_energy_smoke.log
 
 mkdir -p "$REPO_ROOT/projects/masked-EqM/slurm/logs"
 cp direct_energy_smoke.log "$REPO_ROOT/projects/masked-EqM/slurm/logs/direct_energy_smoke_${SLURM_JOB_ID}.log"
