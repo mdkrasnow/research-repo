@@ -26,9 +26,9 @@ RUN_TAGS=(
     direct_full_none_seed2 direct_full_dot_seed2 direct_full_direct_seed2
 )
 JOB_IDS=(
-    34721182 34721183 34721184
-    34725369 34725371 34725373
-    34725375 34725377 34725379
+    34721182 34721183 34796838
+    34796863 34796866 34796868
+    34796869 34796870 34796872
 )
 EBMS=(none dot direct none dot direct none dot direct)
 
