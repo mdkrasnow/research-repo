@@ -14,15 +14,22 @@ def load_rows(root):
     if len(ids)!=len(set(ids)): raise RuntimeError('duplicate records')
     return rows
 
-def paired(rows,a,b,metric='lpips_missing_composite',nboot=10000,seed=20260724):
+def paired(rows,a,b,metric='lpips_missing_composite',family='combined',mode_a='hard',mode_b='hard',nboot=10000,seed=20260724):
     key=lambda r:(r['checkpoint_id'].rsplit('_',1)[-1],r['dataset_index'],r['mask_family'],r['requested_visible_fraction'])
-    ra={key(r):r for r in rows if r['checkpoint_id'].startswith(a) and r['projection_mode']=='hard' and r['mask_family']=='combined' and r['requested_visible_fraction']==.5}
-    rb={key(r):r for r in rows if r['checkpoint_id'].startswith(b) and r['projection_mode']=='hard' and r['mask_family']=='combined' and r['requested_visible_fraction']==.5}
-    keys=sorted(set(ra)&set(rb));
-    if len(keys)<2: raise RuntimeError(f'incomplete pairing {a} {b}')
-    dif=np.array([ra[k][metric]-rb[k][metric] for k in keys]); rng=np.random.default_rng(seed)
-    reps=np.array([rng.choice(dif,len(dif),replace=True).mean() for _ in range(nboot)])
-    return {'n':len(dif),'mean_difference':float(dif.mean()),'ci95':np.percentile(reps,[2.5,97.5]).tolist(),'p_bootstrap':float(2*min((reps<=0).mean(),(reps>=0).mean())),'fraction_b_improves':float((dif>0).mean())}
+    filt=lambda r,arm,mode:r['checkpoint_id'].startswith(arm) and r['projection_mode']==mode and r['mask_family']==family and r['requested_visible_fraction']==.5
+    ra={key(r):r for r in rows if filt(r,a,mode_a)}; rb={key(r):r for r in rows if filt(r,b,mode_b)}; keys=sorted(set(ra)&set(rb))
+    if set(ra)!=set(rb) or len(keys)<3: raise RuntimeError(f'incomplete/mismatched pairing {a} {b} {family}')
+    for k in keys:
+        for fld in ('manifest_hash','mask_hash','corruption_seed','initialization_seed','sampler','sampler_steps','step_size','momentum'):
+            if ra[k].get(fld)!=rb[k].get(fld): raise RuntimeError(f'paired mismatch {fld}: {k}')
+    byseed={s:np.array([ra[k][metric]-rb[k][metric] for k in keys if k[0]==s]) for s in sorted({k[0] for k in keys})}
+    if len(byseed)!=3 or len(set(map(len,byseed.values())))!=1: raise RuntimeError('requires exactly three complete matched checkpoint seeds')
+    rng=np.random.default_rng(seed); seeds=list(byseed)
+    reps=[]
+    for _ in range(nboot):
+        chosen=rng.choice(seeds,3,replace=True); reps.append(np.mean([rng.choice(byseed[s],len(byseed[s]),replace=True).mean() for s in chosen]))
+    dif=np.concatenate(list(byseed.values())); reps=np.array(reps)
+    return {'n':len(dif),'seed_effects':{s:float(x.mean()) for s,x in byseed.items()},'mean_difference':float(dif.mean()),'ci95':np.percentile(reps,[2.5,97.5]).tolist(),'p_bootstrap':float(2*min((reps<=0).mean(),(reps>=0).mean())),'fraction_b_improves':float((dif>0).mean())}
 
 def main(a):
     rows=load_rows(a.input_dir)
@@ -31,7 +38,7 @@ def main(a):
         for mode in ['none','hard','soft']:
             x=[r['lpips_missing_composite'] for r in rows if r['checkpoint_id'].startswith(arm) and r['projection_mode']==mode]
             if x: summaries[f'{arm}_{mode}']={'n':len(x),'mean':float(np.mean(x)),'median':float(np.median(x)),'std':float(np.std(x,ddof=1)),'se':float(np.std(x,ddof=1)/math.sqrt(len(x)))}
-    out={'rows':len(rows),'summaries':summaries,'primary_mixed_vs_gaussian':paired(rows,'gaussian','mixed'),'primary_mixed_vs_bernoulli':paired(rows,'bernoulli','mixed')}
+    out={'rows':len(rows),'summaries':summaries,'primary_mixed_vs_gaussian':paired(rows,'gaussian','mixed'),'primary_mixed_vs_bernoulli':paired(rows,'bernoulli','mixed'),'projection_gaussian':paired(rows,'gaussian','gaussian',mode_a='none',mode_b='hard'),'projection_bernoulli':paired(rows,'bernoulli','bernoulli',mode_a='none',mode_b='hard'),'projection_mixed':paired(rows,'mixed','mixed',mode_a='none',mode_b='hard')}
     Path(a.output).parent.mkdir(parents=True,exist_ok=True); Path(a.output).write_text(json.dumps(out,indent=2)); print(json.dumps(out,indent=2))
 if __name__=='__main__':
  p=argparse.ArgumentParser();p.add_argument('--input-dir',required=True);p.add_argument('--output',required=True);main(p.parse_args())
