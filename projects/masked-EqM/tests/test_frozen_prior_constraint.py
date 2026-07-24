@@ -1,5 +1,5 @@
 import torch
-from frozen_prior_constraint import project, visibility_mask, make_manifest, sampler_recover, shard_rows
+from frozen_prior_constraint import project, visibility_mask, make_manifest, sampler_recover, shard_rows, legacy_gd_reference
 
 def test_mask_polarity_and_combined_fraction():
     v, _ = visibility_mask('combined', 128, 128, .5, 11)
@@ -26,6 +26,14 @@ def test_nag_uses_projected_state_between_steps():
     sampler_recover(field, torch.zeros_like(clean), clean, v, torch.zeros(1,dtype=torch.long), 3, .1, 'ngd', .3, 'hard', 1.)
     # second look-ahead starts from projected first state [0,.1], not [0.1,.1]
     assert torch.allclose(calls[1], torch.tensor([[[[.03,.13]]]]))
+
+def test_disabled_projection_reproduces_existing_sampler_tensor_for_tensor():
+    def field(x,t,y): return .2*x + .1
+    z=torch.randn(2,1,3,3); c=torch.randn_like(z); v=torch.randint(0,2,(2,1,3,3)).float(); y=torch.zeros(2,dtype=torch.long)
+    for sampler in ['gd','ngd']:
+        got,_=sampler_recover(field,z.clone(),c,v,y,7,.03,sampler,.3,'none',0.)
+        expected=legacy_gd_reference(field,z.clone(),y,7,.03,sampler,.3)
+        assert torch.equal(got,expected)
 
 def test_manifest_is_deterministic_and_shardable(tmp_path):
     a=make_manifest(tmp_path/'a.json',100,10,'pilot',['combined'],[.5],seed=9)

@@ -144,6 +144,21 @@ def sampler_recover(model, state, clean, v, y, steps, stepsize, sampler, mu, mod
     return state, observed_max
 
 
+def legacy_gd_reference(model, z0, y, steps, stepsize, sampler, mu):
+    """Literal tensor-level reference for eval_masked_recovery.gd_recover.
+    It permits a disabled-projection regression without importing its GPU/VAE
+    dependencies or conflating RNG/manifest differences with sampler logic.
+    """
+    xt=z0; t=torch.ones((z0.shape[0],),device=z0.device,dtype=z0.dtype); m=torch.zeros_like(xt)
+    for _ in range(steps-1):
+        inp=xt if sampler=='gd' else xt+stepsize*m*mu
+        out=model(inp,t,y); out=out[0] if not torch.is_tensor(out) else out
+        out=out.detach()
+        if sampler!='gd': m=out
+        xt=(xt+out*stepsize).detach(); t=t+stepsize
+    return xt
+
+
 def load_ema(path, device):
     if EqM_models is None: raise RuntimeError("cluster evaluation dependencies are unavailable")
     model = EqM_models["EqM-B/2"](input_size=32, num_classes=1000, uncond=True, ebm="none").to(device)
