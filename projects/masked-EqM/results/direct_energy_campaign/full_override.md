@@ -24,8 +24,9 @@ startup/memory preflight.  This is a real-scale one-epoch screen, not an
 | `dot` | 34721183 | PENDING | `858bb0f` |
 | `direct` | 34721184 | PENDING | `858bb0f` |
 
-Scheduler events are recorded by job 34721825 in `monitor/`.  The prior
-monitor jobs 34721354 and 34721386 were cancelled after, respectively,
-writing malformed JSONL and dropping pending rows with empty `MaxRSS`; their
-output was preserved.  The replacement accepts empty scheduler memory fields
-and is being regression-checked for multiple valid JSONL records.
+Scheduler events are recorded by job 34723454 in `monitor/`.  The prior
+monitor jobs 34721354, 34721386, and 34721825 were cancelled after,
+respectively, writing malformed JSONL, dropping pending rows with empty
+`MaxRSS`, and writing to a duplicated remote directory.  All captured output
+was preserved.  The replacement accepts empty scheduler memory fields and
+writes to the canonical campaign path.
