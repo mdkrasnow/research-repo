@@ -16,7 +16,7 @@ mkdir -p "$STATUS_DIR"
 while true; do
     timestamp="$(date -Is)"
     sacct -n -P -j "$JOB_IDS" --format=JobIDRaw,State,ExitCode,Elapsed,MaxRSS \
-        | awk -F'|' -v at="$timestamp" 'NF >= 5 && $1 != "" && $1 !~ /\./ {printf "{\"at\":\"%s\",\"job_id\":\"%s\",\"state\":\"%s\",\"exit_code\":\"%s\",\"elapsed\":\"%s\",\"max_rss\":\"%s\"}\n", at,$1,$2,$3,$4,$5}' \
+        | awk -F'|' -v at="$timestamp" 'NF >= 4 && $1 != "" && $1 !~ /\./ {printf "{\"at\":\"%s\",\"job_id\":\"%s\",\"state\":\"%s\",\"exit_code\":\"%s\",\"elapsed\":\"%s\",\"max_rss\":\"%s\"}\n", at,$1,$2,$3,$4,$5}' \
         >> "$STATUS_DIR/scheduler_events.jsonl"
     sleep 300
 done
