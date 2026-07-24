@@ -22,7 +22,7 @@ module load cuda/11.8.0-fasrc01 2>/dev/null || true
 nvidia-smi
 WORK="/tmp/frozen-prior-${SLURM_JOB_ID}"; mkdir -p "$WORK"; cd "$WORK"
 git init repo >/dev/null; cd repo
-git remote add origin "${GIT_URL:?}"; git fetch --depth=1 origin "${GIT_SHA:?}"; git checkout --detach "$GIT_SHA"
+git remote add origin "${GIT_URL:?}"; git fetch --depth=50 origin main; git checkout --detach "${GIT_SHA:?}"
 cd projects/masked-EqM
 python -m pip install --quiet timm diffusers accelerate torchvision lpips
 
