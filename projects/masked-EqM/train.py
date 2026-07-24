@@ -194,7 +194,17 @@ def main(args):
         ema = ema.to(device)
         model = model.to(device)
     requires_grad(ema, False)
-    model = DDP(model, device_ids=[device])
+    # The direct scalar head returns an input gradient produced by an
+    # inner autograd.grad call.  DDP cannot reliably discover every scalar
+    # head edge from that nested graph on the first iteration (the zero
+    # initialized projection is especially important here), so enable its
+    # unused-parameter traversal for this mode only.  Existing vector modes
+    # retain their original DDP behavior and overhead.
+    model = DDP(
+        model,
+        device_ids=[device],
+        find_unused_parameters=(args.ebm == "direct"),
+    )
     transport = create_transport(
         args.path_type,
         args.prediction,
