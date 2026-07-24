@@ -8,7 +8,7 @@
 #SBATCH --time=12:00:00
 set -euo pipefail
 
-REPO_ROOT="${REPO_ROOT:-/n/home03/mkrasnow/projects}"
+REPO_ROOT="${REPO_ROOT:-/n/home03/mkrasnow/research-repo}"
 STATUS_DIR="$REPO_ROOT/projects/masked-EqM/results/direct_energy_campaign/monitor"
 JOB_IDS="${JOB_IDS:?set comma-separated JOB_IDS}"
 mkdir -p "$STATUS_DIR"
