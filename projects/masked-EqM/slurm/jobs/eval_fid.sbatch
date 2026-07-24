@@ -44,6 +44,7 @@ pip install --quiet timm diffusers accelerate torchvision pytorch-fid 2>&1 | tai
 CKPT="${CKPT:?CKPT must be set}"
 VAL_PATH="${VAL_PATH:-/n/holylabs/ydu_lab/Lab/raywang4/imagenet/val}"
 OUT_NAME="${OUT_NAME:-fid}"
+EBM="${EBM:-none}"
 
 OUT_DIR="${OUT_DIR:-/n/holylabs/ydu_lab/Lab/mkrasnow_eqm/masked-EqM/eval_results}"
 mkdir -p "$OUT_DIR"
@@ -53,6 +54,7 @@ python eval_fid.py \
     --data-path "$VAL_PATH" \
     --num-samples "${NUM_SAMPLES:-2000}" \
     --batch-size "${BATCH_SIZE:-32}" \
+    --ebm "$EBM" \
     --num-sampling-steps "${NUM_SAMPLING_STEPS:-250}" \
     --work-dir "$WORK_DIR/fid_work" \
     --out "$OUT_DIR/${OUT_NAME}.json"
