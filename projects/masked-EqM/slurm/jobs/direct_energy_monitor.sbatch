@@ -5,7 +5,7 @@
 #SBATCH --partition=shared
 #SBATCH --cpus-per-task=1
 #SBATCH --mem=1GB
-#SBATCH --time=12:00:00
+#SBATCH --time=3-00:00:00
 set -euo pipefail
 
 REPO_ROOT="${REPO_ROOT:-/n/home03/mkrasnow/research-repo}"
