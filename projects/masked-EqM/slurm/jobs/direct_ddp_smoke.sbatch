@@ -36,7 +36,7 @@ dist.init_process_group(
     rank=0,
     world_size=1,
 )
-device = int(os.environ["LOCAL_RANK"])
+device = 0
 torch.cuda.set_device(device)
 model = EqM(input_size=8, patch_size=2, in_channels=4, hidden_size=64,
             depth=2, num_heads=4, mlp_ratio=2.0, num_classes=10,
