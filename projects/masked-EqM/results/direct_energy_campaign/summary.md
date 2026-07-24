@@ -1,11 +1,12 @@
 # Direct-energy campaign
 
-Updated: 2026-07-24T01:00:06.313108+00:00
+Updated: 2026-07-24T01:01:12.604838+00:00
 
 | Stage | Status | Job |
 |---|---|---|
 | 0_audit | PASS |  |
 | 0_evaluator_gpu_regression | RUNNING | 34683562 |
+| 10_decision | NEGATIVE_NO_FULL_LAUNCH |  |
 | 1_infrastructure | PASS |  |
 | 2_fixed_batch | PASS |  |
 | 3_pilot | RUNNING | 34687878 |
@@ -17,7 +18,7 @@ Updated: 2026-07-24T01:00:06.313108+00:00
 | 7_nfe | PASS |  |
 | 8_off_trajectory | NEGATIVE |  |
 | 9_generalization | NOT_PROMOTED |  |
-| 10_decision | NEGATIVE_NO_FULL_LAUNCH |  |
+| 12_report | COMPLETE |  |
 
 | Job | Stage | Status | Commit |
 |---|---|---|---|
