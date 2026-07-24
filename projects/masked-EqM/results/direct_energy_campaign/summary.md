@@ -1,13 +1,15 @@
 # Direct-energy campaign
 
-Updated: 2026-07-24T01:49:02.806168+00:00
+Updated: 2026-07-24T01:53:49.389085+00:00
 
 | Stage | Status | Job |
 |---|---|---|
 | 0_audit | PASS |  |
 | 0_evaluator_gpu_regression | RUNNING | 34683562 |
 | 10_decision | NEGATIVE_NO_FULL_LAUNCH |  |
+| 11_full_eval | RUNNING | 34725999 |
 | 11_full_screen | RUNNING | 34725379 |
+| 12_full_aggregate | RUNNING | 34726285 |
 | 12_report | COMPLETE |  |
 | 1_infrastructure | PASS |  |
 | 2_fixed_batch | PASS |  |
@@ -47,3 +49,5 @@ Updated: 2026-07-24T01:49:02.806168+00:00
 | 34725375 | 11_full_screen | pending | 858bb0f |
 | 34725377 | 11_full_screen | pending | 858bb0f |
 | 34725379 | 11_full_screen | pending | 858bb0f |
+| 34725999 | 11_full_eval | pending | e6ac409 |
+| 34726285 | 12_full_aggregate | pending | 05b27ae |
