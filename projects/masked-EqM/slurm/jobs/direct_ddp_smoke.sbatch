@@ -30,6 +30,13 @@ import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 from models import EqM
 
+# Match train.py's explicit-energy kernel policy: nested input-gradient
+# training requires the math SDP implementation.
+torch.backends.cuda.enable_flash_sdp(False)
+torch.backends.cuda.enable_mem_efficient_sdp(False)
+torch.backends.cuda.enable_cudnn_sdp(False)
+torch.backends.cuda.enable_math_sdp(True)
+
 dist.init_process_group(
     "nccl",
     init_method="tcp://127.0.0.1:29501",
