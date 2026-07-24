@@ -30,7 +30,12 @@ import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 from models import EqM
 
-dist.init_process_group("nccl")
+dist.init_process_group(
+    "nccl",
+    init_method="tcp://127.0.0.1:29501",
+    rank=0,
+    world_size=1,
+)
 device = int(os.environ["LOCAL_RANK"])
 torch.cuda.set_device(device)
 model = EqM(input_size=8, patch_size=2, in_channels=4, hidden_size=64,
