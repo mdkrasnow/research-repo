@@ -1,6 +1,6 @@
 # Direct-energy campaign
 
-Updated: 2026-07-23T22:02:02.806505+00:00
+Updated: 2026-07-24T01:00:06.313108+00:00
 
 | Stage | Status | Job |
 |---|---|---|
@@ -12,7 +12,12 @@ Updated: 2026-07-23T22:02:02.806505+00:00
 | 3_pilot_initial | RUNNING | 34685755 |
 | 4_sample_probe | PASS |  |
 | 4_sample_probe_initial | RUNNING | 34686567 |
-| 5_scale_audit | RUNNING |  |
+| 5_scale_audit | PASS |  |
+| 6_stepsize | PASS |  |
+| 7_nfe | PASS |  |
+| 8_off_trajectory | NEGATIVE |  |
+| 9_generalization | NOT_PROMOTED |  |
+| 10_decision | NEGATIVE_NO_FULL_LAUNCH |  |
 
 | Job | Stage | Status | Commit |
 |---|---|---|---|
