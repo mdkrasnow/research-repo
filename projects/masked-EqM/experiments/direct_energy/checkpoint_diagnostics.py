@@ -69,6 +69,8 @@ def main(args: argparse.Namespace) -> None:
                     field, energy = model(xt, tv, y, get_energy=True, train=True)
                     loss = (field - target).square().mean()
                     loss.backward()
+                if not torch.is_tensor(energy):
+                    energy = torch.zeros(x1.shape[0], device=device)
                 fn = field.detach().flatten(1).norm(dim=1)
                 tn = target.flatten(1).norm(dim=1)
                 rec = {"t": t.item(), "loss": loss.item(),
