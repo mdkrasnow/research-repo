@@ -202,7 +202,10 @@ def run(args):
             start = time.time()
             x, label = data[row['dataset_index']]; x=x.unsqueeze(0).to(device); y=torch.tensor([label],device=device)
             torch.manual_seed(row['encode_seed']); clean=vae.encode(x).latent_dist.sample()*LATENT_SCALE
-            v,_ = visibility_mask(row['mask_family'], clean.shape[-2], clean.shape[-1], row['requested_visible_fraction'], row['mask_seed']); v=v.to(device)
+            # visibility_mask is channel-shared [1,H,W]; evaluator tensors are
+            # [B,C,H,W], so add the explicit batch axis before projection and
+            # regional reductions.
+            v,_ = visibility_mask(row['mask_family'], clean.shape[-2], clean.shape[-1], row['requested_visible_fraction'], row['mask_seed']); v=v.unsqueeze(0).to(device)
             torch.manual_seed(row['corruption_seed']); fill=torch.randn_like(clean); observed=v*clean+(1-v)*fill
             state=observed.clone(); reconstructed,invariants=sampler_recover(model,state,clean,v,y,args.steps,args.step_size,args.sampler,args.momentum,args.projection_mode,args.projection_strength)
             decoded=vae.decode(reconstructed/LATENT_SCALE).sample

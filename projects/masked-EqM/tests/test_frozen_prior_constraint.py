@@ -46,3 +46,8 @@ def test_pilot_final_offsets_are_disjoint(tmp_path):
     pilot=make_manifest(tmp_path/'p.json',100,10,'pilot',['combined'],[.5],seed=8,index_offset=0)
     final=make_manifest(tmp_path/'f.json',100,20,'final',['combined'],[.5],seed=8,index_offset=10)
     assert {r['dataset_index'] for r in pilot['rows']}.isdisjoint({r['dataset_index'] for r in final['rows']})
+
+def test_visibility_mask_explicitly_forms_batch_channel_spatial_tensor():
+    v,_=visibility_mask('combined',4,4,.5,17)
+    assert v.shape==(1,4,4)
+    assert v.unsqueeze(0).shape==(1,1,4,4)
