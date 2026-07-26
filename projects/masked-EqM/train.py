@@ -171,6 +171,8 @@ def main(args):
     ema = deepcopy(model).to(device)  # Create an EMA of the model for use after training
     opt = torch.optim.AdamW(model.parameters(), lr=1e-4, weight_decay=0)
 
+    resume_epoch = 0
+    resume_step = None
     if args.ckpt is not None:
         ckpt_path = args.ckpt
         state_dict = find_model(ckpt_path)
@@ -179,6 +181,8 @@ def main(args):
                 model.load_state_dict(state_dict["model"])
                 ema.load_state_dict(state_dict["ema"])
                 opt.load_state_dict(state_dict["opt"])
+                resume_epoch = int(state_dict.get("epoch", 0))
+                resume_step = state_dict.get("step")
             else:
                 model.load_state_dict(state_dict)
                 ema.load_state_dict(state_dict)
@@ -255,13 +259,19 @@ def main(args):
     )
     logger.info(f"Dataset contains {len(dataset):,} images ({args.data_path})")
 
+    # Epoch-boundary checkpoints from the original one-epoch screen predate
+    # the explicit step field. Infer their completed step count from the
+    # deterministic loader length; newer checkpoints carry the exact value.
+    if resume_step is None:
+        resume_step = resume_epoch * len(loader)
+
     # Prepare models for training:
     update_ema(ema, model.module, decay=0)  # Ensure EMA is initialized with synced weights
     model.train()  # important! This enables embedding dropout for classifier-free guidance
     ema.eval()  # EMA model should always be in eval mode
 
     # Variables for monitoring/logging purposes:
-    train_steps = 0
+    train_steps = int(resume_step)
     log_steps = 0
     running_loss = 0
     start_time = time()
@@ -285,7 +295,7 @@ def main(args):
         model_fn = ema.forward
     
     logger.info(f"Training for {args.epochs} epochs...")
-    for epoch in range(args.epochs):
+    for epoch in range(resume_epoch, args.epochs):
         sampler.set_epoch(epoch)
         logger.info(f"Beginning epoch {epoch}...")
         for x, y in loader:
@@ -333,7 +343,9 @@ def main(args):
                         "model": model.module.state_dict(),
                         "ema": ema.state_dict(),
                         "opt": opt.state_dict(),
-                        "args": args
+                        "args": args,
+                        "step": train_steps,
+                        "epoch": epoch + 1,
                     }
                     checkpoint_path = f"{checkpoint_dir}/{train_steps:07d}.pt"
                     torch.save(checkpoint, checkpoint_path)
@@ -352,6 +364,7 @@ def main(args):
                 "opt": opt.state_dict(),
                 "args": args,
                 "epoch": epoch + 1,
+                "step": train_steps,
             }
             epoch_checkpoint_path = f"{checkpoint_dir}/epoch{epoch + 1:02d}.pt"
             torch.save(checkpoint, epoch_checkpoint_path)
