@@ -15,11 +15,12 @@ import torch.nn.functional as F
 try:
     from diffusers.models import AutoencoderKL
     from torchvision import transforms
+    from torchvision.utils import save_image
     from torchvision.datasets import ImageFolder
     from download import find_model
     from models import EqM_models
 except ImportError:
-    AutoencoderKL = transforms = ImageFolder = find_model = EqM_models = None
+    AutoencoderKL = transforms = ImageFolder = find_model = EqM_models = save_image = None
 
 try:
     import lpips
@@ -181,6 +182,23 @@ def regional_metrics(pred_latent, clean_latent, decoded, clean_img, v, lpips_fn)
     return miss_mse, obs_mse, ((pred_latent-clean_latent).square().mean((1,2,3))), lp_full, lp_hole, px_mse
 
 
+def save_panel_images(root, checkpoint_id, mode, row, clean, observed, reconstruction, vae, v):
+    """Save deterministic condition-level inputs/outputs for later paired panels."""
+    if save_image is None: raise RuntimeError('torchvision image utilities are unavailable')
+    safe_id = row['sample_id'].replace(':', '_')
+    out = Path(root) / 'images' / checkpoint_id / mode / safe_id
+    out.mkdir(parents=True, exist_ok=True)
+    with torch.no_grad():
+        observed_image = vae.decode(observed / LATENT_SCALE).sample
+    def write(name, image):
+        save_image(((image[0].detach().float().cpu().clamp(-1, 1) + 1) / 2), out / name)
+    write('clean.png', clean)
+    write('corruption.png', observed_image)
+    write('reconstruction.png', reconstruction)
+    mask = F.interpolate(v, size=clean.shape[-2:], mode='nearest')[0].detach().float().cpu().repeat(3, 1, 1)
+    save_image(mask, out / 'visibility_mask.png')
+
+
 def run(args):
     if AutoencoderKL is None: raise RuntimeError("cluster evaluation dependencies are unavailable")
     manifest = json.loads(Path(args.sample_manifest).read_text()) if args.sample_manifest else make_manifest(args.create_manifest, len(ImageFolder(args.data_path)), args.num_samples, args.manifest_split, args.mask_families.split(','), [float(x) for x in args.target_visible_fracs.split(',')], seed=args.seed)
@@ -195,6 +213,7 @@ def run(args):
     done = set()
     if args.resume and outfile.exists(): done = {json.loads(x)['record_id'] for x in outfile.read_text().splitlines() if x}
     resolved = vars(args) | {'manifest_hash':manifest['manifest_hash'], 'rows':len(rows)}; print(json.dumps(resolved,indent=2,sort_keys=True))
+    saved = 0
     with outfile.open('a') as f, torch.no_grad():
         for row in rows:
             rid = digest([args.checkpoint_id,args.projection_mode,args.projection_strength,row]);
@@ -209,6 +228,9 @@ def run(args):
             torch.manual_seed(row['corruption_seed']); fill=torch.randn_like(clean); observed=v*clean+(1-v)*fill
             state=observed.clone(); reconstructed,invariants=sampler_recover(model,state,clean,v,y,args.steps,args.step_size,args.sampler,args.momentum,args.projection_mode,args.projection_strength)
             decoded=vae.decode(reconstructed/LATENT_SCALE).sample
+            if args.save_images and saved < args.image_limit:
+                save_panel_images(output, args.checkpoint_id, args.projection_mode, row, x, observed, decoded, vae, v)
+                saved += 1
             metrics=regional_metrics(reconstructed,clean,decoded,x,v,lpfn)
             rec={"record_id":rid,"experiment_id":"frozen_prior_constraint","checkpoint_id":args.checkpoint_id,"checkpoint_path":args.checkpoint,"git_commit":args.git_commit,"config_hash":digest(resolved),"class_id":label,"projection_mode":args.projection_mode,"projection_strength":args.projection_strength,"sampler":args.sampler,"sampler_steps":args.steps,"step_size":args.step_size,"momentum":args.momentum,"missing_model_mse":float(metrics[0]),"observed_model_mse":float(metrics[1]),"full_model_mse":float(metrics[2]),"lpips_full":float(metrics[3]),"lpips_missing_composite":float(metrics[4]),"observed_pixel_mse":float(metrics[5]),"hard_projection_max_abs":max(invariants,default=0.),"runtime_seconds":time.time()-start,"completion_status":"ok",**row}
             if args.strict and args.projection_mode=='hard' and rec['hard_projection_max_abs']>1e-6: raise RuntimeError(rec)
@@ -217,4 +239,4 @@ def run(args):
 
 
 if __name__ == '__main__':
-    p=argparse.ArgumentParser(); p.add_argument('--checkpoint',required=True); p.add_argument('--checkpoint-id',required=True); p.add_argument('--data-path',required=True); p.add_argument('--sample-manifest'); p.add_argument('--create-manifest'); p.add_argument('--manifest-split',default='pilot',choices=['pilot','final']); p.add_argument('--num-samples',type=int,default=256); p.add_argument('--mask-families',default='bernoulli,block,combined,irregular'); p.add_argument('--mask-family',default='all'); p.add_argument('--target-visible-fracs',default='.5'); p.add_argument('--projection-mode',default='hard',choices=['none','hard','soft']); p.add_argument('--projection-strength',type=float,default=1.); p.add_argument('--sampler',default='gd',choices=['gd','ngd']); p.add_argument('--steps',type=int,default=250); p.add_argument('--step-size',type=float,default=.0017); p.add_argument('--momentum',type=float,default=.3); p.add_argument('--shard-id',type=int,default=0); p.add_argument('--num-shards',type=int,default=1); p.add_argument('--output-dir',required=True); p.add_argument('--seed',type=int,default=20260724); p.add_argument('--device'); p.add_argument('--git-commit',default='unknown'); p.add_argument('--resume',action='store_true'); p.add_argument('--strict',action='store_true'); p.add_argument('--no-lpips',action='store_true'); run(p.parse_args())
+    p=argparse.ArgumentParser(); p.add_argument('--checkpoint',required=True); p.add_argument('--checkpoint-id',required=True); p.add_argument('--data-path',required=True); p.add_argument('--sample-manifest'); p.add_argument('--create-manifest'); p.add_argument('--manifest-split',default='pilot',choices=['pilot','final']); p.add_argument('--num-samples',type=int,default=256); p.add_argument('--mask-families',default='bernoulli,block,combined,irregular'); p.add_argument('--mask-family',default='all'); p.add_argument('--target-visible-fracs',default='.5'); p.add_argument('--projection-mode',default='hard',choices=['none','hard','soft']); p.add_argument('--projection-strength',type=float,default=1.); p.add_argument('--sampler',default='gd',choices=['gd','ngd']); p.add_argument('--steps',type=int,default=250); p.add_argument('--step-size',type=float,default=.0017); p.add_argument('--momentum',type=float,default=.3); p.add_argument('--shard-id',type=int,default=0); p.add_argument('--num-shards',type=int,default=1); p.add_argument('--output-dir',required=True); p.add_argument('--seed',type=int,default=20260724); p.add_argument('--device'); p.add_argument('--git-commit',default='unknown'); p.add_argument('--resume',action='store_true'); p.add_argument('--strict',action='store_true'); p.add_argument('--no-lpips',action='store_true'); p.add_argument('--save-images',action='store_true'); p.add_argument('--image-limit',type=int,default=32); run(p.parse_args())

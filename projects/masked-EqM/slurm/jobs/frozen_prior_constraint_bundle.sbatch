@@ -34,11 +34,13 @@ run_one() {
   local line="$1" mode="$2" rho="$3" shard="$4" n_shards="$5" manifest="$6" steps="$7"
   local id="${line%%|*}" ckpt="${line#*|}"
   echo "stage=$STAGE bundle=$BUNDLE_ID id=$id mode=$mode rho=$rho shard=$shard/$n_shards"
+  local image_args=()
+  [ "${SAVE_IMAGES:-0}" = 1 ] && image_args=(--save-images --image-limit "${IMAGE_LIMIT:-32}")
   python frozen_prior_constraint.py --checkpoint "$ckpt" --checkpoint-id "$id" --data-path "$VAL" \
     --sample-manifest "$manifest" --manifest-split "${8}" --projection-mode "$mode" \
     --mask-family "${9:-all}" \
     --projection-strength "$rho" --steps "$steps" --shard-id "$shard" --num-shards "$n_shards" \
-    --output-dir "$OUT_ROOT/$STAGE" --git-commit "$GIT_SHA" --strict --resume
+    --output-dir "$OUT_ROOT/$STAGE" --git-commit "$GIT_SHA" --strict --resume "${image_args[@]}"
 }
 
 if [ "$STAGE" = smoke ]; then
@@ -60,6 +62,7 @@ else
   # BUNDLE_ID maps directly to one of the nine locked checkpoints.  Bundle a
   # contiguous set of shards sequentially so a submission consumes one slot.
   : "${SOFT_RHO:?lock pilot rho before final}"
+  export SAVE_IMAGES=1
   START="${SHARD_START:-0}"; END="${SHARD_END:-0}"; N="${NUM_SHARDS:-8}"
   for shard in $(seq "$START" "$END"); do
     for mode in none hard soft; do
