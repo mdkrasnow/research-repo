@@ -1,5 +1,5 @@
 import torch
-from frozen_prior_constraint import project, visibility_mask, make_manifest, sampler_recover, shard_rows, legacy_gd_reference
+from frozen_prior_constraint import project, visibility_mask, make_manifest, sampler_recover, shard_rows, legacy_gd_reference, regional_metrics
 from analyze_frozen_prior_constraint import paired
 
 def test_mask_polarity_and_combined_fraction():
@@ -64,3 +64,17 @@ def test_single_verified_mixed_seed_is_reported_without_seed_robustness_claim():
     result=paired(rows,"gaussian","mixed",nboot=50)
     assert result["checkpoint_seed_count"]==1
     assert result["bootstrap_scope"].startswith("paired image only")
+
+def test_regional_metrics_separate_observed_and_missing_pixel_errors():
+    clean=torch.zeros(1,1,2,2)
+    pred=clean.clone(); pred[...,0,1]=1.; pred[...,1,1]=1.
+    image_clean=torch.zeros(1,3,2,2)
+    image_pred=image_clean.clone(); image_pred[...,0,1]=2.; image_pred[...,1,1]=2.
+    visible=torch.tensor([[[[1.,0.],[1.,0.]]]])
+    metrics=regional_metrics(pred, clean, image_pred, image_clean, visible, None)
+    # Model-space and decoded error are restricted to the two missing pixels.
+    assert torch.allclose(metrics[0], torch.tensor([1.]))
+    assert torch.allclose(metrics[1], torch.tensor([0.]))
+    assert torch.allclose(metrics[5], torch.tensor([0.]))
+    assert torch.allclose(metrics[6], torch.tensor([4.]))
+    assert torch.allclose(metrics[7], torch.tensor([0.]))
