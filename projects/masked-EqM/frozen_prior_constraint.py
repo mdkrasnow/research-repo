@@ -175,11 +175,14 @@ def regional_metrics(pred_latent, clean_latent, decoded, clean_img, v, lpips_fn)
     obs_mse = (((pred_latent-clean_latent).square()*v).sum((1,2,3))/(v.sum((1,2,3)).clamp_min(1)*clean_latent.shape[1]))
     px_v = F.interpolate(v, size=clean_img.shape[-2:], mode="nearest"); px_m = 1-px_v
     px_denom = (px_m.sum((1,2,3)).clamp_min(1)*clean_img.shape[1])
-    px_mse = ((decoded-clean_img).square()*px_v).sum((1,2,3))/(px_v.sum((1,2,3)).clamp_min(1)*clean_img.shape[1])
+    observed_px_mse = ((decoded-clean_img).square()*px_v).sum((1,2,3))/(px_v.sum((1,2,3)).clamp_min(1)*clean_img.shape[1])
+    missing_px_mse = ((decoded-clean_img).square()*px_m).sum((1,2,3))/px_denom
+    missing_psnr = 10 * torch.log10(torch.tensor(4., device=decoded.device) / missing_px_mse.clamp_min(1e-12))
+    full_px_mse = (decoded-clean_img).square().mean((1,2,3))
     composite = px_m*decoded + px_v*clean_img
     lp_full = lpips_fn(decoded.clamp(-1,1),clean_img.clamp(-1,1)).flatten() if lpips_fn else torch.full_like(miss_mse, float('nan'))
     lp_hole = lpips_fn(composite.clamp(-1,1),clean_img.clamp(-1,1)).flatten() if lpips_fn else torch.full_like(miss_mse, float('nan'))
-    return miss_mse, obs_mse, ((pred_latent-clean_latent).square().mean((1,2,3))), lp_full, lp_hole, px_mse
+    return miss_mse, obs_mse, ((pred_latent-clean_latent).square().mean((1,2,3))), lp_full, lp_hole, observed_px_mse, missing_px_mse, missing_psnr, full_px_mse
 
 
 def save_panel_images(root, checkpoint_id, mode, row, clean, observed, reconstruction, vae, v):
@@ -212,13 +215,15 @@ def run(args):
     outfile = output / f"{args.checkpoint_id}_{args.projection_mode}_shard{args.shard_id}.jsonl"
     done = set()
     if args.resume and outfile.exists(): done = {json.loads(x)['record_id'] for x in outfile.read_text().splitlines() if x}
-    resolved = vars(args) | {'manifest_hash':manifest['manifest_hash'], 'rows':len(rows)}; print(json.dumps(resolved,indent=2,sort_keys=True))
+    checkpoint_size = os.path.getsize(args.checkpoint)
+    resolved = vars(args) | {'manifest_hash':manifest['manifest_hash'], 'rows':len(rows), 'checkpoint_file_size':checkpoint_size}; print(json.dumps(resolved,indent=2,sort_keys=True))
     saved = 0
     with outfile.open('a') as f, torch.no_grad():
         for row in rows:
             rid = digest([args.checkpoint_id,args.projection_mode,args.projection_strength,row]);
             if rid in done: continue
             start = time.time()
+            if device.type == 'cuda': torch.cuda.reset_peak_memory_stats(device)
             x, label = data[row['dataset_index']]; x=x.unsqueeze(0).to(device); y=torch.tensor([label],device=device)
             torch.manual_seed(row['encode_seed']); clean=vae.encode(x).latent_dist.sample()*LATENT_SCALE
             # visibility_mask is channel-shared [1,H,W]; evaluator tensors are
@@ -232,11 +237,11 @@ def run(args):
                 save_panel_images(output, args.checkpoint_id, args.projection_mode, row, x, observed, decoded, vae, v)
                 saved += 1
             metrics=regional_metrics(reconstructed,clean,decoded,x,v,lpfn)
-            rec={"record_id":rid,"experiment_id":"frozen_prior_constraint","checkpoint_id":args.checkpoint_id,"checkpoint_path":args.checkpoint,"git_commit":args.git_commit,"config_hash":digest(resolved),"class_id":label,"projection_mode":args.projection_mode,"projection_strength":args.projection_strength,"sampler":args.sampler,"sampler_steps":args.steps,"step_size":args.step_size,"momentum":args.momentum,"missing_model_mse":float(metrics[0]),"observed_model_mse":float(metrics[1]),"full_model_mse":float(metrics[2]),"lpips_full":float(metrics[3]),"lpips_missing_composite":float(metrics[4]),"observed_pixel_mse":float(metrics[5]),"hard_projection_max_abs":max(invariants,default=0.),"runtime_seconds":time.time()-start,"completion_status":"ok",**row}
+            rec={"record_id":rid,"experiment_id":"frozen_prior_constraint","checkpoint_id":args.checkpoint_id,"checkpoint_path":args.checkpoint,"checkpoint_file_size":checkpoint_size,"model_arm":args.model_arm,"mixture_ratio":args.mixture_ratio,"checkpoint_seed":args.checkpoint_seed,"checkpoint_epoch":args.checkpoint_epoch,"checkpoint_step":args.checkpoint_step,"ema_status":args.ema,"git_commit":args.git_commit,"config_hash":digest(resolved),"class_id":label,"projection_mode":args.projection_mode,"projection_strength":args.projection_strength,"sampler":args.sampler,"sampler_steps":args.steps,"step_size":args.step_size,"momentum":args.momentum,"missing_model_mse":float(metrics[0]),"observed_model_mse":float(metrics[1]),"full_model_mse":float(metrics[2]),"lpips_full":float(metrics[3]),"lpips_missing_composite":float(metrics[4]),"observed_pixel_mse":float(metrics[5]),"missing_pixel_mse":float(metrics[6]),"missing_psnr":float(metrics[7]),"full_pixel_mse":float(metrics[8]),"hard_projection_max_abs":max(invariants,default=0.),"runtime_seconds":time.time()-start,"peak_memory":int(torch.cuda.max_memory_allocated(device)) if device.type == 'cuda' else 0,"completion_status":"ok",**row}
             if args.strict and args.projection_mode=='hard' and rec['hard_projection_max_abs']>1e-6: raise RuntimeError(rec)
             f.write(json.dumps(rec)+"\n"); f.flush()
     print(outfile)
 
 
 if __name__ == '__main__':
-    p=argparse.ArgumentParser(); p.add_argument('--checkpoint',required=True); p.add_argument('--checkpoint-id',required=True); p.add_argument('--data-path',required=True); p.add_argument('--sample-manifest'); p.add_argument('--create-manifest'); p.add_argument('--manifest-split',default='pilot',choices=['pilot','final']); p.add_argument('--num-samples',type=int,default=256); p.add_argument('--mask-families',default='bernoulli,block,combined,irregular'); p.add_argument('--mask-family',default='all'); p.add_argument('--target-visible-fracs',default='.5'); p.add_argument('--projection-mode',default='hard',choices=['none','hard','soft']); p.add_argument('--projection-strength',type=float,default=1.); p.add_argument('--sampler',default='gd',choices=['gd','ngd']); p.add_argument('--steps',type=int,default=250); p.add_argument('--step-size',type=float,default=.0017); p.add_argument('--momentum',type=float,default=.3); p.add_argument('--shard-id',type=int,default=0); p.add_argument('--num-shards',type=int,default=1); p.add_argument('--output-dir',required=True); p.add_argument('--seed',type=int,default=20260724); p.add_argument('--device'); p.add_argument('--git-commit',default='unknown'); p.add_argument('--resume',action='store_true'); p.add_argument('--strict',action='store_true'); p.add_argument('--no-lpips',action='store_true'); p.add_argument('--save-images',action='store_true'); p.add_argument('--image-limit',type=int,default=32); run(p.parse_args())
+    p=argparse.ArgumentParser(); p.add_argument('--checkpoint',required=True); p.add_argument('--checkpoint-id',required=True); p.add_argument('--model-arm',required=True); p.add_argument('--mixture-ratio',required=True); p.add_argument('--checkpoint-seed',type=int,required=True); p.add_argument('--checkpoint-epoch',type=int,default=1); p.add_argument('--checkpoint-step',type=int,default=40000); p.add_argument('--ema',default='ema'); p.add_argument('--data-path',required=True); p.add_argument('--sample-manifest'); p.add_argument('--create-manifest'); p.add_argument('--manifest-split',default='pilot',choices=['pilot','final']); p.add_argument('--num-samples',type=int,default=256); p.add_argument('--mask-families',default='bernoulli,block,combined,irregular'); p.add_argument('--mask-family',default='all'); p.add_argument('--target-visible-fracs',default='.5'); p.add_argument('--projection-mode',default='hard',choices=['none','hard','soft']); p.add_argument('--projection-strength',type=float,default=1.); p.add_argument('--sampler',default='gd',choices=['gd','ngd']); p.add_argument('--steps',type=int,default=250); p.add_argument('--step-size',type=float,default=.0017); p.add_argument('--momentum',type=float,default=.3); p.add_argument('--shard-id',type=int,default=0); p.add_argument('--num-shards',type=int,default=1); p.add_argument('--output-dir',required=True); p.add_argument('--seed',type=int,default=20260724); p.add_argument('--device'); p.add_argument('--git-commit',default='unknown'); p.add_argument('--resume',action='store_true'); p.add_argument('--strict',action='store_true'); p.add_argument('--no-lpips',action='store_true'); p.add_argument('--save-images',action='store_true'); p.add_argument('--image-limit',type=int,default=32); run(p.parse_args())

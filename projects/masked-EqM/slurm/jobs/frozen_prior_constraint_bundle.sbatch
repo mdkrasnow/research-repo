@@ -33,10 +33,13 @@ mapfile -t ARMS < <(python -c 'import json; [print(x["id"]+"|"+x["path"]) for x 
 run_one() {
   local line="$1" mode="$2" rho="$3" shard="$4" n_shards="$5" manifest="$6" steps="$7"
   local id="${line%%|*}" ckpt="${line#*|}"
+  local arm ratio seed
+  arm="${id%_seed*}"; seed="${id##*_seed}"
+  case "$arm" in gaussian) ratio="1:0";; bernoulli) ratio="0:1";; mixed) ratio="1:1";; *) echo "unknown checkpoint arm $id" >&2; exit 2;; esac
   echo "stage=$STAGE bundle=$BUNDLE_ID id=$id mode=$mode rho=$rho shard=$shard/$n_shards"
   local image_args=()
   [ "${SAVE_IMAGES:-0}" = 1 ] && image_args=(--save-images --image-limit "${IMAGE_LIMIT:-32}")
-  python frozen_prior_constraint.py --checkpoint "$ckpt" --checkpoint-id "$id" --data-path "$VAL" \
+  python frozen_prior_constraint.py --checkpoint "$ckpt" --checkpoint-id "$id" --model-arm "$arm" --mixture-ratio "$ratio" --checkpoint-seed "$seed" --data-path "$VAL" \
     --sample-manifest "$manifest" --manifest-split "${8}" --projection-mode "$mode" \
     --mask-family "${9:-all}" \
     --projection-strength "$rho" --steps "$steps" --shard-id "$shard" --num-shards "$n_shards" \
