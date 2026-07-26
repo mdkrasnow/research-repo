@@ -36,15 +36,10 @@ cd projects/masked-EqM
 pip install --quiet timm diffusers accelerate torchdiffeq wandb torchvision
 
 MASTER_PORT=$((29500 + RANDOM % 1000))
-TRAIN_CMD="python -m torch.distributed.run --nnodes=1 --nproc_per_node=1 --master_port=$MASTER_PORT train.py --model EqM-B/2 --data-path $IMAGENET_PATH --num-classes 1000 --global-batch-size 32 --epochs 5 --image-size 256 --log-every 50 --ckpt-every 999999999 --results-dir $RESULTS_DIR --ebm $EBM --global-seed $GLOBAL_SEED --ckpt $CKPT"
+TRAIN_CMD="python -m torch.distributed.run --nnodes=1 --nproc_per_node=1 --master_port=$MASTER_PORT train.py --model EqM-B/2 --data-path $IMAGENET_PATH --num-classes 1000 --global-batch-size 32 --epochs 5 --save-epochs 2,3,5 --image-size 256 --log-every 50 --ckpt-every 999999999 --results-dir $RESULTS_DIR --ebm $EBM --global-seed $GLOBAL_SEED --ckpt $CKPT"
 echo "$TRAIN_CMD"
 eval "$TRAIN_CMD" 2>&1 | tee train.log
 EXIT_CODE=${PIPESTATUS[0]}
 cp train.log "$REPO_ROOT/projects/masked-EqM/slurm/logs/${RUN_TAG}_${SLURM_JOB_ID}.log" || true
-# Epoch 4 is not an evaluation point; remove it after successful completion
-# to keep the matched campaign within home03 storage limits.
-if [ "$EXIT_CODE" -eq 0 ]; then
-  find "$RESULTS_DIR" -name 'epoch04.pt' -delete
-fi
 rm -rf "$WORK_DIR"
 exit "$EXIT_CODE"

@@ -357,7 +357,7 @@ def main(args):
         # RNG state, so matched multi-epoch comparisons rely on retraining
         # from scratch through a fixed epoch count and reading these off
         # directly, not on resuming from a step checkpoint mid-run.
-        if rank == 0:
+        if rank == 0 and (args.save_epochs is None or epoch + 1 in args.save_epochs):
             checkpoint = {
                 "model": model.module.state_dict(),
                 "ema": ema.state_dict(),
@@ -387,6 +387,8 @@ if __name__ == "__main__":
     parser.add_argument("--image-size", type=int, choices=[256, 512], default=256)
     parser.add_argument("--num-classes", type=int, default=1000)
     parser.add_argument("--epochs", type=int, default=80)
+    parser.add_argument("--save-epochs", type=str, default=None,
+                        help="Comma-separated epoch numbers to save; default saves every epoch")
     parser.add_argument("--global-batch-size", type=int, default=256)
     parser.add_argument("--global-seed", type=int, default=0)
     parser.add_argument("--vae", type=str, choices=["ema", "mse"], default="ema")  # Choice doesn't affect training
@@ -406,4 +408,7 @@ if __name__ == "__main__":
 
     parse_transport_args(parser)
     args = parser.parse_args()
+    args.save_epochs = None if args.save_epochs is None else {
+        int(value) for value in args.save_epochs.split(",") if value.strip()
+    }
     main(args)
