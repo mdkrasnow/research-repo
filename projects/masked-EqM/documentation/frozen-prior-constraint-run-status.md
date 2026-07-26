@@ -20,3 +20,10 @@
 * Focused tests: 8 passed locally, including exact tensor-level disabled-projection GD/NAG regression and batched-mask metric shape coverage.
 
 The smoke will be resubmitted from the corrected immutable revision.
+
+## Active run
+
+* `35332640` — `seas_gpu`, bundled smoke, submitted 2026-07-26 14:24 EDT,
+  immutable revision `c5ab95c`. It evaluates the three representative
+  checkpoints sequentially, with resume enabled; expected runtime is short
+  within a 12-hour allocation.
