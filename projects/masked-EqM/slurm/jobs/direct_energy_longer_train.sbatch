@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=eqm-longer
-#SBATCH --output=projects/masked-EqM/slurm/logs/longer-%A.out
-#SBATCH --error=projects/masked-EqM/slurm/logs/longer-%A.err
+#SBATCH --output=/n/home03/mkrasnow/research-repo/projects/masked-EqM/slurm/logs/longer-%A.out
+#SBATCH --error=/n/home03/mkrasnow/research-repo/projects/masked-EqM/slurm/logs/longer-%A.err
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
