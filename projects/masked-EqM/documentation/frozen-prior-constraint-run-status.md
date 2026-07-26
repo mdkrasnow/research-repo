@@ -21,9 +21,11 @@
 
 The smoke will be resubmitted from the corrected immutable revision.
 
-## Active run
+## Completed smoke
 
-* `35332640` — `seas_gpu`, bundled smoke, submitted 2026-07-26 14:24 EDT,
-  immutable revision `c5ab95c`. It evaluates the three representative
-  checkpoints sequentially, with resume enabled; expected runtime is short
-  within a 12-hour allocation.
+* `35332640` — `seas_gpu`, `COMPLETED` 2026-07-26 14:27 EDT, 00:04:53,
+  exit `0:0`, immutable revision `c5ab95c`. The six expected files contain
+  96/96 finite records (16 paired examples × 3 arms × none/hard). Hard
+  projection had observed latent MSE = 0 and maximum invariant deviation = 0
+  for every arm. The unconstrained controls had nonzero observed errors, as
+  expected. No metric or loading error occurred.
