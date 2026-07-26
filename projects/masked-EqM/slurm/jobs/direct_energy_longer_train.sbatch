@@ -25,6 +25,8 @@ RUN_TAG="${RUN_TAG:?set RUN_TAG}"
 RESULTS_ROOT="${RESULTS_ROOT:-/n/home03/mkrasnow/direct_energy_longer_retry}"
 RESULTS_DIR="$RESULTS_ROOT/${RUN_TAG}_job${SLURM_JOB_ID}"
 IMAGENET_PATH="${IMAGENET_PATH:-/n/holylabs/ydu_lab/Lab/raywang4/imagenet/train}"
+export ENTITY="${ENTITY:-none}"
+export PROJECT="${PROJECT:-none}"
 
 mkdir -p "$WORK_DIR" "$RESULTS_DIR"
 cd "$WORK_DIR"
