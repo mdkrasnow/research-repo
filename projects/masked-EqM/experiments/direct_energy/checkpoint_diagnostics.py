@@ -71,6 +71,7 @@ def main(args: argparse.Namespace) -> None:
                     loss.backward()
                 if not torch.is_tensor(energy):
                     energy = torch.zeros(x1.shape[0], device=device)
+                head = model.energy_head if arm == "direct" else model.final_layer
                 fn = field.detach().flatten(1).norm(dim=1)
                 tn = target.flatten(1).norm(dim=1)
                 rec = {"t": t.item(), "loss": loss.item(),
@@ -79,7 +80,7 @@ def main(args: argparse.Namespace) -> None:
                        "norm_ratio": (fn / tn.clamp_min(1e-12)).mean().item(),
                        "energy_mean": energy.detach().mean().item(),
                        "energy_std": energy.detach().std(unbiased=False).item(),
-                       "head_grad_norm": grad_norm(getattr(model, "energy_head", model.final_layer).parameters()),
+                       "head_grad_norm": grad_norm(head.parameters()),
                        "backbone_grad_norm": grad_norm(model.x_embedder.parameters())}
                 per_t.append(rec)
             handle.write(json.dumps({"label": label, "arm": arm, "ckpt": ckpt, "metrics": per_t}) + "\n")
