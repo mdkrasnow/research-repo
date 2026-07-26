@@ -29,3 +29,10 @@ The smoke will be resubmitted from the corrected immutable revision.
   projection had observed latent MSE = 0 and maximum invariant deviation = 0
   for every arm. The unconstrained controls had nonzero observed errors, as
   expected. No metric or loading error occurred.
+
+## Active pilot
+
+* `35378195` — `seas_gpu`, submitted 2026-07-26 14:31 EDT, immutable revision
+  `cda0f08`. It evaluates the disjoint pilot manifest for Gaussian, Bernoulli,
+  and verified mixed seed-0 checkpoints, with none/hard plus soft rho
+  `{0.25, 0.5, 0.75}`. This job may only lock rho and operational settings.
