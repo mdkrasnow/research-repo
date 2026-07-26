@@ -1,5 +1,6 @@
 import torch
 from frozen_prior_constraint import project, visibility_mask, make_manifest, sampler_recover, shard_rows, legacy_gd_reference
+from analyze_frozen_prior_constraint import paired
 
 def test_mask_polarity_and_combined_fraction():
     v, _ = visibility_mask('combined', 128, 128, .5, 11)
@@ -51,3 +52,15 @@ def test_visibility_mask_explicitly_forms_batch_channel_spatial_tensor():
     v,_=visibility_mask('combined',4,4,.5,17)
     assert v.shape==(1,4,4)
     assert v.unsqueeze(0).shape==(1,1,4,4)
+
+def test_single_verified_mixed_seed_is_reported_without_seed_robustness_claim():
+    base={"manifest_hash":"m","mask_hash":"h","corruption_seed":1,"initialization_seed":2,
+          "sampler":"gd","sampler_steps":250,"step_size":.0017,"momentum":.3,
+          "mask_family":"combined","requested_visible_fraction":.5,"projection_mode":"hard"}
+    rows=[]
+    for i in range(3):
+        for arm,value in [("gaussian_seed0",.4),("mixed_seed0",.3)]:
+            rows.append({**base,"checkpoint_id":arm,"dataset_index":i,"lpips_missing_composite":value})
+    result=paired(rows,"gaussian","mixed",nboot=50)
+    assert result["checkpoint_seed_count"]==1
+    assert result["bootstrap_scope"].startswith("paired image only")
