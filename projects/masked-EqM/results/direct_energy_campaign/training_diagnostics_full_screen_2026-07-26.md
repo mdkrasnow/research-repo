@@ -16,7 +16,7 @@ This report parses the nine completed one-epoch EqM-B/2 training logs under `/n/
 
 The direct run is approximately 0.11 loss above dot and 0.50 above none in the final tenth. All arms show sustained downward movement; none shows the lowest final field loss, dot is intermediate, and direct is not numerically divergent.
 
-The direct seed-2 throughput (4.72 steps/sec) is an outlier relative to direct seeds 0/1 (2.30–2.31) and should not be interpreted as a stable performance estimate without checking node/kernel conditions.
+The direct seed-2 throughput (4.72 steps/sec) is an outlier relative to direct seeds 0/1 (2.30–2.31). Slurm accounting identifies the cause: seed 2 ran on an **NVIDIA H200** (`holygpu8a16403`), while direct seeds 0/1 ran on A100-SXM4-80GB nodes (`holygpu8a31304`, `holygpu8a25306`). The 4.72 value is valid for that hardware but must be excluded from matched A100 throughput comparisons.
 
 ## What this does and does not establish
 
