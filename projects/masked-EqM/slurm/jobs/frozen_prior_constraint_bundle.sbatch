@@ -10,7 +10,7 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=48G
-#SBATCH --time=2-23:00:00
+#SBATCH --time=12:00:00
 #SBATCH --partition=seas_gpu
 #SBATCH --gres=gpu:1
 set -euo pipefail
@@ -48,9 +48,10 @@ if [ "$STAGE" = smoke ]; then
     for mode in none hard; do run_one "${ARMS[$i]}" "$mode" 1 0 16 configs/frozen_prior_constraint_pilot_locked_v4.json 5 pilot combined; done
   done
 elif [ "$STAGE" = pilot ]; then
-  # BUNDLE_ID is matched training seed 0, 1, or 2.  One job contains all
-  # three arms and the entire preregistered soft-rho grid.
+  # BUNDLE_ID is a training seed. A bundle is valid only when all three
+  # frozen arms exist at that seed; do not substitute a different mixture.
   for i in "$BUNDLE_ID" "$((BUNDLE_ID+3))" "$((BUNDLE_ID+6))"; do
+    [ "$i" -lt "${#ARMS[@]}" ] || { echo "No verified matched mixed checkpoint for seed $BUNDLE_ID" >&2; exit 3; }
     run_one "${ARMS[$i]}" none 0 0 1 configs/frozen_prior_constraint_pilot_locked_v4.json 250 pilot
     run_one "${ARMS[$i]}" hard 1 0 1 configs/frozen_prior_constraint_pilot_locked_v4.json 250 pilot
     for rho in .25 .5 .75; do run_one "${ARMS[$i]}" soft "$rho" 0 1 configs/frozen_prior_constraint_pilot_locked_v4.json 250 pilot; done

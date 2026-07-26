@@ -3,11 +3,18 @@
 ## Pre-registration
 
 This experiment reuses frozen vector-field EqM checkpoints only.  Its primary
-set is the recoverable, architecture-matched EqM-B/2 ImageNet-1K 40,000-step
+set is the verified, architecture-matched EqM-B/2 ImageNet-1K 40,000-step
 set in `configs/frozen_prior_constraint_checkpoints.json`: three Gaussian-only,
-three Bernoulli-mask-only, and three 1:1 Gaussian+Bernoulli checkpoints.
+three Bernoulli-mask-only, and one 1:1 Gaussian+Bernoulli checkpoint.
 The 1:1 ratio was selected from prior work before this evaluation; it is not
 being selected by combined-mask performance.
+
+The mixed seed-0 checkpoint is
+`corruption_sanity_mixture_job31549055/.../0040000.pt` (job 31549055).  The
+previously listed mixed seed-1/2 paths no longer exist.  The available
+`job29233398` file is documented as a 1:2 Gaussian:mask run, not a 1:1 seed,
+and is therefore excluded.  Any final mixed-arm result will be explicitly
+single-checkpoint evidence, not a three-seed robustness claim.
 
 The `0040000.pt` files are 2,086,843,408 bytes.  The evaluator loads `ema`
 when present, exactly as `eval_masked_recovery.py` does.  The checkpoint
