@@ -32,7 +32,11 @@ The smoke will be resubmitted from the corrected immutable revision.
 
 ## Active pilot
 
-* `35378195` — `seas_gpu`, submitted 2026-07-26 14:31 EDT, immutable revision
-  `cda0f08`. It evaluates the disjoint pilot manifest for Gaussian, Bernoulli,
-  and verified mixed seed-0 checkpoints, with none/hard plus soft rho
-  `{0.25, 0.5, 0.75}`. This job may only lock rho and operational settings.
+* `35378195` was cancelled before allocation during a scheduling-only move to
+  idle `gpu_test` capacity. The gpu_test submission was rejected by
+  `QOSMaxSubmitJobPerUserLimit`, so no pilot computation ran and no result was
+  altered.
+* `35380215` — restored `seas_gpu` pilot, submitted 2026-07-26 19:37 EDT,
+  immutable revision `cda0f08`. It is byte-for-byte the same scientific pilot:
+  Gaussian, Bernoulli, and verified mixed seed-0 checkpoints, none/hard plus
+  soft rho `{0.25, 0.5, 0.75}`. It may only lock rho and operational settings.
