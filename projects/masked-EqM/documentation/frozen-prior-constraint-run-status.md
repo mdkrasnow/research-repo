@@ -44,3 +44,10 @@ The smoke will be resubmitted from the corrected immutable revision.
   macro-average combined-mask LPIPS rule selected soft rho `0.75` among soft
   candidates only: `0.377087`, `0.375845`, and `0.375399` for rho `0.25`,
   `0.5`, and `0.75`, respectively. This locks only the secondary soft arm.
+
+## Active final evaluation
+
+* `35477686`–`35477692` — seven resumable `seas_gpu` bundles submitted on
+  2026-07-27 at 03:18 EDT. Each covers locked final shards 0–1 for one verified
+  checkpoint and runs paired unconstrained, hard-projected, and soft rho=0.75
+  inference. They were pending for normal scheduler priority at submission.
