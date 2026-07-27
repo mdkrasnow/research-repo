@@ -20,3 +20,15 @@ This analysis uses 5,000-step means and 40,000-step rolling slopes; raw 50-step 
 - Direct remains about 1.9× slower than none in optimizer steps, so equal wall-clock comparisons should not be confused with equal-step comparisons.
 
 The remaining discriminating experiment is not to wait for none to catch dot in training loss. It is to test whether direct's late loss-gap closure persists through epoch 8 and whether its already-near-dot FID remains tied or separates.
+
+## FID trajectory cross-check
+
+The matched 2K probes are:
+
+| Arm | Epoch 2 | Epoch 3 | Epoch 5 | Epoch 2→5 change |
+|---|---:|---:|---:|---:|
+| none | 152.86 | 144.02 | 134.39 | −18.47 |
+| dot | 144.69 | 136.28 | 127.72 | −16.97 |
+| direct | 145.81 | 134.74 | 128.02 | −17.79 |
+
+None's FID gap to dot is 8.17 → 7.75 → 6.67, so it is narrowing by about 0.51 FID/epoch under a three-point linear fit—not the same sign as the training-loss gap. A naive linear parity extrapolation lands near epoch 18, not 80, but this is underpowered and FID is noisy/nonlinear. Direct is already statistically indistinguishable at this probe resolution (gap to dot: +1.11, −1.54, +0.29). Thus the loss-slope argument cannot be used to reject direct or to claim none will never catch up: the quality metric and the regression loss are ordering the arms differently.
