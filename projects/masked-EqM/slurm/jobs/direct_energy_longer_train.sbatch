@@ -23,6 +23,8 @@ GLOBAL_SEED="${GLOBAL_SEED:?set GLOBAL_SEED}"
 CKPT="${CKPT:?set CKPT}"
 RUN_TAG="${RUN_TAG:?set RUN_TAG}"
 RESULTS_ROOT="${RESULTS_ROOT:-/n/home03/mkrasnow/direct_energy_longer_retry}"
+EPOCHS="${EPOCHS:-5}"
+SAVE_EPOCHS="${SAVE_EPOCHS:-2,3,5}"
 RESULTS_DIR="$RESULTS_ROOT/${RUN_TAG}_job${SLURM_JOB_ID}"
 IMAGENET_PATH="${IMAGENET_PATH:-/n/holylabs/ydu_lab/Lab/raywang4/imagenet/train}"
 export ENTITY="${ENTITY:-none}"
@@ -38,7 +40,7 @@ cd projects/masked-EqM
 pip install --quiet timm diffusers accelerate torchdiffeq wandb torchvision
 
 MASTER_PORT=$((29500 + RANDOM % 1000))
-TRAIN_CMD="python -m torch.distributed.run --nnodes=1 --nproc_per_node=1 --master_port=$MASTER_PORT train.py --model EqM-B/2 --data-path $IMAGENET_PATH --num-classes 1000 --global-batch-size 32 --epochs 5 --save-epochs 2,3,5 --image-size 256 --log-every 50 --ckpt-every 999999999 --results-dir $RESULTS_DIR --ebm $EBM --global-seed $GLOBAL_SEED --ckpt $CKPT"
+TRAIN_CMD="python -m torch.distributed.run --nnodes=1 --nproc_per_node=1 --master_port=$MASTER_PORT train.py --model EqM-B/2 --data-path $IMAGENET_PATH --num-classes 1000 --global-batch-size 32 --epochs $EPOCHS --save-epochs $SAVE_EPOCHS --image-size 256 --log-every 50 --ckpt-every 999999999 --results-dir $RESULTS_DIR --ebm $EBM --global-seed $GLOBAL_SEED --ckpt $CKPT"
 echo "$TRAIN_CMD"
 eval "$TRAIN_CMD" 2>&1 | tee train.log
 EXIT_CODE=${PIPESTATUS[0]}
