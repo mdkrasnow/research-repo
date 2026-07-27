@@ -30,13 +30,17 @@ The smoke will be resubmitted from the corrected immutable revision.
   for every arm. The unconstrained controls had nonzero observed errors, as
   expected. No metric or loading error occurred.
 
-## Active pilot
+## Completed pilot
 
 * `35378195` was cancelled before allocation during a scheduling-only move to
   idle `gpu_test` capacity. The gpu_test submission was rejected by
   `QOSMaxSubmitJobPerUserLimit`, so no pilot computation ran and no result was
   altered.
-* `35380215` — restored `seas_gpu` pilot, submitted 2026-07-26 19:37 EDT,
-  immutable revision `cda0f08`. It is byte-for-byte the same scientific pilot:
-  Gaussian, Bernoulli, and verified mixed seed-0 checkpoints, none/hard plus
-  soft rho `{0.25, 0.5, 0.75}`. It may only lock rho and operational settings.
+* `35380215` — restored `seas_gpu` pilot, completed successfully on 2026-07-27
+  at 03:14 EDT (06:52:20, exit `0:0`). Immutable revision `cda0f08` evaluated
+  Gaussian, Bernoulli, and verified mixed seed-0 checkpoints with none/hard
+  plus soft rho `{0.25, 0.5, 0.75}`. All 15,360 records were finite; hard
+  projection had exact zero observed-coordinate deviation. The preregistered
+  macro-average combined-mask LPIPS rule selected soft rho `0.75` among soft
+  candidates only: `0.377087`, `0.375845`, and `0.375399` for rho `0.25`,
+  `0.5`, and `0.75`, respectively. This locks only the secondary soft arm.

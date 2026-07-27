@@ -62,7 +62,7 @@ elif [ "$STAGE" = pilot ]; then
     for rho in .25 .5 .75; do run_one "${ARMS[$i]}" soft "$rho" 0 1 configs/frozen_prior_constraint_pilot_locked_v4.json 250 pilot; done
   done
 else
-  # BUNDLE_ID maps directly to one of the nine locked checkpoints.  Bundle a
+  # BUNDLE_ID maps directly to one of the seven verified locked checkpoints. Bundle a
   # contiguous set of shards sequentially so a submission consumes one slot.
   : "${SOFT_RHO:?lock pilot rho before final}"
   export SAVE_IMAGES=1
