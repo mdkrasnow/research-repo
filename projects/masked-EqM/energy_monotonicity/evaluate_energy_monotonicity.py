@@ -884,11 +884,24 @@ def main(argv: Iterable[str] | None = None) -> None:
     gamma = np.linspace(0.0, 1.0, args.num_gamma_points, dtype=np.float64)
 
     print("discovering and validating checkpoints", flush=True)
-    records = []
-    for variant, run in zip(VARIANTS, (args.none_run, args.dot_run, args.direct_run)):
-        records.extend(discover_checkpoints(run, variant, args.epochs, not args.raw_weights))
+    manifest_path = output / "checkpoint_manifest.json"
+    if manifest_path.exists() and not args.force:
+        records = [CheckpointRecord(**item) for item in json.loads(manifest_path.read_text())]
+        requested = {(variant, epoch) for variant in VARIANTS for epoch in args.epochs}
+        found = {(record.variant, record.epoch) for record in records}
+        if found != requested:
+            raise ValueError(
+                f"cached manifest checkpoint set {sorted(found)} != requested {sorted(requested)}"
+            )
+        for record in records:
+            if not Path(record.checkpoint_path).exists():
+                raise FileNotFoundError(f"cached checkpoint disappeared: {record.checkpoint_path}")
+    else:
+        records = []
+        for variant, run in zip(VARIANTS, (args.none_run, args.dot_run, args.direct_run)):
+            records.extend(discover_checkpoints(run, variant, args.epochs, not args.raw_weights))
     validate_cross_variant_manifest(records)
-    atomic_json(output / "checkpoint_manifest.json", [asdict(record) for record in records])
+    atomic_json(manifest_path, [asdict(record) for record in records])
     config = vars(args).copy()
     for runtime_key in ("prepare_only", "evaluate_only", "aggregate_only", "force"):
         config.pop(runtime_key, None)
