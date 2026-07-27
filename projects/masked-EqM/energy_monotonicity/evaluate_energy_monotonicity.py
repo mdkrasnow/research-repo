@@ -755,8 +755,9 @@ def write_report(output: Path, records: list[CheckpointRecord],
         "## Primary metric and bootstrap",
         "",
         "Trajectory-level strict pairwise ordering accuracy over all 210 gamma "
-        "pairs. Ties are failures. The 10,000-replicate paired bootstrap samples "
-        "2,048 image clusters and always includes both associated noises, using "
+        f"pairs. Ties are failures. The {args.bootstrap_replicates:,}-replicate "
+        f"paired bootstrap samples {args.num_images:,} image clusters and always "
+        "includes both associated noises, using "
         f"seed {args.bootstrap_seed}.",
         "",
         "## Epoch-8 primary results",
@@ -803,8 +804,9 @@ def write_report(output: Path, records: list[CheckpointRecord],
         "",
         "## Numerical validation",
         "",
-        "Dot and direct raw scalar differences were compared with trapezoidal raw "
-        "line integrals on 128 trajectories at 21 and 101 points.",
+        f"Dot and direct raw scalar differences were compared with trapezoidal raw "
+        f"line integrals on {min(args.validation_subset, args.num_images) * args.noises_per_image:,} "
+        "trajectories at 21 and 101 points.",
         "",
         "```json",
         json.dumps(validation, indent=2, default=_json_default),
