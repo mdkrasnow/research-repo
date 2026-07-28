@@ -8,7 +8,7 @@ import numpy as np
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT))
 from energy_monotonicity.evaluate_energy_calibration import (
-    c_gamma, c_integral_to_clean, calibration_metrics, line_energy_clean_anchored,
+    bootstrap, c_gamma, c_integral_to_clean, calibration_metrics, line_energy_clean_anchored,
     target_energy_curve,
 )
 
@@ -49,3 +49,31 @@ def test_wrong_shape_and_orthogonal_contamination_are_visible():
 def test_reversed_field_fails_and_clean_is_zero():
     g,x,e,f,t,p=_case(-1.); m=calibration_metrics(p,t,f,x,e,g)
     assert np.all(p[:, -1] == 0) and np.all(t[:, -1] == 0) and np.all(m['nece'] > 1)
+
+
+def test_target_derivative_matches_repository_schedule():
+    g,x,e,_,target,_=_case()
+    derivative=np.gradient(target,g,axis=1)
+    d2=((e-x).reshape(len(x),-1)**2).sum(1)
+    # Away from the kink at .8 and the numerical endpoints the analytical derivative holds.
+    interior=(g>.05)&(g<.75)
+    assert np.allclose(derivative[:,interior],-d2[:,None]*c_gamma(g[interior]),rtol=.03)
+
+
+def test_bootstrap_keeps_noises_together_and_is_deterministic():
+    ids=np.repeat(np.arange(4),2)
+    metrics={v:{'nece':np.arange(8,dtype=float)+offset} for v,offset in [('none',1),('dot',2),('direct',3)]}
+    first, rows=bootstrap(metrics,ids,200,23456)
+    second,_=bootstrap(metrics,ids,200,23456)
+    assert np.array_equal(first['cluster_draws'],second['cluster_draws'])
+    assert np.allclose(first['direct_minus_dot'],1)
+    assert {r['comparison'] for r in rows} == {'direct-dot','direct-none relative excess','dot-none'}
+
+
+def test_constant_curve_offsets_do_not_change_relative_metrics():
+    g,x,e,f,t,p=_case()
+    # Relative curves are explicitly clean anchored; a scalar's additive offset cancels.
+    m0=calibration_metrics(p,t,f,x,e,g)
+    m1=calibration_metrics((p+17)-(p[:,-1:]+17),t,f,x,e,g)
+    assert np.allclose(m0['nece'],m1['nece'])
+    assert np.allclose(m0['endpoint_ratio'],m1['endpoint_ratio'])
