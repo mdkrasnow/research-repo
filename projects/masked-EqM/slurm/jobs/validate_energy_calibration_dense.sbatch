@@ -21,4 +21,7 @@ cd "$WORK_DIR/projects/masked-EqM"
 pip install --quiet timm diffusers accelerate torchdiffeq torchvision pandas pyarrow matplotlib seaborn
 python -m energy_monotonicity.validate_energy_calibration_dense \
   --monotonicity-output-dir /n/home03/mkrasnow/energy_monotonicity_full \
-  --output-dir /n/home03/mkrasnow/energy_calibration_dense_validation --subset 256 --batch-size 8 --device cuda
+  --output-dir "${OUTPUT_DIR:-/n/home03/mkrasnow/energy_calibration_dense_validation_epoch15_secondary}" --subset 256 --batch-size 8 --device cuda \
+  --epoch 15 \
+  --dot-run /n/home03/mkrasnow/direct_energy_longer_retry/longer15_dot_seed0_job35524601/000-EqM-B-2-Linear-velocity-None-ebm-dot \
+  --direct-run /n/home03/mkrasnow/direct_energy_longer_retry/longer15_direct_seed0_job35524667/000-EqM-B-2-Linear-velocity-None-ebm-direct

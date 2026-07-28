@@ -9,7 +9,7 @@ import numpy as np
 import torch
 
 from energy_monotonicity.evaluate_energy_monotonicity import (
-    CheckpointRecord, dense_validation,
+    CheckpointRecord, dense_validation, discover_checkpoints,
 )
 
 
@@ -20,17 +20,25 @@ def main() -> None:
     p.add_argument('--subset', type=int, default=256)
     p.add_argument('--batch-size', type=int, default=8)
     p.add_argument('--device', default='cuda')
+    p.add_argument('--dot-run', type=Path, help='explicit secondary dot run directory')
+    p.add_argument('--direct-run', type=Path, help='explicit secondary direct run directory')
+    p.add_argument('--epoch', type=int, default=8)
     args = p.parse_args()
     source, output = args.monotonicity_output_dir.resolve(), args.output_dir.resolve()
     output.mkdir(parents=True, exist_ok=True)
-    manifest = [CheckpointRecord(**x) for x in json.loads((source/'checkpoint_manifest.json').read_text())]
+    if bool(args.dot_run) != bool(args.direct_run):
+        raise ValueError('--dot-run and --direct-run must be specified together')
+    manifest = ([*discover_checkpoints(args.dot_run, 'dot', [args.epoch]),
+                 *discover_checkpoints(args.direct_run, 'direct', [args.epoch])]
+                if args.dot_run else
+                [CheckpointRecord(**x) for x in json.loads((source/'checkpoint_manifest.json').read_text())])
     bank = torch.load(source/'evaluation_bank.pt', map_location='cpu', weights_only=True)
     # Preserve the original frozen examples/noise tensors; never create a new bank.
     device = torch.device(args.device)
     report = {'source': str(source), 'frozen_bank_sha256': json.loads((source/'evaluation_bank.json').read_text())['bank_sha256'],
               'subset_images': args.subset, 'trajectories_per_variant': args.subset, 'grids': [21, 101], 'results': {}}
     for variant in ('dot', 'direct'):
-        record = next(r for r in manifest if r.variant == variant and r.epoch == 8)
+        record = next(r for r in manifest if r.variant == variant and r.epoch == args.epoch)
         report['results'][variant] = dense_validation(record, bank, output, args.batch_size, device, torch.float32, args.subset, False)
     (output/'numerical_validation_dense.json').write_text(json.dumps(report, indent=2) + '\n')
     if not all(r['convergence_pass'] for r in report['results'].values()):
