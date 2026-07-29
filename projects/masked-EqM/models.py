@@ -308,28 +308,31 @@ class EqM(nn.Module):
             E = 0
             if self.ebm == 'l2':
                 internal_potential = -torch.sum(field**2, dim=(1, 2, 3)) / 2
+                E = -internal_potential
+                if energy_only:
+                    return E
                 if internal_potential.requires_grad:
                     field = torch.autograd.grad(
                         internal_potential.sum(), x0, create_graph=train,
                     )[0]
-                E = -internal_potential
             elif self.ebm == 'dot':
                 internal_potential = torch.sum(field * x0, dim=(1, 2, 3))
+                E = -internal_potential
+                if energy_only:
+                    return E
                 if internal_potential.requires_grad:
                     field = torch.autograd.grad(
                         internal_potential.sum(), x0, create_graph=train,
                     )[0]
-                E = -internal_potential
             elif self.ebm == 'mean':
                 internal_potential = torch.sum(field * x0, dim=(1, 2, 3))
+                E = -internal_potential
+                if energy_only:
+                    return E
                 if internal_potential.requires_grad:
                     field = torch.autograd.grad(
                         internal_potential.sum(), x0, create_graph=train,
                     )[0]
-                E = -internal_potential
-
-            if energy_only:
-                return E
 
         if get_energy:
             return field, E
