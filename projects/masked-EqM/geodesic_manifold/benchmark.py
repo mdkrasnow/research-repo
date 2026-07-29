@@ -156,7 +156,7 @@ def optimize(paths, model, variant, labels, calibration, restarts, steps, lr):
             scores=torch.cat([value.detach() for value in objectives_for(raw,differentiable=False)])
             controls=torch.cat([controls_for(raw,index) for index in range(len(paths))])
             candidate=path_from_controls(controls,basis).detach()
-        best=candidate if best is None else (torch.where((scores<best[1])[:,None,None,None,None],candidate,best[0]), torch.minimum(scores,best[1]))
+        best=(candidate, scores) if best is None else (torch.where((scores<best[1])[:,None,None,None,None],candidate,best[0]), torch.minimum(scores,best[1]))
     return best
 
 def main(argv=None):
