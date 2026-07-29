@@ -17,13 +17,13 @@ def model(path, ebm, device):
  for p in m.parameters():p.requires_grad_(False)
  return m
 def sample_batches(fn,m,x,y,steps,step,batch,schedule=None):
- out=[]; cost={'gradient_evaluations':0,'energy_forwards':0,'max_backtrack_samples':0};schedule=None
+ out=[]; cost={'gradient_evaluations':0,'energy_forwards':0,'max_backtrack_samples':0}; accepted_schedule=None
  for i in range(0,len(x),batch):
   z,s=fn(m,x[i:i+batch],y[i:i+batch],steps,step) if fn is not replay_sample else fn(m,x[i:i+batch],y[i:i+batch],schedule)
-  if schedule is None and 'accepted_step_median_by_iteration' in s:schedule=s['accepted_step_median_by_iteration']
+  if accepted_schedule is None and 'accepted_step_median_by_iteration' in s:accepted_schedule=s['accepted_step_median_by_iteration']
   out.append(z.cpu());
   for k in cost:cost[k]+=s.get(k,0)
- return torch.cat(out),cost,schedule
+ return torch.cat(out),cost,accepted_schedule
 def main(a):
  d=torch.device('cuda');torch.backends.cuda.enable_flash_sdp(False);torch.backends.cuda.enable_mem_efficient_sdp(False);torch.backends.cuda.enable_cudnn_sdp(False)
  g=torch.Generator().manual_seed(a.seed);x=torch.randn(a.samples,4,32,32,generator=g);y=torch.arange(a.samples)%1000;out=Path(a.output);out.mkdir(parents=True,exist_ok=True)
