@@ -29,7 +29,7 @@ def main(a):
  g=torch.Generator().manual_seed(a.seed);x=torch.randn(a.samples,4,32,32,generator=g);y=torch.arange(a.samples)%1000;out=Path(a.output);out.mkdir(parents=True,exist_ok=True)
  ds=ImageFolder(a.real,transform=Compose([Resize(256),CenterCrop(256)]));real=out/'real';real.mkdir(exist_ok=True)
  for i in range(a.samples): ds[i][0].save(real/f'{i:06d}.png')
- vae=AutoencoderKL.from_pretrained('stabilityai/sd-vae-ema').to(d).eval();[p.requires_grad_(False) for p in vae.parameters()]
+ vae=AutoencoderKL.from_pretrained('stabilityai/sd-vae-ft-ema').to(d).eval();[p.requires_grad_(False) for p in vae.parameters()]
  arms=[('direct_fixed','direct',fixed_sample),('direct_armijo','direct',armijo_sample),('direct_replay','direct',replay_sample),('dot_fixed','dot',fixed_sample),('dot_armijo','dot',armijo_sample)]
  records=[]; direct_schedule=None
  for name,ebm,fn in arms:
