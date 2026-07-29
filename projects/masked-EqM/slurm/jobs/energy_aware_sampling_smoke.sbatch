@@ -1,0 +1,17 @@
+#!/bin/bash
+#SBATCH --job-name=eqm-armijo-smoke
+#SBATCH --output=/n/home03/mkrasnow/research-repo/projects/masked-EqM/slurm/logs/armijo-smoke-%j.out
+#SBATCH --error=/n/home03/mkrasnow/research-repo/projects/masked-EqM/slurm/logs/armijo-smoke-%j.err
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=32GB
+#SBATCH --time=02:00:00
+#SBATCH --partition=gpu_test
+#SBATCH --gres=gpu:1
+set -euo pipefail
+module load python/3.10.13-fasrc01 2>/dev/null || true; module load cuda/11.8.0-fasrc01 2>/dev/null || true
+W=/tmp/eqm-armijo-smoke-$SLURM_JOB_ID; R=/n/home03/mkrasnow/energy_aware_sampling/epoch15_armijo/smoke_$SLURM_JOB_ID
+mkdir -p "$W" "$R"; cd "$W"; git init .; git remote add origin "${GIT_URL:-https://github.com/mdkrasnow/research-repo.git}"; git fetch --depth=50 origin main; git checkout "$GIT_SHA" || { git fetch --unshallow origin; git checkout "$GIT_SHA"; }; cd projects/masked-EqM
+pip install --quiet timm diffusers torchvision pytorch-fid
+python energy_aware_sampling/smoke_pipeline.py --direct /n/home03/mkrasnow/direct_energy_longer_retry/longer15_direct_seed0_job35524667/000-EqM-B-2-Linear-velocity-None-ebm-direct/checkpoints/epoch15.pt --dot /n/home03/mkrasnow/direct_energy_longer_retry/longer15_dot_seed0_job35524601/000-EqM-B-2-Linear-velocity-None-ebm-dot/checkpoints/epoch15.pt --real /n/holylfs06/LABS/kempner_shared/Everyone/testbed/vision/imagenet_1k/val --output "$R" --samples 32 --steps 10
