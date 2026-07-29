@@ -12,7 +12,8 @@ import torch
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from energy_monotonicity.evaluate_energy_monotonicity import CheckpointRecord, load_model, sha256_file
-from energy_monotonicity.core import get_effective_field
+from energy_monotonicity.core import (get_effective_field, _raw_backbone_output,
+    _direct_tokens, _one_scalar_per_sample)
 from geodesic_manifold.core import (Calibration, calibrate_linear, lambda_from_energy,
     open_uniform_cubic_basis, path_from_controls, kinetic_objective, kth_neighbor_radii,
     normalized_manifold_metrics, paired_bootstrap)
@@ -20,9 +21,28 @@ from geodesic_manifold.core import (Calibration, calibrate_linear, lambda_from_e
 SIGNS = {"dot": -1, "direct": 1}
 
 def scalar_energy(model, variant, z, labels):
+    """Detached scalar for calibration/reporting only."""
     result = get_effective_field(model, variant, z, labels)
     assert result.scalar_energy is not None
     return SIGNS[variant] * result.scalar_energy
+
+def differentiable_scalar_energy(model, variant, z, labels):
+    """Canonical scalar energy retaining the input graph for geodesic descent.
+
+    ``get_effective_field`` deliberately detaches all diagnostic outputs.  That is
+    correct for checkpoint evaluation, but using it here would erase the metric
+    gradient and silently turn the solver into Euclidean interpolation.
+    """
+    gamma = torch.zeros(z.shape[0], device=z.device, dtype=z.dtype)
+    if variant == "dot":
+        raw = _raw_backbone_output(model, z, gamma, labels)
+        scalar = (z * raw).flatten(1).sum(1)
+    elif variant == "direct":
+        tokens, conditioning = _direct_tokens(model, z, gamma, labels)
+        scalar = _one_scalar_per_sample(model.energy_head(tokens, conditioning), z.shape[0])
+    else:
+        raise ValueError(f"scalar energy unavailable for {variant}")
+    return SIGNS[variant] * scalar
 
 def make_record(path: Path, variant: str) -> CheckpointRecord:
     state = torch.load(path, map_location="cpu", weights_only=False); a = state["args"]
@@ -73,7 +93,7 @@ def optimize(paths, model, variant, labels, calibration, restarts, steps, lr, pa
             objectives=[]
             for start in range(0, len(path), path_batch):
                 stop=min(start+path_batch,len(path)); part=path[start:stop]; y=labels[start:stop]
-                objective,_=kinetic_objective(part,lambda z: lambda_from_energy(scalar_energy(model,variant,z.flatten(0,1),y[:,None].expand(-1,32).reshape(-1)).reshape(z.shape[:2]),calibration))
+                objective,_=kinetic_objective(part,lambda z: lambda_from_energy(differentiable_scalar_energy(model,variant,z.flatten(0,1),y[:,None].expand(-1,32).reshape(-1)).reshape(z.shape[:2]),calibration))
                 objectives.append(objective)
             objective=torch.cat(objectives)
             opt.zero_grad(); objective.mean().backward(); opt.step()
