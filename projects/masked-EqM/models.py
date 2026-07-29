@@ -266,14 +266,16 @@ class EqM(nn.Module):
         imgs = x.reshape(shape=(x.shape[0], c, h * p, h * p))
         return imgs
 
-    def forward(self, x0, t, y, return_act=False, get_energy=False, train=False):
+    def forward(self, x0, t, y, return_act=False, get_energy=False, energy_only=False, train=False):
         """
         Forward pass of EqM.
         x: (N, C, H, W) tensor of spatial inputs (images or latent representations of images)
         t: (N,) tensor of diffusion timesteps
         y: (N,) tensor of class labels
         """
-        if self.ebm != 'none':
+        if energy_only and self.ebm == 'none':
+            raise ValueError("energy_only is unavailable for ebm='none'")
+        if self.ebm != 'none' and not energy_only:
             x0.requires_grad_(True)
 
         if self.uncond: # removes noise/time conditioning by setting to 0
@@ -289,6 +291,8 @@ class EqM(nn.Module):
 
         if self.ebm == 'direct':
             E = self.energy_head(x, c)
+            if energy_only:
+                return E
             # The EqM target and sampler use the sampling direction, so
             # return -grad E: x <- x + eta * field is gradient descent on E.
             field = -torch.autograd.grad(
@@ -324,20 +328,31 @@ class EqM(nn.Module):
                     )[0]
                 E = -internal_potential
 
+            if energy_only:
+                return E
+
         if get_energy:
             return field, E
         if return_act:
             return field, act
         return field
 
-    def forward_with_cfg(self, x, t, y, cfg_scale, return_act=False, get_energy=False, train=False):
+    def forward_with_cfg(self, x, t, y, cfg_scale, return_act=False, get_energy=False,
+                         energy_only=False, train=False):
         """
         Forward pass of EqM, but also batches the uncondional forward pass for classifier-free guidance.
         """
         # https://github.com/openai/glide-text2im/blob/main/notebooks/text2im.ipynb
         half = x[: len(x) // 2]
         combined = torch.cat([half, half], dim=0)
-        model_out = self.forward(combined, t, y, return_act=return_act, get_energy=get_energy, train=train)
+        model_out = self.forward(
+            combined, t, y, return_act=return_act, get_energy=get_energy,
+            energy_only=energy_only, train=train,
+        )
+        if energy_only:
+            cond_E, uncond_E = torch.split(model_out, len(model_out) // 2, dim=0)
+            guided_E = uncond_E + cfg_scale * (cond_E - uncond_E)
+            return torch.cat([guided_E, guided_E], dim=0)
         if get_energy:
             x, E = model_out
             model_out=x
