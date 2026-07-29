@@ -14,9 +14,9 @@ confirmation and cannot emit the experiment's proposed pass/fail claim.
   controls, linear initialization, three seeded restarts, and restart selection
   solely by the Riemannian kinetic objective.
 - The metric calibrates clean held-out images to 1 and random held-out midpoints
-  to 1000.  A non-positive linear metric aborts rather than being silently
-  clamped.  The exponential metric is intentionally not used in the primary
-  preliminary run; add it only as a separately labelled secondary configuration.
+  to 1000.  A non-positive linear metric is never clamped or sign-flipped. It is
+  recorded and switches to the pre-registered exponential metric as an
+  explicitly labelled secondary configuration.
 
 ## Required bank contract
 
@@ -37,6 +37,8 @@ bootstrap, but explicitly labels it **descriptive** because there is one model
 seed. It reports DINOv2 and Inception features, manifold excess, precision,
 D-RMSE, and detour. It does not treat paths as independent trained models.
 
-`none` is not scalarized: in the full extension it is a model-free linear/slerp
-control and a clearly-labelled gradient-norm secondary control, never a primary
-energy comparison.
+`none` is not scalarized: linear and slerp are model-free controls, while
+`none_gradient_norm` is a clearly-labelled secondary `||f_none||²` control,
+never an energy-value comparison. The runner writes a machine-readable summary,
+per-pair paired-tradeoff CSV, a direct-to-dot DINOv2 tradeoff plot, and interior
+Inception FID in the result table.

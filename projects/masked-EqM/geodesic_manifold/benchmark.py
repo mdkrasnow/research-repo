@@ -4,7 +4,7 @@ This intentionally avoids a hidden checkpoint-selection loop: one epoch-15 EMA
 checkpoint per arm is supplied on the command line and recorded with SHA-256.
 """
 from __future__ import annotations
-import argparse, json, sys
+import argparse, csv, json, sys
 from pathlib import Path
 import numpy as np
 import torch
@@ -44,6 +44,17 @@ def differentiable_scalar_energy(model, variant, z, labels):
         raise ValueError(f"scalar energy unavailable for {variant}")
     return SIGNS[variant] * scalar
 
+def none_gradient_norm(model, z, labels):
+    """Secondary control potential h(x)=||f_none(x)||², never an energy."""
+    gamma = torch.zeros(z.shape[0], device=z.device, dtype=z.dtype)
+    field = model(z, gamma, labels)
+    return field.flatten(1).square().sum(1)
+
+def metric_potential(model, variant, z, labels, differentiable=False):
+    if variant == "none":
+        return none_gradient_norm(model, z, labels)
+    return (differentiable_scalar_energy if differentiable else scalar_energy)(model, variant, z, labels)
+
 def make_record(path: Path, variant: str) -> CheckpointRecord:
     state = torch.load(path, map_location="cpu", weights_only=False); a = state["args"]
     get = lambda k, d=None: a.get(k, d) if isinstance(a, dict) else getattr(a, k, d)
@@ -79,6 +90,37 @@ def features(model, preprocess, images, device, batch=16):
         out.append(y.float().cpu())
     return torch.cat(out).numpy()
 
+def frechet_distance(real: np.ndarray, generated: np.ndarray) -> float:
+    """FID in the frozen Inception feature space, for interior path points."""
+    from scipy import linalg
+    mean_real, mean_generated = real.mean(0), generated.mean(0)
+    cov_real = np.cov(real, rowvar=False); cov_generated = np.cov(generated, rowvar=False)
+    root, _ = linalg.sqrtm(cov_real @ cov_generated, disp=False)
+    if np.iscomplexobj(root): root = root.real
+    return float((mean_real - mean_generated).dot(mean_real - mean_generated) +
+                 np.trace(cov_real + cov_generated - 2 * root))
+
+def write_pair_artifacts(out: Path, full: dict[str, dict[str, np.ndarray]]) -> None:
+    """Persist the requested paired direct-to-dot detour/excess tradeoff data."""
+    direct, dot = full["dinov2_direct"], full["dinov2_dot"]
+    with (out / "paired_tradeoff.csv").open("w", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=["pair", "method", "detour", "excess", "precision", "d_rmse"])
+        writer.writeheader()
+        for pair in range(len(direct["excess"])):
+            for method, value in (("direct", direct), ("dot", dot)):
+                writer.writerow({"pair":pair,"method":method, **{key:float(value[key][pair]) for key in ("detour","excess","precision","d_rmse")}})
+    # A CSV is the authoritative plot data; also emit the requested visual artifact.
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    figure, axis = plt.subplots(figsize=(6, 5))
+    for pair in range(len(direct["excess"])):
+        axis.plot([dot["detour"][pair], direct["detour"][pair]], [dot["excess"][pair], direct["excess"][pair]], color="0.75", linewidth=.6)
+    axis.scatter(dot["detour"], dot["excess"], s=14, label="dot", color="#d95f02")
+    axis.scatter(direct["detour"], direct["excess"], s=14, label="direct", color="#1b9e77")
+    axis.set(xlabel="DINOv2 feature detour ratio", ylabel="normalized manifold excess")
+    axis.legend(); figure.tight_layout(); figure.savefig(out / "paired_tradeoff.png", dpi=180); plt.close(figure)
+
 def optimize(paths, model, variant, labels, calibration, restarts, steps, lr, path_batch=2):
     basis=open_uniform_cubic_basis().to(paths); endpoints=paths[:, [0,-1]].detach(); best=None
     for restart in range(restarts):
@@ -93,7 +135,7 @@ def optimize(paths, model, variant, labels, calibration, restarts, steps, lr, pa
             objectives=[]
             for start in range(0, len(path), path_batch):
                 stop=min(start+path_batch,len(path)); part=path[start:stop]; y=labels[start:stop]
-                objective,_=kinetic_objective(part,lambda z: lambda_from_energy(differentiable_scalar_energy(model,variant,z.flatten(0,1),y[:,None].expand(-1,32).reshape(-1)).reshape(z.shape[:2]),calibration))
+                objective,_=kinetic_objective(part,lambda z: lambda_from_energy(metric_potential(model,variant,z.flatten(0,1),y[:,None].expand(-1,32).reshape(-1),differentiable=True).reshape(z.shape[:2]),calibration))
                 objectives.append(objective)
             objective=torch.cat(objectives)
             opt.zero_grad(); objective.mean().backward(); opt.step()
@@ -109,13 +151,18 @@ def main(argv=None):
   bank=torch.load(c["bank"],map_location="cpu",weights_only=True)
   required={"calibration_latents","calibration_labels","reference_images","endpoint_latents","endpoint_labels","endpoint_images","pairs"}
   if required-set(bank): raise ValueError(f"bank missing {required-set(bank)}")
-  records={v:make_record(Path(c["checkpoints"][v]),v) for v in ("dot","direct")}
+  records={v:make_record(Path(c["checkpoints"][v]),v) for v in ("dot","direct","none")}
   models={v:load_model(records[v],device,torch.float32) for v in records}
-  calibrations={}
+  calibrations={}; unavailable={}
   for v in models:
     z=bank["calibration_latents"].to(device); y=bank["calibration_labels"].to(device)
-    on=scalar_energy(models[v],v,z,y); off=scalar_energy(models[v],v,(z[::2]+z[1::2])/2,y[::2])
-    calibrations[v]=calibrate_linear(on,off)
+    on=metric_potential(models[v],v,z,y); off=metric_potential(models[v],v,(z[::2]+z[1::2])/2,y[::2])
+    try:
+      calibrations[v]=calibrate_linear(on,off)
+    except ValueError as error:
+      if v != "none": raise
+      # This is a labelled secondary control; it must not block scalar-energy arms.
+      unavailable["none_gradient_norm"]=str(error)
   pairs=bank["pairs"].long(); lat=bank["endpoint_latents"]; labels=bank["endpoint_labels"]
   endpoints=torch.stack([lat[pairs[:,0]],lat[pairs[:,1]]],1).to(device); pair_labels=labels[pairs[:,0]].to(device)
   initial=torch.lerp(endpoints[:,0:1],endpoints[:,1:2],torch.linspace(0,1,33,device=device)[None,:,None,None,None])
@@ -127,17 +174,18 @@ def main(argv=None):
   paths["slerp"]=slerp.reshape_as(initial).detach()
   metric_fallback={}
   for v in models:
+    if v not in calibrations: continue
     mids=(initial[:,:-1]+initial[:,1:])/2
     initial_parts=[]
     for start in range(0, len(mids), 2):
       stop=min(start+2,len(mids)); part=mids[start:stop]; y=pair_labels[start:stop]
-      initial_parts.append(scalar_energy(models[v],v,part.flatten(0,1),y[:,None].expand(-1,32).reshape(-1)).reshape(part.shape[:2]))
+      initial_parts.append(metric_potential(models[v],v,part.flatten(0,1),y[:,None].expand(-1,32).reshape(-1)).reshape(part.shape[:2]))
     initial_energy=torch.cat(initial_parts)
     if (lambda_from_energy(initial_energy,calibrations[v]) <= 0).any():
       # Registered secondary metric: same calibration endpoints, positivity guaranteed.
       calibrations[v]=Calibration(calibrations[v].mean_on,calibrations[v].mean_off,calibrations[v].alpha,calibrations[v].beta,"exp")
       metric_fallback[v]="linear metric non-positive on the fixed initial path; used preregistered exponential secondary"
-    paths[v],_=optimize(initial,models[v],v,pair_labels,calibrations[v],c["restarts"],c["steps"],c["lr"])
+    paths["none_gradient_norm" if v == "none" else v],_=optimize(initial,models[v],v,pair_labels,calibrations[v],c["restarts"],c["steps"],c["lr"])
   # Decode once; fixed feature encoders never take part in restart selection.
   from diffusers.models import AutoencoderKL
   vae=AutoencoderKL.from_pretrained(c["vae"]).to(device).eval()
@@ -145,14 +193,19 @@ def main(argv=None):
   with torch.no_grad():
     for k,v in paths.items():
       decoded[k]=vae.decode(v.reshape(-1,*v.shape[2:])/.18215).sample.cpu().reshape(len(v),33,3,256,256)
-  table=[]; full={}
+  table=[]; full={}; feature_cache={}
   for feature_name in ("dinov2","inception"):
     fm,pre,_=feature_model(feature_name,device); ref=features(fm,pre,bank["reference_images"],device); radii=kth_neighbor_radii(ref)
     for name,path in decoded.items():
-      metric=normalized_manifold_metrics(features(fm,pre,path.flatten(0,1),device).reshape(len(path),33,-1),ref,radii); full[f"{feature_name}_{name}"]=metric
-      table.append({"feature":feature_name,"method":name,**{k:float(v.mean()) for k,v in metric.items() if k!="rho"}})
+      path_features=features(fm,pre,path.flatten(0,1),device).reshape(len(path),33,-1)
+      metric=normalized_manifold_metrics(path_features,ref,radii); full[f"{feature_name}_{name}"]=metric
+      feature_cache[f"{feature_name}_{name}"]=path_features
+      row={"feature":feature_name,"method":name,"solver_success":1.0,**{k:float(v.mean()) for k,v in metric.items() if k!="rho"}}
+      if feature_name == "inception": row["interior_fid"]=frechet_distance(ref,path_features[:,1:32].reshape(-1,path_features.shape[-1]))
+      table.append(row)
   dot=full["dinov2_dot"]["excess"]; direct=full["dinov2_direct"]["excess"]; boot=paired_bootstrap(dot,direct,c["bootstrap"],c["seed"])
-  result={"single_seed_preliminary":True,"checkpoints":{v:records[v].__dict__ for v in records},"calibration":{v:calibrations[v].__dict__ for v in calibrations},"linear_metric_infeasibility":metric_fallback,"rows":table,"direct_dot_relative_improvement":{"mean":float(((dot-direct)/np.maximum(dot,1e-12)).mean()),"ci95":np.quantile(boot,[.025,.975]).tolist()},"warning":"No seed-level or preregistered pass/fail inference: only one matched checkpoint per method; any exponential-metric result is secondary."}
+  write_pair_artifacts(out,full)
+  result={"single_seed_preliminary":True,"checkpoints":{v:records[v].__dict__ for v in records},"calibration":{v:calibrations[v].__dict__ for v in calibrations},"linear_metric_infeasibility":metric_fallback,"unavailable_secondary_controls":unavailable,"rows":table,"direct_dot_relative_improvement":{"mean":float(((dot-direct)/np.maximum(dot,1e-12)).mean()),"ci95":np.quantile(boot,[.025,.975]).tolist()},"artifacts":{"paired_tradeoff_csv":"paired_tradeoff.csv","paired_tradeoff_plot":"paired_tradeoff.png"},"warning":"No seed-level or preregistered pass/fail inference: only one matched checkpoint per method; any exponential-metric result is secondary. none_gradient_norm is a labelled gradient-field control, not an energy-value comparison."}
   (out/"summary.json").write_text(json.dumps(result,indent=2,default=lambda x:x.tolist() if isinstance(x,np.ndarray) else str(x))+"\n")
 
 if __name__ == "__main__": main()
