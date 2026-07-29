@@ -121,26 +121,44 @@ def write_pair_artifacts(out: Path, full: dict[str, dict[str, np.ndarray]]) -> N
     axis.set(xlabel="DINOv2 feature detour ratio", ylabel="normalized manifold excess")
     axis.legend(); figure.tight_layout(); figure.savefig(out / "paired_tradeoff.png", dpi=180); plt.close(figure)
 
-def optimize(paths, model, variant, labels, calibration, restarts, steps, lr, path_batch=2):
+def optimize(paths, model, variant, labels, calibration, restarts, steps, lr):
+    """Minimize the exact discrete objective with bounded activation memory.
+
+    A 64-path batch retains every transformer activation until one joint
+    backward call and exceeds even a 140-GB H200.  Each term is separable by
+    endpoint pair, so accumulate its (mean-normalized) gradient one path at a
+    time before exactly one Adam step.  This does not alter the objective,
+    endpoints, restart policy, or number of optimizer steps.
+    """
     basis=open_uniform_cubic_basis().to(paths); endpoints=paths[:, [0,-1]].detach(); best=None
+    t_controls=torch.linspace(0,1,10,device=paths.device)
+    def controls_for(raw, index):
+        endpoint=endpoints[index:index+1]
+        linear=torch.stack([endpoint[:,0]*(1-t)+endpoint[:,1]*t for t in t_controls],1)
+        return torch.cat([endpoint[:,:1], linear[:,1:-1]+.5*torch.tanh(raw[index:index+1]), endpoint[:,1:]],1)
+    def objective_for(raw, differentiable):
+        values=[]
+        for index in range(len(paths)):
+            part=path_from_controls(controls_for(raw,index),basis)
+            y=labels[index:index+1]
+            objective,_=kinetic_objective(part,lambda z: lambda_from_energy(metric_potential(model,variant,z.flatten(0,1),y[:,None].expand(-1,32).reshape(-1),differentiable=differentiable).reshape(z.shape[:2]),calibration))
+            values.append(objective)
+        return values
     for restart in range(restarts):
-        # bounded residual around linear controls; endpoints remain exact.
         raw=torch.zeros((len(paths),8,*paths.shape[2:]),device=paths.device,requires_grad=True)
         if restart: raw.data.normal_(0,.01)
         opt=torch.optim.Adam([raw],lr=lr)
         for _ in range(steps):
-            linear=torch.stack([endpoints[:,0]*(1-t)+endpoints[:,1]*t for t in torch.linspace(0,1,10,device=paths.device)],1)
-            controls=torch.cat([endpoints[:,:1], linear[:,1:-1]+.5*torch.tanh(raw), endpoints[:,1:]],1)
-            path=path_from_controls(controls,basis)
-            objectives=[]
-            for start in range(0, len(path), path_batch):
-                stop=min(start+path_batch,len(path)); part=path[start:stop]; y=labels[start:stop]
-                objective,_=kinetic_objective(part,lambda z: lambda_from_energy(metric_potential(model,variant,z.flatten(0,1),y[:,None].expand(-1,32).reshape(-1),differentiable=True).reshape(z.shape[:2]),calibration))
-                objectives.append(objective)
-            objective=torch.cat(objectives)
-            opt.zero_grad(); objective.mean().backward(); opt.step()
-        candidate=(path.detach(),objective.detach())
-        best=candidate if best is None else (torch.where((candidate[1]<best[1])[:,None,None,None,None],candidate[0],best[0]), torch.minimum(candidate[1],best[1]))
+            opt.zero_grad(set_to_none=True)
+            # Backward immediately so each transformer's activation graph frees.
+            for objective in objective_for(raw,differentiable=True):
+                (objective / len(paths)).backward()
+            opt.step()
+        with torch.no_grad():
+            scores=torch.cat([value.detach() for value in objective_for(raw,differentiable=False)])
+            controls=torch.cat([controls_for(raw,index) for index in range(len(paths))])
+            candidate=path_from_controls(controls,basis).detach()
+        best=candidate if best is None else (torch.where((scores<best[1])[:,None,None,None,None],candidate,best[0]), torch.minimum(scores,best[1]))
     return best
 
 def main(argv=None):
