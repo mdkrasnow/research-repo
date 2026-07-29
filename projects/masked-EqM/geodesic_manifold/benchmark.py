@@ -108,7 +108,11 @@ def main(argv=None):
   metric_fallback={}
   for v in models:
     mids=(initial[:,:-1]+initial[:,1:])/2
-    initial_energy=scalar_energy(models[v],v,mids.flatten(0,1),pair_labels[:,None].expand(-1,32).reshape(-1)).reshape(mids.shape[:2])
+    initial_parts=[]
+    for start in range(0, len(mids), 2):
+      stop=min(start+2,len(mids)); part=mids[start:stop]; y=pair_labels[start:stop]
+      initial_parts.append(scalar_energy(models[v],v,part.flatten(0,1),y[:,None].expand(-1,32).reshape(-1)).reshape(part.shape[:2]))
+    initial_energy=torch.cat(initial_parts)
     if (lambda_from_energy(initial_energy,calibrations[v]) <= 0).any():
       # Registered secondary metric: same calibration endpoints, positivity guaranteed.
       calibrations[v]=Calibration(calibrations[v].mean_on,calibrations[v].mean_off,calibrations[v].alpha,calibrations[v].beta,"exp")
