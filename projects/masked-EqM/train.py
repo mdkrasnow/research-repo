@@ -298,6 +298,7 @@ def main(args):
     for epoch in range(resume_epoch, args.epochs):
         sampler.set_epoch(epoch)
         logger.info(f"Beginning epoch {epoch}...")
+        reached_max_steps = False
         for x, y in loader:
             x = x.to(device)
             y = y.to(device)
@@ -352,6 +353,13 @@ def main(args):
                     logger.info(f"Saved checkpoint to {checkpoint_path}")
                 dist.barrier()
 
+            if args.max_steps is not None and train_steps >= args.max_steps:
+                reached_max_steps = True
+                break
+
+        if reached_max_steps:
+            break
+
         # Save an epoch-boundary checkpoint regardless of step/ckpt_every
         # alignment -- resume via --ckpt does not restore train_steps/epoch/
         # RNG state, so matched multi-epoch comparisons rely on retraining
@@ -395,6 +403,12 @@ if __name__ == "__main__":
     parser.add_argument("--num-workers", type=int, default=4)
     parser.add_argument("--log-every", type=int, default=100)
     parser.add_argument("--ckpt-every", type=int, default=50000)
+    parser.add_argument(
+        "--max-steps",
+        type=int,
+        default=None,
+        help="optional hard cap for bounded smoke/benchmark runs",
+    )
     parser.add_argument("--cfg-scale", type=float, default=4.0)
     parser.add_argument("--wandb", action="store_true")
     parser.add_argument("--ckpt", type=str, default=None,
