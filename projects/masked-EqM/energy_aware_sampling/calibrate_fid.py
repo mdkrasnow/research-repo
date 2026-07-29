@@ -31,7 +31,7 @@ def main(args):
     state = torch.load(args.checkpoint, map_location=device)
     model.load_state_dict(state["ema"]); model.eval()
     for parameter in model.parameters(): parameter.requires_grad_(False)
-    vae = AutoencoderKL.from_pretrained("stabilityai/sd-vae-ema").to(device).eval()
+    vae = AutoencoderKL.from_pretrained("stabilityai/sd-vae-ft-ema").to(device).eval()
     for parameter in vae.parameters(): parameter.requires_grad_(False)
     output = Path(args.output); generated = output / "generated"; generated.mkdir(parents=True, exist_ok=True)
     start = time.perf_counter(); gradients = 0; finite = 0
