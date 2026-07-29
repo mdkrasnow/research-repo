@@ -9,6 +9,8 @@ from pathlib import Path
 import torch
 from diffusers.models import AutoencoderKL
 from pytorch_fid.fid_score import calculate_fid_given_paths
+from torchvision.datasets import ImageFolder
+from torchvision.transforms import Compose, Resize, CenterCrop
 from torchvision.utils import save_image
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -34,6 +36,10 @@ def main(args):
     vae = AutoencoderKL.from_pretrained("stabilityai/sd-vae-ft-ema").to(device).eval()
     for parameter in vae.parameters(): parameter.requires_grad_(False)
     output = Path(args.output); generated = output / "generated"; generated.mkdir(parents=True, exist_ok=True)
+    real = output / "real"; real.mkdir(parents=True, exist_ok=True)
+    dataset = ImageFolder(args.real, transform=Compose([Resize(256), CenterCrop(256)]))
+    for index in range(args.samples):
+        dataset[index][0].save(real / f"{index:06d}.png")
     start = time.perf_counter(); gradients = 0; finite = 0
     for offset in range(0, args.samples, args.batch_size):
         end = min(args.samples, offset + args.batch_size)
@@ -44,7 +50,7 @@ def main(args):
             decoded = vae.decode(latent / 0.18215).sample
         for local_index, image in enumerate(decoded):
             save_image(image, generated / f"{offset + local_index:06d}.png", normalize=True, value_range=(-1, 1))
-    fid = calculate_fid_given_paths([str(args.real), str(generated)], batch_size=args.fid_batch_size, device=device, dims=2048)
+    fid = calculate_fid_given_paths([str(real), str(generated)], batch_size=args.fid_batch_size, device=device, dims=2048)
     report = {"checkpoint": args.checkpoint, "sampler": "fixed", "seed": args.seed, "samples": args.samples,
               "steps": args.steps, "step": args.step, "multiplier": args.multiplier, "fid": fid,
               "finite_samples": finite, "gradient_evaluations": gradients, "energy_forwards": 0,
