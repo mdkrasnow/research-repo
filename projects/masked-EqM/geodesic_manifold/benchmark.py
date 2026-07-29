@@ -136,14 +136,12 @@ def optimize(paths, model, variant, labels, calibration, restarts, steps, lr):
         endpoint=endpoints[index:index+1]
         linear=torch.stack([endpoint[:,0]*(1-t)+endpoint[:,1]*t for t in t_controls],1)
         return torch.cat([endpoint[:,:1], linear[:,1:-1]+.5*torch.tanh(raw[index:index+1]), endpoint[:,1:]],1)
-    def objective_for(raw, differentiable):
-        values=[]
+    def objectives_for(raw, differentiable):
         for index in range(len(paths)):
             part=path_from_controls(controls_for(raw,index),basis)
             y=labels[index:index+1]
             objective,_=kinetic_objective(part,lambda z: lambda_from_energy(metric_potential(model,variant,z.flatten(0,1),y[:,None].expand(-1,32).reshape(-1),differentiable=differentiable).reshape(z.shape[:2]),calibration))
-            values.append(objective)
-        return values
+            yield objective
     for restart in range(restarts):
         raw=torch.zeros((len(paths),8,*paths.shape[2:]),device=paths.device,requires_grad=True)
         if restart: raw.data.normal_(0,.01)
@@ -151,11 +149,11 @@ def optimize(paths, model, variant, labels, calibration, restarts, steps, lr):
         for _ in range(steps):
             opt.zero_grad(set_to_none=True)
             # Backward immediately so each transformer's activation graph frees.
-            for objective in objective_for(raw,differentiable=True):
+            for objective in objectives_for(raw,differentiable=True):
                 (objective / len(paths)).backward()
             opt.step()
         with torch.no_grad():
-            scores=torch.cat([value.detach() for value in objective_for(raw,differentiable=False)])
+            scores=torch.cat([value.detach() for value in objectives_for(raw,differentiable=False)])
             controls=torch.cat([controls_for(raw,index) for index in range(len(paths))])
             candidate=path_from_controls(controls,basis).detach()
         best=candidate if best is None else (torch.where((scores<best[1])[:,None,None,None,None],candidate,best[0]), torch.minimum(scores,best[1]))
