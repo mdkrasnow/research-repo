@@ -27,7 +27,7 @@ EPOCHS="${1:-25}"
 SAVE_EPOCHS="${2:-25}"
 echo "Continuation configuration: EPOCHS=${EPOCHS} SAVE_EPOCHS=${SAVE_EPOCHS} CKPT=${CKPT}"
 RESULTS_DIR="$RESULTS_ROOT/${RUN_TAG}_job${SLURM_JOB_ID}"
-IMAGENET_PATH="${IMAGENET_PATH:-/n/holylabs/ydu_lab/Lab/raywang4/imagenet/train}"
+IMAGENET_PATH="${IMAGENET_PATH:-/n/holylfs06/LABS/kempner_shared/Everyone/testbed/vision/imagenet_1k/ILSVRC2012_img_train}"
 export ENTITY="${ENTITY:-none}"
 export PROJECT="${PROJECT:-none}"
 
