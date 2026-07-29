@@ -13,8 +13,10 @@ set -euo pipefail
 module load python/3.10.13-fasrc01 2>/dev/null || true
 module load cuda/11.8.0-fasrc01 2>/dev/null || true
 MULTIPLIERS=(0.25 0.5 1 2 4 8)
-MULTIPLIER="${MULTIPLIERS[$SLURM_ARRAY_TASK_ID]}"
-WORK_DIR="/tmp/masked-eqm-armijo-cal-${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}"
+TASK_ID="${SLURM_ARRAY_TASK_ID:-0}"
+ARRAY_JOB_ID="${SLURM_ARRAY_JOB_ID:-$SLURM_JOB_ID}"
+MULTIPLIER="${MULTIPLIERS[$TASK_ID]}"
+WORK_DIR="/tmp/masked-eqm-armijo-cal-${ARRAY_JOB_ID}_${TASK_ID}"
 RESULT_ROOT="/n/home03/mkrasnow/energy_aware_sampling/epoch15_armijo/calibration"
 GIT_URL="${GIT_URL:-https://github.com/mdkrasnow/research-repo.git}"
 GIT_SHA="${GIT_SHA:?GIT_SHA is required}"
@@ -27,5 +29,5 @@ cd "$WORK_DIR"; git init .; git remote add origin "$GIT_URL"; git fetch --depth=
 cd projects/masked-EqM
 pip install --quiet timm diffusers torchvision pytorch-fid
 python energy_aware_sampling/calibrate_fid.py --checkpoint "$CHECKPOINT" --real "$REAL" --output "$RESULT_ROOT/$TAG" --multiplier "$MULTIPLIER" --step "$STEP" --samples 1024 --steps 100 --batch-size 4 --fid-batch-size 16
-cp "$RESULT_ROOT/$TAG/metrics.json" "/n/home03/mkrasnow/research-repo/projects/masked-EqM/results/energy_aware_calibration_${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}.json" || true
+cp "$RESULT_ROOT/$TAG/metrics.json" "/n/home03/mkrasnow/research-repo/projects/masked-EqM/results/energy_aware_calibration_${ARRAY_JOB_ID}_${TASK_ID}.json" || true
 rm -rf "$WORK_DIR"
