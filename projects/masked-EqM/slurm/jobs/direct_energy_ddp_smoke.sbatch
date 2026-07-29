@@ -39,7 +39,7 @@ git checkout "$GIT_SHA" || { git fetch --unshallow origin; git checkout "$GIT_SH
 cd projects/masked-EqM
 pip install --quiet timm diffusers accelerate torchdiffeq wandb torchvision
 
-CMD="python -m torch.distributed.run --nnodes=1 --nproc_per_node=4 --master_port=$MASTER_PORT train.py --model EqM-B/2 --data-path $IMAGENET_PATH --num-classes 1000 --global-batch-size 32 --epochs 1 --save-epochs 999 --image-size 256 --log-every 50 --ckpt-every 999999999 --max-steps 200 --results-dir $RESULTS_DIR --ebm $EBM --global-seed $GLOBAL_SEED --ckpt $CKPT --num-workers 4"
+CMD="python -m torch.distributed.run --nnodes=1 --nproc_per_node=4 --master_port=$MASTER_PORT train.py --model EqM-B/2 --data-path $IMAGENET_PATH --num-classes 1000 --global-batch-size 32 --epochs 80 --save-epochs 999 --image-size 256 --log-every 50 --ckpt-every 999999999 --max-steps 200 --results-dir $RESULTS_DIR --ebm $EBM --global-seed $GLOBAL_SEED --ckpt $CKPT --num-workers 4"
 echo "$CMD"
 eval "$CMD" 2>&1 | tee ddp_smoke.log
 cp ddp_smoke.log "/n/home03/mkrasnow/research-repo/projects/masked-EqM/slurm/logs/${RUN_TAG}_${SLURM_JOB_ID}.log" || true
