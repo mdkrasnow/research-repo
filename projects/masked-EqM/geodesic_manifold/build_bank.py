@@ -35,5 +35,5 @@ def main():
    for s in range(0,len(ix),16): chunks.append(vae.encode(images(ix[s:s+16]).cuda()).latent_dist.mode().mul(.18215).cpu())
   return torch.cat(chunks)
  ep=images(endpoints); bank={'calibration_latents':lat(cal),'calibration_labels':torch.tensor([ds[i][1] for i in cal]),'reference_images':images(ref),'endpoint_latents':lat(endpoints),'endpoint_labels':torch.tensor([ds[i][1] for i in endpoints]),'endpoint_images':ep,'pairs':torch.arange(2*a.pairs).reshape(a.pairs,2),'metadata':{'seed':a.seed,'val':str(a.val),'pairs':a.pairs,'calibration':a.calibration,'reference':a.reference,'endpoint_indices':endpoints,'calibration_indices':cal,'reference_indices':ref,'pair_selection':'within-class DINOv2 candidate pair at 70th percentile'}}
- a.out.parent.mkdir(parents=True,exist_ok=False); torch.save(bank,a.out); print(json.dumps(bank['metadata']))
+ a.out.parent.mkdir(parents=True,exist_ok=True); torch.save(bank,a.out); print(json.dumps(bank['metadata']))
 if __name__=='__main__': main()
