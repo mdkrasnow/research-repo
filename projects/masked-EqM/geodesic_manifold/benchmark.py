@@ -55,6 +55,11 @@ def metric_potential(model, variant, z, labels, differentiable=False):
         return none_gradient_norm(model, z, labels)
     return (differentiable_scalar_energy if differentiable else scalar_energy)(model, variant, z, labels)
 
+def batched_metric_potential(model, variant, z, labels, batch_size=16):
+    """Exact per-sample potential values without a calibration-scale GPU batch."""
+    return torch.cat([metric_potential(model, variant, z[start:start + batch_size], labels[start:start + batch_size])
+                      for start in range(0, len(z), batch_size)])
+
 def make_record(path: Path, variant: str) -> CheckpointRecord:
     state = torch.load(path, map_location="cpu", weights_only=False); a = state["args"]
     get = lambda k, d=None: a.get(k, d) if isinstance(a, dict) else getattr(a, k, d)
@@ -172,7 +177,8 @@ def main(argv=None):
   calibrations={}; unavailable={}
   for v in models:
     z=bank["calibration_latents"].to(device); y=bank["calibration_labels"].to(device)
-    on=metric_potential(models[v],v,z,y); off=metric_potential(models[v],v,(z[::2]+z[1::2])/2,y[::2])
+    on=batched_metric_potential(models[v],v,z,y)
+    off=batched_metric_potential(models[v],v,(z[::2]+z[1::2])/2,y[::2])
     try:
       calibrations[v]=calibrate_linear(on,off)
     except ValueError as error:
