@@ -105,7 +105,15 @@ def main(argv=None):
   theta=cosine.clamp(-.999999,.999999).acos(); t=torch.linspace(0,1,33,device=device)[None,:,None]
   slerp=(torch.sin((1-t)*theta[:,None,None])*a[:,None]+torch.sin(t*theta[:,None,None])*b[:,None])/torch.sin(theta)[:,None,None]
   paths["slerp"]=slerp.reshape_as(initial).detach()
-  for v in models: paths[v],_=optimize(initial,models[v],v,pair_labels,calibrations[v],c["restarts"],c["steps"],c["lr"])
+  metric_fallback={}
+  for v in models:
+    mids=(initial[:,:-1]+initial[:,1:])/2
+    initial_energy=scalar_energy(models[v],v,mids.flatten(0,1),pair_labels[:,None].expand(-1,32).reshape(-1)).reshape(mids.shape[:2])
+    if (lambda_from_energy(initial_energy,calibrations[v]) <= 0).any():
+      # Registered secondary metric: same calibration endpoints, positivity guaranteed.
+      calibrations[v]=Calibration(calibrations[v].mean_on,calibrations[v].mean_off,calibrations[v].alpha,calibrations[v].beta,"exp")
+      metric_fallback[v]="linear metric non-positive on the fixed initial path; used preregistered exponential secondary"
+    paths[v],_=optimize(initial,models[v],v,pair_labels,calibrations[v],c["restarts"],c["steps"],c["lr"])
   # Decode once; fixed feature encoders never take part in restart selection.
   from diffusers.models import AutoencoderKL
   vae=AutoencoderKL.from_pretrained(c["vae"]).to(device).eval()
@@ -120,7 +128,7 @@ def main(argv=None):
       metric=normalized_manifold_metrics(features(fm,pre,path.flatten(0,1),device).reshape(len(path),33,-1),ref,radii); full[f"{feature_name}_{name}"]=metric
       table.append({"feature":feature_name,"method":name,**{k:float(v.mean()) for k,v in metric.items() if k!="rho"}})
   dot=full["dinov2_dot"]["excess"]; direct=full["dinov2_direct"]["excess"]; boot=paired_bootstrap(dot,direct,c["bootstrap"],c["seed"])
-  result={"single_seed_preliminary":True,"checkpoints":{v:records[v].__dict__ for v in records},"calibration":{v:calibrations[v].__dict__ for v in calibrations},"rows":table,"direct_dot_relative_improvement":{"mean":float(((dot-direct)/np.maximum(dot,1e-12)).mean()),"ci95":np.quantile(boot,[.025,.975]).tolist()},"warning":"No seed-level or preregistered pass/fail inference: only one matched checkpoint per method."}
+  result={"single_seed_preliminary":True,"checkpoints":{v:records[v].__dict__ for v in records},"calibration":{v:calibrations[v].__dict__ for v in calibrations},"linear_metric_infeasibility":metric_fallback,"rows":table,"direct_dot_relative_improvement":{"mean":float(((dot-direct)/np.maximum(dot,1e-12)).mean()),"ci95":np.quantile(boot,[.025,.975]).tolist()},"warning":"No seed-level or preregistered pass/fail inference: only one matched checkpoint per method; any exponential-metric result is secondary."}
   (out/"summary.json").write_text(json.dumps(result,indent=2,default=lambda x:x.tolist() if isinstance(x,np.ndarray) else str(x))+"\n")
 
 if __name__ == "__main__": main()
