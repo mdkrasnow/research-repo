@@ -272,6 +272,11 @@ def main(args):
 
     # Variables for monitoring/logging purposes:
     train_steps = int(resume_step)
+    max_train_steps = (
+        train_steps + args.max_steps
+        if args.max_steps is not None
+        else None
+    )
     log_steps = 0
     running_loss = 0
     start_time = time()
@@ -353,7 +358,7 @@ def main(args):
                     logger.info(f"Saved checkpoint to {checkpoint_path}")
                 dist.barrier()
 
-            if args.max_steps is not None and train_steps >= args.max_steps:
+            if max_train_steps is not None and train_steps >= max_train_steps:
                 reached_max_steps = True
                 break
 
