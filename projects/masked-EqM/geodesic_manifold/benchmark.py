@@ -208,13 +208,23 @@ def main(argv=None):
       calibrations[v]=Calibration(calibrations[v].mean_on,calibrations[v].mean_off,calibrations[v].alpha,calibrations[v].beta,"exp")
       metric_fallback[v]="linear metric non-positive on the fixed initial path; used preregistered exponential secondary"
     paths["none_gradient_norm" if v == "none" else v],_=optimize(initial,models[v],v,pair_labels,calibrations[v],c["restarts"],c["steps"],c["lr"])
-  # Decode once; fixed feature encoders never take part in restart selection.
+  # The three frozen DiT checkpoints are no longer needed after optimization.
+  # Release them before evaluation: keeping them resident alongside a full
+  # 64x33 VAE decode exceeded even an H200's memory.
+  del models
+  torch.cuda.empty_cache()
+  # Decode in small deterministic chunks; fixed feature encoders never take
+  # part in restart selection.
   from diffusers.models import AutoencoderKL
   vae=AutoencoderKL.from_pretrained(c["vae"]).to(device).eval()
   decoded={}
-  with torch.no_grad():
+  with torch.inference_mode():
     for k,v in paths.items():
-      decoded[k]=vae.decode(v.reshape(-1,*v.shape[2:])/.18215).sample.cpu().reshape(len(v),33,3,256,256)
+      flat=v.reshape(-1,*v.shape[2:])
+      chunks=[]
+      for start in range(0,len(flat),8):
+        chunks.append(vae.decode(flat[start:start+8]/.18215).sample.cpu())
+      decoded[k]=torch.cat(chunks).reshape(len(v),33,3,256,256)
   table=[]; full={}; feature_cache={}
   for feature_name in ("dinov2","inception"):
     fm,pre,_=feature_model(feature_name,device); ref=features(fm,pre,bank["reference_images"],device); radii=kth_neighbor_radii(ref)
