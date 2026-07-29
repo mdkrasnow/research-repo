@@ -59,7 +59,7 @@ def features(model, preprocess, images, device, batch=16):
         out.append(y.float().cpu())
     return torch.cat(out).numpy()
 
-def optimize(paths, model, variant, labels, calibration, restarts, steps, lr):
+def optimize(paths, model, variant, labels, calibration, restarts, steps, lr, path_batch=2):
     basis=open_uniform_cubic_basis().to(paths); endpoints=paths[:, [0,-1]].detach(); best=None
     for restart in range(restarts):
         # bounded residual around linear controls; endpoints remain exact.
@@ -70,7 +70,12 @@ def optimize(paths, model, variant, labels, calibration, restarts, steps, lr):
             linear=torch.stack([endpoints[:,0]*(1-t)+endpoints[:,1]*t for t in torch.linspace(0,1,10,device=paths.device)],1)
             controls=torch.cat([endpoints[:,:1], linear[:,1:-1]+.5*torch.tanh(raw), endpoints[:,1:]],1)
             path=path_from_controls(controls,basis)
-            objective,_=kinetic_objective(path,lambda z: lambda_from_energy(scalar_energy(model,variant,z.flatten(0,1),labels[:,None].expand(-1,32).reshape(-1)).reshape(z.shape[:2]),calibration))
+            objectives=[]
+            for start in range(0, len(path), path_batch):
+                stop=min(start+path_batch,len(path)); part=path[start:stop]; y=labels[start:stop]
+                objective,_=kinetic_objective(part,lambda z: lambda_from_energy(scalar_energy(model,variant,z.flatten(0,1),y[:,None].expand(-1,32).reshape(-1)).reshape(z.shape[:2]),calibration))
+                objectives.append(objective)
+            objective=torch.cat(objectives)
             opt.zero_grad(); objective.mean().backward(); opt.step()
         candidate=(path.detach(),objective.detach())
         best=candidate if best is None else (torch.where((candidate[1]<best[1])[:,None,None,None,None],candidate[0],best[0]), torch.minimum(candidate[1],best[1]))
