@@ -10,9 +10,11 @@
 set -euo pipefail
 module load python/3.10.13-fasrc01 2>/dev/null || true
 module load cuda/11.8.0-fasrc01 2>/dev/null || true
-: "${GIT_SHA:?}"; : "${DOT_CHECKPOINT:?}"; : "${DIRECT_CHECKPOINT:?}"
+: "${GIT_SHA:?}"
 BANK="${BANK:-/n/holylabs/ydu_lab/Lab/mkrasnow_eqm/geodesic_manifold_preliminary_epoch15/inputs/bank.pt}"
 OUT="${OUT:-/n/holylabs/ydu_lab/Lab/mkrasnow_eqm/energy_outcome_monotonicity/epoch15_seed0/report.json}"
+DOT_CHECKPOINT="${DOT_CHECKPOINT:-/n/home03/mkrasnow/direct_energy_longer_retry/longer15_dot_seed0_job35524601/000-EqM-B-2-Linear-velocity-None-ebm-dot/checkpoints/epoch15.pt}"
+DIRECT_CHECKPOINT="${DIRECT_CHECKPOINT:-/n/home03/mkrasnow/direct_energy_longer_retry/longer15_direct_seed0_job35524667/000-EqM-B-2-Linear-velocity-None-ebm-direct/checkpoints/epoch15.pt}"
 WORK="$(mktemp -d /tmp/eqm-energy-outcome-${SLURM_JOB_ID}-XXXXXX)"
 trap 'rm -rf "$WORK"' EXIT
 git clone --depth=50 https://github.com/mdkrasnow/research-repo.git "$WORK"
