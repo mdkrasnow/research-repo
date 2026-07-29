@@ -2,11 +2,14 @@
 from __future__ import annotations
 import argparse
 import json
+import sys
 import time
 from pathlib import Path
 
 import torch
 
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PROJECT_ROOT))
 from core import armijo_sample, fixed_sample, replay_sample, sign_audit
 from models import EqM_models
 
