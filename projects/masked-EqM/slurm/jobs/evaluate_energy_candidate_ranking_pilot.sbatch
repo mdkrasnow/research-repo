@@ -13,7 +13,7 @@ module load python/3.10.13-fasrc01 2>/dev/null || true; module load cuda/11.8.0-
 WORK="$(mktemp -d /tmp/eqm-energy-rank-${SLURM_JOB_ID}-XXXXXX)"; trap 'rm -rf "$WORK"' EXIT
 git clone --depth=50 https://github.com/mdkrasnow/research-repo.git "$WORK"; git -C "$WORK" checkout "$GIT_SHA"
 cd "$WORK/projects/masked-EqM"; pip install --quiet timm diffusers accelerate torchvision pandas matplotlib
-CONFIG="${CONFIG:-configs/energy_candidate_ranking_pilot.json}"
-ARGS=(--config "$CONFIG" --data-path /n/holylabs/ydu_lab/Lab/raywang4/imagenet/val --output "$OUT")
+EVAL_CONFIG="${EVAL_CONFIG:-configs/energy_candidate_ranking_pilot.json}"
+ARGS=(--config "$EVAL_CONFIG" --data-path /n/holylabs/ydu_lab/Lab/raywang4/imagenet/val --output "$OUT")
 if [[ -n "${SEED:-}" ]]; then ARGS+=(--seed "$SEED"); fi
 python -m energy_candidate_ranking.evaluate "${ARGS[@]}"
