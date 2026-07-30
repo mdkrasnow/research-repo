@@ -18,7 +18,7 @@ ROOT=Path(__file__).resolve().parents[1]; sys.path.insert(0,str(ROOT))
 from train import center_crop_arr
 from eval_masked_recovery import load_ema_model, gd_recover
 
-SCORES=("direct_energy","dot_energy","base_field_norm")
+SCORES=("direct_energy","direct_energy_zero_anchored","dot_energy","dot_energy_zero_anchored","base_field_norm")
 
 def rank(x):
     order=np.argsort(x,kind="stable"); out=np.empty(len(x)); out[order]=np.arange(len(x)); return out/(max(1,len(x)-1))
@@ -100,9 +100,12 @@ def main(a):
         logits=cls(weights.transforms()(ims.add(1).div(2))); prob=logits.softmax(1)[torch.arange(len(ims),device=d),ys].cpu().numpy(); pred=logits.argmax(1).cpu().numpy()
     scores={}
     for name,m in [('direct_energy',models['direct']),('dot_energy',models['dot'])]:
-        vals=[]
-        for s in range(0,len(zs),a.batch_size): vals.append(scalar(m,zs[s:s+a.batch_size],torch.full((min(a.batch_size,len(zs)-s),),cfg['t_eval'],device=d),ys[s:s+a.batch_size]).cpu())
-        scores[name]=torch.cat(vals).numpy()
+        vals=[]; anchors=[]
+        for s in range(0,len(zs),a.batch_size):
+            size=min(a.batch_size,len(zs)-s); tt=torch.full((size,),cfg['t_eval'],device=d)
+            vals.append(scalar(m,zs[s:s+size],tt,ys[s:s+size]).cpu())
+            anchors.append(scalar(m,torch.zeros_like(zs[s:s+size]),tt,ys[s:s+size]).cpu())
+        raw=torch.cat(vals).numpy(); scores[name]=raw; scores[name+'_zero_anchored']=raw-torch.cat(anchors).numpy()
     vals=[]
     for s in range(0,len(zs),a.batch_size): vals.append(fieldnorm(models['none'],zs[s:s+a.batch_size],torch.full((min(a.batch_size,len(zs)-s),),cfg['t_eval'],device=d),ys[s:s+a.batch_size]).cpu())
     scores['base_field_norm']=torch.cat(vals).numpy(); quality=(rank(realism)+rank(prob))/2
