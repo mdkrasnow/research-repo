@@ -30,4 +30,19 @@ cd projects/masked-EqM
 pip install --quiet timm diffusers torchvision pytorch-fid
 python energy_aware_sampling/calibrate_fid.py --checkpoint "$CHECKPOINT" --real "$REAL" --output "$RESULT_ROOT/$TAG" --multiplier "$MULTIPLIER" --step "$STEP" --samples 1024 --steps 100 --batch-size 4 --fid-batch-size 16
 cp "$RESULT_ROOT/$TAG/metrics.json" "/n/home03/mkrasnow/research-repo/projects/masked-EqM/results/energy_aware_calibration_${ARRAY_JOB_ID}_${TASK_ID}.json" || true
+if [[ "${AUTO_PILOT:-0}" == "1" ]]; then
+  read BEST_MULTIPLIER BEST_STEP <<EOF
+$(python - <<'PY'
+import json
+from pathlib import Path
+rows=[]
+for path in Path('/n/home03/mkrasnow/energy_aware_sampling/epoch15_armijo/calibration').glob('m*/metrics.json'):
+ d=json.loads(path.read_text())
+ if d['finite_samples']==d['samples']: rows.append((d['fid'],d['multiplier'],d['step']))
+_,m,step=min(rows); print(m,step)
+PY
+)
+EOF
+  python energy_aware_sampling/smoke_pipeline.py --direct "$CHECKPOINT" --dot /n/home03/mkrasnow/direct_energy_longer_retry/longer15_dot_seed0_job35524601/000-EqM-B-2-Linear-velocity-None-ebm-dot/checkpoints/epoch15.pt --real "$REAL" --output "/n/home03/mkrasnow/energy_aware_sampling/epoch15_armijo/pilot_${SLURM_JOB_ID}_m${BEST_MULTIPLIER}" --samples 1024 --steps 100 --step "$BEST_STEP" --seed 20260730
+fi
 rm -rf "$WORK_DIR"
