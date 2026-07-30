@@ -59,7 +59,7 @@ def main(a):
     weights=ResNet50_Weights.IMAGENET1K_V2; cls=resnet50(weights=weights).to(d).eval()
     with torch.no_grad():
         order=cls(weights.transforms()(real.add(1).div(2))).argsort(1,descending=True)
-    competing=torch.stack([order[i][order[i]!=ry[i]][:cfg.get('wrong_labels_per_real',1)] for i in range(n)],1)
+    competing=torch.stack([order[i][order[i]!=ry[i]][:cfg.get('wrong_labels_per_real',1)] for i in range(n)],0)
     models={v:load_ema_model(cfg['checkpoints'][v],'EqM-B/2',32,1000,True,v,d) for v in ('none','dot','direct')}
     t=torch.full((n,),float(cfg['t_eval']),device=d)
     cuda_generator=torch.Generator(device=d).manual_seed(cfg['seed'] + 1)
