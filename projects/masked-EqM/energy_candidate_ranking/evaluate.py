@@ -25,6 +25,13 @@ def rank(x):
 def boot(fn,n,reps,seed):
     g=np.random.default_rng(seed); vals=np.array([fn(g.integers(0,n,n)) for _ in range(reps)])
     return float(fn(np.arange(n))),[float(np.quantile(vals,.025)),float(np.quantile(vals,.975))]
+def cluster_boot(fn,source,reps,seed):
+    """Resample complete source-image candidate clusters, not correlated rows."""
+    source=np.asarray(source); units=np.unique(source); by=[np.flatnonzero(source==u) for u in units]; g=np.random.default_rng(seed)
+    vals=[]
+    for _ in range(reps):
+        ix=np.concatenate([by[j] for j in g.integers(0,len(by),len(by))]); vals.append(fn(ix))
+    return float(fn(np.arange(len(source)))),[float(np.quantile(vals,.025)),float(np.quantile(vals,.975))]
 def spearman(score,quality): return float(np.corrcoef(rank(-score),rank(quality))[0,1])
 def pairacc(score,quality):
     d=quality[:,None]-quality[None,:]; s=score[:,None]-score[None,:]; mask=np.triu(d!=0,1)
@@ -68,16 +75,18 @@ def main(a):
         z=(1-sev)*rz+sev*noise
         with torch.no_grad(): x=vae.decode(z/.18215).sample
         add(f'real_corrupt_{sev:g}',x,z,ry,primary,sev)
-    # One fixed generated source per image; both severities are represented without model-specific selection.
-    gx,gz=generated['none']
-    for sev in cfg['corruption_severities']:
-        z=(1-sev)*gz+sev*noise
-        with torch.no_grad(): x=vae.decode(z/.18215).sample
-        add(f'generated_corrupt_{sev:g}',x,z,ry,primary,sev)
+    # Every sampler's own terminal candidates receive the same fixed corruption ladder.
+    for v,(_,gz) in generated.items():
+        for sev in cfg['corruption_severities']:
+            z=(1-sev)*gz+sev*noise
+            with torch.no_grad(): x=vae.decode(z/.18215).sample
+            add(f'generated_{v}_corrupt_{sev:g}',x,z,ry,primary,sev)
     wrong=(ry+1)%1000; add('wrong_label',real,rz,wrong,primary,0.,True)
-    z=.05*rz+.95*noise
-    with torch.no_grad(): x=vae.decode(z/.18215).sample
-    add('failure',x,z,ry,primary,.95)
+    # Short trajectories are clear, model-specific generation failures, not relabeled reals.
+    for v,m in models.items():
+        z=gd_recover(m,noise.clone(),ry,3,cfg['sampler']['stepsize'],'gd',.3)
+        with torch.no_grad(): x=vae.decode(z/.18215).sample
+        add(f'failure_{v}',x,z,ry,primary,.95)
     with torch.no_grad(): noise_image=vae.decode(noise/.18215).sample
     add('noise',noise_image,noise,ry,primary,1.)
     # Independent metrics over saved candidate pixels.
@@ -101,20 +110,37 @@ def main(a):
     with (out/'candidates.csv').open('w',newline='') as f: w=csv.DictWriter(f,fieldnames=rows[0].keys()); w.writeheader();w.writerows(rows)
     # Conditional pairs are exactly corresponding real/correct vs wrong-label rows.
     right=np.array([i for i,r in enumerate(rows) if r['group']=='real']); wrongi=np.array([i for i,r in enumerate(rows) if r['group']=='wrong_label'])
-    corrupt=[(np.array([i for i,r in enumerate(rows) if r['group']==f'real_corrupt_{lo:g}']),np.array([i for i,r in enumerate(rows) if r['group']==f'real_corrupt_{hi:g}'])) for lo,hi in zip(cfg['corruption_severities'][:-1],cfg['corruption_severities'][1:])]
+    families=['real']+[f'generated_{v}' for v in models]
+    corrupt=[]
+    for family in families:
+        for lo,hi in zip(cfg['corruption_severities'][:-1],cfg['corruption_severities'][1:]):
+            low=np.array([i for i,r in enumerate(rows) if r['group']==f'{family}_corrupt_{lo:g}'])
+            high=np.array([i for i,r in enumerate(rows) if r['group']==f'{family}_corrupt_{hi:g}'])
+            corrupt.append((low,high))
+    sources=np.array([r['source_id'] for r in rows])
     metrics=[]
     for si,name in enumerate(SCORES):
-        qcorr,qci=boot(lambda ix:spearman(scores[name][ix],quality[ix]),len(rows),cfg['bootstrap_replicates'],cfg['seed']+si)
-        acc,aci=boot(lambda ix:pairacc(scores[name][ix],quality[ix]),len(rows),cfg['bootstrap_replicates'],cfg['seed']+10+si)
+        qcorr,qci=cluster_boot(lambda ix:spearman(scores[name][ix],quality[ix]),sources,cfg['bootstrap_replicates'],cfg['seed']+si)
+        acc,aci=cluster_boot(lambda ix:pairacc(scores[name][ix],quality[ix]),sources,cfg['bootstrap_replicates'],cfg['seed']+10+si)
         cond=(scores[name][right]<scores[name][wrongi]); cm,cci=boot(lambda ix:cond[ix].mean(),len(cond),cfg['bootstrap_replicates'],cfg['seed']+20+si)
-        mono=np.concatenate([(scores[name][b]>scores[name][a]) for a,b in corrupt]); mm,mci=boot(lambda ix:mono[ix].mean(),len(mono),cfg['bootstrap_replicates'],cfg['seed']+30+si)
-        metrics += [{'score':name,'metric':'spearman_quality','estimate':qcorr,'ci95':qci},{'score':name,'metric':'pair_accuracy','estimate':acc,'ci95':aci},{'score':name,'metric':'conditional_correct_lower','estimate':cm,'ci95':cci},{'score':name,'metric':'real_corruption_increases','estimate':mm,'ci95':mci}]
+        mono=np.concatenate([(scores[name][b]>scores[name][a]) for a,b in corrupt])
+        mono_sources=np.concatenate([sources[a] for a,_ in corrupt])
+        mm,mci=cluster_boot(lambda ix:mono[ix].mean(),mono_sources,cfg['bootstrap_replicates'],cfg['seed']+30+si)
+        metrics += [{'score':name,'metric':'spearman_quality_clustered','estimate':qcorr,'ci95':qci},{'score':name,'metric':'pair_accuracy_clustered','estimate':acc,'ci95':aci},{'score':name,'metric':'conditional_correct_lower','estimate':cm,'ci95':cci},{'score':name,'metric':'corruption_increases_all_families','estimate':mm,'ci95':mci}]
     (out/'metrics.json').write_text(json.dumps({'config':cfg,'metrics':metrics,'interpretation':'pilot; direct passes only if all direct endpoints are strong and its CIs exceed both baselines'},indent=2)+'\n')
     import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
     groups=sorted({r['group'] for r in rows})
     for name in SCORES:
         fig,ax=plt.subplots(figsize=(12,4)); ax.boxplot([[scores[name][i] for i,r in enumerate(rows) if r['group']==g] for g in groups],tick_labels=groups,showfliers=False);ax.tick_params(axis='x',rotation=40);ax.set_ylabel(name+' (lower hypothesized better)');fig.tight_layout();fig.savefig(out/f'{name}_groups.png',dpi=160);plt.close(fig)
         fig,ax=plt.subplots();ax.scatter(quality,scores[name],c=realism,cmap='viridis');ax.set(xlabel='independent composite quality',ylabel=name);fig.tight_layout();fig.savefig(out/f'{name}_quality.png',dpi=160);plt.close(fig)
+        fig,ax=plt.subplots(figsize=(7,4))
+        for family in families:
+            level=[0]+cfg['corruption_severities']; vals=[]
+            for sev in level:
+                group=family if sev==0 else f'{family}_corrupt_{sev:g}'
+                vals.append(np.mean([scores[name][i] for i,r in enumerate(rows) if r['group']==group]))
+            ax.plot(level,vals,marker='o',label=family)
+        ax.set(xlabel='fixed latent corruption severity',ylabel=name+' (lower hypothesized better)');ax.legend();fig.tight_layout();fig.savefig(out/f'{name}_corruption_levels.png',dpi=160);plt.close(fig)
     (out/'summary.md').write_text('# Fixed-candidate scalar-energy pilot\n\n`t_eval=1.0` is the repository terminal/clean endpoint (`z_t=(1-t)noise+t*data`). Quality is independent DINO nearest-reference similarity plus supplied-label ImageNet probability.\n\n|score|metric|estimate|95% CI|\n|---|---|---:|---|\n'+''.join(f"|{m['score']}|{m['metric']}|{m['estimate']:.3f}|[{m['ci95'][0]:.3f}, {m['ci95'][1]:.3f}]|\n" for m in metrics))
 if __name__=='__main__':
  p=argparse.ArgumentParser();p.add_argument('--config',type=Path,required=True);p.add_argument('--data-path',type=Path,required=True);p.add_argument('--output',type=Path,required=True);p.add_argument('--batch-size',type=int,default=2);main(p.parse_args())
