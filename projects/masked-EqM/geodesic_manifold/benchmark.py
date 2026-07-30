@@ -75,7 +75,7 @@ def encode_images(images, vae, device):
 def feature_model(name, device):
     from torchvision.models import inception_v3, Inception_V3_Weights
     if name == "inception":
-        weights = Inception_V3_Weights.DEFAULT; model = inception_v3(weights=weights, aux_logits=False)
+        weights = Inception_V3_Weights.DEFAULT; model = inception_v3(weights=weights)
         # Pool features, not the 1,000-class ImageNet classifier logits.
         model.fc = torch.nn.Identity(); model = model.to(device).eval()
         transform = weights.transforms()
