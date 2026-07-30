@@ -53,7 +53,11 @@ def main(a):
     vae=AutoencoderKL.from_pretrained('stabilityai/sd-vae-ft-ema').to(d).eval()
     def encode(ix):
         xs=torch.stack([ds[i][0] for i in ix]).to(d)
-        with torch.no_grad(): z=vae.encode(xs).latent_dist.mode().mul(.18215)
+        chunks=[]
+        with torch.no_grad():
+            for start in range(0,len(xs),8):
+                chunks.append(vae.encode(xs[start:start+8]).latent_dist.mode().mul(.18215))
+        z=torch.cat(chunks)
         return xs,z,torch.tensor([ds[i][1] for i in ix],device=d)
     real,rz,ry=encode(primary); ref,_,_=encode(refs)
     weights=ResNet50_Weights.IMAGENET1K_V2; cls=resnet50(weights=weights).to(d).eval()
