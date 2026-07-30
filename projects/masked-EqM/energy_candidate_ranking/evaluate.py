@@ -56,6 +56,10 @@ def main(a):
         with torch.no_grad(): z=vae.encode(xs).latent_dist.mode().mul(.18215)
         return xs,z,torch.tensor([ds[i][1] for i in ix],device=d)
     real,rz,ry=encode(primary); ref,_,_=encode(refs)
+    weights=ResNet50_Weights.IMAGENET1K_V2; cls=resnet50(weights=weights).to(d).eval()
+    with torch.no_grad():
+        order=cls(weights.transforms()(real.add(1).div(2))).argsort(1,descending=True)
+    competing=torch.stack([order[i][order[i]!=ry[i]][:cfg.get('wrong_labels_per_real',1)] for i in range(n)],1)
     models={v:load_ema_model(cfg['checkpoints'][v],'EqM-B/2',32,1000,True,v,d) for v in ('none','dot','direct')}
     t=torch.full((n,),float(cfg['t_eval']),device=d)
     cuda_generator=torch.Generator(device=d).manual_seed(cfg['seed'] + 1)
@@ -81,7 +85,7 @@ def main(a):
             z=(1-sev)*gz+sev*noise
             with torch.no_grad(): x=vae.decode(z/.18215).sample
             add(f'generated_{v}_corrupt_{sev:g}',x,z,ry,primary,sev)
-    wrong=(ry+1)%1000; add('wrong_label',real,rz,wrong,primary,0.,True)
+    for k in range(competing.shape[1]): add(f'wrong_label_{k}',real,rz,competing[:,k],primary,0.,True)
     # Short trajectories are clear, model-specific generation failures, not relabeled reals.
     for v,m in models.items():
         z=gd_recover(m,noise.clone(),ry,3,cfg['sampler']['stepsize'],'gd',.3)
@@ -92,7 +96,6 @@ def main(a):
     # Independent metrics over saved candidate pixels.
     ims=torch.stack([r.pop('image') for r in rows]).to(d); zs=torch.stack([r.pop('latent') for r in rows]).to(d); ys=torch.tensor([r['label'] for r in rows],device=d)
     dino=torch.hub.load('facebookresearch/dinov2','dinov2_vits14').to(d).eval()
-    cls=resnet50(weights=ResNet50_Weights.IMAGENET1K_V2).to(d).eval(); weights=ResNet50_Weights.IMAGENET1K_V2
     with torch.no_grad():
         din=F.normalize(dino(F.interpolate((ims+1)/2,(224,224),mode='bilinear',align_corners=False)),dim=1)
         dref=F.normalize(dino(F.interpolate((ref+1)/2,(224,224),mode='bilinear',align_corners=False)),dim=1)
@@ -112,7 +115,8 @@ def main(a):
     for i,r in enumerate(rows): r.update(realism=float(realism[i]),class_probability=float(prob[i]),class_correct=bool(pred[i]==r['label']),composite_quality=float(quality[i]),**{k:float(v[i]) for k,v in scores.items()})
     with (out/'candidates.csv').open('w',newline='') as f: w=csv.DictWriter(f,fieldnames=rows[0].keys()); w.writeheader();w.writerows(rows)
     # Conditional pairs are exactly corresponding real/correct vs wrong-label rows.
-    right=np.array([i for i,r in enumerate(rows) if r['group']=='real']); wrongi=np.array([i for i,r in enumerate(rows) if r['group']=='wrong_label'])
+    right=np.array([i for i,r in enumerate(rows) if r['group']=='real']); right_by_source={rows[i]['source_id']:i for i in right}
+    wrongi=np.array([i for i,r in enumerate(rows) if r['group'].startswith('wrong_label_')])
     families=['real']+[f'generated_{v}' for v in models]
     corrupt=[]
     for family in families:
@@ -125,7 +129,7 @@ def main(a):
     for si,name in enumerate(SCORES):
         qcorr,qci=cluster_boot(lambda ix:spearman(scores[name][ix],quality[ix]),sources,cfg['bootstrap_replicates'],cfg['seed']+si)
         acc,aci=cluster_boot(lambda ix:pairacc(scores[name][ix],quality[ix]),sources,cfg['bootstrap_replicates'],cfg['seed']+10+si)
-        cond=(scores[name][right]<scores[name][wrongi]); cm,cci=boot(lambda ix:cond[ix].mean(),len(cond),cfg['bootstrap_replicates'],cfg['seed']+20+si)
+        cond=np.array([scores[name][right_by_source[rows[i]['source_id']]]<scores[name][i] for i in wrongi]); cm,cci=boot(lambda ix:cond[ix].mean(),len(cond),cfg['bootstrap_replicates'],cfg['seed']+20+si)
         mono=np.concatenate([(scores[name][b]>scores[name][a]) for a,b in corrupt])
         mono_sources=np.concatenate([sources[a] for a,_ in corrupt])
         mm,mci=cluster_boot(lambda ix:mono[ix].mean(),mono_sources,cfg['bootstrap_replicates'],cfg['seed']+30+si)
@@ -146,4 +150,7 @@ def main(a):
         ax.set(xlabel='fixed latent corruption severity',ylabel=name+' (lower hypothesized better)');ax.legend();fig.tight_layout();fig.savefig(out/f'{name}_corruption_levels.png',dpi=160);plt.close(fig)
     (out/'summary.md').write_text('# Fixed-candidate scalar-energy pilot\n\n`t_eval=1.0` is the repository terminal/clean endpoint (`z_t=(1-t)noise+t*data`). Quality is independent DINO nearest-reference similarity plus supplied-label ImageNet probability.\n\n|score|metric|estimate|95% CI|\n|---|---|---:|---|\n'+''.join(f"|{m['score']}|{m['metric']}|{m['estimate']:.3f}|[{m['ci95'][0]:.3f}, {m['ci95'][1]:.3f}]|\n" for m in metrics))
 if __name__=='__main__':
- p=argparse.ArgumentParser();p.add_argument('--config',type=Path,required=True);p.add_argument('--data-path',type=Path,required=True);p.add_argument('--output',type=Path,required=True);p.add_argument('--batch-size',type=int,default=2);main(p.parse_args())
+ p=argparse.ArgumentParser();p.add_argument('--config',type=Path,required=True);p.add_argument('--data-path',type=Path,required=True);p.add_argument('--output',type=Path,required=True);p.add_argument('--batch-size',type=int,default=2);p.add_argument('--seed',type=int);a=p.parse_args();
+ if a.seed is not None:
+  raw=json.loads(a.config.read_text());raw['seed']=a.seed;a.config.parent.joinpath('.runtime_confirmation.json').write_text(json.dumps(raw));a.config=a.config.parent/'.runtime_confirmation.json'
+ main(a)
