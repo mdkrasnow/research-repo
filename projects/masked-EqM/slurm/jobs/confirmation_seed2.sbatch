@@ -7,4 +7,4 @@
 #SBATCH --time=12:00:00
 OUT=/n/holylabs/ydu_lab/Lab/mkrasnow_eqm/energy_candidate_ranking/confirmation_20260802_actual3
 EVAL_CONFIG=configs/energy_candidate_ranking_confirmation_seed2.json
-source "$(dirname "$0")/evaluate_energy_candidate_ranking_pilot.sbatch"
+source /n/home03/mkrasnow/research-repo/projects/masked-EqM/slurm/jobs/evaluate_energy_candidate_ranking_pilot.sbatch
