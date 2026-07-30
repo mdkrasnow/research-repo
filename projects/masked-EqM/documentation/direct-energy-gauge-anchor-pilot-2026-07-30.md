@@ -32,3 +32,12 @@ CI and direct exceeds both baselines; otherwise stop this scalar-ranking line.
 
 Kill rule: any failed endpoint, or equal improvement for dot, kills the
 "useful calibrated direct scalar" claim for these checkpoints.
+
+## Outcome
+
+Job `36270057` completed with exit `0:0`.  The anchored direct score did rank
+independent quality (`rho=0.595`, 95% CI `[0.418,0.745]`; pair accuracy `0.710`,
+CI `[0.642,0.779]`), but it failed conditional ranking (`0.438`, CI
+`[0.188,0.688]`) and did not exceed dot (`rho=0.589`).  Per the preregistered
+kill rule, this does not establish a useful calibrated direct scalar and no
+larger ranking run is promoted.
