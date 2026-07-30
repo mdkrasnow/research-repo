@@ -32,3 +32,7 @@ def test_manifold_metric_and_paired_bootstrap_are_paired():
     assert m["excess"].shape == (1,) and m["precision"][0] > .1
     boot = paired_bootstrap(np.array([2., 4.]), np.array([1., 2.]), 20, 7)
     assert np.allclose(boot, .5)
+    # Some paths can be inside the estimated manifold exactly (zero excess).
+    # Pooled resampling must remain finite rather than divide each zero by eps.
+    boot = paired_bootstrap(np.array([0., 2.]), np.array([0., 1.]), 20, 7)
+    assert np.isfinite(boot).all()

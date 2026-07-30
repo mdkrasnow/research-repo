@@ -98,9 +98,16 @@ def kth_neighbor_radii(features: np.ndarray, k: int = 5) -> np.ndarray:
 
 
 def paired_bootstrap(dot: np.ndarray, direct: np.ndarray, replicates: int, seed: int) -> np.ndarray:
-    """Pair bootstrap only: one checkpoint/seed, so no pseudo seed-level inference."""
+    """Bootstrap the pooled direct-over-dot reduction, preserving endpoint pairs.
+
+    With one frozen checkpoint pair this is intentionally pair-level only;
+    seed-level inference requires additional independently trained models.
+    Taking the ratio after each resampled mean implements the reported pooled
+    quantity and stays well-defined when individual paths have zero excess.
+    """
     if dot.shape != direct.shape:
         raise ValueError("direct/dot paths must share the exact endpoint bank")
     rng = np.random.default_rng(seed)
     draws = rng.integers(0, len(dot), size=(replicates, len(dot)))
-    return ((dot[draws] - direct[draws]) / np.maximum(dot[draws], 1e-12)).mean(1)
+    return ((dot[draws].mean(1) - direct[draws].mean(1)) /
+            np.maximum(dot[draws].mean(1), 1e-12))
