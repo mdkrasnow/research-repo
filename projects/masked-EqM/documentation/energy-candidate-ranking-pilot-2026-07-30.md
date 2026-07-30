@@ -2,10 +2,20 @@
 
 ## Decision
 
-**FAIL — do not promote to a larger candidate-ranking run.**  The fixed
-eight-per-group pilot completed successfully (SLURM `36266037`, exit `0:0`),
-but the direct scalar did not rank independently measured candidate quality or
-class compatibility better than dot scalarization or the base field norm.
+**Superseded by repaired v2 below.**  The original eight-per-group pilot
+completed successfully (SLURM `36266037`, exit `0:0`), but had correlated-row
+bootstrap and candidate-coverage defects.  It is retained only as a plumbing
+record.
+
+## Repaired v2 decision
+
+**FAIL — do not promote to a larger candidate-ranking run.**  Job `36267576`
+(exit `0:0`) used 16 source-image clusters, each model's own generated
+corruption ladder, short-trajectory model-specific failures, and source-cluster
+bootstrap confidence intervals.  Direct raw energy: quality Spearman `-0.151`
+(`[-0.333, 0.026]`), pair accuracy `0.447` (`[0.380, 0.502]`), and correct-label
+lower rate `0.312` (`[0.125, 0.562]`).  Dot also had perfect corruption
+monotonicity, so direct's `1.0` offers no discriminating advantage.
 
 ## Fixed protocol
 
