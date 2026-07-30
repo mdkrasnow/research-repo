@@ -1359,3 +1359,28 @@ analysis, raw outputs, and postmortem are in
 on elementwise masking" (Stage 1) and "stronger spatial completion signal" (Stage 2) as ways to
 grow the severe-Fourier perceptual transfer effect at this scale. No new experiment will launch
 without a fresh mechanism proposal.
+
+## 2026-07-30: Direct scalar candidate-ranking confirmation — FAIL
+
+**Trigger**: three fixed held-out confirmation banks completed for the central
+claim that directly trained EqM energy is a general candidate-quality and
+conditional-compatibility score.
+
+**Result**: raw direct energy and dot energy are effectively tied on the
+independent quality target: mean Spearman of `rank(-score)` is `0.530` for
+direct vs `0.531` for dot, with direct-minus-dot `-0.001` (three-bank
+bootstrap CI `[-0.008, 0.004]`).  Pairwise quality accuracy is likewise tied:
+`0.686` vs `0.685`, direct-minus-dot `+0.000` (`[-0.003, 0.003]`).  Correct
+label lower-energy is only `0.518` for direct; its direct-minus-dot CI crosses
+zero (`+0.035 [-0.004, 0.066]`).  Both scalarizations are perfectly monotone
+on the synthetic latent-corruption ladder, whereas base field norm is 0.833.
+
+**Decision**: the direct scalar does not clear the specified success criterion
+because it has no reliable advantage over dot and no established conditional
+compatibility advantage.  The result concerns the fixed matched epoch-15
+checkpoints and must not be interpreted as an FID or sampling regression.
+
+**Artifacts**: reproducible evaluator/configs and the aggregated raw metrics,
+candidate CSVs, and plots are in
+`results/direct_energy_campaign/candidate_ranking_confirmation/`; full writeup
+is `documentation/direct-energy-candidate-ranking-confirmation-2026-07-30.md`.
