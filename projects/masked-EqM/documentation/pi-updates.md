@@ -1373,7 +1373,7 @@ bootstrap CI `[-0.008, 0.004]`).  Pairwise quality accuracy is likewise tied:
 `0.686` vs `0.685`, direct-minus-dot `+0.000` (`[-0.003, 0.003]`).  Correct
 label lower-energy is only `0.518` for direct; its direct-minus-dot CI crosses
 zero (`+0.035 [-0.004, 0.066]`).  Both scalarizations are perfectly monotone
-on the synthetic latent-corruption ladder, whereas base field norm is 0.833.
+on the synthetic latent-corruption ladder, whereas base field norm is 0.917.
 
 **Decision**: the direct scalar does not clear the specified success criterion
 because it has no reliable advantage over dot and no established conditional

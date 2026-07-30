@@ -41,6 +41,16 @@ def ci_over_banks(values: np.ndarray, repetitions: int, seed: int) -> list[float
 
 def main(args: argparse.Namespace) -> None:
     banks = [json.loads(path.read_text()) for path in args.inputs]
+    if args.corruption_corrections:
+        if len(args.corruption_corrections) != len(banks):
+            raise ValueError("provide exactly one corruption correction per input bank")
+        for bank, correction_path in zip(banks, args.corruption_corrections):
+            correction = json.loads(correction_path.read_text())
+            replacements = {(row["score"], row["metric"].replace("_clean_included", "")):
+                            {**row, "metric": row["metric"].replace("_clean_included", "")}
+                            for row in correction["metrics"]}
+            bank["metrics"] = [replacements.get((row["score"], row["metric"]), row)
+                               for row in bank["metrics"]]
     for path, bank in zip(args.inputs, banks):
         bad = {key: (bank["config"].get(key), value) for key, value in REQUIRED_CONFIG.items()
                if bank["config"].get(key) != value}
@@ -97,6 +107,8 @@ def main(args: argparse.Namespace) -> None:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--inputs", nargs="+", type=Path, required=True)
+    parser.add_argument("--corruption-corrections", nargs="+", type=Path,
+                        help="sidecars from recompute_corruption_monotonicity.py")
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--markdown", type=Path, required=True)
     parser.add_argument("--bootstrap-replicates", type=int, default=10000)

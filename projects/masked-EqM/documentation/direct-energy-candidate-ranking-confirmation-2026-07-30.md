@@ -45,7 +45,7 @@ negative relation between energy and quality.
 | quality rank correlation | 0.530 [0.177, 0.783] | 0.531 [0.185, 0.779] | 0.514 [0.295, 0.634] | -0.001 [-0.008, 0.004] | 2/3 |
 | pairwise quality accuracy | 0.686 [0.557, 0.786] | 0.685 [0.560, 0.783] | 0.676 [0.599, 0.718] | +0.000 [-0.003, 0.003] | 2/3 |
 | correct-label lower rate | 0.518 [0.500, 0.527] | 0.483 [0.461, 0.504] | 0.497 [0.453, 0.527] | +0.035 [-0.004, 0.066] | 2/3 |
-| corruption increases | 1.000 [1.000, 1.000] | 1.000 [1.000, 1.000] | 0.833 [0.793, 0.871] | +0.000 [0.000, 0.000] | 0/3 |
+| corruption increases | 1.000 [1.000, 1.000] | 1.000 [1.000, 1.000] | 0.917 [0.896, 0.936] | +0.000 [0.000, 0.000] | 0/3 |
 
 The three individual raw direct quality correlations were `0.631`, `0.177`,
 and `0.783`; dot's were `0.629`, `0.185`, and `0.779`.  Thus the apparent
@@ -86,3 +86,12 @@ candidate CSVs, and distributions, quality scatterplots, and
 corruption-level plots for each raw score.  The rendered candidate images are
 retained at `/n/holylabs/ydu_lab/Lab/mkrasnow_eqm/energy_candidate_ranking/`
 under the three `confirmation_*` directories.
+
+### Correction note
+
+The first saved per-bank `metrics.json` files compared only the two nonzero
+corruption levels (0.25 to 0.75).  Before interpretation, the endpoint was
+recomputed from their immutable raw candidate CSVs to include clean to 0.25 as
+well.  The corrected sidecars are `corrected_corruption_metrics.json`; this
+changes only base-field monotonicity (from 0.833 to 0.917 aggregate), not the
+two scalar values (both remain 1.000) or any quality/conditional endpoint.

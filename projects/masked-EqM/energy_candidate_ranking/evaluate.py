@@ -124,8 +124,12 @@ def main(a):
     families=['real']+[f'generated_{v}' for v in models]
     corrupt=[]
     for family in families:
-        for lo,hi in zip(cfg['corruption_severities'][:-1],cfg['corruption_severities'][1:]):
-            low=np.array([i for i,r in enumerate(rows) if r['group']==f'{family}_corrupt_{lo:g}'])
+        # Include the clean terminal candidate as severity zero; omitting this
+        # transition would test only the final two rungs of the corruption ladder.
+        levels=[0.]+cfg['corruption_severities']
+        for lo,hi in zip(levels[:-1],levels[1:]):
+            low_group=family if lo==0 else f'{family}_corrupt_{lo:g}'
+            low=np.array([i for i,r in enumerate(rows) if r['group']==low_group])
             high=np.array([i for i,r in enumerate(rows) if r['group']==f'{family}_corrupt_{hi:g}'])
             corrupt.append((low,high))
     sources=np.array([r['source_id'] for r in rows])
