@@ -21,6 +21,7 @@ from copy import deepcopy
 from glob import glob
 from time import time
 import argparse
+import json
 import logging
 import os
 from tqdm import tqdm
@@ -280,6 +281,15 @@ def main(args):
     log_steps = 0
     running_loss = 0
     start_time = time()
+    grad_metrics_file = None
+    if rank == 0 and args.grad_log_every > 0:
+        grad_metrics_path = os.path.join(experiment_dir, "gradient_metrics.jsonl")
+        grad_metrics_file = open(
+            grad_metrics_path,
+            "a",
+            encoding="utf-8",
+            buffering=1,
+        )
 
     # Labels to condition the model with (feel free to change):
     ys = torch.randint(1000, size=(local_batch_size,), device=device)
@@ -315,6 +325,49 @@ def main(args):
             loss = loss_dict["loss"].mean()
             opt.zero_grad()
             loss.backward()
+            grad_norm = None
+            unclipped_grad_norm = None
+            if args.max_grad_norm is not None:
+                unclipped_grad_norm = torch.nn.utils.clip_grad_norm_(
+                    model.parameters(),
+                    args.max_grad_norm,
+                    error_if_nonfinite=True,
+                )
+                grad_norm = unclipped_grad_norm
+            elif args.grad_log_every > 0 and (train_steps + 1) % args.grad_log_every == 0:
+                squared_norm = torch.zeros((), device=device)
+                for parameter in model.parameters():
+                    if parameter.grad is not None:
+                        squared_norm += parameter.grad.detach().float().square().sum()
+                grad_norm = squared_norm.sqrt()
+
+            if grad_norm is not None and rank == 0 and args.grad_log_every > 0:
+                head_squared_norm = torch.zeros((), device=device)
+                backbone_squared_norm = torch.zeros((), device=device)
+                for name, parameter in model.module.named_parameters():
+                    if parameter.grad is None:
+                        continue
+                    contribution = parameter.grad.detach().float().square().sum()
+                    if name.startswith("energy_head."):
+                        head_squared_norm += contribution
+                    else:
+                        backbone_squared_norm += contribution
+                next_step = train_steps + 1
+                if args.grad_log_every > 0 and next_step % args.grad_log_every == 0:
+                    record = {
+                        "step": next_step,
+                        "loss": float(loss.detach()),
+                        "grad_norm": float(grad_norm.detach()),
+                        "head_grad_norm": float(head_squared_norm.sqrt()),
+                        "backbone_grad_norm": float(backbone_squared_norm.sqrt()),
+                        "max_grad_norm": args.max_grad_norm,
+                        "clipped": bool(
+                            unclipped_grad_norm is not None
+                            and unclipped_grad_norm > args.max_grad_norm
+                        ),
+                        "learning_rate": opt.param_groups[0]["lr"],
+                    }
+                    grad_metrics_file.write(json.dumps(record, sort_keys=True) + "\n")
             opt.step()
             update_ema(ema, model.module)
 
@@ -384,6 +437,9 @@ def main(args):
             logger.info(f"Saved epoch checkpoint to {epoch_checkpoint_path}")
         dist.barrier()
 
+    if grad_metrics_file is not None:
+        grad_metrics_file.close()
+
     model.eval()  # important! This disables randomized embedding dropout
     # do any sampling/FID calculation/etc. with ema (or model) in eval mode ...
 
@@ -407,6 +463,18 @@ if __name__ == "__main__":
     parser.add_argument("--vae", type=str, choices=["ema", "mse"], default="ema")  # Choice doesn't affect training
     parser.add_argument("--num-workers", type=int, default=4)
     parser.add_argument("--log-every", type=int, default=100)
+    parser.add_argument(
+        "--grad-log-every",
+        type=int,
+        default=0,
+        help="write gradient diagnostics every N optimizer steps; 0 disables them",
+    )
+    parser.add_argument(
+        "--max-grad-norm",
+        type=float,
+        default=None,
+        help="optional global gradient-norm clipping threshold",
+    )
     parser.add_argument("--ckpt-every", type=int, default=50000)
     parser.add_argument(
         "--max-steps",
@@ -427,6 +495,10 @@ if __name__ == "__main__":
 
     parse_transport_args(parser)
     args = parser.parse_args()
+    if args.grad_log_every < 0:
+        parser.error("--grad-log-every must be non-negative")
+    if args.max_grad_norm is not None and args.max_grad_norm <= 0:
+        parser.error("--max-grad-norm must be positive")
     args.save_epochs = None if args.save_epochs is None else {
         int(value) for value in args.save_epochs.split(",") if value.strip()
     }
