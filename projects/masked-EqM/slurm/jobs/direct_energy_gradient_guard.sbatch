@@ -10,14 +10,13 @@
 #SBATCH --partition=seas_gpu
 #SBATCH --constraint=h200
 #SBATCH --gres=gpu:4
-#SBATCH --exclusive
 set -euo pipefail
 
 module load python/3.10.13-fasrc01 2>/dev/null || true
 module load cuda/11.8.0-fasrc01 2>/dev/null || true
 
 GIT_SHA="${GIT_SHA:?set GIT_SHA}"
-CKPT="${CKPT:?set CKPT}"
+CKPT="${CKPT:-/n/netscratch/ydu_lab/Lab/mkrasnow_eqm/direct_energy_longer_retry/longer40_direct_seed0_ckpt50k_job36359213/000-EqM-B-2-Linear-velocity-None-ebm-direct/checkpoints/1500000.pt}"
 MODE="${MODE:-calibration}"
 MAX_STEPS="${MAX_STEPS:-2000}"
 OUTPUT_ROOT="${OUTPUT_ROOT:-/n/netscratch/ydu_lab/Lab/mkrasnow_eqm/direct_energy_gradient_guard}"
