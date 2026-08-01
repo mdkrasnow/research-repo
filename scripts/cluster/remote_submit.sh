@@ -71,7 +71,7 @@ rsync -az --delete --exclude='logs/' \
 # Compute relative path for sbatch script.
 remote_sbatch="$remote_root/projects/$project_slug/$(python3 - "$sbatch_path" "$root/projects/$project_slug" <<'PY'
 import os,sys
-print(os.path.relpath(sys.argv[1], sys.argv[2]))
+print(os.path.relpath(os.path.abspath(sys.argv[1]), os.path.abspath(sys.argv[2])))
 PY
 )"
 
