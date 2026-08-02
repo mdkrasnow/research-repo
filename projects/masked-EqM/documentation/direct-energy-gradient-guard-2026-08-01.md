@@ -61,3 +61,22 @@ threshold.
 The original event cannot be replayed exactly because checkpoints do not store
 PyTorch/CUDA/DataLoader RNG state. This experiment establishes a measured,
 non-invasive guard. Only a longer run can estimate the shock rate.
+
+## Result — 2026-08-02
+
+Calibration job 36806020 and clipped treatment 36806043 both completed on the
+same four-H200 node from checkpoint 1.50M with 2,000 matched steps.
+
+- Calibration: median norm 1.72453, p99 3.43570, maximum 65.13386.
+- Locked threshold: 6.87141 (`2 * p99`).
+- The maximum-gradient step was 1,501,493; backbone norm 64.60719 and scalar
+  head norm 8.26615. This was a backbone-dominated outlier.
+- Treatment clipped exactly 1/2,000 steps (0.05%) and had no nonfinite values.
+- Final-500 mean loss was 10.78434 clipped versus 10.79894 control, a -0.135%
+  relative difference. This clears the preregistered <=1% activation and <=2%
+  loss-degradation gates.
+
+Verdict: **PASS**. The measured threshold behaves as a rare circuit breaker
+rather than changing ordinary optimization. This short matched test does not
+estimate long-horizon FID or prove that every future optimizer shock is
+prevented.
