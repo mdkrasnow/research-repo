@@ -16,7 +16,7 @@ def tensor_mapping_sha256(state: Mapping[str, torch.Tensor]) -> str:
         digest.update(name.encode("utf-8"))
         digest.update(str(tensor.dtype).encode("ascii"))
         digest.update(str(tuple(tensor.shape)).encode("ascii"))
-        digest.update(tensor.view(torch.uint8).numpy().tobytes())
+        digest.update(tensor.numpy().tobytes())
     return digest.hexdigest()
 
 
@@ -30,7 +30,7 @@ def nested_state_sha256(value) -> str:
             digest.update(b"tensor")
             digest.update(str(tensor.dtype).encode("ascii"))
             digest.update(str(tuple(tensor.shape)).encode("ascii"))
-            digest.update(tensor.view(torch.uint8).numpy().tobytes())
+            digest.update(tensor.numpy().tobytes())
         elif isinstance(item, Mapping):
             digest.update(b"mapping")
             for key in sorted(item, key=lambda x: str(x)):

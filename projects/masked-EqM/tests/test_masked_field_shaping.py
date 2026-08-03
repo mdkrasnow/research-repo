@@ -5,7 +5,11 @@ import pytest
 import torch
 from torch import nn
 
-from masked_field_shaping.checkpointing import models_numerically_identical, tensor_mapping_sha256
+from masked_field_shaping.checkpointing import (
+    models_numerically_identical,
+    nested_state_sha256,
+    tensor_mapping_sha256,
+)
 from masked_field_shaping.corruption import (
     bernoulli_pixel_corruption,
     rectangular_block_mask,
@@ -138,6 +142,11 @@ def test_state_fingerprints_and_identical_parameter_check():
     assert models_numerically_identical(left, right)
     right["a"][0] += 1
     assert not models_numerically_identical(left, right)
+
+
+def test_nested_state_fingerprint_accepts_scalar_optimizer_tensors():
+    state = {"state": {0: {"step": torch.tensor(1.0), "exp_avg": torch.ones(2)}}}
+    assert nested_state_sha256(state) == nested_state_sha256(state)
 
 
 def test_freeze_module_keeps_vae_style_module_frozen():
