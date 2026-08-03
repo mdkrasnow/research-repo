@@ -45,6 +45,7 @@ CKPT="${CKPT:?CKPT must be set}"
 VAL_PATH="${VAL_PATH:-/n/holylabs/ydu_lab/Lab/raywang4/imagenet/val}"
 OUT_NAME="${OUT_NAME:-fid}"
 EBM="${EBM:-none}"
+MODEL="${MODEL:-EqM-B/2}"
 
 OUT_DIR="${OUT_DIR:-/n/holylabs/ydu_lab/Lab/mkrasnow_eqm/masked-EqM/eval_results}"
 mkdir -p "$OUT_DIR"
@@ -52,10 +53,12 @@ mkdir -p "$OUT_DIR"
 python eval_fid.py \
     --ckpt "$CKPT" \
     --data-path "$VAL_PATH" \
+    --model "$MODEL" \
     --num-samples "${NUM_SAMPLES:-2000}" \
     --batch-size "${BATCH_SIZE:-32}" \
     --ebm "$EBM" \
     --num-sampling-steps "${NUM_SAMPLING_STEPS:-250}" \
+    --stepsize "${STEPSIZE:-0.003}" \
     --work-dir "$WORK_DIR/fid_work" \
     --out "$OUT_DIR/${OUT_NAME}.json"
 

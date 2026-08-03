@@ -40,6 +40,7 @@ from torchvision.utils import save_image
 
 from download import find_model
 from models import EqM_models
+from sampling_defaults import resolve_gd_step_size
 
 try:
     import lpips
@@ -187,6 +188,7 @@ def deterministic_fourier_corrupt(x1_single, cutoff, generator, device):
 
 
 def main(args):
+    args.stepsize = resolve_gd_step_size(args.model, args.stepsize)
     device = "cuda" if torch.cuda.is_available() else "cpu"
     latent_size = args.image_size // 8
 
@@ -361,7 +363,7 @@ if __name__ == "__main__":
     parser.add_argument("--vae", type=str, choices=["ema", "mse"], default="ema")
     parser.add_argument("--uncond", type=bool, default=True)
     parser.add_argument("--ebm", type=str, choices=["none", "l2", "dot", "mean", "direct"], default="none")
-    parser.add_argument("--stepsize", type=float, default=0.0017)
+    parser.add_argument("--stepsize", type=float, default=None)
     parser.add_argument("--num-sampling-steps", type=int, default=250)
     parser.add_argument("--sampler", type=str, default="gd", choices=["gd", "ngd"])
     parser.add_argument("--mu", type=float, default=0.3)

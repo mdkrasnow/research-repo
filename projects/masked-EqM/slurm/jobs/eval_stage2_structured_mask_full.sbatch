@@ -104,6 +104,7 @@ python eval_fid.py \
     --num-samples 2000 \
     --batch-size 32 \
     --num-sampling-steps 250 \
+    --stepsize "${STEPSIZE:-0.003}" \
     --work-dir "$WORK_DIR/fid_work" \
     --out "$OUT_DIR/stage2_${RUN_TAG}_fid.json"
 

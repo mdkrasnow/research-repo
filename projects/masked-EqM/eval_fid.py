@@ -25,6 +25,7 @@ from torchvision.utils import save_image
 
 from download import find_model
 from models import EqM_models
+from sampling_defaults import resolve_gd_step_size
 
 torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
@@ -75,6 +76,8 @@ def gd_sample(model_fn, x0, y, num_sampling_steps, stepsize, sampler, mu):
 
 
 def main(args):
+    args.stepsize = resolve_gd_step_size(args.model, args.stepsize)
+    print(f"sampling model={args.model} sampler={args.sampler} stepsize={args.stepsize}")
     torch.manual_seed(args.seed)
     random.seed(args.seed)
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -125,6 +128,9 @@ def main(args):
         "ckpt": args.ckpt,
         "num_samples": args.num_samples,
         "num_sampling_steps": args.num_sampling_steps,
+        "model": args.model,
+        "sampler": args.sampler,
+        "stepsize": args.stepsize,
         "fid": fid_value,
     }
     os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
@@ -145,7 +151,11 @@ if __name__ == "__main__":
     parser.add_argument("--uncond", type=bool, default=True)
     parser.add_argument("--ebm", type=str, choices=["none", "l2", "dot", "mean", "direct"], default="none",
                         help="'direct' uses a scalar E_theta(x) and returns -grad_x E_theta(x)")
-    parser.add_argument("--stepsize", type=float, default=0.0017)
+    parser.add_argument(
+        "--stepsize", type=float, default=None,
+        help="GD step size; defaults to the paper setting for the selected model "
+             "(EqM-B/2: 0.003, EqM-XL/2: 0.0017)",
+    )
     parser.add_argument("--num-sampling-steps", type=int, default=250)
     parser.add_argument("--sampler", type=str, default="gd", choices=["gd", "ngd"])
     parser.add_argument("--mu", type=float, default=0.3)

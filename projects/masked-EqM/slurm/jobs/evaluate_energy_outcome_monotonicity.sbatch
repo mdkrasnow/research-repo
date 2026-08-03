@@ -25,4 +25,4 @@ python -m energy_outcome_monotonicity.evaluate \
   --bank "$BANK" --dot-checkpoint "$DOT_CHECKPOINT" --direct-checkpoint "$DIRECT_CHECKPOINT" \
   --output "$OUT" --num-images "${NUM_IMAGES:-64}" --candidates "${CANDIDATES:-8}" \
   --batch-size "${BATCH_SIZE:-4}" --num-sampling-steps "${STEPS:-100}" \
-  --stepsize "${STEPSIZE:-0.0017}" --bootstrap-replicates "${BOOTSTRAP_REPLICATES:-10000}"
+  --stepsize "${STEPSIZE:-0.003}" --bootstrap-replicates "${BOOTSTRAP_REPLICATES:-10000}"

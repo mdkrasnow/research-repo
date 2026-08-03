@@ -31,7 +31,7 @@ cd projects/masked-EqM
 pip install --quiet timm diffusers torchvision
 python tests/test_energy_only.py
 python energy_aware_sampling/evaluate.py \
-  --mode audit --samples 32 --batch-size 4 --steps 4 --initial-step 0.0017 \
+  --mode audit --samples 32 --batch-size 4 --steps 4 --initial-step 0.003 \
   --direct "$DIRECT_CKPT" --dot "$DOT_CKPT" \
   --output "$RESULT_ROOT/sign_audit_${SLURM_JOB_ID}.json"
 cp "$RESULT_ROOT/sign_audit_${SLURM_JOB_ID}.json" "$REPO_ROOT/projects/masked-EqM/results/energy_aware_sampling_sign_audit_${SLURM_JOB_ID}.json" || true

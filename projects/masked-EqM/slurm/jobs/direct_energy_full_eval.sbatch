@@ -59,6 +59,7 @@ python eval_fid.py \
     --num-samples "${NUM_SAMPLES:-2000}" \
     --batch-size "${BATCH_SIZE:-32}" \
     --num-sampling-steps "${NUM_SAMPLING_STEPS:-250}" \
+    --stepsize "${STEPSIZE:-0.003}" \
     --ebm "$EBM" \
     --work-dir "$WORK_DIR/fid_work" \
     --out "$OUT_DIR/${RUN_TAG}_fid.json"

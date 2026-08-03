@@ -30,6 +30,7 @@ from download import find_model
 from transport import create_transport, Sampler
 from diffusers.models import AutoencoderKL
 from train_utils import parse_transport_args
+from sampling_defaults import resolve_gd_step_size
 import wandb_utils
 from torchvision import datasets, transforms, models
 import matplotlib.pyplot as plt
@@ -75,6 +76,7 @@ def main(args):
     """
     Trains a new EqM model.
     """
+    args.stepsize = resolve_gd_step_size(args.model, args.stepsize)
     assert torch.cuda.is_available(), "Training currently requires at least one GPU."
     n_gpus = torch.cuda.device_count()
     # disable flash for energy training
@@ -244,8 +246,11 @@ if __name__ == "__main__":
     parser.add_argument("--cfg-scale", type=float, default=4.0)
     parser.add_argument("--ckpt", type=str, default=None,
                         help="Optional path to a custom EqM checkpoint")
-    parser.add_argument("--stepsize", type=float, default=0.0017,
-                        help="step size eta")
+    parser.add_argument(
+        "--stepsize", type=float, default=None,
+        help="GD step size eta; defaults to the paper setting for the selected model "
+             "(EqM-B/2: 0.003, EqM-XL/2: 0.0017)",
+    )
     parser.add_argument("--num-sampling-steps", type=int, default=250)
     parser.add_argument("--folder", type=str, default='samples')
     parser.add_argument("--sampler", type=str, default='gd', choices=['gd', 'ngd'])

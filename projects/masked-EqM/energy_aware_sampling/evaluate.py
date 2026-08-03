@@ -87,5 +87,5 @@ if __name__ == "__main__":
     parser.add_argument("--output", required=True); parser.add_argument("--mode", choices=("audit", "smoke"), default="audit")
     parser.add_argument("--samples", type=int, default=32); parser.add_argument("--batch-size", type=int, default=4)
     parser.add_argument("--steps", type=int, default=4)
-    parser.add_argument("--initial-step", type=float, default=0.0017); parser.add_argument("--seed", type=int, default=20260729)
+    parser.add_argument("--initial-step", type=float, default=0.003); parser.add_argument("--seed", type=int, default=20260729)
     main(parser.parse_args())

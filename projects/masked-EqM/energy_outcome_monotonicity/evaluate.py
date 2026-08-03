@@ -160,7 +160,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--batch-size", type=int, default=4)
     parser.add_argument("--mask-prob", type=float, default=.5)
     parser.add_argument("--num-sampling-steps", type=int, default=100)
-    parser.add_argument("--stepsize", type=float, default=.0017)
+    parser.add_argument("--stepsize", type=float, default=.003)
     parser.add_argument("--sampler", choices=("gd", "ngd"), default="gd")
     parser.add_argument("--mu", type=float, default=.3)
     parser.add_argument("--seed", type=int, default=20260729)

@@ -22,7 +22,7 @@ GIT_URL="${GIT_URL:-https://github.com/mdkrasnow/research-repo.git}"
 GIT_SHA="${GIT_SHA:?GIT_SHA is required}"
 CHECKPOINT="/n/home03/mkrasnow/direct_energy_longer_retry/longer15_direct_seed0_job35524667/000-EqM-B-2-Linear-velocity-None-ebm-direct/checkpoints/epoch15.pt"
 REAL="/n/holylfs06/LABS/kempner_shared/Everyone/testbed/vision/imagenet_1k/val"
-STEP="$(python -c "print(0.0017 * ${MULTIPLIER})")"
+STEP="$(python -c "print(0.003 * ${MULTIPLIER})")"
 TAG="m${MULTIPLIER//./p}"
 mkdir -p "$WORK_DIR" "$RESULT_ROOT"
 cd "$WORK_DIR"; git init .; git remote add origin "$GIT_URL"; git fetch --depth=50 origin main; git checkout "$GIT_SHA" || { git fetch --unshallow origin; git checkout "$GIT_SHA"; }

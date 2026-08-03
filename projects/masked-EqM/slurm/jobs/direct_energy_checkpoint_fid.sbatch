@@ -30,7 +30,7 @@ pip install --quiet timm diffusers accelerate torchvision pytorch-fid
 for STEP in "${STEPS[@]}"; do
   python eval_fid.py --ckpt "$ROOT/$(printf '%07d' "$STEP").pt" \
     --data-path "$VAL" --num-samples 500 --batch-size 16 --ebm direct \
-    --num-sampling-steps 250 --seed 20260803 \
+    --num-sampling-steps 250 --stepsize "${STEPSIZE:-0.003}" --seed 20260803 \
     --work-dir "$WORK/fid_work_${STEP}" --out "$OUT_ROOT/direct_${STEP}.json"
   mkdir -p "$OUT_ROOT/direct_${STEP}_samples"
   cp "$WORK/fid_work_${STEP}"/generated/00000{0,1,2,3,4,5,6,7}.png \
