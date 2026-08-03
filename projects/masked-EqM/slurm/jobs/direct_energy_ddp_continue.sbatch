@@ -7,7 +7,7 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=320GB
 #SBATCH --time=3-00:00:00
-#SBATCH --partition=gpu_requeue
+#SBATCH --partition=seas_gpu
 #SBATCH --constraint=h200
 #SBATCH --gres=gpu:4
 #SBATCH --exclusive
