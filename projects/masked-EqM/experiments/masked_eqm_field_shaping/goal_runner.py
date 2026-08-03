@@ -125,6 +125,20 @@ def reconcile(manifest, state):
             continue
         if not all(state["tasks"][dep]["status"] == "completed" for dep in task.get("depends_on", [])):
             continue
+        active_training = sum(
+            state["tasks"][entry["id"]]["status"] in {"active", "awaiting_artifact"}
+            for entry in manifest["workflow"]
+            if entry["kind"] == "training"
+        )
+        active_evaluation = sum(
+            state["tasks"][entry["id"]]["status"] in {"active", "awaiting_artifact"}
+            for entry in manifest["workflow"]
+            if entry["kind"] in {"recovery", "generation"}
+        )
+        if task["kind"] == "training" and active_training >= 2:
+            continue
+        if task["kind"] in {"recovery", "generation"} and active_evaluation >= 2:
+            continue
         if completion_exists(task["completion_marker"]):
             task_state.update(status="completed", scheduler_state="COMPLETED")
             continue
