@@ -1,6 +1,7 @@
 {
   "phase": "masked-field-shaping-preflight",
   "active_runs": [
+    {"run_id":"masked_field_full_evaluation_bank","job_id":"36956659","partition":"gpu_test","status":"pending","description":"Build the immutable 2,048-image x2-draw block-mask recovery bank, locked 10,000 Gaussian inputs/labels, and held-out FID reference statistics before full training.","submitted_at":"2026-08-03T17:07:00-04:00","git_sha":"08a71f4","sbatch_path":"projects/masked-EqM/slurm/jobs/masked_field_shaping_eval.sbatch","expected_runtime":"<12 hours","phase":"masked-field-shaping-preflight","gate":"Persist a reproducible validation-only full evaluation bank ID before freezing the manifest and launching epoch-40 DDP training"},
     {"run_id":"direct_clipped_epoch40_to_epoch80","job_id":"36847271","partition":"seas_gpu","status":"running","description":"Continue direct scalar-energy model from clipped epoch-40 checkpoint to epoch 80 with unchanged global gradient clipping max_grad_norm=6.87141.","submitted_at":"2026-08-02T23:45:00-04:00","started_at":"2026-08-03T14:55:03-04:00","git_sha":"affc38e","sbatch_path":"projects/masked-EqM/slurm/jobs/direct_energy_ddp_continue.sbatch","expected_runtime":"<48 hours","phase":"direct-energy-gradient-guard-long-horizon","gate":"Complete epoch 80 without optimizer shock or divergence; then compare matched FID against direct epoch 40 and none controls"}
   ],
   "_incidents": [
@@ -10518,7 +10519,7 @@
       "reconciled_at": "2026-07-27T22:12:39-04:00"
     }
   ],
-  "next_action": "Monitor smoke bank 36935459 and exact-resume validation 36936135; then run paired 16-image recovery and checkpoint-load generation probes before any full training.",
+  "next_action": "Monitor full evaluation-bank job 36956659; on successful completion fetch and validate its bank specification, freeze and commit the immutable manifest, then submit the epoch-40 control and masked 4xH200 DDP pair.",
   "gates": {
     "step0_smoke": "PASS - all 4 corruption modes run without crash, finite loss, on real IN-1K",
     "step2_mask_sanity": "PASS (2026-07-06) - masked-recovery eval, mask_prob=0.5, n=256 held-out IN-1K val images, seed=0 (RNG-matched across arms). mean_masked_mse: gaussian floor=0.24237, mask treatment=0.11313, VAE-roundtrip oracle=0.01488. normalized_gap = (floor-treatment)/(floor-oracle) = 0.568. Mask-trained model recovers masked regions ~2.1x better than gaussian-trained model (57% of the floor-to-oracle headroom closed) -- masking the training start-state teaches the model to use visible context, which pure-Gaussian training never sees. Loss-curve comparison from earlier (mask ~5.2 vs gaussian ~11.2) is NOT part of this verdict -- retracted separately as an easiness artifact of the training target, unrelated to this outcome-metric-based PASS.",
