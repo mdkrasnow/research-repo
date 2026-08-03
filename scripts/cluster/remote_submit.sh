@@ -56,6 +56,11 @@ PY
 
 # Get current git SHA
 git_sha="$(cd "$root" && git rev-parse HEAD)"
+extra_exports="${SBATCH_EXPORTS:-}"
+if [[ "$extra_exports" == *[[:space:]]* ]]; then
+  echo "SBATCH_EXPORTS must be a comma-separated list without whitespace" >&2
+  exit 2
+fi
 
 # Sync only the slurm directory to remote (for sbatch scripts and log directory structure).
 # --exclude=logs/ + no --delete on logs/: local logs/ only has .gitkeep (logs
@@ -81,5 +86,9 @@ PY
 )"
 
 # Submit on the cluster with environment variables for git clone.
-jobid="$("$root/scripts/cluster/ssh.sh" "cd $remote_root && sbatch --export=GIT_URL=$git_url,GIT_SHA=$git_sha $remote_sbatch" | awk '{print $4}')"
+export_spec="GIT_URL=$git_url,GIT_SHA=$git_sha"
+if [[ -n "$extra_exports" ]]; then
+  export_spec+=",$extra_exports"
+fi
+jobid="$("$root/scripts/cluster/ssh.sh" "cd $remote_root && sbatch --export=$export_spec $remote_sbatch" | awk '{print $4}')"
 echo "$jobid"
