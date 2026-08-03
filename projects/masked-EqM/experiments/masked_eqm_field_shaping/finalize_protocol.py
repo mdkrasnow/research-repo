@@ -87,20 +87,22 @@ def task(task_id, kind, config_name, output_dir, completion, depends_on, *, task
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--smoke-bank-spec", required=True)
-    parser.add_argument("--full-bank-spec", required=True)
+    parser.add_argument("--full-bank-spec")
     parser.add_argument("--git-commit", required=True)
     parser.add_argument("--smoke-summary", required=True)
     args = parser.parse_args()
     configs = CONTROL_ROOT / "configs"
     smoke_bank = json.loads(Path(args.smoke_bank_spec).read_text())
-    full_bank = json.loads(Path(args.full_bank_spec).read_text())
     smoke_bank["spec_path"] = f"{REMOTE_ROOT}/smoke/evaluation_bank/bank_specification.json"
-    full_bank["spec_path"] = f"{REMOTE_ROOT}/evaluation_bank/bank_specification.json"
 
     for arm in ("control", "masked"):
         checkpoint = f"{REMOTE_ROOT}/smoke/{arm}/training/checkpoints/final.pt"
         write(configs / f"smoke_recovery_{arm}.json", recovery_config(15, arm, checkpoint, smoke_bank, True))
         write(configs / f"smoke_generation_{arm}.json", generation_config(15, arm, checkpoint, smoke_bank, True))
+    if not args.full_bank_spec:
+        return
+    full_bank = json.loads(Path(args.full_bank_spec).read_text())
+    full_bank["spec_path"] = f"{REMOTE_ROOT}/evaluation_bank/bank_specification.json"
     for epoch in (15, 40, 80):
         for arm in ("control", "masked"):
             checkpoint = f"{REMOTE_ROOT}/epoch{epoch}/{arm}/training/checkpoints/final.pt"
