@@ -79,6 +79,21 @@ def main(args):
             }
     (root / "summary.json").write_text(json.dumps(summaries, indent=2) + "\n")
 
+    fid_paths = sorted((root / "fid500").glob("direct_*.json"))
+    if fid_paths:
+        fid_rows = [(int(path.stem.split("_")[-1]), json.loads(path.read_text())["fid"])
+                    for path in fid_paths]
+        fid_rows.sort()
+        fig, axis = plt.subplots(figsize=(7, 4.5))
+        axis.plot([step / 1e6 for step, _ in fid_rows], [fid for _, fid in fid_rows],
+                  marker="o", linewidth=2)
+        axis.axvline(1.51755, color="red", linestyle="--", alpha=0.7,
+                     label="observed optimizer shock")
+        axis.set(title="Matched 500-sample FID around direct optimizer shock",
+                 xlabel="optimizer step (millions)", ylabel="FID-500")
+        axis.grid(alpha=0.25); axis.legend(); fig.tight_layout()
+        fig.savefig(root / "fid500_localization.png", dpi=180); plt.close(fig)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
