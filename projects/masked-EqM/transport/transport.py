@@ -173,7 +173,9 @@ class Transport:
         self, 
         model,  
         x1, 
-        model_kwargs=None
+        model_kwargs=None,
+        corruption_endpoint=None,
+        corruption_selector=None,
     ):
         """Loss for training the score model
         Args:
@@ -185,6 +187,28 @@ class Transport:
             model_kwargs = {}
         
         t, x0, x1 = self.sample(x1)
+        # Pixel-space continuation experiments encode their alternate
+        # corruption endpoint before entering the transport.  Replacing x0
+        # here deliberately preserves the ordinary Gaussian draw, gamma draw,
+        # interpolation, c(gamma), target sign, and loss implementation.  A
+        # None override is exactly the historical path.
+        if corruption_endpoint is not None:
+            if corruption_endpoint.shape != x0.shape:
+                raise ValueError(
+                    "corruption_endpoint must match the clean latent shape: "
+                    f"{tuple(corruption_endpoint.shape)} != {tuple(x0.shape)}"
+                )
+            if corruption_selector is None:
+                x0 = corruption_endpoint
+            else:
+                if corruption_selector.shape != (x0.shape[0],):
+                    raise ValueError(
+                        "corruption_selector must have shape [batch], got "
+                        f"{tuple(corruption_selector.shape)}"
+                    )
+                selector = corruption_selector.to(device=x0.device, dtype=th.bool)
+                selector = selector.view(-1, *([1] * (x0.ndim - 1)))
+                x0 = th.where(selector, corruption_endpoint, x0)
         t, xt, ut = self.path_sampler.plan(t, x0, x1)
         ut = ut * self.get_ct(t)[:,None,None,None] # use energy-compatible target
         model_output = model(xt, t, **model_kwargs)

@@ -1,5 +1,11 @@
 # masked-EqM — Summer 2026 Plan
 
+## Active predeclared study: pixel-masked continuation field shaping (2026-08-03)
+
+The user-directed active study is specified in `masked_eqm_field_shaping_proposal.md`. It asks whether ten compute-matched epochs of 75% Gaussian / 25% pixel-Bernoulli endpoint continuation from the single-lineage epoch-40 checkpoint improve held-out contiguous-block recovery while staying within a +1.0 FID-10k non-inferiority margin. Epochs 15 and 80 are locked stage-sensitivity replications. The study uses pixel-space masks before the frozen VAE; prior latent-mask results do not satisfy this protocol.
+
+Execution gate: tests and paired 100-update smoke must pass before full training. Primary gate: epoch-40 clustered-bootstrap recovery CI lower bound above zero and treatment-minus-control FID no greater than 1.0. No scientific fields may change after the first full job starts. This study directly tests whether the existing masked-EqM direction yields a held-out structured-corruption result at the current EqM-B/2 ImageNet scale, so it advances the workshop/ICLR evidence base while retaining the explicit single-training-seed limitation.
+
 Written 2026-07-06, triggered by step2 (masking) showing signal at sanity scale, per CLAUDE.md
 ("write this once step 2 shows signal").
 
