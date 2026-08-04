@@ -79,7 +79,7 @@ def tail(task, job_id):
     pattern = task.get("log_pattern")
     if not pattern:
         return ""
-    return remote(f"tail -20 {pattern.replace('{job_id}', job_id)} 2>/dev/null")
+    return remote(f"tail -20 {pattern.replace('{job_id}', job_id)} 2>/dev/null || true")
 
 
 def reconcile(manifest, state):
