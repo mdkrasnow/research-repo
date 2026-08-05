@@ -5,8 +5,6 @@
 #SBATCH --time=02:00:00
 #SBATCH --partition=gpu_test
 #SBATCH --gres=gpu:1
-#SBATCH --dependency=afterok:36847271
-
-# Final direct epoch-80 sanity FID, released only after the continuation exits
-# successfully.  The shared evaluator is single-GPU compatible with gpu_test.
+# Final direct epoch-80 sanity FID. The continuation completed before this
+# submission; the shared evaluator is single-GPU compatible with gpu_test.
 exec bash /n/home03/mkrasnow/research-repo/projects/masked-EqM/slurm/jobs/eval_fid.sbatch
