@@ -17,7 +17,7 @@ nvidia-smi
 
 GIT_SHA="${GIT_SHA:?set GIT_SHA}"
 CONFIG_REL="${CONFIG_REL:?set CONFIG_REL}"
-TASK="${TASK:?set TASK to bank, recovery, generation, or aggregate}"
+TASK="${TASK:?set TASK to bank, recovery, generation, shared_d0, apply_shared_d0, or aggregate}"
 WORK_DIR="/tmp/masked-eqm-field-eval-${SLURM_JOB_ID}"
 mkdir -p "$WORK_DIR"
 cd "$WORK_DIR"
@@ -32,6 +32,8 @@ case "$TASK" in
   bank) python -m masked_field_shaping.build_evaluation_bank --config "$WORK_DIR/$CONFIG_REL" ;;
   recovery) python -m masked_field_shaping.evaluate_recovery --config "$WORK_DIR/$CONFIG_REL" ;;
   generation) python -m masked_field_shaping.evaluate_generation --config "$WORK_DIR/$CONFIG_REL" ;;
+  shared_d0) python -m masked_field_shaping.shared_d0 --config "$WORK_DIR/$CONFIG_REL" ;;
+  apply_shared_d0) python -m masked_field_shaping.apply_shared_d0 --config "$WORK_DIR/$CONFIG_REL" ;;
   aggregate) python -m masked_field_shaping.aggregate_results --manifest "$WORK_DIR/$CONFIG_REL" ;;
   *) echo "unknown TASK=$TASK" >&2; exit 2 ;;
 esac
