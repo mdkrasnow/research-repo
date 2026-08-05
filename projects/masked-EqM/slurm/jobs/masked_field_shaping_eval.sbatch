@@ -26,7 +26,9 @@ git remote add origin https://github.com/mdkrasnow/research-repo.git
 git fetch --depth=80 origin main
 git checkout "$GIT_SHA" || { git fetch --unshallow origin; git checkout "$GIT_SHA"; }
 cd projects/masked-EqM
-pip install --quiet timm diffusers accelerate torchdiffeq wandb torchvision lpips pytorch-fid scipy pandas matplotlib tabulate
+python -m pip install --quiet \
+  timm 'diffusers==0.27.2' 'huggingface_hub==0.23.5' 'transformers==4.40.2' \
+  accelerate torchdiffeq wandb torchvision lpips pytorch-fid scipy pandas matplotlib tabulate
 
 case "$TASK" in
   bank) python -m masked_field_shaping.build_evaluation_bank --config "$WORK_DIR/$CONFIG_REL" ;;
