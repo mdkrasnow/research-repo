@@ -32,7 +32,12 @@ def run(command, *, env=None) -> str:
 
 
 def remote(command: str) -> str:
-    return run([str(REPO / "scripts/cluster/ssh.sh"), command])
+    try:
+        return run([str(REPO / "scripts/cluster/ssh.sh"), command])
+    except subprocess.CalledProcessError:
+        # Cluster SSH/storage hiccups are transient.  Preserve task state and
+        # let the next poll retry instead of terminating the goal runner.
+        return ""
 
 
 def atomic_json(path: Path, value) -> None:
@@ -93,6 +98,8 @@ def reconcile(manifest, state):
         if not job_id:
             continue
         current = scheduler_state(job_id)
+        if current == "UNKNOWN":
+            continue
         task_state["scheduler_state"] = current
         task_state["last_polled_at"] = datetime.now(timezone.utc).isoformat()
         if current in ACTIVE_STATES:
