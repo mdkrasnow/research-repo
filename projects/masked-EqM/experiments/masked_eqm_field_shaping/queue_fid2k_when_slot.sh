@@ -23,7 +23,9 @@ while true; do
   if scripts/cluster/ssh.sh "squeue -u \$USER -h -n $job_name | grep -q $job_name"; then
     exit 0
   fi
-  exports="CKPT=$ckpt,OUT_NAME=$out_name,EBM=$ebm,NUM_SAMPLES=2000,NUM_SAMPLING_STEPS=250,STEPSIZE=0.003"
+  source_sha=$(git rev-parse HEAD)
+  source_archive="/n/home03/mkrasnow/masked_eqm_source_archives/${source_sha}.tar.gz"
+  exports="CKPT=$ckpt,OUT_NAME=$out_name,EBM=$ebm,NUM_SAMPLES=2000,NUM_SAMPLING_STEPS=250,STEPSIZE=0.003,SOURCE_ARCHIVE=$source_archive"
   if job_id=$(SBATCH_EXPORTS="$exports" scripts/cluster/remote_submit.sh "$wrapper" masked-EqM 2>&1); then
     state=$(scripts/cluster/ssh.sh "sacct -j $job_id -X -o State -n -P | head -1" || true)
     if [[ "$state" != FAILED* && "$state" != CANCELLED* && "$state" != TIMEOUT* ]]; then

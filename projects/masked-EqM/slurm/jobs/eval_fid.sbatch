@@ -25,9 +25,9 @@ mkdir -p "$WORK_DIR"
 cd "$WORK_DIR"
 
 GIT_SHA="${GIT_SHA:?GIT_SHA must be set}"
-REMOTE_REPO="/n/home03/mkrasnow/research-repo"
-git -C "$REMOTE_REPO" cat-file -e "${GIT_SHA}^{commit}"
-git -C "$REMOTE_REPO" archive "$GIT_SHA" | tar -x -C "$WORK_DIR"
+SOURCE_ARCHIVE="${SOURCE_ARCHIVE:?SOURCE_ARCHIVE must point to the submitted source archive}"
+test -f "$SOURCE_ARCHIVE"
+tar -xzf "$SOURCE_ARCHIVE" -C "$WORK_DIR"
 cd "$WORK_DIR/projects/masked-EqM"
 pip install --quiet timm 'diffusers==0.27.2' 'huggingface_hub==0.23.5' 'transformers==4.40.2' accelerate torchvision pytorch-fid 2>&1 | tail -10
 
