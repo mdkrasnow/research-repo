@@ -121,7 +121,7 @@ cp "$SAMPLE_DIR"/0000{00,01,02,03,04,05,06,07,08,09,10,11,12,13,14,15}.png \
 cp "$SAMPLE_NPZ" "$OUTPUT_DIR/samples_50000.npz"
 SAMPLES_SHA256="$(sha256sum "$OUTPUT_DIR/samples_50000.npz" | awk '{print $1}')"
 
-python "$WORK_DIR/evaluator.py" "$REFERENCE_BATCH" "$OUTPUT_DIR/samples_50000.npz" \
+python evaluate_adm_compat.py "$WORK_DIR/evaluator.py" "$REFERENCE_BATCH" "$OUTPUT_DIR/samples_50000.npz" \
   2>&1 | tee "$OUTPUT_DIR/adm_evaluation.txt"
 
 FID_VALUE="$(awk -F': ' '/^FID:/ {print $2}' "$OUTPUT_DIR/adm_evaluation.txt" | tail -1)"
