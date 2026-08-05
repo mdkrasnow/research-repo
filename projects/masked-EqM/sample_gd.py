@@ -83,7 +83,11 @@ def main(args):
     if args.ebm != 'none':
         torch.backends.cuda.enable_flash_sdp(False)
         torch.backends.cuda.enable_mem_efficient_sdp(False)
-        torch.backends.cuda.enable_cudnn_sdp(False)
+        # Available only in newer PyTorch builds.  The cluster's 2.1 build
+        # predates this knob; its absence does not change the requested SDP
+        # backend selection above.
+        if hasattr(torch.backends.cuda, "enable_cudnn_sdp"):
+            torch.backends.cuda.enable_cudnn_sdp(False)
         torch.backends.cuda.enable_math_sdp(True)
     # Setup DDP:
     dist.init_process_group("nccl")
