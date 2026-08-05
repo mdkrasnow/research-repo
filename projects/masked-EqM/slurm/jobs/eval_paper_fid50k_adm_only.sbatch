@@ -62,6 +62,7 @@ with open(path, "w") as handle:
             "fid": float(fid),
             "compatibility_note": "The historical ADM evaluator's removed np.bool alias was restored only for optional precision/recall after its unchanged FID computation.",
         },
+        handle,
         indent=2,
         sort_keys=True,
     )
