@@ -25,9 +25,14 @@ while true; do
   fi
   exports="CKPT=$ckpt,OUT_NAME=$out_name,EBM=$ebm,NUM_SAMPLES=2000,NUM_SAMPLING_STEPS=250,STEPSIZE=0.003"
   if job_id=$(SBATCH_EXPORTS="$exports" scripts/cluster/remote_submit.sh "$wrapper" masked-EqM 2>&1); then
-    echo "$mode smoke FID submitted as $job_id"
-    exit 0
+    state=$(scripts/cluster/ssh.sh "sacct -j $job_id -X -o State -n -P | head -1" || true)
+    if [[ "$state" != FAILED* && "$state" != CANCELLED* && "$state" != TIMEOUT* ]]; then
+      echo "$mode smoke FID submitted as $job_id"
+      exit 0
+    fi
+    echo "$mode smoke FID $job_id failed immediately with state $state; retrying" >&2
+  else
+    echo "$mode smoke FID submission deferred: $job_id" >&2
   fi
-  echo "$mode smoke FID submission deferred: $job_id" >&2
   sleep 300
 done

@@ -9,4 +9,4 @@
 
 # Final direct epoch-80 sanity FID, released only after the continuation exits
 # successfully.  The shared evaluator is single-GPU compatible with gpu_test.
-exec "$(dirname "$0")/eval_fid.sbatch"
+exec bash /n/home03/mkrasnow/research-repo/projects/masked-EqM/slurm/jobs/eval_fid.sbatch

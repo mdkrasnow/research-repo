@@ -6,4 +6,4 @@
 #SBATCH --partition=gpu_test
 #SBATCH --gres=gpu:1
 
-exec "$(dirname "$0")/eval_fid.sbatch"
+exec bash /n/home03/mkrasnow/research-repo/projects/masked-EqM/slurm/jobs/eval_fid.sbatch
