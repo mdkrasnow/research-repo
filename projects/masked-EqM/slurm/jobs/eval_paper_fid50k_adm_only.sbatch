@@ -4,7 +4,7 @@
 #SBATCH --error=/n/home03/mkrasnow/research-repo/projects/masked-EqM/slurm/logs/fid50k-adm-only-%A.err
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=16
+#SBATCH --cpus-per-task=8
 #SBATCH --mem=96GB
 #SBATCH --time=04:00:00
 #SBATCH --partition=gpu_test
