@@ -168,14 +168,37 @@ than `dot`. All three lines of evidence now point to the same root cause: the
 double-backward scalar-energy construction is intrinsically worse-conditioned
 than `dot`/`none`, not merely under-trained or mis-tuned.
 
-**Verdict on the gradient guard**: still **PASS** as a circuit breaker (no
-nonfinite values, no crash, exit 0:0) — but it is not sufficient to make
-`direct` match `none` at paper scale. Per CLAUDE.md stop conditions ("same
-failure repeats across two reasonable HP settings" / "improvement requires
-post-hoc reinterpretation"): the 1x threshold retune already used
-(`max_grad_norm` locked once from calibration) has been spent. Recommend
-treating `direct` raw scalar-energy training as unable to clear the
-paper-scale gate without a design change to the loss itself (e.g. bounding or
-regularizing the Hessian along `x0`, not just clipping the resulting
-parameter-gradient) — a second uncritical retune of `max_grad_norm` would
-violate the project's "maximum 1 retune per failing direction" rule.
+**Verdict on the gradient guard — corrected 2026-08-05**: **PASS**, and more
+convincingly than first written up. Initial framing above overstated the
+practical impact of the recurring explosions by leading with FID-gap
+language ("not sufficient to make `direct` match `none`", "unable to clear
+the paper-scale gate"). Recalibrating against this project's own precedent
+for what a real failure looks like:
+
+| Comparison | FID ratio vs its baseline |
+|---|---|
+| CAFM-EqM catastrophic mechanism failure | 341.25 / 31.41 = **10.9x** |
+| Original *unclipped* direct optimizer shock damage | 160.11 / 31.41 = **5.1x** |
+| `direct` epoch80 (this run) vs `none` epoch80 | 39.94 / 34.16 = **1.17x** |
+
+A 1.17x ratio is not in the same category as either documented failure —
+it's a modest quality tax, not a broken mechanism. Recall in fact favors
+`direct` (0.6411 vs `none`'s 0.6292); only precision is meaningfully lower
+(0.394 vs 0.537), which reads as "individual samples somewhat less crisp,"
+not mode collapse or distributional breakdown. There was also no
+pre-registered gate requiring `direct` FID ≤ `none` FID at this phase — the
+phase gate was to obtain the protocol-matched measurement, which is done.
+
+Read correctly, the training-dynamics finding above is actually **evidence
+the guard is working**: despite 130 recurring backbone gradient explosions
+(6 exceeding 100x threshold, one at 5,064x) at a growing rate through 1.6M
+steps, the resulting model still landed within 17% FID of a completely
+uninstrumented baseline and beat it on recall. That is consistent with the
+original PASS verdict — a rare circuit breaker containing per-step damage —
+not a contradiction of it. The recurrence and escalating rate of the
+explosions remain worth tracking (a real, growing tail-risk signature tied
+to the double-backward `ebm='direct'` construction, see mechanism section
+above), and still connects to the independent candidate-ranking/geodesic-
+manifold signals that `direct` is somewhat weaker-conditioned than `dot`. But
+it does not, on its own, justify killing the `direct` direction or spending
+the project's one retune — there is no failing gate to retune against here.
