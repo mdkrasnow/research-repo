@@ -61,7 +61,7 @@ git checkout "$GIT_SHA" || { git fetch --unshallow origin; git checkout "$GIT_SH
 cd projects/masked-EqM
 
 python -m pip install --quiet \
-  timm 'diffusers==0.27.2' accelerate torchdiffeq torchvision wandb matplotlib scikit-learn \
+  timm 'diffusers==0.27.2' 'huggingface_hub==0.23.5' 'transformers==4.40.2' accelerate torchdiffeq torchvision wandb matplotlib scikit-learn \
   tensorflow==2.12.1 scipy==1.11.4 requests tqdm
 
 curl --fail --location --retry 5 \

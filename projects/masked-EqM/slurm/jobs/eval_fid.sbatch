@@ -24,22 +24,12 @@ WORK_DIR="/tmp/masked-eqm-fid-${SLURM_JOB_ID}"
 mkdir -p "$WORK_DIR"
 cd "$WORK_DIR"
 
-GIT_URL="${GIT_URL:-https://github.com/mdkrasnow/research-repo.git}"
 GIT_SHA="${GIT_SHA:?GIT_SHA must be set}"
-
-export GIT_TERMINAL_PROMPT=0
-export GIT_SSH_COMMAND="ssh -o BatchMode=yes"
-
-git init . 2>&1
-git remote add origin "$GIT_URL" 2>&1
-git fetch --depth=50 origin main 2>&1 | tail -10 || exit 1
-git checkout "${GIT_SHA}" 2>&1 | tail -5 || {
-    git fetch --unshallow origin 2>&1 | tail -5
-    git checkout "${GIT_SHA}" 2>&1 | tail -5 || exit 1
-}
-
-cd projects/masked-EqM
-pip install --quiet timm 'diffusers==0.27.2' accelerate torchvision pytorch-fid 2>&1 | tail -10
+REMOTE_REPO="/n/home03/mkrasnow/research-repo"
+git -C "$REMOTE_REPO" cat-file -e "${GIT_SHA}^{commit}"
+git -C "$REMOTE_REPO" archive "$GIT_SHA" | tar -x -C "$WORK_DIR"
+cd "$WORK_DIR/projects/masked-EqM"
+pip install --quiet timm 'diffusers==0.27.2' 'huggingface_hub==0.23.5' 'transformers==4.40.2' accelerate torchvision pytorch-fid 2>&1 | tail -10
 
 CKPT="${CKPT:?CKPT must be set}"
 VAL_PATH="${VAL_PATH:-/n/holylabs/ydu_lab/Lab/raywang4/imagenet/val}"
