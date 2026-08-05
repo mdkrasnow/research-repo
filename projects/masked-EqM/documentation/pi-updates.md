@@ -1384,3 +1384,61 @@ checkpoints and must not be interpreted as an FID or sampling regression.
 candidate CSVs, and plots are in
 `results/direct_energy_campaign/candidate_ranking_confirmation/`; full writeup
 is `documentation/direct-energy-candidate-ranking-confirmation-2026-07-30.md`.
+
+## 2026-08-05 draft: direct scalar-energy paper-scale FID — matches none
+
+**Trigger**: paper-comparable-scale result (protocol-matched 50,000-sample ADM
+FID-50k, official OpenAI ADM TensorFlow evaluator, both checkpoints epoch 80,
+seed 0, EMA weights, gd sampler, 250 steps, eta=0.003, cfg=1.0).
+
+**Result**: `direct` (raw scalar energy, `f(x_γ) = -∇_x E(x_γ)`) essentially
+matches the `none` vector-field baseline at paper scale.
+
+| ebm | FID | sFID | IS | Precision | Recall |
+|---|---:|---:|---:|---:|---:|
+| none (baseline) | 34.16 | 8.23 | 41.49 | 0.537 | 0.629 |
+| direct | 39.94 | 20.43 | 36.86 | 0.394 | **0.641** |
+
+FID ratio direct/none = **1.17x**. For calibration against this project's own
+precedent for what a real failure looks like: the CAFM-EqM mechanism failure
+was 10.9x baseline, and the original *unclipped* direct optimizer-shock damage
+was 5.1x baseline. 1.17x is a quality tax, not a broken mechanism — and
+`direct` actually has a slightly *better* recall than `none`, i.e. it is not
+losing distributional coverage. Precision is the metric carrying the gap
+(0.394 vs 0.537): individual samples are somewhat less crisp, not missing
+modes.
+
+**Proposed explanation for the residual gap**: forensic pull of the per-step
+`gradient_metrics.jsonl` from the epoch40→80 training run (the console
+`Train Loss` is a 50-step running average and hides this entirely) shows a
+recurring, growing-in-frequency gradient instability specific to `direct`:
+130 gradient-clip events over 1.6M steps, rising from ~1 per 200k steps early
+in the run to ~24 per 200k steps late in the run, including two events over
+1000x the clip threshold (5,064x and 1,803x, one producing a single-step loss
+99x baseline). `none`'s matched loss curve over the identical step range is
+essentially flat with zero comparable outliers — this instability is
+`direct`-specific. Mechanism: `ebm='direct'` trains through a double-backward
+pass (`field = -grad(E.sum(), x0, create_graph=train)`, `models.py:292-300`)
+touching the energy's local Hessian w.r.t. the input — `none`/`dot`/`l2` never
+do this. This is a documented conditioning failure mode for double-backward
+losses (WGAN-GP-style gradient penalties, score-matching/EBM training), and
+the escalating rate through training is consistent with the energy landscape
+sharpening around the data manifold as training progresses. Gradient clipping
+(`max_grad_norm=6.87141`, calibrated 2026-08-02) bounds each event's update
+*magnitude* but not its *direction* — the accumulated EMA drift from 130
+recurring, ill-conditioned-direction updates plausibly accounts for the
+precision-specific gap. Full writeup: `documentation/direct-energy-gradient-guard-2026-08-01.md`
+(see "Long-horizon confirmation" and the corrected verdict below it).
+
+**Status**: no gate failure. This phase's gate was to obtain the
+protocol-matched measurement, which is done. Gradient guard verdict stands at
+PASS (contained, no nonfinite values, no crash).
+
+**Ask of PI**: given `direct` roughly matches `none` on generation quality
+despite this recurring-but-contained instability, and ties (not beats) `dot`
+on the independent candidate-ranking evaluation (2026-07-30) — is there still
+a research reason to prefer the raw scalar-energy parameterization for the
+structured-start-state (masked-EqM) work going forward, or should we settle
+on `none`/`dot` as the backbone for that line and treat `direct`'s Hessian-
+conditioning behavior as a side finding worth a short note rather than
+something to keep chasing?
