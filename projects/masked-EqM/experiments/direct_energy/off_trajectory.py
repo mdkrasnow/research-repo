@@ -76,7 +76,7 @@ if __name__ == "__main__":
     parser.add_argument("--data-path", required=True)
     parser.add_argument("--ckpt", required=True)
     parser.add_argument("--output", required=True)
-    parser.add_argument("--ebm", choices=["none", "dot", "direct"], required=True)
+    parser.add_argument("--ebm", choices=["none", "dot", "direct", "forward-backwards-direct"], required=True)
     parser.add_argument("--model", default="EqM-S/2", choices=list(EqM_models.keys()))
     parser.add_argument("--image-size", type=int, default=256)
     parser.add_argument("--num-classes", type=int, default=1000)

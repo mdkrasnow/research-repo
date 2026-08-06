@@ -86,7 +86,7 @@ if __name__ == "__main__":
     p.add_argument("--image-size", type=int, default=256)
     p.add_argument("--num-classes", type=int, default=1000)
     p.add_argument("--vae", choices=["ema", "mse"], default="ema")
-    p.add_argument("--ebm", choices=["dot", "direct"], default="dot")
+    p.add_argument("--ebm", choices=["dot", "direct", "forward-backwards-direct"], default="dot")
     p.add_argument("--ood", nargs="+", choices=["cifar10", "svhn", "dtd", "constant"], default=["cifar10", "svhn", "dtd", "constant"])
     p.add_argument("--num-images", type=int, default=0, help="0 uses each dataset's full test split")
     p.add_argument("--batch-size", type=int, default=16)

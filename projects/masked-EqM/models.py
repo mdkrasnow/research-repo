@@ -201,7 +201,11 @@ class EqM(nn.Module):
         self.ebm = ebm
         # Instantiate exactly one output head: permanently unused parameters
         # break DDP gradient synchronization unless find_unused_parameters=True.
-        if self.ebm == 'direct':
+        # 'forward-backwards-direct' reuses the IDENTICAL scalar-energy
+        # architecture as 'direct' (energy_head, same forward()/sampling
+        # path); it only changes how theta is updated during TRAINING (see
+        # fb_direct/trainer.py). See documentation/forward-backwards-direct.md.
+        if self.ebm in ('direct', 'forward-backwards-direct'):
             self.final_layer = None
             self.energy_head = ScalarEnergyHead(hidden_size)
         else:
@@ -240,7 +244,7 @@ class EqM(nn.Module):
             nn.init.constant_(block.adaLN_modulation[-1].bias, 0)
 
         # Zero-out the active output head.
-        if self.ebm == 'direct':
+        if self.ebm in ('direct', 'forward-backwards-direct'):
             nn.init.constant_(self.energy_head.adaLN_modulation[-1].weight, 0)
             nn.init.constant_(self.energy_head.adaLN_modulation[-1].bias, 0)
             nn.init.constant_(self.energy_head.linear.weight, 0)
@@ -289,10 +293,19 @@ class EqM(nn.Module):
             x = block(x, c)                      # (N, T, D)
             act.append(x)
 
-        if self.ebm == 'direct':
+        if self.ebm in ('direct', 'forward-backwards-direct'):
             E = self.energy_head(x, c)
             if energy_only:
                 return E
+            if self.ebm == 'forward-backwards-direct' and train:
+                raise RuntimeError(
+                    "EqM.forward(..., train=True) with ebm='forward-backwards-direct' "
+                    "would run the same create_graph=True input-gradient double-backward "
+                    "path as ebm='direct' -- exactly what this mode exists to avoid. "
+                    "Use fb_direct.ForwardBackwardsDirectTrainer.training_step(...) for "
+                    "training; call forward(..., train=False) (the default) for "
+                    "inference/sampling, which uses create_graph=False and is fine."
+                )
             # The EqM target and sampler use the sampling direction, so
             # return -grad E: x <- x + eta * field is gradient descent on E.
             field = -torch.autograd.grad(
@@ -359,7 +372,7 @@ class EqM(nn.Module):
         if get_energy:
             x, E = model_out
             model_out=x
-        if self.ebm == 'direct':
+        if self.ebm in ('direct', 'forward-backwards-direct'):
             # Coordinate-subset guidance (the 3-channel split below) destroys
             # conservativeness. Guide ALL channels: the guided field is then
             # -grad of E_cfg = E_uncond + s * (E_cond - E_uncond).

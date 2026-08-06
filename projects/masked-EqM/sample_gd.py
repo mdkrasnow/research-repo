@@ -263,7 +263,7 @@ if __name__ == "__main__":
     parser.add_argument("--num-fid-samples", type=int, default=50000)
     parser.add_argument("--uncond", type=bool, default=True,
                         help="disable/enable noise conditioning")
-    parser.add_argument("--ebm", type=str, choices=["none", "l2", "dot", "mean", "direct"], default="none",
+    parser.add_argument("--ebm", type=str, choices=["none", "l2", "dot", "mean", "direct", "forward-backwards-direct"], default="none",
                         help="'direct' uses a scalar E_theta(x) and returns -grad_x E_theta(x)")
     parse_transport_args(parser)
     args = parser.parse_args()

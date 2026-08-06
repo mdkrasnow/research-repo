@@ -31,6 +31,7 @@ from transport import create_transport, Sampler
 from diffusers.models import AutoencoderKL
 from train_utils import parse_transport_args
 import wandb_utils
+from fb_direct import ForwardBackwardsDirectTrainer
 from torchvision import datasets, transforms, models
 import matplotlib.pyplot as plt
 from sklearn.metrics import roc_auc_score
@@ -447,6 +448,229 @@ def main(args):
     cleanup()
 
 
+#################################################################################
+#                     'forward-backwards-direct' Training Loop                  #
+#################################################################################
+# Kept as a SEPARATE function (rather than threaded into main() above) so the
+# well-tested none/l2/dot/mean/direct path above is untouched byte-for-byte.
+# theta (the EqM model) never appears on the LHS of an autograd graph here --
+# see fb_direct/trainer.py for the algorithm. This is why theta is NOT DDP
+# wrapped below (DDP requires participation in autograd to synchronize
+# gradients); only phi (ForwardBackwardsDirectTrainer.phi) is DDP-wrapped,
+# and the mapped theta update is then identical bit-for-bit on every rank
+# because it is a deterministic function of the (DDP-synchronized) phi
+# gradient. This distributed path is implemented per Section 9 of the spec
+# but has only been exercised in single-process smoke runs in this
+# environment (SLURM/multi-GPU here is remote-cluster-only per AGENTS.md);
+# see documentation/forward-backwards-direct.md "Known limitations".
+def main_forward_backwards_direct(args):
+    assert torch.cuda.is_available() or args.allow_cpu, (
+        "Training currently requires at least one GPU (or --allow-cpu for a local smoke test)."
+    )
+    torch.backends.cuda.enable_flash_sdp(False)
+    torch.backends.cuda.enable_mem_efficient_sdp(False)
+    torch.backends.cuda.enable_cudnn_sdp(False)
+    torch.backends.cuda.enable_math_sdp(True)
+
+    dist.init_process_group("gloo" if not torch.cuda.is_available() else "nccl")
+    assert args.global_batch_size % dist.get_world_size() == 0, "Batch size must be divisible by world size."
+    rank = dist.get_rank()
+    world_size = dist.get_world_size()
+    use_cuda = torch.cuda.is_available()
+    device = int(os.environ.get("LOCAL_RANK", 0)) if use_cuda else "cpu"
+    seed = args.global_seed * world_size + rank
+    torch.manual_seed(seed)
+    if use_cuda:
+        torch.cuda.set_device(device)
+    local_batch_size = int(args.global_batch_size // world_size)
+
+    if rank == 0:
+        os.makedirs(args.results_dir, exist_ok=True)
+        experiment_index = len(glob(f"{args.results_dir}/*"))
+        model_string_name = args.model.replace("/", "-")
+        experiment_name = (
+            f"{experiment_index:03d}-{model_string_name}-"
+            f"{args.path_type}-{args.prediction}-{args.loss_weight}-ebm-{args.ebm}"
+        )
+        experiment_dir = f"{args.results_dir}/{experiment_name}"
+        checkpoint_dir = f"{experiment_dir}/checkpoints"
+        os.makedirs(checkpoint_dir, exist_ok=True)
+        logger = create_logger(experiment_dir)
+        logger.info(f"Experiment directory created at {experiment_dir}")
+        fb_metrics_path = os.path.join(experiment_dir, "fb_direct_metrics.jsonl")
+        fb_metrics_file = open(fb_metrics_path, "a", encoding="utf-8", buffering=1)
+    else:
+        logger = create_logger(None)
+        checkpoint_dir = None
+        fb_metrics_file = None
+
+    assert args.image_size % 8 == 0, "Image size must be divisible by 8 (for the VAE encoder)."
+    latent_size = args.image_size // 8
+    model = EqM_models[args.model](
+        input_size=latent_size,
+        num_classes=args.num_classes,
+        uncond=args.uncond,
+        ebm=args.ebm,
+    ).to(device)
+    ema = deepcopy(model).to(device)
+    requires_grad(ema, False)
+
+    fb_trainer = ForwardBackwardsDirectTrainer(
+        model, lr=1e-4, max_grad_norm=args.max_grad_norm, device=device,
+    )
+
+    resume_epoch = 0
+    resume_step = None
+    if args.ckpt is not None:
+        raw = torch.load(args.ckpt, map_location="cpu")
+        if "phi" in raw or "theta" in raw:
+            # A checkpoint produced by this mode (see fb_trainer.state_dict()).
+            fb_trainer.load_state_dict(raw)
+            resume_step = raw.get("step_count", 0)
+        else:
+            # Section 12: initializing from a plain 'direct' checkpoint.
+            state_dict = raw["model"] if "model" in raw else raw
+            missing, unexpected = model.load_state_dict(state_dict, strict=False)
+            print(f"[forward-backwards-direct] direct-checkpoint init: missing={missing} unexpected={unexpected}")
+            fb_trainer.registry.tie_from_forward_()
+        model.to(device)
+    logger.info(f"[forward-backwards-direct] parameter coverage: {fb_trainer.coverage_report()}")
+
+    if world_size > 1:
+        fb_trainer.phi = DDP(fb_trainer.phi, device_ids=[device] if use_cuda else None, find_unused_parameters=False)
+
+    transport = create_transport(
+        args.path_type, args.prediction, args.loss_weight, args.train_eps, args.sample_eps,
+        corruption_mode=args.corruption_mode, mask_prob=args.mask_prob,
+        fourier_cutoff=args.fourier_cutoff, blur_sigma=args.blur_sigma,
+        downsample_factor=args.downsample_factor, gaussian_weight=args.gaussian_weight,
+        mask_weight=args.mask_weight, blur_weight=args.blur_weight,
+        fourier_weight=args.fourier_weight, downsample_weight=args.downsample_weight,
+        structured_mask_weight=args.structured_mask_weight,
+    )
+    vae = AutoencoderKL.from_pretrained(f"stabilityai/sd-vae-ft-{args.vae}").to(device)
+    logger.info(f"EqM Parameters (theta): {sum(p.numel() for p in model.parameters()):,}")
+    logger.info(f"EqM Parameters (phi): {sum(p.numel() for p in fb_trainer.phi.parameters()):,}")
+
+    transform = transforms.Compose([
+        transforms.Lambda(lambda pil_image: center_crop_arr(pil_image, args.image_size)),
+        transforms.RandomHorizontalFlip(),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5], inplace=True),
+    ])
+    dataset = ImageFolder(args.data_path, transform=transform)
+    sampler = DistributedSampler(
+        dataset, num_replicas=world_size, rank=rank, shuffle=True, seed=args.global_seed,
+    )
+    loader = DataLoader(
+        dataset, batch_size=local_batch_size, shuffle=False, sampler=sampler,
+        num_workers=args.num_workers, pin_memory=use_cuda, drop_last=True,
+    )
+    logger.info(f"Dataset contains {len(dataset):,} images ({args.data_path})")
+
+    if resume_step is None:
+        resume_step = resume_epoch * len(loader)
+
+    update_ema(ema, model, decay=0)
+    model.train()
+    ema.eval()
+
+    train_steps = int(resume_step)
+    max_train_steps = train_steps + args.max_steps if args.max_steps is not None else None
+    log_steps = 0
+    running_loss = 0
+    start_time = time()
+
+    logger.info(f"Training (forward-backwards-direct) for {args.epochs} epochs...")
+    for epoch in range(resume_epoch, args.epochs):
+        sampler.set_epoch(epoch)
+        logger.info(f"Beginning epoch {epoch}...")
+        reached_max_steps = False
+        for x, y in loader:
+            x = x.to(device)
+            y = y.to(device)
+            with torch.no_grad():
+                x = vae.encode(x).latent_dist.sample().mul_(0.18215)
+
+            loss, diagnostics = fb_trainer.training_step(transport, x, y)
+            update_ema(ema, model)
+
+            if (
+                args.fb_exact_audit_every > 0
+                and (train_steps + 1) % args.fb_exact_audit_every == 0
+            ):
+                with torch.no_grad():
+                    t_audit, x0_audit, x1_audit = transport.sample(x)
+                    t_audit = t_audit.to(x)
+                    t_audit, xt_audit, _ = transport.path_sampler.plan(t_audit, x0_audit, x1_audit)
+                audit = fb_trainer.exact_field_audit(xt_audit, t_audit, y)
+                diagnostics.update(audit)
+                logger.info(f"(step={train_steps + 1:07d}) exact-field audit: {audit}")
+
+            if rank == 0 and fb_metrics_file is not None:
+                record = {"step": train_steps + 1, **diagnostics}
+                fb_metrics_file.write(json.dumps(record, sort_keys=True) + "\n")
+
+            running_loss += loss.item()
+            log_steps += 1
+            train_steps += 1
+            if train_steps % args.log_every == 0:
+                if use_cuda:
+                    torch.cuda.synchronize()
+                end_time = time()
+                steps_per_sec = log_steps / (end_time - start_time)
+                avg_loss = torch.tensor(running_loss / log_steps, device=device if use_cuda else "cpu")
+                dist.all_reduce(avg_loss, op=dist.ReduceOp.SUM)
+                avg_loss = avg_loss.item() / world_size
+                logger.info(
+                    f"(step={train_steps:07d}) Train Loss: {avg_loss:.4f}, "
+                    f"Train Steps/Sec: {steps_per_sec:.2f}"
+                )
+                running_loss = 0
+                log_steps = 0
+                start_time = time()
+
+            if train_steps % args.ckpt_every == 0 and train_steps > 0:
+                if rank == 0:
+                    checkpoint = {
+                        **fb_trainer.state_dict(),
+                        "ema": ema.state_dict(),
+                        "args": args,
+                        "step": train_steps,
+                        "epoch": epoch + 1,
+                    }
+                    checkpoint_path = f"{checkpoint_dir}/{train_steps:07d}.pt"
+                    torch.save(checkpoint, checkpoint_path)
+                    logger.info(f"Saved checkpoint to {checkpoint_path}")
+                dist.barrier()
+
+            if max_train_steps is not None and train_steps >= max_train_steps:
+                reached_max_steps = True
+                break
+        if reached_max_steps:
+            break
+
+        if rank == 0 and (args.save_epochs is None or epoch + 1 in args.save_epochs):
+            checkpoint = {
+                **fb_trainer.state_dict(),
+                "ema": ema.state_dict(),
+                "args": args,
+                "epoch": epoch + 1,
+                "step": train_steps,
+            }
+            epoch_checkpoint_path = f"{checkpoint_dir}/epoch{epoch + 1:02d}.pt"
+            torch.save(checkpoint, epoch_checkpoint_path)
+            logger.info(f"Saved epoch checkpoint to {epoch_checkpoint_path}")
+        dist.barrier()
+
+    if rank == 0 and fb_metrics_file is not None:
+        fb_metrics_file.close()
+
+    model.eval()
+    logger.info("Done!")
+    cleanup()
+
+
 if __name__ == "__main__":
     # Default args here will train EqM-XL/2 with the hyperparameters we used in our paper (except training iters).
     parser = argparse.ArgumentParser()
@@ -490,8 +714,22 @@ if __name__ == "__main__":
                         help="Toggle to enable Dispersive Loss")
     parser.add_argument("--uncond", type=bool, default=True,
                         help="disable/enable noise conditioning")
-    parser.add_argument("--ebm", type=str, choices=["none", "l2", "dot", "mean", "direct"], default="none",
-                        help="'direct' uses a scalar E_theta(x) and returns -grad_x E_theta(x)")
+    parser.add_argument("--ebm", type=str,
+                        choices=["none", "l2", "dot", "mean", "direct", "forward-backwards-direct"],
+                        default="none",
+                        help="'direct' uses a scalar E_theta(x) and returns -grad_x E_theta(x). "
+                             "'forward-backwards-direct' trains the same scalar-energy architecture "
+                             "via an explicit reverse network (no create_graph=True double-backward); "
+                             "see documentation/forward-backwards-direct.md")
+    parser.add_argument(
+        "--fb-exact-audit-every", type=int, default=0,
+        help="(forward-backwards-direct only) run a diagnostic-only exact-field "
+             "audit (torch.autograd.grad vs the reverse network) every N steps; 0 disables it",
+    )
+    parser.add_argument(
+        "--allow-cpu", action="store_true",
+        help="(forward-backwards-direct only) allow CPU-only training for local smoke tests",
+    )
 
     parse_transport_args(parser)
     args = parser.parse_args()
@@ -502,4 +740,7 @@ if __name__ == "__main__":
     args.save_epochs = None if args.save_epochs is None else {
         int(value) for value in args.save_epochs.split(",") if value.strip()
     }
-    main(args)
+    if args.ebm == "forward-backwards-direct":
+        main_forward_backwards_direct(args)
+    else:
+        main(args)
