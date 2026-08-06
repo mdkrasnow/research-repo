@@ -46,6 +46,8 @@ def main():
     args = p.parse_args()
 
     torch.manual_seed(args.seed)
+    torch.backends.cuda.matmul.allow_tf32 = False
+    torch.backends.cudnn.allow_tf32 = False
     device = "cuda" if torch.cuda.is_available() else "cpu"
     latent_size = args.image_size // 8
 
