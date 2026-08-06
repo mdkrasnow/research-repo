@@ -125,7 +125,8 @@ def main(args):
     if args.ebm != 'none':
         torch.backends.cuda.enable_flash_sdp(False)
         torch.backends.cuda.enable_mem_efficient_sdp(False)
-        torch.backends.cuda.enable_cudnn_sdp(False)
+        if hasattr(torch.backends.cuda, "enable_cudnn_sdp"):
+            torch.backends.cuda.enable_cudnn_sdp(False)
         torch.backends.cuda.enable_math_sdp(True)
     # Setup DDP:
     dist.init_process_group("nccl")
@@ -469,7 +470,8 @@ def main_forward_backwards_direct(args):
     )
     torch.backends.cuda.enable_flash_sdp(False)
     torch.backends.cuda.enable_mem_efficient_sdp(False)
-    torch.backends.cuda.enable_cudnn_sdp(False)
+    if hasattr(torch.backends.cuda, "enable_cudnn_sdp"):
+        torch.backends.cuda.enable_cudnn_sdp(False)
     torch.backends.cuda.enable_math_sdp(True)
 
     dist.init_process_group("gloo" if not torch.cuda.is_available() else "nccl")
