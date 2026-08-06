@@ -14,21 +14,7 @@
       "title": "Results-dir race: two concurrent same-corruption-mode jobs silently mixed checkpoints"
     }
   ],
-  "active_runs": [
-    {
-      "description": "Gate 1 offline mechanism test: g_exact vs mapped g_FB cosine/norm comparison, 500 real batches, epoch-80 direct-scalar checkpoint (FID 39.94), no optimizer steps. TF32 disabled globally per Gate 0 root-cause finding.",
-      "expected_runtime": "30-60 min",
-      "gate": "Gate 1 offline mechanism test",
-      "git_sha": "0b06757",
-      "job_id": "37523044",
-      "partition": "gpu_test",
-      "phase": "forward-backwards-direct-decision-tree",
-      "run_id": "fb_direct_gate1_mechanism_test",
-      "sbatch_path": "projects/masked-EqM/slurm/jobs/fb_direct_gate1.sbatch",
-      "status": "running",
-      "submitted_at": "2026-08-06T14:05:00-04:00"
-    }
-  ],
+  "active_runs": [],
   "completed_runs": [
     {
       "completed_at": "2026-08-06T14:08:00-04:00",
@@ -12121,6 +12107,22 @@
       "sbatch_path": "projects/masked-EqM/slurm/jobs/fb_direct_gate0.sbatch",
       "status": "completed",
       "submitted_at": "2026-08-06T13:49:00-04:00"
+    },
+    {
+      "completed_at": "2026-08-06T14:XX:00-04:00",
+      "description": "Gate 1 offline mechanism test: g_exact vs mapped g_FB, 500 real batches, epoch-80 direct-scalar checkpoint (FID 39.94 lineage), no optimizer steps. TF32 disabled globally.",
+      "exit_code": "1:0",
+      "final_metric": "median_cosine=0.6186 (>0.2 PASS); frac_batches_cos>0=1.0 (>=0.8 PASS); p999_fb_over_exact_ratio_reduction=94.45x (>=5x PASS); proxy_explosion_min_ratio_reduction=1.84x across 5 proxy-explosion batches (>=10x FAIL, though proxy_explosion_mean_ratio_reduction=21.80x would pass); gate1_overall_pass=false per strict per-criterion (AND) evaluation -- lands in the decision tree named ambiguous zone (aligned + mostly lighter-tailed, but not uniformly safer on the single worst proxy batch), not a clean pass or clean kill.",
+      "gate": "Gate 1 offline mechanism test",
+      "git_sha": "0b06757",
+      "job_id": "37523044",
+      "note": "proxy_explosion batches are the top-1% highest-exact-grad-norm batches within this static-weight offline run, used as a stand-in for historical training-time explosion batches (which occurred under live Adam drift at different steps and cannot be literally replayed here) -- documented caveat, see script docstring.",
+      "partition": "gpu_test",
+      "phase": "forward-backwards-direct-decision-tree",
+      "run_id": "fb_direct_gate1_mechanism_test",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/fb_direct_gate1.sbatch",
+      "status": "completed",
+      "submitted_at": "2026-08-06T14:05:00-04:00"
     }
   ],
   "debugging_notes": [
@@ -12200,7 +12202,7 @@
     "step4_mixture_arm_B": "RESOLVED (2026-07-06) - 2-way gaussian+mask mixture (weights 1.0/1.0/0.0), same eval protocol. mean_masked_mse=0.13692, normalized_gap=0.464. Falls between isolated mask (0.568) and 3-arm mixture (0.449) as expected, but notably closer to the 3-arm mixture than to isolated mask -- confirms the 3-arm mixture's underperformance vs isolated mask is NOT primarily fourier-specific drag (arm B still loses ~0.10 gap vs pure mask despite excluding fourier entirely). Read together with step3's negative fourier result: the gap-closing recipe (gaussian:mask:fourier 1:1:1 vs 1:1:0 vs mask-only) suggests BOTH effects are real -- gradient-budget dilution (any mixing with gaussian reduces the pure-mask signal) AND fourier's own negative contribution. Fourier's negative pull is smaller in magnitude here (only 1/3 weight) than shown by its isolated -0.720 result, consistent with a real but diluted drag."
   },
   "needs_user_input": {
-    "prompt": "TWO items: (1) PI update draft ready in documentation/pi-updates.md (2026-08-05: direct scalar-energy paper-scale FID matches none, 39.94 vs 34.16, 1.17x ratio; proposed explanation is a recurring double-backward gradient-conditioning instability contained by clipping. Ask: is there still a research reason to prefer direct over none/dot for the structured-start-state work, or settle on none/dot as the backbone). Review and send to Yilun, or edit first. (2) 2026-08-06: fb_direct Gate 0 RESOLVED PASS after root-cause diagnosis. Retunes 1-2 (FP32-promoted VJPs, MATH-backend SDPA) barely moved the ~1.5e-4 field error. Retune 3 (FP64 block-by-block bisection vs the real epoch-40 checkpoint, job 37522491) proved the manual reverse VJP is exact to ~1e-16 at every block -- not a code bug. Follow-up confirmation (job 37522678, not counted against the retune budget) disabled TF32 matmul (torch.backends.cuda.matmul.allow_tf32=False / cudnn.allow_tf32=False), which was never tested in retunes 1-3: rel_error dropped 500x to 3.256e-7/3.443e-7, both well under the 1e-4 threshold. gate0_overall_pass=true. TF32 was the entire source of the earlier gap. Gate 1 (offline mechanism test, 500-1000 batches on epoch-80 checkpoint) is now unblocked -- awaiting go-ahead to proceed with the decision tree.",
+    "prompt": "TWO items: (1) PI update draft ready in documentation/pi-updates.md (2026-08-05: direct scalar-energy paper-scale FID matches none, 39.94 vs 34.16, 1.17x ratio; proposed explanation is a recurring double-backward gradient-conditioning instability contained by clipping. Ask: is there still a research reason to prefer direct over none/dot for the structured-start-state work, or settle on none/dot as the backbone). Review and send to Yilun, or edit first. (2) 2026-08-06: fb_direct Gate 0 RESOLVED PASS after root-cause diagnosis. Retunes 1-2 (FP32-promoted VJPs, MATH-backend SDPA) barely moved the ~1.5e-4 field error. Retune 3 (FP64 block-by-block bisection vs the real epoch-40 checkpoint, job 37522491) proved the manual reverse VJP is exact to ~1e-16 at every block -- not a code bug. Follow-up confirmation (job 37522678, not counted against the retune budget) disabled TF32 matmul (torch.backends.cuda.matmul.allow_tf32=False / cudnn.allow_tf32=False), which was never tested in retunes 1-3: rel_error dropped 500x to 3.256e-7/3.443e-7, both well under the 1e-4 threshold. gate0_overall_pass=true. TF32 was the entire source of the earlier gap. Gate 1 (offline mechanism test, 500-1000 batches on epoch-80 checkpoint) is now unblocked -- awaiting go-ahead to proceed with the decision tree. (3) 2026-08-06 (later): fb_direct decision tree Gate 1 (offline mechanism test, epoch-80 checkpoint, 500 real batches, no optimizer steps, job 37523044) landed in an AMBIGUOUS zone, not a clean pass or kill. 3 of 4 criteria pass with large margins: median cosine(g_FB,g_exact)=0.619 (>0.2), 100% of batches have positive cosine (>=80% required), and FB gradient norm at the p99.9 exact-norm tail is 94.5x smaller than exact (>=5x required) -- strong evidence FB is both directionally aligned with the true gradient AND dramatically lighter-tailed on the highest-stress batches, which is exactly the instability signature this variant targets. The 4th criterion (FB >=10x smaller specifically on proxy high-stress batches) fails only on the single worst of 5 proxy-explosion batches (1.84x reduction, vs a 21.80x mean across those same 5 batches) -- i.e. one outlier batch pulls a strict AND-of-criteria evaluation to FAIL despite the aggregate signal being strongly favorable. Decision needed: (a) proceed to Gate 2 (2000-step paired continuation) anyway, treating the strong median/p99.9/mean-explosion signal as the operative evidence and the single 1.84x batch as noise in a 5-sample proxy set, or (b) treat that single sub-10x batch as disqualifying per the decision tree's literal criteria and stop/redesign before any real training. No Gate 2 job submitted pending this call. See completed_runs job_id 37523044 for full numbers.",
     "value": true
   },
   "next_action": "Monitor the fully dependency-queued masked-field chain through epoch-40, epoch-15, and epoch-80 paired DDP training and all twelve evaluations; final aggregation job 37247258 will release only after every evaluation succeeds, after which validate artifacts and mark the goal complete.",
