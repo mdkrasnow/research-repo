@@ -14,22 +14,22 @@
       "title": "Results-dir race: two concurrent same-corruption-mode jobs silently mixed checkpoints"
     }
   ],
-  "active_runs": [
-    {
-      "run_id": "fb_direct_layerwise_gradient_decomposition_retry",
-      "job_id": "37541376",
-      "partition": "gpu_test",
-      "status": "running",
-      "description": "Layerwise decomposition g_exact=g_semi+g_cache per Yilun's proposed post-Gate2 next step: truncated correction g^(k) = g_semi + exact g_cache for the k blocks nearest output (order: energy_head, blocks.11..0, x_embedder), rho_k=cos(g^(k),g_exact) for k in {0,1,2,4,6,12}, 500 real batches, epoch-40 checkpoint (same ckpt Gate 2 diverged from), no optimizer steps. Retry of 37540905, which failed on a relative CKPT path (missing /n/netscratch/ydu_lab/Lab/mkrasnow_eqm/ prefix) -- fixed, now using the absolute path.",
-      "submitted_at": "2026-08-06T00:10:00-04:00",
-      "git_sha": "0226c1b",
-      "sbatch_path": "projects/masked-EqM/slurm/jobs/fb_direct_layerwise_decomposition.sbatch",
-      "expected_runtime": "~1h",
-      "phase": "forward-backwards-direct-decision-tree",
-      "gate": "post-Gate2 diagnostic (not itself a decision-tree gate; informs whether a truncated-correction fix is viable before deciding kill-vs-fix)"
-    }
-  ],
+  "active_runs": [],
   "completed_runs": [
+    {
+      "completed_at": "2026-08-06T16:52:00-04:00",
+      "description": "fb_direct layerwise gradient decomposition (retry): rho_k=cos(g^(k),g_exact) for truncated correction g^(k)=g_semi + exact g_cache over the k blocks nearest output, order [energy_head, blocks.11..0, x_embedder], 500 real batches, epoch-40 checkpoint, no optimizer steps, TF32 disabled.",
+      "final_metric": "median rho_k: k0=0.6566, k1=0.6675, k2=0.6911, k4=0.6991, k6=0.7123, k12=0.8964 (n=500 each). Correction is distributed roughly uniformly across depth, NOT concentrated near output: only +0.055 gained from k=0 to k=6 (half the blocks), then a large jump to 0.896 only once all 12 blocks are exact (x_embedder alone still excluded at k=12).",
+      "gate": "post-Gate2 diagnostic (Yilun-proposed)",
+      "git_sha": "0226c1b",
+      "job_id": "37541376",
+      "note": "Answers Yilun's truncation question negatively for this checkpoint/depth: cheap small-k truncated correction does not recover most of the missing credit-assignment signal; near-full restoration is required to reach rho>0.9, undercutting the cost-savings case for a layerwise partial-correction fix.",
+      "phase": "forward-backwards-direct-decision-tree",
+      "run_id": "fb_direct_layerwise_gradient_decomposition",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/fb_direct_layerwise_decomposition.sbatch",
+      "status": "completed",
+      "submitted_at": "2026-08-06T16:47:00-04:00"
+    },
     {
       "completed_at": "2026-08-06T16:41:00-04:00",
       "description": "fb_direct layerwise gradient decomposition, first attempt.",
