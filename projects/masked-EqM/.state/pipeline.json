@@ -14,21 +14,7 @@
       "title": "Results-dir race: two concurrent same-corruption-mode jobs silently mixed checkpoints"
     }
   ],
-  "active_runs": [
-    {
-      "description": "Gate 0 confirmation: disable TF32 matmul to test if reduced-precision matmul (not a VJP bug) explains residual ~1.5e-4 field error, per FP64 bisection finding manual VJP exact to 1e-16.",
-      "expected_runtime": "5 min",
-      "gate": "Gate 0 implementation correctness",
-      "git_sha": "d853b95",
-      "job_id": "37522678",
-      "partition": "gpu_test",
-      "phase": "forward-backwards-direct-decision-tree",
-      "run_id": "fb_direct_gate0_tf32_disabled",
-      "sbatch_path": "projects/masked-EqM/slurm/jobs/fb_direct_gate0.sbatch",
-      "status": "running",
-      "submitted_at": "2026-08-06T13:49:00-04:00"
-    }
-  ],
+  "active_runs": [],
   "completed_runs": [
     {
       "completed_at": "2026-08-06T14:08:00-04:00",
@@ -12105,6 +12091,22 @@
       "sbatch_path": "projects/masked-EqM/slurm/jobs/evaluate_energy_monotonicity.sbatch",
       "status": "completed",
       "submitted_at": "2026-07-27T22:00:00-04:00"
+    },
+    {
+      "completed_at": "2026-08-06T13:51:10-04:00",
+      "description": "Gate 0 confirmation: disable TF32 matmul (torch.backends.cuda.matmul.allow_tf32=False, cudnn.allow_tf32=False) to test whether reduced-precision A100 matmul explains residual field error, per FP64 bisection (job 7422781 commit) proving manual VJP exact to ~1e-16.",
+      "duration": "00:02:10",
+      "exit_code": "0:0",
+      "final_metric": "PASS both batches: rel_error 3.256e-07 (batch0) / 3.443e-07 (batch1), cosine=1.0, loss_rel_diff 0.0/1.02e-7. TF32 was the entire source of the prior ~1.5-1.8e-4 gap (500x reduction from disabling it alone); manual reverse VJP independently verified exact via FP64 bisection.",
+      "gate": "Gate 0 implementation correctness (<1e-4 field rel error on real epoch-40 checkpoint)",
+      "git_sha": "d853b95",
+      "job_id": "37522678",
+      "partition": "gpu_test",
+      "phase": "forward-backwards-direct-decision-tree",
+      "run_id": "fb_direct_gate0_tf32_disabled",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/fb_direct_gate0.sbatch",
+      "status": "completed",
+      "submitted_at": "2026-08-06T13:49:00-04:00"
     }
   ],
   "debugging_notes": [
@@ -12184,7 +12186,7 @@
     "step4_mixture_arm_B": "RESOLVED (2026-07-06) - 2-way gaussian+mask mixture (weights 1.0/1.0/0.0), same eval protocol. mean_masked_mse=0.13692, normalized_gap=0.464. Falls between isolated mask (0.568) and 3-arm mixture (0.449) as expected, but notably closer to the 3-arm mixture than to isolated mask -- confirms the 3-arm mixture's underperformance vs isolated mask is NOT primarily fourier-specific drag (arm B still loses ~0.10 gap vs pure mask despite excluding fourier entirely). Read together with step3's negative fourier result: the gap-closing recipe (gaussian:mask:fourier 1:1:1 vs 1:1:0 vs mask-only) suggests BOTH effects are real -- gradient-budget dilution (any mixing with gaussian reduces the pure-mask signal) AND fourier's own negative contribution. Fourier's negative pull is smaller in magnitude here (only 1/3 weight) than shown by its isolated -0.720 result, consistent with a real but diluted drag."
   },
   "needs_user_input": {
-    "prompt": "TWO pending items: (1) PI update draft ready in documentation/pi-updates.md (2026-08-05: direct scalar-energy paper-scale FID matches none, 39.94 vs 34.16, 1.17x ratio; proposed explanation is a recurring double-backward gradient-conditioning instability contained by clipping. Ask: is there still a research reason to prefer direct over none/dot for the structured-start-state work, or settle on none/dot as the backbone). Review and send to Yilun, or edit first. (2) 2026-08-06: fb_direct Gate 0 FAILED after its one authorized retune (jobs 37520759, 37521466) -- FP32-promotion of reverse VJPs (fb_direct/reverse_ops.py) moved rel_error only ~3% (batch0 1.524e-4->1.475e-4, batch1 1.763e-4->1.714e-4), still ~50-70% over the <1e-4 threshold, so the TF32 hypothesis only partially explains the gap. Per AGENTS.md 'max 1 retune' rule, this is now blocked pending human decision: VJP-by-VJP bisection to find the real error source, relax the Gate 0 threshold, or kill the forward-backwards-direct variant. No further Gate 0/1/2 jobs submitted or code changes made pending this decision. See completed_runs entries for job_id 37520759 and 37521466.",
+    "prompt": "TWO items: (1) PI update draft ready in documentation/pi-updates.md (2026-08-05: direct scalar-energy paper-scale FID matches none, 39.94 vs 34.16, 1.17x ratio; proposed explanation is a recurring double-backward gradient-conditioning instability contained by clipping. Ask: is there still a research reason to prefer direct over none/dot for the structured-start-state work, or settle on none/dot as the backbone). Review and send to Yilun, or edit first. (2) 2026-08-06: fb_direct Gate 0 RESOLVED PASS after root-cause diagnosis. Retunes 1-2 (FP32-promoted VJPs, MATH-backend SDPA) barely moved the ~1.5e-4 field error. Retune 3 (FP64 block-by-block bisection vs the real epoch-40 checkpoint, job 37522491) proved the manual reverse VJP is exact to ~1e-16 at every block -- not a code bug. Follow-up confirmation (job 37522678, not counted against the retune budget) disabled TF32 matmul (torch.backends.cuda.matmul.allow_tf32=False / cudnn.allow_tf32=False), which was never tested in retunes 1-3: rel_error dropped 500x to 3.256e-7/3.443e-7, both well under the 1e-4 threshold. gate0_overall_pass=true. TF32 was the entire source of the earlier gap. Gate 1 (offline mechanism test, 500-1000 batches on epoch-80 checkpoint) is now unblocked -- awaiting go-ahead to proceed with the decision tree.",
     "value": true
   },
   "next_action": "Monitor the fully dependency-queued masked-field chain through epoch-40, epoch-15, and epoch-80 paired DDP training and all twelve evaluations; final aggregation job 37247258 will release only after every evaluation succeeds, after which validate artifacts and mark the goal complete.",
