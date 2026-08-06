@@ -181,16 +181,33 @@ class ForwardBackwardsDirectTrainer:
         locally so the autograd ground truth and the manual cache are
         provably computing through the SAME attention algorithm.
         """
-        with torch.enable_grad(), torch.backends.cuda.sdp_kernel(
-            enable_flash=False, enable_math=True, enable_mem_efficient=False
-        ):
-            xt_req = xt.detach().clone().requires_grad_(True)
-            E_true = self.theta(xt_req, t, y, energy_only=True)
-            true_grad = torch.autograd.grad(E_true.sum(), xt_req, create_graph=False)[0]
-        true_grad = true_grad.detach()
+        # Gate 0 final root cause (2026-08-06, job 37522678): the MATH-backend
+        # SDPA fix above (retune #2) was necessary but NOT sufficient -- the
+        # dominant ~1.5e-4 relative-error source was actually TF32 matmul on
+        # the A100 (torch.backends.cuda.matmul.allow_tf32 defaults True
+        # process-wide per train.py:9-10, matching the real `direct` baseline's
+        # training convention). Disabling it here drops the audit's relative
+        # error ~500x (1.5e-4 -> 3.26e-7 on the real epoch-40 checkpoint).
+        # Scoped locally (save/restore) so real training matmuls elsewhere in
+        # the process keep TF32 enabled, matching the control arm's baseline.
+        prev_matmul_tf32 = torch.backends.cuda.matmul.allow_tf32
+        prev_cudnn_tf32 = torch.backends.cudnn.allow_tf32
+        torch.backends.cuda.matmul.allow_tf32 = False
+        torch.backends.cudnn.allow_tf32 = False
+        try:
+            with torch.enable_grad(), torch.backends.cuda.sdp_kernel(
+                enable_flash=False, enable_math=True, enable_mem_efficient=False
+            ):
+                xt_req = xt.detach().clone().requires_grad_(True)
+                E_true = self.theta(xt_req, t, y, energy_only=True)
+                true_grad = torch.autograd.grad(E_true.sum(), xt_req, create_graph=False)[0]
+            true_grad = true_grad.detach()
 
-        _, cache = forward_energy_with_cache(self.theta, xt, t, y)
-        approx_grad = self.phi(cache)
+            _, cache = forward_energy_with_cache(self.theta, xt, t, y)
+            approx_grad = self.phi(cache)
+        finally:
+            torch.backends.cuda.matmul.allow_tf32 = prev_matmul_tf32
+            torch.backends.cudnn.allow_tf32 = prev_cudnn_tf32
 
         diff = approx_grad - true_grad
         rel_error = diff.flatten(1).norm(dim=1) / true_grad.flatten(1).norm(dim=1).clamp_min(1e-12)
