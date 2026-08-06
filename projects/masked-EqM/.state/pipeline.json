@@ -1,20 +1,6 @@
 {
   "phase": "masked-field-shaping-primary",
-  "active_runs": [
-    {
-      "run_id": "fb_direct_gate0_retune3_fp64_bisect",
-      "job_id": "37522491",
-      "partition": "gpu_test",
-      "status": "running",
-      "description": "FP64 block-by-block bisection of the manual reverse VJP chain against autograd, using the REAL epoch-40 checkpoint's real weights at EqM-B/2 scale (the passing unit test only covered EqM-S/2). Retune #3 (final granted) for the Gate 0 field-error investigation -- localizes a real mechanism bug if one exists, or proves the ~1.5e-4 gap is TF32/GPU precision noise if FP64 comes back near machine epsilon.",
-      "submitted_at": "2026-08-06T14:05:00-04:00",
-      "git_sha": "7422781",
-      "sbatch_path": "projects/masked-EqM/slurm/jobs/fb_direct_fp64_bisect.sbatch",
-      "expected_runtime": "5 minutes",
-      "phase": "forward-backwards-direct-decision-tree",
-      "gate": "Gate 0 diagnostic: is the field-error gap a real VJP bug or GPU precision noise"
-    }
-  ],
+  "active_runs": [],
   "_incidents": [
     {
       "date": "2026-07-07",
@@ -31,6 +17,21 @@
     }
   ],
   "completed_runs": [
+    {
+      "run_id": "fb_direct_gate0_retune3_fp64_bisect",
+      "job_id": "37522491",
+      "partition": "gpu_test",
+      "status": "completed",
+      "description": "Retune #3 (final of 2 additional retunes explicitly authorized by the user): FP64 block-by-block bisection of the manual reverse VJP chain (fb_direct/reverse_ops.py, fb_direct/reverse_model.py) against real autograd, using the REAL epoch-40 checkpoint's real trained weights loaded into the actual EqM-B/2 config (hidden_size=768, depth=12, num_heads=12) and cast to float64 -- the passing pre-existing unit test only covered EqM-S/2 (hidden_size=384, num_heads=6), never exercised at B/2 scale. Compares autograd's true dE/d(block_input) at every block boundary (via retain_grad()) against the manual reverse's u_x at the same point.",
+      "submitted_at": "2026-08-06T14:05:00-04:00",
+      "completed_at": "2026-08-06T14:08:00-04:00",
+      "git_sha": "7422781",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/fb_direct_fp64_bisect.sbatch",
+      "phase": "forward-backwards-direct-decision-tree",
+      "gate": "Gate 0 diagnostic: is the field-error gap a real VJP bug or GPU precision noise",
+      "final_metric": "Every block's input-gradient relative error is at machine-epsilon scale: final_layer 1.335e-16; blocks 0-11 range 2.6e-16 to 2.8e-15; final field (d/dz) 3.137e-16. PASS against the 1e-8 FP64 threshold by 8 orders of magnitude.",
+      "gate_verdict": "DEFINITIVE: the manual reverse-mode VJP implementation is mathematically exact at real EqM-B/2 scale with real trained weights -- there is no mechanism bug anywhere in the reverse chain (attention, LayerNorm, MLP, AdaLN modulation, residual/gate bookkeeping, patch-embed, final scalar head all verified simultaneously end-to-end). The ~1.5-1.8e-4 rel_error seen in every real-GPU FP32 Gate 0 run (job 37520759 baseline, 37521466 retune#1 FP32-promotion, 37522251 retune#2 SDPA-backend-fix -- all three landed within noise of each other) is therefore pure GPU floating-point precision effect (most likely TF32 tensor-core matmul accumulation compounding over 12 SiT blocks x ~7 matmuls/block), not a code defect. All 3 authorized retunes (1 standard + 2 user-granted) are now exhausted with a conclusive diagnosis: Gate 0's literal <1e-4 threshold, applied to an FP32/TF32 GPU training regime at this network depth, is a precision target the hardware's default numerics cannot reliably hit even with provably-correct code. Escalating to user: either (a) relax Gate 0's threshold to something achievable under FP32/TF32 at this depth (e.g. <5e-4, informed by the observed ~1.7e-4 typical value plus margin), (b) force full FP32 (allow_tf32=False) process-wide for Gate 0 evaluation specifically as a stricter apples-to-apples check (not yet tried -- would very likely close the gap given the FP64 result, but changes what Gate 0 is actually measuring relative to real bf16/TF32 training conditions), or (c) treat cosine>0.999999 + loss_rel_diff<1e-4 as the operative pass criteria instead of raw field rel_error, since those two are already comfortably passing and are arguably the more decision-relevant metrics for whether training will work. No code changes needed regardless of which option is chosen -- the implementation itself is proven correct."
+    },
     {
       "run_id": "fb_direct_gate0_field_check_sdpa_backend_retune",
       "job_id": "37522251",

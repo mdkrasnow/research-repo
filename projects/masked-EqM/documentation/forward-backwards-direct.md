@@ -8,6 +8,88 @@ project's normal Variant Proposal Template / CIFAR-first gating process
 (`AGENTS.md`) — the user explicitly authorized skipping that gate for this
 one variant. The proposal content below (§1) is included for the record.
 
+Subsequently run through a separate, user-supplied "Experimental Decision
+Tree: Forward–Backward Scalar EqM" (locked control/treatment comparison
+branched from a real epoch-40 direct-scalar checkpoint). **Gate 0
+(implementation correctness, `<1e-4` field relative error on real data)
+is BLOCKED pending a threshold decision — not a code defect.** See §0 below.
+Gates 1–5 have not run.
+
+## 0. Decision-tree Gate 0 result (2026-08-06)
+
+Three attempts on the real epoch-40 checkpoint (`direct_clipped_from1500k_to_epoch40`,
+job 36820082 lineage) at real EqM-B/2 scale (12 blocks, hidden_size=768) all
+landed in the same ~1.5–1.8e-4 range against the decision tree's `<1e-4`
+threshold, with `cosine≈1.0` and `loss_rel_diff≈1e-5` throughout:
+
+| Attempt | job | batch0 rel_error | batch1 rel_error | change |
+|---|---|---|---|---|
+| baseline | 37520759 | 1.524e-4 | 1.763e-4 | — |
+| retune 1: FP32-promote attention/LayerNorm reverse VJPs | 37521466 | 1.475e-4 | 1.714e-4 | ~3%, within noise |
+| retune 2: force MATH-backend SDPA in `exact_field_audit` | 37522251 | 1.584e-4 | 1.788e-4 | none, within noise |
+
+Neither retune moved the number meaningfully, and batch-to-batch
+`DataLoader` shuffle noise between runs is roughly the same size as either
+retune's plausible effect, so neither result was even cleanly attributable.
+
+**Retune 3 (final authorized) settled it definitively**: a from-scratch FP64
+block-by-block bisection (`experiments/direct_energy/fb_direct_fp64_bisect.py`,
+job 37522491) loads the real checkpoint's real trained weights into the
+actual EqM-B/2 config, casts everything to `float64` (where TF32 truncation
+and fused-attention-kernel selection are both moot — double precision has no
+tensor-core fast path), and compares the manual reverse chain's intermediate
+`u_x` at every block boundary against autograd's true `dE/d(block_input)`
+(via `retain_grad()`). Every single block matched to machine epsilon:
+
+```
+final_layer input grad relerr: 1.335e-16
+block  0 input grad relerr:    6.676e-16       block  6: 3.612e-16
+block  1 input grad relerr:    2.806e-15       block  7: 3.283e-16
+block  2 input grad relerr:    4.811e-16       block  8: 3.004e-16
+block  3 input grad relerr:    4.505e-16       block  9: 3.307e-16
+block  4 input grad relerr:    4.207e-16       block 10: 2.656e-16
+block  5 input grad relerr:    3.921e-16       block 11: 2.605e-16
+FINAL field (d/dz) relerr:     3.137e-16   -- PASS (threshold 1e-8) by 8 orders of magnitude
+```
+
+**Conclusion: the manual reverse-mode VJP implementation is mathematically
+exact at real B/2 scale with real trained weights.** There is no mechanism
+bug anywhere in the chain — attention, LayerNorm, MLP, AdaLN modulation,
+residual/gate bookkeeping, patch-embed, and the final scalar head all
+verified simultaneously, end-to-end, in one comparison. The ~1.5–1.8e-4 gap
+seen on every real-GPU FP32 run is pure GPU floating-point precision effect
+(most likely TF32 tensor-core matmul accumulation compounding over 12 SiT
+blocks × ~7 matmuls/block each), not a code defect — consistent with why
+neither retune 1 (targeting reverse-VJP precision) nor retune 2 (targeting
+attention-kernel selection) moved the number: there was nothing left to fix.
+
+**Escalated decision, not yet made:** the decision tree's literal `<1e-4`
+threshold, applied to an FP32/TF32 GPU training regime at 12-block depth, is
+a precision target that provably-correct code cannot reliably hit under the
+hardware's default numerics. Options for the user to choose among (no
+further code changes needed under any of them — the implementation is
+already proven correct):
+- **(a)** Relax the threshold to something achievable under FP32/TF32 at this
+  depth (e.g. `<5e-4`, informed by the observed ~1.7e-4 typical value plus
+  margin).
+- **(b)** Force full FP32 (`torch.backends.cuda.matmul.allow_tf32 = False`)
+  process-wide for Gate 0 evaluation specifically, as a stricter apples-to-
+  apples check — not yet tried, would very likely close the gap given the
+  FP64 result, but changes what Gate 0 measures relative to the real
+  bf16/TF32 conditions actual training runs under.
+- **(c)** Treat `cosine > 0.999999` + `loss_rel_diff < 1e-4` as the operative
+  pass criteria instead of raw field `rel_error`, since both are already
+  comfortably passing and arguably better reflect whether training will
+  actually work.
+
+All three authorized retunes (1 standard AGENTS.md retune + 2 user-granted)
+are now exhausted. Gates 1–5 of the decision tree are blocked on this
+decision and have not been attempted. Full job history:
+`.state/pipeline.json:completed_runs` (`fb_direct_gate0_field_check`,
+`fb_direct_gate0_field_check_fp32_retune`,
+`fb_direct_gate0_field_check_sdpa_backend_retune`,
+`fb_direct_gate0_retune3_fp64_bisect`) and `results_variants.tsv`.
+
 ## 1. Motivation / variant proposal
 
 ```
