@@ -221,6 +221,96 @@ class ForwardBackwardsDirectTrainer:
             "fb/audit_mean_cosine": float(cosine.mean()),
         }
 
+    def exact_gradient_audit(self, xt, t, y, ut):
+        """Diagnostic-only: Gate 1's core metric (cosine(g_FB, g_exact) in
+        PARAMETER space), but computed LIVE against theta's CURRENT weights
+        during training, not once at a frozen checkpoint. This is a
+        different and stronger claim than `exact_field_audit`, which only
+        checks agreement in OUTPUT space (does R_phi(cache) match grad_x E).
+        Two models can agree closely in field/output space while their
+        gradients disagree substantially in parameter space -- parameter
+        space is what actually determines the optimization trajectory, so
+        that's what this method measures.
+
+        `ut` MUST be the same field-matching target training_step uses
+        (transport.get_ct(t)-scaled), on the SAME (xt, t, y) -- otherwise
+        this measures the gradient of a different objective and the
+        comparison to Gate 1 / to training_step's own gradient is invalid.
+
+        Reuses theta's own live weights for the exact arm (no shadow model,
+        no reload) by temporarily flipping `self.theta.ebm` to run the
+        existing guarded create_graph=True path in models.py, then restoring
+        it. This is diagnostic-only: it does not perturb phi, theta, or any
+        optimizer state -- theta.grad is zeroed and cleared before returning
+        so it cannot leak into the next training_step's dynamics.
+        """
+        active_pairs = [
+            (e.forward_name, e.backward_name)
+            for e in self.registry.entries
+            if e.category in ("reverse_active", "recomputed_conditioning")
+        ]
+        theta_named = dict(self.theta.named_parameters())
+        phi_named = dict(self.phi.named_parameters())
+
+        # --- exact arm: real double-backward through theta's live weights ---
+        self.theta.zero_grad(set_to_none=True)
+        prev_ebm = self.theta.ebm
+        prev_matmul_tf32 = torch.backends.cuda.matmul.allow_tf32
+        prev_cudnn_tf32 = torch.backends.cudnn.allow_tf32
+        torch.backends.cuda.matmul.allow_tf32 = False
+        torch.backends.cudnn.allow_tf32 = False
+        try:
+            self.theta.ebm = "direct"
+            with torch.backends.cuda.sdp_kernel(
+                enable_flash=False, enable_math=True, enable_mem_efficient=False
+            ):
+                xt_exact = xt.detach().clone().requires_grad_(True)
+                field_exact = self.theta(xt_exact, t, y, train=True)
+            loss_exact = mean_flat((field_exact - ut) ** 2).mean()
+            loss_exact.backward()
+        finally:
+            self.theta.ebm = prev_ebm
+            torch.backends.cuda.matmul.allow_tf32 = prev_matmul_tf32
+            torch.backends.cudnn.allow_tf32 = prev_cudnn_tf32
+
+        # --- FB arm: single-backward semigradient, NO optimizer.step() ---
+        self.registry.tie_from_forward_()
+        for p in self.phi.parameters():
+            p.grad = None
+        E, cache = forward_energy_with_cache(self.theta, xt, t, y)
+        grad_tilde = self.phi(cache)
+        prediction_fb = -grad_tilde
+        loss_fb = mean_flat((prediction_fb - ut) ** 2).mean()
+        loss_fb.backward()
+
+        exact_flat, fb_flat = [], []
+        for fname, bname in active_pairs:
+            g_e = theta_named[fname].grad
+            g_f = phi_named[bname].grad
+            if g_e is None or g_f is None:
+                continue
+            exact_flat.append(g_e.detach().reshape(-1).float())
+            fb_flat.append(g_f.detach().reshape(-1).float())
+        exact_vec = torch.cat(exact_flat)
+        fb_vec = torch.cat(fb_flat)
+        cosine = float(
+            torch.nn.functional.cosine_similarity(exact_vec.unsqueeze(0), fb_vec.unsqueeze(0)).item()
+        )
+        exact_norm = float(exact_vec.norm())
+        fb_norm = float(fb_vec.norm())
+
+        # Clean up so this diagnostic cannot leak into the next real step.
+        self.theta.zero_grad(set_to_none=True)
+        for p in self.phi.parameters():
+            p.grad = None
+
+        return {
+            "fb/grad_cosine_exact_vs_fb": cosine,
+            "fb/grad_norm_exact": exact_norm,
+            "fb/grad_norm_fb": fb_norm,
+            "fb/grad_norm_fb_over_exact_ratio": (fb_norm / exact_norm) if exact_norm > 0 else float("nan"),
+        }
+
     def state_dict(self):
         return {
             "theta": self.theta.state_dict(),

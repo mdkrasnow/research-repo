@@ -604,10 +604,22 @@ def main_forward_backwards_direct(args):
                 with torch.no_grad():
                     t_audit, x0_audit, x1_audit = transport.sample(x)
                     t_audit = t_audit.to(x)
-                    t_audit, xt_audit, _ = transport.path_sampler.plan(t_audit, x0_audit, x1_audit)
+                    t_audit, xt_audit, ut_audit = transport.path_sampler.plan(t_audit, x0_audit, x1_audit)
+                    ut_audit = ut_audit * transport.get_ct(t_audit)[:, None, None, None]
                 audit = fb_trainer.exact_field_audit(xt_audit, t_audit, y)
                 diagnostics.update(audit)
                 logger.info(f"(step={train_steps + 1:07d}) exact-field audit: {audit}")
+
+                # Live PARAMETER-space gradient-alignment audit (Gate 1's
+                # metric, but measured continuously during training rather
+                # than once at a frozen checkpoint) -- distinguishes
+                # "field/output agreement stays high but the update
+                # direction is structurally biased" from "field agreement is
+                # degrading too". Same cadence/cost tier as exact_field_audit
+                # (one extra create_graph=True backward through theta).
+                grad_audit = fb_trainer.exact_gradient_audit(xt_audit, t_audit, y, ut_audit)
+                diagnostics.update(grad_audit)
+                logger.info(f"(step={train_steps + 1:07d}) exact-gradient audit: {grad_audit}")
 
             if rank == 0 and fb_metrics_file is not None:
                 record = {"step": train_steps + 1, **diagnostics}
