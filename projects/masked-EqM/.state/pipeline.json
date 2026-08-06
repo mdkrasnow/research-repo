@@ -16,30 +16,31 @@
   ],
   "active_runs": [
     {
-      "description": "Gate 2 control arm: exact direct scalar (create_graph=True), 2000 steps from epoch-40 checkpoint, single-GPU, seed 0. Third attempt after fixing partition queue delay + netscratch quota + enable_cudnn_sdp bug.",
-      "expected_runtime": "45 min (sbatch time limit, gpu_test)",
-      "gate": "Gate 2 short paired continuation",
-      "git_sha": "d3860ae",
-      "job_id": "37534942",
-      "partition": "gpu_test",
-      "phase": "forward-backwards-direct-decision-tree",
-      "run_id": "fb_direct_gate2_control_direct",
-      "sbatch_path": "projects/masked-EqM/slurm/jobs/fb_direct_gate2_arm.sbatch",
-      "status": "running",
-      "submitted_at": "2026-08-06T16:52:00-04:00"
-    },
-    {
       "description": "Gate 2 treatment arm: forward-backwards-direct, 2000 steps from epoch-40 checkpoint, single-GPU, seed 0, matched to control arm. Third attempt.",
       "expected_runtime": "45 min (sbatch time limit, gpu_test)",
       "gate": "Gate 2 short paired continuation",
       "git_sha": "d3860ae",
       "job_id": "37534952",
+      "note": "step 500/2000 at ~15:59: train loss climbing 10.85->12.95 (watching for divergence), exact-field audit rel_error 0.033->0.039, cosine 0.998->0.998 (slight drift, expected to some degree for a semigradient method)",
       "partition": "gpu_test",
       "phase": "forward-backwards-direct-decision-tree",
       "run_id": "fb_direct_gate2_treatment_fbdirect",
       "sbatch_path": "projects/masked-EqM/slurm/jobs/fb_direct_gate2_arm.sbatch",
       "status": "running",
       "submitted_at": "2026-08-06T16:52:00-04:00"
+    },
+    {
+      "description": "Gate 2 control arm resubmitted to seas_gpu (full A100) after gpu_test OOM. Same config as treatment (37534952) otherwise.",
+      "expected_runtime": "45 min once started (queue ETA unknown)",
+      "gate": "Gate 2 short paired continuation",
+      "git_sha": "d3860ae",
+      "job_id": "37535954",
+      "partition": "seas_gpu",
+      "phase": "forward-backwards-direct-decision-tree",
+      "run_id": "fb_direct_gate2_control_direct",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/fb_direct_gate2_arm.sbatch",
+      "status": "pending",
+      "submitted_at": "2026-08-06T16:10:00-04:00"
     }
   ],
   "completed_runs": [
@@ -12238,6 +12239,21 @@
       "sbatch_path": "projects/masked-EqM/slurm/jobs/fb_direct_gate2_arm.sbatch",
       "status": "failed",
       "submitted_at": "2026-08-06T16:40:00-04:00"
+    },
+    {
+      "completed_at": "2026-08-06T15:52:35-04:00",
+      "description": "OOM on gpu_test 20GB MIG slice: exact direct scalar create_graph=True backward needs more memory than gpu_test provides. Positive side signal: treatment (fb-direct) arm runs fine on identical hardware/batch-size, consistent with the memory-reduction motivation of this method. Resubmitted control to seas_gpu (job 37535954).",
+      "error": "torch.cuda.OutOfMemoryError: CUDA out of memory. Tried to allocate 96.00 MiB. GPU 0 has a total capacity of 19.62 GiB",
+      "exit_code": "1:0",
+      "gate": "Gate 2 short paired continuation",
+      "git_sha": "d3860ae",
+      "job_id": "37534942",
+      "partition": "gpu_test",
+      "phase": "forward-backwards-direct-decision-tree",
+      "run_id": "fb_direct_gate2_control_direct_oom_gputest",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/fb_direct_gate2_arm.sbatch",
+      "status": "failed",
+      "submitted_at": "2026-08-06T16:52:00-04:00"
     }
   ],
   "debugging_notes": [
