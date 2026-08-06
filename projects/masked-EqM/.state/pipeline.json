@@ -33,7 +33,22 @@
       "error": "rel_error exceeded the 1e-4 threshold on both real batches despite cosine~1.0 and loss_rel_diff~1e-5-1e-6 (direction/loss-level equivalence intact, magnitude-level equivalence not). Root-caused (not the CAFM-style mechanism-bug pattern from the postmortem precedent) to TF32 reduced-precision (10-bit mantissa) CUDA matmul accumulation compounding across the real EqM-B/2 depth (12 SiT blocks) in the manual reverse VJPs (fb_direct/reverse_ops.py): train.py sets torch.backends.cuda.matmul.allow_tf32=True globally at import, and fb_direct_gate0_field_check.py imports train.py for center_crop_arr, so that global flag was live for every CUDA matmul in the reverse path. FP64 unit test (rel err 7.6e-16) and FP32 CPU unit test (rel err 3.9e-7, no CUDA tensor cores) both passed tightly; the tiny synthetic-model CPU tests never exercised TF32 at all, only the real GPU run did.",
       "exit_code": "1",
       "duration": "~30 min",
-      "gate_verdict": "FAIL -- one retune authorized per AGENTS.md/decision-tree discipline: promote numerically sensitive reverse VJPs (attention softmax backward chain, LayerNorm mean/inv-std reduction terms) to strict FP32 accumulation in fb_direct/reverse_ops.py, then re-run Gate 0 on the SAME checkpoint/batches as job 37631842 before deciding pass/kill. See documentation/forward-backwards-direct.md and pipeline.json completed_runs entry for job 37631842."
+      "gate_verdict": "FAIL -- one retune authorized per AGENTS.md/decision-tree discipline: promote numerically sensitive reverse VJPs (attention softmax backward chain, LayerNorm mean/inv-std reduction terms) to strict FP32 accumulation in fb_direct/reverse_ops.py, then re-run Gate 0 on the SAME checkpoint/batches. See documentation/forward-backwards-direct.md and pipeline.json completed_runs entry for job 37521466 (the retune re-run)."
+    },
+    {
+      "run_id": "fb_direct_gate0_field_check_fp32_retune",
+      "job_id": "37521466",
+      "partition": "gpu_test",
+      "status": "failed",
+      "description": "Retune (1 of 1 authorized per AGENTS.md decision-tree discipline) of Gate 0 field/loss equivalence check: reverse VJPs in fb_direct/reverse_ops.py (attention softmax backward chain, LayerNorm mean/inv-std reduction terms) promoted to strict FP32 accumulation to counter the TF32 hypothesis root-caused in job 37520759, re-run on the SAME real epoch-40 direct checkpoint and SAME 2 real ImageNet batches. Checkpoint: /n/netscratch/ydu_lab/Lab/mkrasnow_eqm/direct_energy_longer_retry/direct_clipped_from1500k_to_epoch40_job36820082/000-EqM-B-2-Linear-velocity-None-ebm-direct/checkpoints/epoch40.pt",
+      "submitted_at": "2026-08-06T13:35:00-04:00",
+      "completed_at": "2026-08-06T14:05:00-04:00",
+      "phase": "forward-backwards-direct-decision-tree",
+      "gate": "Gate 0: implementation correctness (rel_error<1e-4, L_FB~=L_exact)",
+      "final_metric": "batch0 audit_mean_rel_error=1.475e-4 cosine=1.0 loss_rel_diff=9.7e-6 (was 1.524e-4 pre-retune); batch1 audit_mean_rel_error=1.714e-4 cosine=1.0 loss_rel_diff=2.0e-7 (was 1.763e-4 pre-retune); gate0_field_pass=false both batches (threshold <1e-4); gate0_overall_pass=false",
+      "error": "FP32-promotion retune moved rel_error by only ~3% (1.524e-4->1.475e-4 batch0; 1.763e-4->1.714e-4 batch1), not the order-of-magnitude reduction expected if attention-softmax/LayerNorm TF32 accumulation were the dominant error source. Threshold (<1e-4) still missed by ~50-70% on both batches. TF32 hypothesis from job 37520759 is therefore only a partial explanation at best; the majority of the residual error is unaccounted for.",
+      "exit_code": "1",
+      "gate_verdict": "FAIL -- retune exhausted. Per AGENTS.md 'maximum 1 retune per failing direction (CLAUDE.md hard rule); no retune indefinitely loops' and the decision tree's Gate 0 FAIL/kill branch ('do not train; fix the manual reverse rules'), this is now escalated to the user rather than resolved autonomously. No further code changes to fb_direct/reverse_ops.py or reverse_model.py, and no further Gate 0/1/2 job submissions, pending human decision: (a) VJP-by-VJP bisection to isolate the real error source, (b) relax the Gate 0 threshold, or (c) kill the forward-backwards-direct variant."
     },
     {
       "run_id": "direct_clipped_epoch80_seed0_paper_fid50k_adm_finalize_home",
@@ -12080,7 +12095,7 @@
   },
   "needs_user_input": {
     "value": true,
-    "prompt": "PI update draft ready in documentation/pi-updates.md (2026-08-05: direct scalar-energy paper-scale FID matches none, 39.94 vs 34.16, 1.17x ratio; proposed explanation is a recurring double-backward gradient-conditioning instability contained by clipping. Ask: is there still a research reason to prefer direct over none/dot for the structured-start-state work, or settle on none/dot as the backbone). Review and send to Yilun, or edit first."
+    "prompt": "TWO pending items: (1) PI update draft ready in documentation/pi-updates.md (2026-08-05: direct scalar-energy paper-scale FID matches none, 39.94 vs 34.16, 1.17x ratio; proposed explanation is a recurring double-backward gradient-conditioning instability contained by clipping. Ask: is there still a research reason to prefer direct over none/dot for the structured-start-state work, or settle on none/dot as the backbone). Review and send to Yilun, or edit first. (2) 2026-08-06: fb_direct Gate 0 FAILED after its one authorized retune (jobs 37520759, 37521466) -- FP32-promotion of reverse VJPs (fb_direct/reverse_ops.py) moved rel_error only ~3% (batch0 1.524e-4->1.475e-4, batch1 1.763e-4->1.714e-4), still ~50-70% over the <1e-4 threshold, so the TF32 hypothesis only partially explains the gap. Per AGENTS.md 'max 1 retune' rule, this is now blocked pending human decision: VJP-by-VJP bisection to find the real error source, relax the Gate 0 threshold, or kill the forward-backwards-direct variant. No further Gate 0/1/2 jobs submitted or code changes made pending this decision. See completed_runs entries for job_id 37520759 and 37521466."
   },
   "debugging_notes": [
     {
