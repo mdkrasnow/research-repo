@@ -2,18 +2,18 @@
   "phase": "masked-field-shaping-primary",
   "active_runs": [
     {
-      "run_id": "fb_direct_gate0_retune2_sdpa_fix",
-      "job_id": "37522251",
+      "run_id": "fb_direct_gate0_retune3_fp64_bisect",
+      "job_id": "37522491",
       "partition": "gpu_test",
       "status": "running",
-      "description": "Gate 0 rerun after retune #2: force MATH-backend SDPA in exact_field_audit + gate0 script (root cause: forward_energy_with_cache's manual attention matches SDPA MATH backend bit-for-bit, but timm's fused_attn=True default meant the autograd ground truth was silently using a different fused kernel).",
-      "submitted_at": "2026-08-06T13:50:00-04:00",
-      "git_sha": "151e9a661be1e56289cb7b1e900fb59a9a26136e",
-      "sbatch_path": "projects/masked-EqM/slurm/jobs/fb_direct_gate0.sbatch",
+      "description": "FP64 block-by-block bisection of the manual reverse VJP chain against autograd, using the REAL epoch-40 checkpoint's real weights at EqM-B/2 scale (the passing unit test only covered EqM-S/2). Retune #3 (final granted) for the Gate 0 field-error investigation -- localizes a real mechanism bug if one exists, or proves the ~1.5e-4 gap is TF32/GPU precision noise if FP64 comes back near machine epsilon.",
+      "submitted_at": "2026-08-06T14:05:00-04:00",
+      "git_sha": "7422781",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/fb_direct_fp64_bisect.sbatch",
       "expected_runtime": "5 minutes",
       "phase": "forward-backwards-direct-decision-tree",
-      "gate": "Gate 0: field relative error < 1e-4 on real epoch-40 direct-scalar checkpoint"
-    }
+      "gate": "Gate 0 diagnostic: is the field-error gap a real VJP bug or GPU precision noise"
+    },
   ],
   "_incidents": [
     {
@@ -31,6 +31,23 @@
     }
   ],
   "completed_runs": [
+    {
+      "run_id": "fb_direct_gate0_field_check_sdpa_backend_retune",
+      "job_id": "37522251",
+      "partition": "gpu_test",
+      "status": "failed",
+      "description": "Retune #2 of Gate 0 (of 2 additional retunes explicitly authorized by the user beyond AGENTS.md's normal 1-retune rule, specifically to bisect and fix the remaining VJP/kernel discrepancy): force MATH-backend SDPA (torch.backends.cuda.sdp_kernel(enable_flash=False, enable_math=True, enable_mem_efficient=False)) inside fb_direct/trainer.py:exact_field_audit and the gate0 script's model_direct forward call. Hypothesis: forward_energy_with_cache's manual two-pass-softmax attention is bit-identical to SDPA's MATH backend (verified 1.6e-16 rel error in FP64 locally) but timm's Attention.forward has use_fused_attn()=True by default on CUDA, so the autograd ground truth in exact_field_audit was silently using a different fused kernel than the manual cache reconstruction.",
+      "submitted_at": "2026-08-06T13:50:00-04:00",
+      "completed_at": "2026-08-06T13:55:00-04:00",
+      "git_sha": "151e9a661be1e56289cb7b1e900fb59a9a26136e",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/fb_direct_gate0.sbatch",
+      "phase": "forward-backwards-direct-decision-tree",
+      "gate": "Gate 0: implementation correctness (rel_error<1e-4, L_FB~=L_exact)",
+      "final_metric": "batch0 audit_mean_rel_error=1.584e-4 cosine=0.99999994 loss_rel_diff=7.0e-6; batch1 audit_mean_rel_error=1.788e-4 cosine=1.0 loss_rel_diff=1.8e-6; gate0_field_pass=false both batches",
+      "error": "Statistically unchanged from the pre-retune numbers (1.524e-4/1.763e-4) -- within DataLoader shuffle batch-to-batch noise, not a measurable improvement. The SDPA-backend-mismatch hypothesis, while structurally real (timm's fused_attn IS True by default and the manual cache computation IS specifically MATH-backend-equivalent), was not the dominant error source, or its effect is too small to detect against per-batch data variance with only 2 batches. Fix left in place (it is a real, if insufficient, correctness improvement) but did not close the gate.",
+      "exit_code": "1",
+      "gate_verdict": "FAIL -- moved to retune #3 (final authorized retune): FP64 block-by-block bisection against the real checkpoint's real weights at true EqM-B/2 scale (job 37522491), to definitively separate 'real remaining VJP bug, localized to a specific block/op' from 'GPU/TF32 precision noise, no bug' -- the two prior retunes each targeted a plausible-but-unconfirmed precision hypothesis without directly localizing the error."
+    },
     {
       "run_id": "fb_direct_gate0_field_check",
       "job_id": "37520759",
