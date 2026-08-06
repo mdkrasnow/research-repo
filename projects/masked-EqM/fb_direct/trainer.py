@@ -162,8 +162,28 @@ class ForwardBackwardsDirectTrainer:
         `torch.autograd.grad(..., create_graph=False)` -- allowed for
         diagnostics per Section 10/13 of the spec -- and must not perturb
         optimizer state (no `.backward()`/`.step()` here).
+
+        Root-cause note (Gate 0 retune #2, 2026-08-06): `forward_energy_with_cache`
+        manually recomputes attention as the textbook two-pass
+        `softmax(q*scale @ k^T) @ v`, which is bit-for-bit what PyTorch's SDPA
+        MATH backend computes (verified to ~1e-16 relative error in FP64), but
+        is NOT what timm's `Attention.forward` computes by default on CUDA --
+        `use_fused_attn()` is True there, so `self.theta(...)` below would
+        otherwise dispatch to whatever fused kernel (flash/mem-efficient)
+        PyTorch auto-selects, which is numerically DIFFERENT from two-pass
+        softmax at the ~1e-4 relative level per SiT block (same magnitude,
+        same depth-compounding profile as the Gate 0 failure), even though
+        it's mathematically equivalent. `train.py` already forces the MATH
+        backend process-wide whenever `ebm != 'none'` (it has to -- flash
+        attention doesn't support `create_graph=True`), but this diagnostic
+        module is imported and called independently of `train.py`'s `main()`,
+        so that global flag is never guaranteed to be set here. Force it
+        locally so the autograd ground truth and the manual cache are
+        provably computing through the SAME attention algorithm.
         """
-        with torch.enable_grad():
+        with torch.enable_grad(), torch.backends.cuda.sdp_kernel(
+            enable_flash=False, enable_math=True, enable_mem_efficient=False
+        ):
             xt_req = xt.detach().clone().requires_grad_(True)
             E_true = self.theta(xt_req, t, y, energy_only=True)
             true_grad = torch.autograd.grad(E_true.sum(), xt_req, create_graph=False)[0]

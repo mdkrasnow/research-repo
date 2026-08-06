@@ -102,9 +102,18 @@ def main():
         t, xt, ut = transport.path_sampler.plan(t, x0, x1)
         ut = ut * transport.get_ct(t)[:, None, None, None]
 
-        # exact arm: real double-backward path, ebm='direct', train=True
-        xt_exact = xt.detach().clone().requires_grad_(True)
-        field_exact = model_direct(xt_exact, t, y, train=True)
+        # exact arm: real double-backward path, ebm='direct', train=True.
+        # Force the MATH SDPA backend, matching train.py's global
+        # enable_flash_sdp(False)/enable_math_sdp(True) whenever ebm!='none'
+        # (required there since flash attention doesn't support
+        # create_graph=True) -- this script runs standalone and never calls
+        # train.py's main(), so that global flag is otherwise never set,
+        # letting timm's fused_attn silently dispatch to a different kernel
+        # than forward_energy_with_cache's manual two-pass-softmax
+        # recomputation (see fb_direct/trainer.py:exact_field_audit).
+        with torch.backends.cuda.sdp_kernel(enable_flash=False, enable_math=True, enable_mem_efficient=False):
+            xt_exact = xt.detach().clone().requires_grad_(True)
+            field_exact = model_direct(xt_exact, t, y, train=True)
         loss_exact = mean_flat((field_exact - ut) ** 2).mean()
 
         # FB arm: identical xt/t/y/ut, no double backward
