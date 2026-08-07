@@ -248,7 +248,7 @@ def compute_g_cache_vjp(theta, xt, t, y, a_star):
         )
         g_cache_vjp = {
             name: (g.detach().reshape(-1).float().clone() if g is not None
-                   else torch.zeros(p.numel()))
+                   else torch.zeros(p.numel(), device=p.device))
             for name, p, g in zip(theta_names, theta_params, grads)
         }
 
@@ -270,7 +270,8 @@ def compute_g_cache_vjp(theta, xt, t, y, a_star):
                 retain_graph=False, allow_unused=True,
             )
             flat = torch.cat([
-                g.detach().reshape(-1).float() if g is not None else torch.zeros(p.numel())
+                g.detach().reshape(-1).float() if g is not None
+                else torch.zeros(p.numel(), device=p.device)
                 for g, p in zip(grads_n, theta_params_n)
             ])
             per_tensor_contribution[n] = float(flat.norm())
