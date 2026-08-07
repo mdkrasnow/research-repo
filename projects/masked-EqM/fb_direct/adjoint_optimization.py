@@ -135,13 +135,23 @@ def jvp_theta_to_cache(theta, xt, t, y, direction):
         z = xt.detach().clone()
         _, cache = forward_energy_with_cache_grad(theta, z, t, y)
         cache_items = cache.flatten()
-        names = [n for n, _ in cache_items]
-        tensors = [c for _, c in cache_items]
-        us = [torch.zeros_like(c, requires_grad=True) for c in tensors]
+        all_names = [n for n, _ in cache_items]
+        all_tensors = [c for _, c in cache_items]
+
+        # Cache tensors produced solely by cache_only (frozen) modules --
+        # e.g. `c` via t_embedder/y_embedder, frozen once wrapped in a real
+        # ForwardBackwardsDirectTrainer -- have requires_grad=False and no
+        # grad_fn at all; autograd.grad rejects them as VJP roots. Their
+        # true JVP contribution is exactly zero, so exclude them from the
+        # grad() call and fill in zeros for their returned entry (mirrors
+        # cache_adjoint.compute_g_cache_vjp's identical filter).
+        grad_names = [n for n, c in zip(all_names, all_tensors) if c.requires_grad]
+        grad_tensors = [c for c in all_tensors if c.requires_grad]
+        us = [torch.zeros_like(c, requires_grad=True) for c in grad_tensors]
 
         theta_names, theta_params = _active_theta_params(theta)
         vjp_of_u = torch.autograd.grad(
-            tensors, theta_params, grad_outputs=us,
+            grad_tensors, theta_params, grad_outputs=us,
             create_graph=True, allow_unused=True,
         )
 
@@ -155,13 +165,17 @@ def jvp_theta_to_cache(theta, xt, t, y, direction):
             term = (g.reshape(-1) * d.reshape(-1).to(g.dtype)).sum()
             dot = term if dot is None else dot + term
         if dot is None:
-            return {name: torch.zeros_like(c) for name, c in zip(names, tensors)}
+            return {name: torch.zeros_like(c) for name, c in zip(all_names, all_tensors)}
 
         jvp_list = torch.autograd.grad(dot, us, retain_graph=False, allow_unused=True)
-        return {
+        jvp_by_name = {
             name: (g.detach().reshape(c.shape).clone() if g is not None
                    else torch.zeros_like(c))
-            for name, g, c in zip(names, jvp_list, tensors)
+            for name, g, c in zip(grad_names, jvp_list, grad_tensors)
+        }
+        return {
+            name: jvp_by_name.get(name, torch.zeros_like(c))
+            for name, c in zip(all_names, all_tensors)
         }
 
 

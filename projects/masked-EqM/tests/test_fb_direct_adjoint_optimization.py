@@ -25,6 +25,7 @@ import torch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from fb_direct import ForwardBackwardsDirectTrainer
 from fb_direct.adjoint_optimization import (
     vjp_cache_to_theta,
     jvp_theta_to_cache,
@@ -40,9 +41,15 @@ torch.manual_seed(0)
 
 
 def _make_fixed_batch(dtype=torch.float64, seed=7):
-    model = make_model(ebm='direct', dtype=dtype, seed=0)
+    # Wrap in ForwardBackwardsDirectTrainer (not a bare model) so
+    # cache_only params (t_embedder/y_embedder -> the `c` cache tensor) are
+    # frozen exactly as they are for `theta` in the real experiment script
+    # -- job 37687761 crashed on GPU precisely because this fixture
+    # originally used a bare, unfrozen model and never exercised that path.
+    model = make_model(ebm='forward-backwards-direct', dtype=dtype, seed=0)
     perturb(model, seed=101)
     model.eval()
+    ForwardBackwardsDirectTrainer(model, lr=1e-4, device=torch.device('cpu'))
 
     transport = create_transport("Linear", "velocity", None, None, None)
     g = torch.Generator().manual_seed(seed)
