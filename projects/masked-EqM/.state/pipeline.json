@@ -14,22 +14,22 @@
       "title": "Results-dir race: two concurrent same-corruption-mode jobs silently mixed checkpoints"
     }
   ],
-  "active_runs": [
-    {
-      "run_id": "fb_direct_blockwise_calibration",
-      "job_id": "37544288",
-      "partition": "gpu_test",
-      "status": "running",
-      "description": "Yilun's post-layerwise-decomposition proposal: per-block rho_l (direction) + r_l (norm ratio) diagnostics, fit alpha_l scalar calibration on 400 calib batches, evaluate rho_cal on held-out 100 fresh batches. Tests whether low global cosine (0.657, job 37541376) is a scale mismatch across blocks rather than a direction mismatch.",
-      "submitted_at": "2026-08-06T00:00:00-04:00",
-      "git_sha": "548f51d",
-      "sbatch_path": "projects/masked-EqM/slurm/jobs/fb_direct_blockwise_calibration.sbatch",
-      "expected_runtime": "~1.5-2h",
-      "phase": "forward-backwards-direct-decision-tree",
-      "gate": "post-Gate2 diagnostic (Yilun-proposed, round 2)"
-    }
-  ],
+  "active_runs": [],
   "completed_runs": [
+    {
+      "completed_at": "2026-08-07T00:12:00-04:00",
+      "description": "fb_direct blockwise scalar calibration test (Yilun round-2 proposal): per-block rho_l/r_l over all 14 blocks (x_embedder, blocks.0-11, energy_head), alpha_l fit on 400 calib batches, rho_cal evaluated out-of-sample on 100 fresh held-out batches, same epoch-40 checkpoint as job 37541376.",
+      "final_metric": "rho_cal median=0.6508 [p10 0.522, p90 0.785] vs rho_uncal median=0.6580 [p10 0.521, p90 0.771] (n=100 held-out, both). Calibration made cosine slightly WORSE, not better. Per-block rho_l medians: energy_head=0.990 (near-exact by construction), x_embedder=0.591, all 12 transformer blocks LOW (0.24-0.51, blocks.11 lowest at 0.243 with p10=-0.326). r_l (exact/semi norm ratio) 1.8-2.5x for every transformer block -- semigradient is consistently undersized in-block, but that's not the failure mode: even after alpha_l rescaling, direction stayed misaligned. coverage_ok_all_batches=true, sync_error_after_tie=0.0 (no bookkeeping bug).",
+      "gate": "post-Gate2 diagnostic (Yilun-proposed, round 2)",
+      "git_sha": "548f51d",
+      "job_id": "37544288",
+      "note": "KILLS Yilun's scale-mismatch hypothesis outright: per-block DIRECTION cosine is low (0.24-0.51) inside every transformer block, not high-with-wrong-scale as hypothesized -- so there is no cheap alpha_l rescaling fix. Only energy_head (parameter directly adjacent to the loss) has near-exact direction. Per Yilun's own decision tree, this routes to the temporal-stability branch: measure rho_stale(Delta) and rho_cross(Delta) for Delta in {1,2,4,8,16,32,64} to test periodic exact correction viability, since layerwise/blockwise structure is ruled out.",
+      "phase": "forward-backwards-direct-decision-tree",
+      "run_id": "fb_direct_blockwise_calibration",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/fb_direct_blockwise_calibration.sbatch",
+      "status": "completed",
+      "submitted_at": "2026-08-06T21:09:00-04:00"
+    },
     {
       "completed_at": "2026-08-06T16:52:00-04:00",
       "description": "fb_direct layerwise gradient decomposition (retry): rho_k=cos(g^(k),g_exact) for truncated correction g^(k)=g_semi + exact g_cache over the k blocks nearest output, order [energy_head, blocks.11..0, x_embedder], 500 real batches, epoch-40 checkpoint, no optimizer steps, TF32 disabled.",
