@@ -7,7 +7,7 @@
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=32GB
 #SBATCH --time=03:00:00
-#SBATCH --partition=gpu_test
+#SBATCH --partition=seas_gpu
 #SBATCH --gres=gpu:1
 set -euo pipefail
 
