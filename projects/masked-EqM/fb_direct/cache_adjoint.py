@@ -151,7 +151,7 @@ def compute_g_exact(theta, xt, t, y, ut):
         theta.zero_grad(set_to_none=True)
         loss.backward()
         g_exact = {
-            name: p.grad.detach().reshape(-1).float().clone()
+            name: p.grad.detach().reshape(-1).clone()
             for name, p in theta.named_parameters()
             if p.grad is not None
         }
@@ -222,7 +222,7 @@ def compute_g_semi_and_a_star(fb_trainer, xt, t, y, ut):
                 continue
             p = phi_named[e.backward_name]
             if p.grad is not None:
-                g_semi[e.forward_name] = p.grad.detach().reshape(-1).float().clone()
+                g_semi[e.forward_name] = p.grad.detach().reshape(-1).clone()
         loss_fb_val = float(loss_fb.detach())
 
     for p in phi.parameters():
@@ -275,8 +275,8 @@ def compute_g_cache_vjp(theta, xt, t, y, a_star, compute_per_tensor_contribution
             retain_graph=False, allow_unused=True,
         )
         g_cache_vjp = {
-            name: (g.detach().reshape(-1).float().clone() if g is not None
-                   else torch.zeros(p.numel(), device=p.device))
+            name: (g.detach().reshape(-1).clone() if g is not None
+                   else torch.zeros(p.numel(), device=p.device, dtype=p.dtype))
             for name, p, g in zip(theta_names, theta_params, grads)
         }
 
