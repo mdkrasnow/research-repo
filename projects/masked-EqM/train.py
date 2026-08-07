@@ -32,6 +32,7 @@ from diffusers.models import AutoencoderKL
 from train_utils import parse_transport_args
 import wandb_utils
 from fb_direct import ForwardBackwardsDirectTrainer
+from fb_direct.exact_hvp import exact_fwrev_backward
 from torchvision import datasets, transforms, models
 import matplotlib.pyplot as plt
 from sklearn.metrics import roc_auc_score
@@ -132,6 +133,13 @@ def main(args):
     dist.init_process_group("nccl")
     assert args.global_batch_size % dist.get_world_size() == 0, f"Batch size must be divisible by world size."
     rank = dist.get_rank()
+    if args.exact_fwrev and dist.get_world_size() > 1:
+        raise RuntimeError(
+            "--exact-fwrev bypasses loss.backward(), so DDP gradient allreduce "
+            "never fires; multi-rank runs would silently train on rank-local "
+            "gradients. Run with --nproc_per_node=1 (diagnostic-continuation "
+            "scope) until an explicit allreduce is added."
+        )
     device = int(os.environ["LOCAL_RANK"])
     print(f"Found {n_gpus} GPUs, trying to use device index {device}")
     seed = args.global_seed * dist.get_world_size() + rank
@@ -322,11 +330,31 @@ def main(args):
             with torch.no_grad():
                 # Map input images to latent space + normalize latents:
                 x = vae.encode(x).latent_dist.sample().mul_(0.18215)
-            model_kwargs = dict(y=y, return_act=args.disp, train=True)
-            loss_dict = transport.training_losses(model, x, model_kwargs)
-            loss = loss_dict["loss"].mean()
-            opt.zero_grad()
-            loss.backward()
+            if args.exact_fwrev:
+                # Exact forward-over-reverse gradient (fb_direct/exact_hvp.py):
+                # mathematically identical to the double-backward path below,
+                # computed as one dual-tensor forward + one first-order
+                # backward. Replicates training_losses' sampling exactly
+                # (same transport.sample / plan / get_ct sequence), then
+                # bypasses loss.backward(). DDP allreduce hooks never fire on
+                # this path -- guarded to world_size == 1 at startup.
+                t_s, x0_s, x1_s = transport.sample(x)
+                t_s, xt_s, ut_s = transport.path_sampler.plan(t_s, x0_s, x1_s)
+                ut_s = ut_s * transport.get_ct(t_s)[:, None, None, None]
+                opt.zero_grad()
+                fwrev_stats = exact_fwrev_backward(
+                    model.module, xt_s, t_s, y, ut_s, gp_lambda=args.gp_lambda,
+                )
+                loss = torch.tensor(
+                    fwrev_stats["loss_main"] + args.gp_lambda * fwrev_stats["loss_gp"],
+                    device=device,
+                )
+            else:
+                model_kwargs = dict(y=y, return_act=args.disp, train=True)
+                loss_dict = transport.training_losses(model, x, model_kwargs)
+                loss = loss_dict["loss"].mean()
+                opt.zero_grad()
+                loss.backward()
             grad_norm = None
             unclipped_grad_norm = None
             if args.max_grad_norm is not None:
@@ -369,6 +397,12 @@ def main(args):
                         ),
                         "learning_rate": opt.param_groups[0]["lr"],
                     }
+                    if args.exact_fwrev:
+                        record["loss_main"] = fwrev_stats["loss_main"]
+                        record["loss_gp"] = fwrev_stats["loss_gp"]
+                        record["gp_lambda"] = args.gp_lambda
+                        record["field_norm"] = fwrev_stats["field_norm"]
+                        record["target_norm"] = fwrev_stats["target_norm"]
                     grad_metrics_file.write(json.dumps(record, sort_keys=True) + "\n")
             opt.step()
             update_ema(ema, model.module)
@@ -744,6 +778,21 @@ if __name__ == "__main__":
         "--allow-cpu", action="store_true",
         help="(forward-backwards-direct only) allow CPU-only training for local smoke tests",
     )
+    parser.add_argument(
+        "--exact-fwrev", action="store_true",
+        help="(ebm='direct' only) compute the EXACT parameter gradient via "
+             "Pearlmutter forward-over-reverse (torch.autograd.forward_ad dual "
+             "pass + one first-order backward) instead of create_graph=True "
+             "double-backward. Mathematically identical gradient, "
+             "ordinary-training memory. See fb_direct/exact_hvp.py",
+    )
+    parser.add_argument(
+        "--gp-lambda", type=float, default=0.0,
+        help="(requires --exact-fwrev) gradient-penalty coefficient: adds "
+             "gp_lambda * mean(||grad_z E||^2) to the loss, folded exactly into "
+             "the same forward-over-reverse pass (smoothness regularizer "
+             "targeting the mixed-Hessian conditioning)",
+    )
 
     parse_transport_args(parser)
     args = parser.parse_args()
@@ -751,6 +800,14 @@ if __name__ == "__main__":
         parser.error("--grad-log-every must be non-negative")
     if args.max_grad_norm is not None and args.max_grad_norm <= 0:
         parser.error("--max-grad-norm must be positive")
+    if args.exact_fwrev and args.ebm != "direct":
+        parser.error("--exact-fwrev requires --ebm direct")
+    if args.exact_fwrev and args.disp:
+        parser.error("--exact-fwrev does not support --disp")
+    if args.gp_lambda != 0.0 and not args.exact_fwrev:
+        parser.error("--gp-lambda requires --exact-fwrev")
+    if args.gp_lambda < 0:
+        parser.error("--gp-lambda must be non-negative")
     args.save_epochs = None if args.save_epochs is None else {
         int(value) for value in args.save_epochs.split(",") if value.strip()
     }

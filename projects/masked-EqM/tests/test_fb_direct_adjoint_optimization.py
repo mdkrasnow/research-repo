@@ -137,7 +137,42 @@ def test_cgnr_reduces_residual_and_improves_cosine():
           "solution, and reconstruction beats a random adjoint")
 
 
+def test_cgnr_warm_start_never_worse_than_start():
+    """The v2 correction (job 37692043 postmortem): warm-starting CGNR at a
+    feasible point must yield a best-iterate rho >= the starting point's rho
+    -- the property whose violation proved the v1 run invalid. Planted case:
+    warm-starting AT the exact solution must return rho ~ 1 immediately and
+    never degrade the returned iterate."""
+    model, xt, t, y, ut = _make_fixed_batch()
+    theta_names, theta_params = _active_theta_params(model)
+
+    torch.manual_seed(47)
+    with torch.no_grad():
+        _, cache = forward_energy_with_cache_grad(model, xt.clone(), t, y)
+    cache_shapes = dict(cache.flatten())
+    a_true = {n: torch.randn_like(c) for n, c in cache_shapes.items()}
+    b = vjp_cache_to_theta(model, xt, t, y, a_true)
+
+    a_best, history = cgnr_solve_optimal_adjoint(
+        model, xt, t, y, b, num_iters=3, x0=a_true,
+    )
+    rhos = [h["rho"] for h in history]
+    print(f"[cgnr-warm] rho trajectory from exact warm start: {['%.6f' % r for r in rhos]}")
+    assert rhos[0] > 0.999999, f"warm start at exact solution should give rho ~ 1, got {rhos[0]}"
+
+    recon = vjp_cache_to_theta(model, xt, t, y, a_best)
+    recon_vec = torch.cat([recon[n].reshape(-1) for n in theta_names])
+    b_vec = torch.cat([b[n].reshape(-1) for n in theta_names])
+    cos_returned = float(torch.nn.functional.cosine_similarity(
+        recon_vec.unsqueeze(0), b_vec.unsqueeze(0)).item())
+    assert cos_returned >= rhos[0] - 1e-9, \
+        f"returned iterate ({cos_returned}) worse than warm start ({rhos[0]})"
+    print("PASS CGNR warm start: exact-solution start gives rho ~ 1; returned "
+          "best-iterate never degrades below the starting point")
+
+
 if __name__ == '__main__':
     test_adjoint_consistency_fp64()
     test_cgnr_reduces_residual_and_improves_cosine()
+    test_cgnr_warm_start_never_worse_than_start()
     print("\nALL ADJOINT-OPTIMIZATION (TEST A) SANITY TESTS PASSED")

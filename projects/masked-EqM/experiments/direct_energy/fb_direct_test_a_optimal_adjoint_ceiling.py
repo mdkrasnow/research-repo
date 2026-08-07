@@ -155,9 +155,18 @@ def main():
         b_theta = {n: g_exact[n] - g_semi[n] for n in active_names if n in g_exact and n in g_semi}
         rho_astar = cosine_named(g_cache_vjp_astar, b_theta, active_names)
 
-        a_best, history = cgnr_solve_optimal_adjoint(theta, xt, t, y, b_theta, num_iters=args.cg_iters)
+        # v2 (job 37692043 postmortem): WARM-START at a_star. The v1 run
+        # started CG at zero and reported rho_best < rho_astar, which is
+        # impossible for the converged argmin (a* is feasible in the same
+        # least-squares problem) -- it measured CG non-convergence, not the
+        # ceiling. Warm-starting certifies every iterate improves on a*.
+        a_best, history = cgnr_solve_optimal_adjoint(
+            theta, xt, t, y, b_theta, num_iters=args.cg_iters, x0=a_star,
+        )
         g_cache_vjp_best = vjp_cache_to_theta(theta, xt, t, y, a_best)
         rho_best = cosine_named(g_cache_vjp_best, b_theta, active_names)
+        rho_trajectory = [h["rho"] for h in history]
+        rho_best_iter = max(rho_trajectory) if rho_trajectory else float("nan")
 
         residual_start = history[0]["residual_norm"] if history else float("nan")
         residual_end = history[-1]["residual_norm"] if history else float("nan")
@@ -166,33 +175,55 @@ def main():
             "batch": b,
             "rho_astar": rho_astar,
             "rho_best": rho_best,
+            "rho_best_iter": rho_best_iter,
+            "rho_trajectory": rho_trajectory,
             "cg_residual_start": residual_start,
             "cg_residual_end": residual_end,
             "loss_exact": loss_exact,
             "loss_fb": loss_fb,
         })
         print(f"[testA] batch {b}: rho_astar={rho_astar:.4f} rho_best={rho_best:.4f} "
-              f"(gain={rho_best - rho_astar:+.4f}) cg_residual {residual_start:.3e}->{residual_end:.3e}")
+              f"(gain={rho_best - rho_astar:+.4f}) cg_residual {residual_start:.3e}->{residual_end:.3e} "
+              f"rho_traj_first_last=({rho_trajectory[0]:.4f},{rho_trajectory[-1]:.4f})")
+        if rho_best < rho_astar - 1e-3:
+            print(f"[testA] WARNING batch {b}: rho_best < rho_astar despite warm start -- "
+                  f"cosine-vs-residual metric mismatch or numerical drift; inspect rho_trajectory")
 
     def col(key):
         return [r[key] for r in per_batch]
 
     rho_astar_summary = summarize(col("rho_astar"))
     rho_best_summary = summarize(col("rho_best"))
+    median_gain = rho_best_summary["median"] - rho_astar_summary["median"]
+    if median_gain < -1e-3:
+        interpretation = (
+            "INVALID: rho_best < rho_astar contradicts the warm-started argmin's "
+            "feasibility guarantee -- CG numerical failure, do not read as a ceiling"
+        )
+    elif median_gain < 0.02:
+        interpretation = (
+            "rho_best ~ rho_astar -> the ceiling is (at least locally) structural to this "
+            "cache-tensor factorization: warm-started CG found no materially better adjoint. "
+            "Caveat: still a LOWER bound if residuals show non-convergence. "
+            "Move to Test B (oracle-a* continuation)"
+        )
+    else:
+        interpretation = (
+            "rho_best >> rho_astar -> a* is a suboptimal adjoint; a learned corrector "
+            "could beat oracle-a* performance"
+        )
     summary = {
         "checkpoint": args.ckpt,
         "num_batches": args.num_batches,
         "cg_iters": args.cg_iters,
+        "warm_start": "a_star",
         "depth": depth,
         "sync_error_after_tie": sync_err,
         "rho_astar_summary": rho_astar_summary,
         "rho_best_summary": rho_best_summary,
-        "median_gain_rho_best_minus_rho_astar": rho_best_summary["median"] - rho_astar_summary["median"],
-        "interpretation": (
-            "rho_best ~ rho_astar -> ceiling is structural, move to Test B (oracle-a* continuation)"
-            if abs(rho_best_summary["median"] - rho_astar_summary["median"]) < 0.02
-            else "rho_best >> rho_astar -> a* is a suboptimal adjoint; a learned corrector could beat it"
-        ),
+        "rho_best_iter_summary": summarize(col("rho_best_iter")),
+        "median_gain_rho_best_minus_rho_astar": median_gain,
+        "interpretation": interpretation,
     }
     print(f"[testA] SUMMARY: {json.dumps(summary, indent=2)}")
     if args.out:

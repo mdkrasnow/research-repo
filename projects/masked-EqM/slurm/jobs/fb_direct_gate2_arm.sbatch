@@ -23,6 +23,8 @@ RUN_TAG="${RUN_TAG:?set RUN_TAG}"
 MAX_STEPS="${MAX_STEPS:-2000}"
 MAX_GRAD_NORM="${MAX_GRAD_NORM:-6.87141}"
 GRAD_LOG_EVERY="${GRAD_LOG_EVERY:-200}"
+EXACT_FWREV="${EXACT_FWREV:-0}"
+GP_LAMBDA="${GP_LAMBDA:-0.0}"
 FB_EXACT_AUDIT_EVERY="${FB_EXACT_AUDIT_EVERY:-200}"
 RESULTS_ROOT="${RESULTS_ROOT:-/n/netscratch/ydu_lab/Lab/mkrasnow_eqm/fb_direct_gate2}"
 IMAGENET_PATH="${IMAGENET_PATH:-/n/holylfs06/LABS/kempner_shared/Everyone/testbed/vision/imagenet_1k/ILSVRC2012_img_train}"
@@ -42,7 +44,10 @@ CMD="python -m torch.distributed.run --nnodes=1 --nproc_per_node=1 --master_port
 if [[ "$EBM" == "forward-backwards-direct" ]]; then
   CMD+=" --fb-exact-audit-every $FB_EXACT_AUDIT_EVERY"
 fi
-echo "Gate 2 arm configuration: EBM=$EBM MAX_STEPS=$MAX_STEPS MAX_GRAD_NORM=$MAX_GRAD_NORM GLOBAL_SEED=$GLOBAL_SEED CKPT=$CKPT RESULTS_DIR=$RESULTS_DIR"
+if [[ "$EXACT_FWREV" == "1" ]]; then
+  CMD+=" --exact-fwrev --gp-lambda $GP_LAMBDA"
+fi
+echo "Gate 2 arm configuration: EBM=$EBM EXACT_FWREV=$EXACT_FWREV GP_LAMBDA=$GP_LAMBDA MAX_STEPS=$MAX_STEPS MAX_GRAD_NORM=$MAX_GRAD_NORM GLOBAL_SEED=$GLOBAL_SEED CKPT=$CKPT RESULTS_DIR=$RESULTS_DIR"
 echo "$CMD"
 eval "$CMD" 2>&1 | tee train.log
 EXIT_CODE=${PIPESTATUS[0]}

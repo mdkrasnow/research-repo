@@ -191,36 +191,78 @@ def jvp_theta_to_cache(theta, xt, t, y, direction):
     return {name: g.detach().clone() for name, g in zip(names_box["names"], tangent_out)}
 
 
-def cgnr_solve_optimal_adjoint(theta, xt, t, y, b_theta, num_iters=20):
+def _dict_cosine(a, b):
+    num = _dict_dot(a, b)
+    den = (_dict_dot(a, a) ** 0.5) * (_dict_dot(b, b) ** 0.5)
+    return num / (den + 1e-30)
+
+
+def cgnr_solve_optimal_adjoint(theta, xt, t, y, b_theta, num_iters=20, x0=None):
     """CGNR: solve a_best = argmin_a || J_C(theta)^T a - b_theta ||^2 by CG
-    on the normal equations J_C J_C^T a = J_C b_theta, starting from a=0.
+    on the normal equations J_C J_C^T a = J_C b_theta.
+
+    WARM START (mandatory correction after job 37692043): starting from a=0
+    with far-from-converged CG produced rho_best < rho_astar -- which is
+    IMPOSSIBLE for the converged argmin, since a* is a feasible point of the
+    same least-squares problem (the minimizer's cosine over range(J_C^T)
+    dominates every feasible point's). That run therefore measured CG
+    non-convergence (residual only halved in 20 iters; normal equations
+    square the conditioning, kappa(J_C J_C^T) = kappa(J_C)^2 over a 12-block
+    composition), NOT the representational ceiling. Passing x0=a_star makes
+    every iterate's residual <= residual(a_star) by CG's monotonicity, so
+    the reported ceiling estimate is a certified improvement on the oracle
+    rather than an invalid lower bound below it.
+
+    Per-iteration rho tracking: A x is accumulated incrementally
+    ((A x)_{k+1} = A x_k + alpha_k * w_k -- exact by linearity of A, no
+    extra operator applications), and cos(A x_k, b) is recorded each
+    iteration. Callers should report max-over-iterates as the ceiling
+    estimate: CG minimizes the residual norm, which is not identical to
+    maximizing cosine, so the best-cosine iterate can precede the final one.
 
     b_theta: {theta_param_name: FLATTENED (.reshape(-1)) tensor} -- e.g.
       g_cache_direct built per-name from cache_adjoint.compute_g_exact /
       compute_g_semi_and_a_star (both already return flattened per-name
       dicts). MUST be flattened: every intermediate `w`/`z` here comes from
       vjp_cache_to_theta, which always returns .reshape(-1)'d tensors.
-    Returns: (a_best: {cache_tensor_name: tensor}, history: list of dicts
-      with per-iteration residual_norm, for convergence diagnostics).
+    x0: optional warm start {cache_tensor_name: tensor at natural shape}
+      (e.g. a_star from compute_g_semi_and_a_star). None -> zeros.
+    Returns: (x_best_rho: the iterate with max cos(A x, b),
+              history: list of per-iteration dicts with residual_norm and
+              rho = cos(A x_k, b_theta)).
     """
     with torch.no_grad():
         z0 = xt.detach().clone()
         _, cache0 = forward_energy_with_cache_grad(theta, z0, t, y)
     cache_shapes = dict(cache0.flatten())
 
-    x = {name: torch.zeros_like(tensor) for name, tensor in cache_shapes.items()}
-    r = {k: v.clone() for k, v in b_theta.items()}          # r0 = b - A x0 = b
+    if x0 is None:
+        x = {name: torch.zeros_like(tensor) for name, tensor in cache_shapes.items()}
+        ax = {k: torch.zeros_like(v) for k, v in b_theta.items()}   # A x0 = 0
+    else:
+        x = {
+            name: (x0[name].detach().clone().to(tensor.dtype)
+                   if name in x0 else torch.zeros_like(tensor))
+            for name, tensor in cache_shapes.items()
+        }
+        ax = vjp_cache_to_theta(theta, xt, t, y, x)                  # A x0
+    r = {k: b_theta[k] - ax.get(k, torch.zeros_like(b_theta[k])) for k in b_theta}
     z = jvp_theta_to_cache(theta, xt, t, y, r)               # z0 = A^T r0
     p = {k: v.clone() for k, v in z.items()}
     z_dot_z = _dict_dot(z, z)
     _release_autograd_cycles()
 
-    history = []
+    best_rho = _dict_cosine(ax, b_theta)
+    x_best = {k: v.clone() for k, v in x.items()}
+    history = [{"iter": -1, "residual_norm": _dict_dot(r, r) ** 0.5,
+                "rho": best_rho, "alpha": None, "beta": None}]
+
     for k in range(num_iters):
         w = vjp_cache_to_theta(theta, xt, t, y, p)           # w_k = A p_k
         w_dot_w = _dict_dot(w, w)
         alpha = z_dot_z / (w_dot_w + 1e-30)
         x = {key: x[key] + alpha * p[key] for key in x}
+        ax = {key: ax[key] + alpha * w.get(key, torch.zeros_like(ax[key])) for key in ax}
         r = {key: r[key] - alpha * w.get(key, torch.zeros_like(r[key])) for key in r}
         del w
         z_new = jvp_theta_to_cache(theta, xt, t, y, r)       # z_{k+1} = A^T r_{k+1}
@@ -230,11 +272,16 @@ def cgnr_solve_optimal_adjoint(theta, xt, t, y, b_theta, num_iters=20):
         p = {key: z_new[key] + beta * p[key] for key in p}
         z, z_dot_z = z_new, z_new_dot
 
+        rho_k = _dict_cosine(ax, b_theta)
+        if rho_k > best_rho:
+            best_rho = rho_k
+            x_best = {key: v.clone() for key, v in x.items()}
         history.append({
             "iter": k,
             "residual_norm": _dict_dot(r, r) ** 0.5,
+            "rho": rho_k,
             "alpha": alpha,
             "beta": beta,
         })
 
-    return x, history
+    return x_best, history
