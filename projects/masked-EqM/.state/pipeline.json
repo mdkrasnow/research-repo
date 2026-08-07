@@ -16,20 +16,35 @@
   ],
   "active_runs": [
     {
-      "run_id": "fb_direct_cache_adjoint_decomposition_retry2",
-      "job_id": "37676460",
+      "run_id": "fb_direct_cache_adjoint_decomposition_retune",
+      "job_id": "37684746",
       "partition": "gpu_test",
       "status": "running",
-      "description": "Second retry of fb_direct_cache_adjoint_decomposition after gating the expensive per-cache-tensor VJP inventory loop to the first 3 batches only (commit 70268db) -- job 37675754 was manually CANCELLED after ~5min when it became clear that loop (one extra forward+backward pass per cache tensor family, 111 of them, every batch) would blow past the 3h cap. Same mandatory Section-5 decomposition gate: does g_cache_vjp = J_C(theta)^T a* reconstruct g_cache := g_exact - g_semi on the real epoch-40 checkpoint, 100 real ImageNet batches.",
-      "submitted_at": "2026-08-07T14:20:00-04:00",
-      "git_sha": "70268db",
+      "description": "1 authorized retune of fb_direct_cache_adjoint_decomposition (per AGENTS.md/user decision) after job 37676460 found median cosine(g_cache_vjp, g_cache_direct)=0.940 on the real checkpoint (short of mandatory >0.999) but strong cosine(g_hat, g_exact)=0.974 vs g_semi baseline 0.675. Retune (commit f5e5f58): unified the cache code path used for a*'s source cache and the VJP-reconstruction cache (both now forward_energy_with_cache_grad, previously a*'s came from the separate forward_cache.forward_energy_with_cache implementation), to rule out FP32 implementation drift as the gap's cause. Same 100-batch real epoch-40-checkpoint run.",
+      "submitted_at": "2026-08-07T14:35:00-04:00",
+      "git_sha": "f5e5f58",
       "sbatch_path": "projects/masked-EqM/slurm/jobs/fb_direct_cache_adjoint_decomposition.sbatch",
-      "expected_runtime": "~30-60min (100 batches, per-tensor inventory only on first 3, 3h cap)",
+      "expected_runtime": "~10-15min (100 batches, per-tensor inventory only on first 3, 3h cap)",
       "phase": "forward-backwards-direct-decision-tree",
       "gate": "Section 5 mandatory decomposition test (cosine(g_cache_vjp, g_cache_direct) > 0.999) before any learned-corrector training"
     }
   ],
   "completed_runs": [
+    {
+      "completed_at": "2026-08-07T14:32:00-04:00",
+      "description": "fb_direct cache-adjoint decomposition test (Section 5 mandatory gate), first full run on real epoch-40 checkpoint (100 batches, per-tensor VJP inventory on first 3).",
+      "final_metric": "median cosine(g_cache_vjp, g_cache_direct)=0.9405 [p10 0.856, p90 0.996]; rel_norm_error median=0.346 [p10 0.092, p90 0.565]; median cosine(g_hat=g_semi+g_cache_vjp, g_exact)=0.9745 [p10 0.919, p90 0.997]; median cosine(g_semi, g_exact)=0.6750 [p10 0.528, p90 0.782] (matches historical Gate 1 0.62-0.66 closely).",
+      "gate": "Section 5 mandatory decomposition test (cosine(g_cache_vjp, g_cache_direct) > 0.999) before any learned-corrector training",
+      "gate_verdict": "FAIL on the strict >0.999 threshold, but cosine(g_hat, g_exact)=0.974 is a large, real improvement over g_semi alone (0.675) and the decomposition held to cosine~1.0 on the FP64 tiny synthetic model -- points to FP32 numerical drift, not a theoretical failure. User decision: 1 authorized retune (unify cache code paths) before deciding pass/fail or relaxing the threshold. Exit code 1 reflects gate_pass=false in the script's own summary, not a crash -- job ran to completion.",
+      "git_sha": "70268db",
+      "job_id": "37676460",
+      "partition": "gpu_test",
+      "phase": "forward-backwards-direct-decision-tree",
+      "run_id": "fb_direct_cache_adjoint_decomposition_retry2",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/fb_direct_cache_adjoint_decomposition.sbatch",
+      "status": "completed",
+      "submitted_at": "2026-08-07T14:20:00-04:00"
+    },
     {
       "completed_at": "2026-08-07T14:20:00-04:00",
       "description": "fb_direct cache-adjoint decomposition test (Section 5 mandatory gate), retry after device-mismatch fix.",
