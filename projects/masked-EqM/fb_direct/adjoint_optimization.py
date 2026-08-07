@@ -35,9 +35,27 @@ Interpretation (per Yilun's decision tree):
                        reframes what should be learned: not a*, but
                        whatever a_best is approximating.
 """
+import gc
+
 import torch
 
 from .forward_cache_grad import forward_energy_with_cache_grad
+
+
+def _release_autograd_cycles():
+    """create_graph=True double-backward graphs (used by jvp_theta_to_cache)
+    routinely contain reference cycles (grad_fn <-> saved tensors) that
+    plain refcounting cannot free -- only the cyclic garbage collector can.
+    Without this, genuinely-allocated (not just fragmented/reserved) CUDA
+    memory grows monotonically across CGNR iterations until OOM: job
+    37688514 hit this on a FULL 80GB A100 (75.8GB allocated) crashing on
+    the very first batch's CGNR loop, at the same call site every time,
+    which rules out a single-call sizing problem and points at exactly
+    this well-known create_graph=True gotcha.
+    """
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
 
 
 def _tf32_disabled():
@@ -201,6 +219,7 @@ def cgnr_solve_optimal_adjoint(theta, xt, t, y, b_theta, num_iters=20):
     z = jvp_theta_to_cache(theta, xt, t, y, r)               # z0 = A^T r0
     p = {k: v.clone() for k, v in z.items()}
     z_dot_z = _dict_dot(z, z)
+    _release_autograd_cycles()
 
     history = []
     for k in range(num_iters):
@@ -209,7 +228,9 @@ def cgnr_solve_optimal_adjoint(theta, xt, t, y, b_theta, num_iters=20):
         alpha = z_dot_z / (w_dot_w + 1e-30)
         x = {key: x[key] + alpha * p[key] for key in x}
         r = {key: r[key] - alpha * w.get(key, torch.zeros_like(r[key])) for key in r}
+        del w
         z_new = jvp_theta_to_cache(theta, xt, t, y, r)       # z_{k+1} = A^T r_{k+1}
+        _release_autograd_cycles()
         z_new_dot = _dict_dot(z_new, z_new)
         beta = z_new_dot / (z_dot_z + 1e-30)
         p = {key: z_new[key] + beta * p[key] for key in p}
