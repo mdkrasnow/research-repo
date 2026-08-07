@@ -16,20 +16,36 @@
   ],
   "active_runs": [
     {
-      "run_id": "fb_direct_test_a_optimal_adjoint_ceiling_retry3",
-      "job_id": "37689193",
+      "run_id": "fb_direct_testA_memory_probe",
+      "job_id": "37689738",
       "partition": "seas_gpu",
       "status": "running",
-      "description": "Third retry of fb_direct_test_a_optimal_adjoint_ceiling after job 37688514 OOM'd on a FULL 80GB A100 (75.8GB genuinely allocated) at the same call site as the gpu_test failure -- ruled out a sizing problem, real cross-iteration accumulation. Fixed (commit 72459f0): gc.collect()+torch.cuda.empty_cache() after each CGNR iteration's JVP call, since create_graph=True double-backward graphs routinely contain reference cycles refcounting alone can't free. Same Test A: 20 fixed real batches, CGNR (20 iterations).",
-      "submitted_at": "2026-08-07T15:35:00-04:00",
-      "git_sha": "72459f0",
-      "sbatch_path": "projects/masked-EqM/slurm/jobs/fb_direct_test_a_optimal_adjoint_ceiling.sbatch",
-      "expected_runtime": "~15-30min (20 batches x 20 CG iters x ~3 forward/backward passes each, 3h cap)",
+      "description": "Exploratory memory-diagnostic (not a scientific gate): the gc.collect()+empty_cache() fix in job 37689193 had ZERO measurable effect (76.01GB vs 75.80GB allocated), ruling out the reference-cycle hypothesis. This probe isolates whether a SINGLE jvp_theta_to_cache call already requires enormous memory on the real B/2 checkpoint (a legitimate single-call sizing problem, not a cross-iteration leak), reporting torch.cuda.memory_allocated()/max_memory_allocated() before/after compute_g_exact (real double-backward, reference scale), one vjp_cache_to_theta call, and three successive isolated jvp_theta_to_cache calls (no CGNR loop).",
+      "submitted_at": "2026-08-07T15:45:00-04:00",
+      "git_sha": "d648e47",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/fb_direct_testA_memory_probe.sbatch",
+      "expected_runtime": "~5-10min",
       "phase": "forward-backwards-direct-decision-tree",
-      "gate": "Test A (Yilun decision tree): does the true representational ceiling rho_best exceed the oracle-a* result 0.940?"
+      "gate": "diagnostic only -- informs the Test A OOM root cause (leak vs sizing)"
     }
   ],
   "completed_runs": [
+    {
+      "completed_at": "2026-08-07T15:38:00-04:00",
+      "description": "Third retry of Test A with the gc.collect()+empty_cache() reference-cycle fix.",
+      "error": "torch.cuda.OutOfMemoryError, IDENTICAL magnitude to job 37688514 (76.01GB vs 75.80GB genuinely allocated) at the same call site -- the gc fix had ZERO measurable effect, ruling out the reference-cycle hypothesis entirely. Root cause still unknown: pivoting to an isolated memory probe (fb_direct_testA_memory_probe.py, job 37689738) rather than guessing a fourth fix blindly.",
+      "exit_code": "1",
+      "gate": "Test A (Yilun decision tree): does the true representational ceiling rho_best exceed the oracle-a* result 0.940?",
+      "git_sha": "72459f0",
+      "job_id": "37689193",
+      "note": "Superseded by diagnostic job 37689738 (fb_direct_testA_memory_probe) before any further CGNR fix attempt.",
+      "partition": "seas_gpu",
+      "phase": "forward-backwards-direct-decision-tree",
+      "run_id": "fb_direct_test_a_optimal_adjoint_ceiling_retry3",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/fb_direct_test_a_optimal_adjoint_ceiling.sbatch",
+      "status": "failed",
+      "submitted_at": "2026-08-07T15:35:00-04:00"
+    },
     {
       "completed_at": "2026-08-07T15:33:00-04:00",
       "description": "Second retry of Test A after moving to seas_gpu.",
