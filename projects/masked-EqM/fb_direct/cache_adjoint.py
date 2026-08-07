@@ -58,7 +58,6 @@ ordinary first-order VJP with fixed (detached) cotangents.
 """
 import torch
 
-from .forward_cache import forward_energy_with_cache
 from .forward_cache_grad import forward_energy_with_cache_grad
 
 
@@ -162,14 +161,37 @@ def compute_g_exact(theta, xt, t, y, ut):
 
 
 def compute_g_semi_and_a_star(fb_trainer, xt, t, y, ut):
-    """Production semigradient step (forward_cache.forward_energy_with_cache,
-    no_grad, fully detached theta), EXCEPT each cache tensor is re-wrapped
-    as an independent `requires_grad=True` leaf before being handed to phi
-    -- see `_leaf_copy_cache`'s docstring for why this independence is
-    mandatory. Since the leaves are numerically identical to production's
-    detached cache and carry no graph edges to theta or to each other,
-    phi.grad here is bit-identical to production's g_semi; the only new
-    thing this function extracts is a* = each leaf's post-backward .grad.
+    """Production-equivalent semigradient step, EXCEPT the numeric cache is
+    obtained via `forward_energy_with_cache_grad` under `torch.no_grad()`
+    (the SAME forward code `compute_g_cache_vjp` uses to build its graph)
+    rather than `forward_cache.forward_energy_with_cache`'s separate
+    implementation.
+
+    Retune (2026-08-07, after job 37676460 found median cosine 0.940 on the
+    real checkpoint, short of the mandatory >0.999): the two forward
+    functions are unit-tested to produce numerically IDENTICAL energy
+    (test_forward_cache_matches_direct_energy /
+    test_forward_cache_grad_matches_direct_energy), but "identical to
+    float64 test tolerance" is not "bit-identical at FP32 on a 12-block
+    A100 forward pass" -- any operation-ordering difference between the two
+    implementations would compound through the same TF32/FP32-accumulation
+    depth-compounding mechanism Gate 0 already diagnosed (job 37520759:
+    ~1.5e-4 relative field error from this exact mechanism), except here
+    a* feeds a SECOND differentiation (the VJP reconstruction), which is
+    more sensitive to input noise than a single forward evaluation. Using
+    the identical code path for both a*'s source cache and the VJP
+    reconstruction's cache eliminates that as a candidate divergence
+    source entirely (any remaining gap is then unambiguously about the
+    THEORY, not implementation drift).
+
+    Each cache tensor is still re-wrapped as an independent
+    `requires_grad=True` leaf before being handed to phi -- see
+    `_leaf_copy_cache`'s docstring for why this independence is mandatory
+    (identical dataclass field layout between TransformerReverseCache and
+    TransformerGradCache, so `_leaf_copy_cache` works unchanged on either).
+    phi.grad here is bit-identical to production's g_semi (detaching cache
+    never changes phi's own gradient); the only new thing extracted is
+    a* = each leaf's post-backward .grad.
     """
     theta = fb_trainer.theta
     phi = fb_trainer.phi
@@ -178,7 +200,9 @@ def compute_g_semi_and_a_star(fb_trainer, xt, t, y, ut):
         p.grad = None
 
     with _tf32_disabled():
-        _, cache = forward_energy_with_cache(theta, xt, t, y)
+        with torch.no_grad():
+            z0 = xt.detach().clone()
+            _, cache = forward_energy_with_cache_grad(theta, z0, t, y)
         leaf_cache, leaves = _leaf_copy_cache(cache)
 
         grad_tilde = phi(leaf_cache)
