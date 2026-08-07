@@ -14,22 +14,22 @@
       "title": "Results-dir race: two concurrent same-corruption-mode jobs silently mixed checkpoints"
     }
   ],
-  "active_runs": [
-    {
-      "run_id": "fb_direct_temporal_correction_stability",
-      "job_id": "37656610",
-      "partition": "gpu_test",
-      "status": "running",
-      "description": "Yilun's temporal-stability proposal (final decision-tree branch after truncation and blockwise-calibration were both killed): T_param(Delta)=cos(g_cache(theta_0;B),g_cache(theta_Delta;B)), rho_stale(Delta)=cos(g_semi(theta_Delta;B)+g_cache(theta_0;B),g_exact(theta_Delta;B)), rho_cross(Delta) with a fresh batch, for Delta in {1,2,4,8,16,32,64}. theta_0..theta_64 from one real exact-double-backward training trajectory (AdamW lr=1e-4, max_grad_norm=6.87141) starting at epoch-40 checkpoint; g_cache computed once on a fixed 10-batch probe bank before training.",
-      "submitted_at": "2026-08-07T00:00:00-04:00",
-      "git_sha": "f5d6f9d",
-      "sbatch_path": "projects/masked-EqM/slurm/jobs/fb_direct_temporal_stability.sbatch",
-      "expected_runtime": "~20-40min",
-      "phase": "forward-backwards-direct-decision-tree",
-      "gate": "post-Gate2 diagnostic (Yilun-proposed, round 3)"
-    }
-  ],
+  "active_runs": [],
   "completed_runs": [
+    {
+      "completed_at": "2026-08-07T00:47:00-04:00",
+      "description": "fb_direct temporal correction stability test (Yilun round-3/final decision-tree branch): T_param/rho_stale/rho_cross/rho_uncal vs Delta in {1,2,4,8,16,32,64}, real exact-double-backward training trajectory from epoch-40 checkpoint (AdamW lr=1e-4, max_grad_norm=6.87141), g_cache(theta_0;B) fixed from a 10-batch probe bank, rho_cross uses 5 fresh batches per Delta.",
+      "final_metric": "median rho_stale: d1=0.958,d2=0.957,d4=0.957,d8=0.933,d16=0.907,d32=0.924,d64=0.919 (stays HIGH, well above rho_uncal 0.60-0.67, even at Delta=64). median rho_cross: d1=0.540,d2=0.560,d4=0.524,d8=0.600,d16=0.461,d32=0.463,d64=0.477 -- LOW throughout, AT OR BELOW rho_uncal (no-correction baseline) at d16/d32, i.e. reusing a stale correction on a DIFFERENT batch is no better than no correction at all, sometimes worse. median T_param (correction self-similarity, same batch): 0.83-0.93, moderately stable.",
+      "gate": "post-Gate2 diagnostic (Yilun-proposed, round 3)",
+      "git_sha": "f5d6f9d",
+      "job_id": "37656610",
+      "note": "SLURM job exit code 1 was a disk-quota write failure on /n/holylabs (known EDQUOT-invisible-to-df gotcha, AGENTS.md) writing the final JSON -- NOT a computation failure; full results were already printed to stdout before the crash and recovered verbatim into runs/fb_direct_temporal_correction_stability/fb_direct_temporal_37656610.json. Per Yilun's own decision rule (\"same-batch stability high but cross-batch stability collapses -> correction is sample-specific, EMA of the raw correction vector is a dead end\"): exactly this pattern observed. rho_stale high + stable, rho_cross low and non-improving over baseline at every Delta tested including the smallest (Delta=1: rho_cross=0.540 vs rho_uncal=0.672 -- WORSE than no correction even one step later on a fresh batch). Periodic exact correction across changing batches is NOT viable. This closes all three branches of Yilun's proposed decision tree (truncation, blockwise calibration, temporal reuse) as negative for this checkpoint/architecture -- routes back to Yilun's own fallback: either abandon avoiding double backward, or keep the full double backward and stabilize it via correction-only clipping (g_train = g_semi + alpha_t*g_cache, alpha_t=min(1, tau*||g_semi||/(||g_cache||+eps))).",
+      "phase": "forward-backwards-direct-decision-tree",
+      "run_id": "fb_direct_temporal_correction_stability",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/fb_direct_temporal_stability.sbatch",
+      "status": "completed_with_write_error",
+      "submitted_at": "2026-08-07T00:38:00-04:00"
+    },
     {
       "completed_at": "2026-08-07T00:12:00-04:00",
       "description": "fb_direct blockwise scalar calibration test (Yilun round-2 proposal): per-block rho_l/r_l over all 14 blocks (x_embedder, blocks.0-11, energy_head), alpha_l fit on 400 calib batches, rho_cal evaluated out-of-sample on 100 fresh held-out batches, same epoch-40 checkpoint as job 37541376.",
