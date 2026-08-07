@@ -98,6 +98,12 @@ def main():
     p.add_argument("--vae", default="ema")
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--out", default=None)
+    p.add_argument("--per-tensor-batches", type=int, default=3,
+                    help="Number of leading batches to run the expensive "
+                         "per-cache-tensor VJP inventory on (~1 extra "
+                         "forward+backward pass per cache tensor family, "
+                         "~100+ for a depth-12 model) -- diagnostic only, "
+                         "not part of the mandatory cosine gate.")
     args = p.parse_args()
 
     torch.manual_seed(args.seed)
@@ -163,7 +169,10 @@ def main():
         t, xt, ut = transport.path_sampler.plan(t, x0, x1)
         ut = ut * transport.get_ct(t)[:, None, None, None]
 
-        result = decomposition_test(fb_trainer, active_pairs, xt, t, y, ut)
+        result = decomposition_test(
+            fb_trainer, active_pairs, xt, t, y, ut,
+            compute_per_tensor_contribution=(b < args.per_tensor_batches),
+        )
 
         for name, val in result["per_tensor_contribution"].items():
             tensor_contrib_by_block[cache_tensor_block(name)].append(val)

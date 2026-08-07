@@ -206,7 +206,7 @@ def compute_g_semi_and_a_star(fb_trainer, xt, t, y, ut):
     return g_semi, a_star, loss_fb_val, cache
 
 
-def compute_g_cache_vjp(theta, xt, t, y, a_star):
+def compute_g_cache_vjp(theta, xt, t, y, a_star, compute_per_tensor_contribution=True):
     """Ordinary (first-order) adjoint-replay VJP g_cache_vjp = J_C^T
     stopgrad(a*): a FRESH forward pass building the graph theta -> cache
     tensors (running hidden state `x` fully differentiable across ALL
@@ -222,7 +222,11 @@ def compute_g_cache_vjp(theta, xt, t, y, a_star):
       g_cache_vjp: {theta_param_name: detached flat grad tensor}
       per_tensor_contribution: {cache_tensor_name: float}, the L2 norm of
         that single tensor's contribution to g_cache_vjp (via a fresh
-        single-tensor VJP), for the cache tensor inventory report.
+        single-tensor VJP), for the cache tensor inventory report. Costs
+        ~1 extra forward+backward pass PER cache tensor (~100+ for a
+        depth-12 model) -- set compute_per_tensor_contribution=False on
+        most batches (this is diagnostic/inventory info, not part of the
+        mandatory cosine gate) or this dominates runtime.
     """
     with _tf32_disabled():
         z2 = xt.detach().clone()
@@ -257,6 +261,8 @@ def compute_g_cache_vjp(theta, xt, t, y, a_star):
     # (Section 6's inventory). This re-forwards once per tensor -- fine for
     # a diagnostic script, not used on any training path.
     per_tensor_contribution = {}
+    if not compute_per_tensor_contribution:
+        return g_cache_vjp, per_tensor_contribution
     with _tf32_disabled():
         for n in names:
             z3 = xt.detach().clone()
@@ -279,8 +285,12 @@ def compute_g_cache_vjp(theta, xt, t, y, a_star):
     return g_cache_vjp, per_tensor_contribution
 
 
-def decomposition_test(fb_trainer, active_pairs, xt, t, y, ut):
+def decomposition_test(fb_trainer, active_pairs, xt, t, y, ut, compute_per_tensor_contribution=True):
     """Runs the full mandatory decomposition test on one batch.
+
+    compute_per_tensor_contribution: pass False on most batches -- it costs
+      ~1 extra forward+backward pass PER cache tensor family and is purely
+      Section-6 inventory info, not part of the mandatory cosine gate.
 
     Returns a dict with:
       cosine_g_cache_vjp_vs_direct, rel_norm_error_g_cache (the mandatory
@@ -297,7 +307,9 @@ def decomposition_test(fb_trainer, active_pairs, xt, t, y, ut):
     g_semi, a_star, loss_fb, _cache = compute_g_semi_and_a_star(
         fb_trainer, xt, t, y, ut
     )
-    g_cache_vjp, per_tensor_contribution = compute_g_cache_vjp(theta, xt, t, y, a_star)
+    g_cache_vjp, per_tensor_contribution = compute_g_cache_vjp(
+        theta, xt, t, y, a_star, compute_per_tensor_contribution=compute_per_tensor_contribution
+    )
 
     exact_parts, semi_parts, vjp_parts = [], [], []
     for fn in sorted(active_names):
