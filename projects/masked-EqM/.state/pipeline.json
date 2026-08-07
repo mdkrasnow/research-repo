@@ -16,20 +16,35 @@
   ],
   "active_runs": [
     {
-      "run_id": "fb_direct_cache_adjoint_decomposition_retry",
-      "job_id": "37675754",
+      "run_id": "fb_direct_cache_adjoint_decomposition_retry2",
+      "job_id": "37676460",
       "partition": "gpu_test",
       "status": "running",
-      "description": "Retry of fb_direct_cache_adjoint_decomposition (job 37675141) after fixing a device-mismatch bug (torch.zeros() defaulting to CPU in the allow_unused=True fallback path, commit d0569e8) never triggered by the CPU-only unit test. Same mandatory Section-5 decomposition gate: does g_cache_vjp = J_C(theta)^T a* reconstruct g_cache := g_exact - g_semi on the real epoch-40 checkpoint, 100 real ImageNet batches.",
-      "submitted_at": "2026-08-07T00:05:00-04:00",
-      "git_sha": "d0569e8",
+      "description": "Second retry of fb_direct_cache_adjoint_decomposition after gating the expensive per-cache-tensor VJP inventory loop to the first 3 batches only (commit 70268db) -- job 37675754 was manually CANCELLED after ~5min when it became clear that loop (one extra forward+backward pass per cache tensor family, 111 of them, every batch) would blow past the 3h cap. Same mandatory Section-5 decomposition gate: does g_cache_vjp = J_C(theta)^T a* reconstruct g_cache := g_exact - g_semi on the real epoch-40 checkpoint, 100 real ImageNet batches.",
+      "submitted_at": "2026-08-07T14:20:00-04:00",
+      "git_sha": "70268db",
       "sbatch_path": "projects/masked-EqM/slurm/jobs/fb_direct_cache_adjoint_decomposition.sbatch",
-      "expected_runtime": "~1-2h (100 batches, 3h cap)",
+      "expected_runtime": "~30-60min (100 batches, per-tensor inventory only on first 3, 3h cap)",
       "phase": "forward-backwards-direct-decision-tree",
       "gate": "Section 5 mandatory decomposition test (cosine(g_cache_vjp, g_cache_direct) > 0.999) before any learned-corrector training"
     }
   ],
   "completed_runs": [
+    {
+      "completed_at": "2026-08-07T14:20:00-04:00",
+      "description": "fb_direct cache-adjoint decomposition test (Section 5 mandatory gate), retry after device-mismatch fix.",
+      "error": "Manually CANCELLED after ~5min: compute_g_cache_vjp's per_tensor_contribution loop does one extra forward+backward pass PER cache tensor family (111 on real B/2) EVERY batch -- 100 batches would have blown past the 3h cap for purely diagnostic Section-6 inventory info, not part of the mandatory cosine gate. GPU was actively computing (confirmed via nvidia-smi, ~15GB used), not hung -- this was a design/perf issue, not a crash.",
+      "exit_code": "0:0 (SIGTERM via scancel)",
+      "gate": "Section 5 mandatory decomposition test (cosine(g_cache_vjp, g_cache_direct) > 0.999) before any learned-corrector training",
+      "git_sha": "d0569e8",
+      "job_id": "37675754",
+      "note": "Fixed in commit 70268db (compute_per_tensor_contribution flag, threaded through decomposition_test, gated to first --per-tensor-batches=3 batches in the experiment script); resubmitted as fb_direct_cache_adjoint_decomposition_retry2, job 37676460.",
+      "partition": "gpu_test",
+      "phase": "forward-backwards-direct-decision-tree",
+      "run_id": "fb_direct_cache_adjoint_decomposition_retry",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/fb_direct_cache_adjoint_decomposition.sbatch",
+      "status": "cancelled"
+    },
     {
       "completed_at": "2026-08-07T14:14:00-04:00",
       "description": "fb_direct cache-adjoint decomposition test (Section 5 mandatory gate), first attempt on real epoch-40 checkpoint.",
