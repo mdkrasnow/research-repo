@@ -38,6 +38,8 @@ Interpretation (per Yilun's decision tree):
 import gc
 
 import torch
+from torch.func import jvp as torch_func_jvp
+from torch.nn.utils.stateless import _reparametrize_module
 
 from .forward_cache_grad import forward_energy_with_cache_grad
 
@@ -133,68 +135,60 @@ def vjp_cache_to_theta(theta, xt, t, y, a):
 
 
 def jvp_theta_to_cache(theta, xt, t, y, direction):
-    """A^T u := J_C(theta) direction, a JVP via the standard double-backward
-    trick: introduce dummy dual variables u_i (one per cache tensor,
-    requires_grad=True, values irrelevant -- zeros work), compute
-    vjp(u) = grad(cache_tensors, theta_params, grad_outputs=u,
-    create_graph=True) [a function of u, linear], form
-    dot = <vjp(u), direction> (theta-space inner product), then
-    grad(dot, u) = J_C(direction) at each cache site, by the adjoint
-    identity <J_C^T u, v> = <u, J_C v> for any linear operator J_C.
+    """A^T u := J_C(theta) direction, computed via `torch.func.jvp` -- TRUE
+    forward-mode automatic differentiation (dual numbers), not a manual
+    double-backward trick.
 
-    This performs a genuine double backward (create_graph=True on the
-    first grad call) -- correct and intentional for this OFFLINE,
-    frozen-theta diagnostic; never used on any training path.
+    Replaces this module's original hand-rolled implementation (dummy dual
+    variables + create_graph=True + a second autograd.grad call), which
+    exhibited a genuine, reproducible ~3.7GB-per-call CUDA memory leak on
+    the real checkpoint (jobs 37688514/37689193, isolated and confirmed by
+    fb_direct_testA_memory_probe.py/job 37689738) that neither `del` nor
+    explicit gc.collect()+torch.cuda.empty_cache() could reclaim -- the
+    leak's root cause in the manual version was never fully identified.
+    Forward-mode AD never builds or retains a backward graph at all (it
+    propagates tangents alongside the primal computation in a single
+    forward pass), so there is no analogous per-call state to leak, and it
+    is the officially maintained implementation of exactly this operation.
+
+    Uses `torch.nn.utils.stateless._reparametrize_module` -- the same
+    mechanism `torch.func.functional_call` uses internally -- to run
+    `forward_energy_with_cache_grad` (an external function that reads
+    theta's submodules directly, not `theta.forward()`) as a pure function
+    of the given parameter tensors; `functional_call` itself can only call
+    a module's own `forward()`, so the lower-level primitive is required
+    here. This is the standard, documented pattern for combining
+    `torch.func` transforms with an nn.Module's parameters.
+
+    Cache tensors produced solely by frozen (cache_only) modules -- e.g.
+    `c` via t_embedder/y_embedder -- need NO special-casing here (unlike
+    the old VJP-based implementation): forward-mode AD naturally propagates
+    a zero tangent through any computation that never touches a
+    differentiated primal, since those modules' parameters are simply held
+    constant (not part of `theta_names`/`primals`) during tracing.
 
     direction: {theta_param_name: tensor}, missing entries treated as zero.
-    Returns: {cache_tensor_name: flat tensor}, native dtype.
+    Returns: {cache_tensor_name: tensor at its natural shape}, native dtype.
     """
-    with _tf32_disabled():
-        z = xt.detach().clone()
-        _, cache = forward_energy_with_cache_grad(theta, z, t, y)
+    theta_names, theta_params = _active_theta_params(theta)
+    primals = tuple(p.detach() for p in theta_params)
+    tangents = tuple(
+        direction.get(n, torch.zeros(p.numel(), device=p.device, dtype=p.dtype)).reshape(p.shape)
+        for n, p in zip(theta_names, theta_params)
+    )
+    z = xt.detach().clone()
+    names_box = {}
+
+    def cache_fn(*param_values):
+        params = dict(zip(theta_names, param_values))
+        with _reparametrize_module(theta, params), _tf32_disabled():
+            _, cache = forward_energy_with_cache_grad(theta, z, t, y)
         cache_items = cache.flatten()
-        all_names = [n for n, _ in cache_items]
-        all_tensors = [c for _, c in cache_items]
+        names_box["names"] = [n for n, _ in cache_items]
+        return tuple(c for _, c in cache_items)
 
-        # Cache tensors produced solely by cache_only (frozen) modules --
-        # e.g. `c` via t_embedder/y_embedder, frozen once wrapped in a real
-        # ForwardBackwardsDirectTrainer -- have requires_grad=False and no
-        # grad_fn at all; autograd.grad rejects them as VJP roots. Their
-        # true JVP contribution is exactly zero, so exclude them from the
-        # grad() call and fill in zeros for their returned entry (mirrors
-        # cache_adjoint.compute_g_cache_vjp's identical filter).
-        grad_names = [n for n, c in zip(all_names, all_tensors) if c.requires_grad]
-        grad_tensors = [c for c in all_tensors if c.requires_grad]
-        us = [torch.zeros_like(c, requires_grad=True) for c in grad_tensors]
-
-        theta_names, theta_params = _active_theta_params(theta)
-        vjp_of_u = torch.autograd.grad(
-            grad_tensors, theta_params, grad_outputs=us,
-            create_graph=True, allow_unused=True,
-        )
-
-        dot = None
-        for name, g in zip(theta_names, vjp_of_u):
-            if g is None:
-                continue
-            d = direction.get(name)
-            if d is None:
-                continue
-            term = (g.reshape(-1) * d.reshape(-1).to(g.dtype)).sum()
-            dot = term if dot is None else dot + term
-        if dot is None:
-            return {name: torch.zeros_like(c) for name, c in zip(all_names, all_tensors)}
-
-        jvp_list = torch.autograd.grad(dot, us, retain_graph=False, allow_unused=True)
-        jvp_by_name = {
-            name: (g.detach().reshape(c.shape).clone() if g is not None
-                   else torch.zeros_like(c))
-            for name, g, c in zip(grad_names, jvp_list, grad_tensors)
-        }
-        return {
-            name: jvp_by_name.get(name, torch.zeros_like(c))
-            for name, c in zip(all_names, all_tensors)
-        }
+    _, tangent_out = torch_func_jvp(cache_fn, primals, tangents)
+    return {name: g.detach().clone() for name, g in zip(names_box["names"], tangent_out)}
 
 
 def cgnr_solve_optimal_adjoint(theta, xt, t, y, b_theta, num_iters=20):
