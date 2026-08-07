@@ -16,13 +16,13 @@
   ],
   "active_runs": [
     {
-      "run_id": "fb_direct_test_a_optimal_adjoint_ceiling_retry2",
-      "job_id": "37688514",
+      "run_id": "fb_direct_test_a_optimal_adjoint_ceiling_retry3",
+      "job_id": "37689193",
       "partition": "seas_gpu",
       "status": "running",
-      "description": "Second retry of fb_direct_test_a_optimal_adjoint_ceiling after job 37688212 OOM'd on gpu_test's 20GB MIG slice mid-CGNR-loop (commit c7b1069 moves this sbatch to seas_gpu's full 80GB A100/H200 nodes). Same Test A: 20 fixed real batches, CGNR (20 iterations) solving a_best = argmin_a ||J_C(theta)^T a - b||^2, reports rho_best=cos(J_C^T a_best, b) vs rho_astar=cos(J_C^T a*, b) (oracle-a* baseline 0.940 from job 37676460/37684746).",
-      "submitted_at": "2026-08-07T15:25:00-04:00",
-      "git_sha": "c7b1069",
+      "description": "Third retry of fb_direct_test_a_optimal_adjoint_ceiling after job 37688514 OOM'd on a FULL 80GB A100 (75.8GB genuinely allocated) at the same call site as the gpu_test failure -- ruled out a sizing problem, real cross-iteration accumulation. Fixed (commit 72459f0): gc.collect()+torch.cuda.empty_cache() after each CGNR iteration's JVP call, since create_graph=True double-backward graphs routinely contain reference cycles refcounting alone can't free. Same Test A: 20 fixed real batches, CGNR (20 iterations).",
+      "submitted_at": "2026-08-07T15:35:00-04:00",
+      "git_sha": "72459f0",
       "sbatch_path": "projects/masked-EqM/slurm/jobs/fb_direct_test_a_optimal_adjoint_ceiling.sbatch",
       "expected_runtime": "~15-30min (20 batches x 20 CG iters x ~3 forward/backward passes each, 3h cap)",
       "phase": "forward-backwards-direct-decision-tree",
@@ -30,6 +30,22 @@
     }
   ],
   "completed_runs": [
+    {
+      "completed_at": "2026-08-07T15:33:00-04:00",
+      "description": "Second retry of Test A after moving to seas_gpu.",
+      "error": "torch.cuda.OutOfMemoryError on a FULL 80GB A100 (75.80GB genuinely allocated, not just reserved/fragmented), crashing at the identical call site (jvp_theta_to_cache inside cgnr_solve_optimal_adjoint's loop) as the prior gpu_test failure -- on the FIRST batch, before any per-batch progress print. Ruled out a single-call sizing problem; real cross-CG-iteration memory accumulation from create_graph=True reference cycles.",
+      "exit_code": "1",
+      "gate": "Test A (Yilun decision tree): does the true representational ceiling rho_best exceed the oracle-a* result 0.940?",
+      "git_sha": "c7b1069",
+      "job_id": "37688514",
+      "note": "Fixed in commit 72459f0 (gc.collect()+empty_cache() per CGNR iteration); resubmitted as fb_direct_test_a_optimal_adjoint_ceiling_retry3, job 37689193.",
+      "partition": "seas_gpu",
+      "phase": "forward-backwards-direct-decision-tree",
+      "run_id": "fb_direct_test_a_optimal_adjoint_ceiling_retry2",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/fb_direct_test_a_optimal_adjoint_ceiling.sbatch",
+      "status": "failed",
+      "submitted_at": "2026-08-07T15:25:00-04:00"
+    },
     {
       "completed_at": "2026-08-07T15:23:00-04:00",
       "description": "Retry of Test A after fixing frozen-tensor bug.",
