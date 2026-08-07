@@ -16,22 +16,36 @@
   ],
   "active_runs": [
     {
-      "run_id": "fb_direct_testA_memory_probe",
-      "job_id": "37689738",
+      "run_id": "fb_direct_testA_memory_probe_v2",
+      "job_id": "37691731",
       "partition": "seas_gpu",
       "status": "running",
-      "description": "Exploratory memory-diagnostic (not a scientific gate): the gc.collect()+empty_cache() fix in job 37689193 had ZERO measurable effect (76.01GB vs 75.80GB allocated), ruling out the reference-cycle hypothesis. This probe isolates whether a SINGLE jvp_theta_to_cache call already requires enormous memory on the real B/2 checkpoint (a legitimate single-call sizing problem, not a cross-iteration leak), reporting torch.cuda.memory_allocated()/max_memory_allocated() before/after compute_g_exact (real double-backward, reference scale), one vjp_cache_to_theta call, and three successive isolated jvp_theta_to_cache calls (no CGNR loop).",
-      "submitted_at": "2026-08-07T15:45:00-04:00",
-      "git_sha": "d648e47",
+      "description": "Re-run of the memory probe with jvp_theta_to_cache now implemented via official torch.func.jvp (commit 37ef495) instead of the leaky hand-rolled double-backward trick, to directly verify the leak is gone (memory should stay flat/bounded across 3 successive isolated JVP calls, not grow ~3.7GB/call as job 37689738 showed).",
+      "submitted_at": "2026-08-07T15:55:00-04:00",
+      "git_sha": "37ef495",
       "sbatch_path": "projects/masked-EqM/slurm/jobs/fb_direct_testA_memory_probe.sbatch",
       "expected_runtime": "~5-10min",
       "phase": "forward-backwards-direct-decision-tree",
-      "gate": "diagnostic only -- informs the Test A OOM root cause (leak vs sizing)"
+      "gate": "diagnostic only -- verifies the torch.func.jvp fix before resubmitting the full 20-batch Test A"
     }
   ],
   "completed_runs": [
     {
-      "completed_at": "2026-08-07T15:38:00-04:00",
+      "completed_at": "2026-08-07T15:52:00-04:00",
+      "description": "Memory probe for the hand-rolled JVP double-backward implementation (pre-fix).",
+      "final_metric": "Monotonic, near-identical ~3.7GB growth per isolated jvp_theta_to_cache call, unaffected by explicit `del`: allocated 9.65GB -> 13.37GB (+3.72) -> 17.10GB (+3.73) across 3 successive calls. Ruled out single-call-too-big (call #1 net growth only ~4GB) and reference-cycle garbage (job 37689193's explicit gc.collect() had zero effect). Confirmed as a genuine, reproducible leak specific to the hand-rolled create_graph=True dual-variable JVP trick; root cause never identified at the code level.",
+      "gate": "diagnostic only -- informs the Test A OOM root cause (leak vs sizing)",
+      "git_sha": "d648e47",
+      "job_id": "37689738",
+      "note": "Per user direction, replaced the hand-rolled JVP with the official torch.func.jvp (commit 37ef495) rather than continuing to debug the manual version. Re-running this same probe as job 37691731 to verify the fix.",
+      "partition": "seas_gpu",
+      "phase": "forward-backwards-direct-decision-tree",
+      "run_id": "fb_direct_testA_memory_probe",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/fb_direct_testA_memory_probe.sbatch",
+      "status": "completed",
+      "submitted_at": "2026-08-07T15:45:00-04:00"
+    },
+    {
       "description": "Third retry of Test A with the gc.collect()+empty_cache() reference-cycle fix.",
       "error": "torch.cuda.OutOfMemoryError, IDENTICAL magnitude to job 37688514 (76.01GB vs 75.80GB genuinely allocated) at the same call site -- the gc fix had ZERO measurable effect, ruling out the reference-cycle hypothesis entirely. Root cause still unknown: pivoting to an isolated memory probe (fb_direct_testA_memory_probe.py, job 37689738) rather than guessing a fourth fix blindly.",
       "exit_code": "1",
