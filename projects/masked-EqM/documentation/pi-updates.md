@@ -1442,3 +1442,33 @@ structured-start-state (masked-EqM) work going forward, or should we settle
 on `none`/`dot` as the backbone for that line and treat `direct`'s Hessian-
 conditioning behavior as a side finding worth a short note rather than
 something to keep chasing?
+
+## 2026-08-07 — fb_direct resolved: semigradient superseded by exact forward-over-reverse (DRAFT, not sent)
+
+The forward-backwards-direct thread is closed with a constructive replacement rather than a plain kill.
+
+**Why the semigradient failed (theory):** dropping the dL/dC * dC/dtheta term leaves an update field with
+a non-symmetric Jacobian — not the gradient of any potential, so no descent guarantee exists; Gate 2's
+smooth non-exploding divergence is textbook non-conservative-flow behavior. Gate 1's cosine 0.62 showed
+the dropped term is O(1), and no TD-style contraction structure exists here to rescue a semigradient.
+
+**Ceiling question closed:** Test A v1 was invalid (rho_best < rho_astar contradicts the warm-start
+feasibility theorem — it measured CG non-convergence). The corrected warm-started rerun gives median
+rho_best 0.974 (best-iterate 0.979) vs oracle 0.958: only +0.017 headroom, so a learned cache-adjoint
+corrector is unattractive.
+
+**Replacement, validated end-to-end today:** exact gradient via Pearlmutter forward-over-reverse
+(forward-mode dual pass in z + ONE first-order backward over theta) — mathematically identical to
+create_graph=True double-backward, ordinary-training memory, FP64-machine-precision verified per tensor.
+Two genuine torch 2.7.1 forward-AD bugs found and worked around (softmax/logsumexp in-place; layer_norm
+silently drops mean/rstd parameter dependence — a silent-wrong-answer class worth flagging to the
+community). In vivo: 2000-step continuation tracks the exact-direct control band exactly (median 10.700
+vs 10.5-11.1, zero clips). A +gradient-penalty arm (lambda=0.05, folded exactly into the same JVP
+direction) is equally stable, leaves the main loss unaffected (10.76), and reduces mean||grad_z E||^2 by
+~9% in 2000 steps — smoothing the energy landscape at the source of direct's conditioning problem.
+
+**Ask:** direct still trails none/dot at paper scale (39.94 vs 34.16 FID, item 2026-08-05). Exact-fwrev
+(+GP) removes the training-mechanism excuse: if we still want an explicit scalar energy for the
+structured-start-state story (OOD/composition/energy-ordering claims), the decisive test is now cheap —
+a FID-scale run of exact-fwrev direct (+/- GP) vs the none/dot baseline. Otherwise we settle on none/dot
+as the backbone and carry the energy semantics via the derived-energy parameterizations. Which way?
