@@ -32,7 +32,11 @@ from diffusers.models import AutoencoderKL
 from train_utils import parse_transport_args
 import wandb_utils
 from fb_direct import ForwardBackwardsDirectTrainer
-from fb_direct.exact_hvp import exact_fwrev_backward
+from fb_direct.exact_hvp import (
+    exact_fwrev_backward,
+    allreduce_fwrev_grads,
+    fwrev_rank_sync_checksum,
+)
 from torchvision import datasets, transforms, models
 import matplotlib.pyplot as plt
 from sklearn.metrics import roc_auc_score
@@ -133,13 +137,6 @@ def main(args):
     dist.init_process_group("nccl")
     assert args.global_batch_size % dist.get_world_size() == 0, f"Batch size must be divisible by world size."
     rank = dist.get_rank()
-    if args.exact_fwrev and dist.get_world_size() > 1:
-        raise RuntimeError(
-            "--exact-fwrev bypasses loss.backward(), so DDP gradient allreduce "
-            "never fires; multi-rank runs would silently train on rank-local "
-            "gradients. Run with --nproc_per_node=1 (diagnostic-continuation "
-            "scope) until an explicit allreduce is added."
-        )
     device = int(os.environ["LOCAL_RANK"])
     print(f"Found {n_gpus} GPUs, trying to use device index {device}")
     seed = args.global_seed * dist.get_world_size() + rank
@@ -345,6 +342,21 @@ def main(args):
                 fwrev_stats = exact_fwrev_backward(
                     model.module, xt_s, t_s, y, ut_s, gp_lambda=args.gp_lambda,
                 )
+                # DDP's bucketed hooks never fire on this path (no
+                # loss.backward()); explicitly average grads across ranks.
+                allreduce_fwrev_grads(model.module)
+                if dist.get_world_size() > 1 and args.grad_log_every > 0 \
+                        and (train_steps + 1) % args.grad_log_every == 0:
+                    checksum = fwrev_rank_sync_checksum(model.module).to(device)
+                    mn, mx = checksum.clone(), checksum.clone()
+                    dist.all_reduce(mn, op=dist.ReduceOp.MIN)
+                    dist.all_reduce(mx, op=dist.ReduceOp.MAX)
+                    if float(mx - mn) > 1e-6:
+                        raise RuntimeError(
+                            f"exact-fwrev rank desync at step {train_steps + 1}: "
+                            f"parameter checksum spread {float(mx - mn):.3e} -- "
+                            "ranks have diverged; aborting before silent corruption."
+                        )
                 loss = torch.tensor(
                     fwrev_stats["loss_main"] + args.gp_lambda * fwrev_stats["loss_gp"],
                     device=device,

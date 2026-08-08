@@ -29,6 +29,9 @@ SAVE_EPOCHS="${TARGET_SAVE_EPOCHS:-${2:-30}}"
 CKPT_EVERY="${CKPT_EVERY:-50000}"
 MAX_GRAD_NORM="${MAX_GRAD_NORM:-}"
 GRAD_LOG_EVERY="${GRAD_LOG_EVERY:-0}"
+EXACT_FWREV="${EXACT_FWREV:-0}"
+GP_LAMBDA="${GP_LAMBDA:-0.0}"
+MAX_STEPS="${MAX_STEPS:-}"
 export ENTITY="${ENTITY:-none}"
 export PROJECT="${PROJECT:-none}"
 WORK_DIR="/tmp/masked-eqm-ddp-cont-${SLURM_JOB_ID}"
@@ -48,7 +51,13 @@ CMD="python -m torch.distributed.run --nnodes=1 --nproc_per_node=4 --master_port
 if [[ -n "$MAX_GRAD_NORM" ]]; then
   CMD+=" --max-grad-norm $MAX_GRAD_NORM"
 fi
-echo "Continuation configuration: EPOCHS=$EPOCHS SAVE_EPOCHS=$SAVE_EPOCHS CKPT_EVERY=$CKPT_EVERY CKPT=$CKPT RESULTS_DIR=$RESULTS_DIR MAX_GRAD_NORM=${MAX_GRAD_NORM:-disabled} GRAD_LOG_EVERY=$GRAD_LOG_EVERY"
+if [[ "$EXACT_FWREV" == "1" ]]; then
+  CMD+=" --exact-fwrev --gp-lambda $GP_LAMBDA"
+fi
+if [[ -n "$MAX_STEPS" ]]; then
+  CMD+=" --max-steps $MAX_STEPS"
+fi
+echo "Continuation configuration: EPOCHS=$EPOCHS SAVE_EPOCHS=$SAVE_EPOCHS CKPT_EVERY=$CKPT_EVERY CKPT=$CKPT RESULTS_DIR=$RESULTS_DIR MAX_GRAD_NORM=${MAX_GRAD_NORM:-disabled} GRAD_LOG_EVERY=$GRAD_LOG_EVERY EXACT_FWREV=$EXACT_FWREV GP_LAMBDA=$GP_LAMBDA MAX_STEPS=${MAX_STEPS:-unlimited}"
 echo "$CMD"
 eval "$CMD" 2>&1 | tee train.log
 EXIT_CODE=${PIPESTATUS[0]}

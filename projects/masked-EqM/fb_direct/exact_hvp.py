@@ -147,6 +147,47 @@ def _predrop_labels(model, y):
     return y, restore
 
 
+def allreduce_fwrev_grads(module, process_group=None):
+    """Average every parameter's .grad across ranks with ONE flat all_reduce.
+
+    exact-fwrev bypasses loss.backward(), so DDP's bucketed allreduce hooks
+    never fire; this is the explicit replacement, matching DDP's averaging
+    semantics (SUM then divide by world size). Ranks stay synchronized by
+    the same argument as fb_direct's original DDP design: identical
+    post-allreduce gradients + identical optimizer state (same checkpoint,
+    deterministic AdamW) + identical clip threshold => identical parameter
+    trajectories on every rank. Coalesced into a single flat tensor so the
+    ~130 parameter tensors cost one collective per step, not 130.
+
+    No-op when torch.distributed is unavailable/uninitialized or ws == 1.
+    """
+    import torch.distributed as dist
+    if not (dist.is_available() and dist.is_initialized()):
+        return
+    ws = dist.get_world_size(process_group)
+    if ws == 1:
+        return
+    grads = [p.grad for p in module.parameters() if p.grad is not None]
+    if not grads:
+        return
+    from torch._utils import _flatten_dense_tensors, _unflatten_dense_tensors
+    flat = _flatten_dense_tensors(grads)
+    dist.all_reduce(flat, group=process_group)
+    flat.div_(ws)
+    for g, synced in zip(grads, _unflatten_dense_tensors(flat, grads)):
+        g.copy_(synced)
+
+
+def fwrev_rank_sync_checksum(module):
+    """Cheap cross-rank desync detector: a scalar checksum of the parameter
+    state. Callers all_reduce MIN and MAX of this and compare -- identical
+    ranks give spread 0. float64 so the check isn't noise-limited."""
+    with torch.no_grad():
+        return torch.stack(
+            [p.detach().double().mean() for p in module.parameters()]
+        ).sum()
+
+
 def exact_fwrev_backward(model, xt, t, y, ut, gp_lambda=0.0):
     """Computes the EXACT gradient of
 
