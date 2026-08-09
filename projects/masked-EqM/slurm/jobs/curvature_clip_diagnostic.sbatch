@@ -16,10 +16,16 @@ module load cuda/11.8.0-fasrc01 2>/dev/null || true
 nvidia-smi
 
 GIT_SHA="${GIT_SHA:?set GIT_SHA}"
-CKPTS_LAMBDA0="${CKPTS_LAMBDA0:?set CKPTS_LAMBDA0 (pipe-separated paths, e.g. a|b|c -- SBATCH_EXPORTS cannot contain whitespace)}"
-CKPTS_GP="${CKPTS_GP:?set CKPTS_GP (pipe-separated paths)}"
-CKPTS_LAMBDA0="${CKPTS_LAMBDA0//|/ }"
-CKPTS_GP="${CKPTS_GP//|/ }"
+# Paths are joined with the literal token ZPATHZ (not a real separator char
+# like '|' or ':') because SBATCH_EXPORTS's value flows through TWO shell
+# layers (local ssh command-string construction, then remote sbatch/bash) --
+# any shell metacharacter (|, ;, &, $, etc.) gets reinterpreted rather than
+# passed through literally. A plain alphanumeric token survives both layers
+# unmodified, since it has no special meaning to any shell.
+CKPTS_LAMBDA0="${CKPTS_LAMBDA0:?set CKPTS_LAMBDA0 (ZPATHZ-joined paths)}"
+CKPTS_GP="${CKPTS_GP:?set CKPTS_GP (ZPATHZ-joined paths)}"
+CKPTS_LAMBDA0="${CKPTS_LAMBDA0//ZPATHZ/ }"
+CKPTS_GP="${CKPTS_GP//ZPATHZ/ }"
 IMAGENET_PATH="${IMAGENET_PATH:-/n/holylfs06/LABS/kempner_shared/Everyone/testbed/vision/imagenet_1k/ILSVRC2012_img_train}"
 OUT_DIR="${OUT_DIR:-/n/holylabs/ydu_lab/Lab/mkrasnow_eqm/masked-EqM/eval_results}"
 OUT_NAME="${OUT_NAME:-curvature_clip_diagnostic}"
