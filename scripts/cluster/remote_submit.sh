@@ -94,5 +94,8 @@ sbatch_flags="--export=$export_spec"
 if [[ -n "${SBATCH_DEPENDENCY:-}" ]]; then
   sbatch_flags+=" --dependency=$SBATCH_DEPENDENCY"
 fi
+if [[ -n "${SBATCH_EXCLUDE:-}" ]]; then
+  sbatch_flags+=" --exclude=$SBATCH_EXCLUDE"
+fi
 jobid="$("$root/scripts/cluster/ssh.sh" "cd $remote_root && sbatch $sbatch_flags $remote_sbatch" | awk '{print $4}')"
 echo "$jobid"

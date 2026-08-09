@@ -68,22 +68,25 @@
       "job_id": "37946483",
       "description": "Auto-fire resume for 37780078 (GP arm): --dependency=afterany:37780078, CKPT=AUTOLATEST:<37780078 checkpoints dir> resolved at job start. No manual intervention needed at the 48h wall.",
       "gate": "resume leg toward epoch-80 FID eval"
-    },
+    }
+  ],
+  "completed_runs": [
     {
       "run_id": "curvature_clip_diagnostic_v3",
       "job_id": "37947527",
       "partition": "seas_gpu",
-      "status": "pending",
+      "status": "failed",
       "description": "Retry of v2 (37947377) after a transient CUDA-device-busy error on holygpu8a31105 (no code change -- same checkpoint set, same config). Plain retry, may land on a different node.",
       "submitted_at": "2026-08-10T00:33:00-04:00",
       "git_sha": "0916b23",
       "sbatch_path": "projects/masked-EqM/slurm/jobs/curvature_clip_diagnostic.sbatch",
       "expected_runtime": "~30-60min",
       "phase": "fwrev-fid-scale-test",
-      "gate": "Mechanism check before committing GPU time to a spectral-norm-regularized retrain: does curvature (order-2) predict clipping better than GP's mean-gradient penalty (order-1)?"
-    }
-  ],
-  "completed_runs": [
+      "gate": "Mechanism check before committing GPU time to a spectral-norm-regularized retrain: does curvature (order-2) predict clipping better than GP's mean-gradient penalty (order-1)?",
+      "completed_at": "2026-08-10T00:55:00-04:00",
+      "error": "RuntimeError: CUDA error: an illegal memory access was encountered, same exact line (vae.to(device)) and same node (holygpu8a31105) as v2's 'device busy' failure. Two consecutive failures, same node, same code location, two related-but-distinct CUDA error classes -- strong evidence of a bad node, not transient noise. Excluding the node explicitly on retry rather than a third blind resubmission.",
+      "exit_code": "1"
+    },
     {
       "run_id": "curvature_clip_diagnostic_v2",
       "job_id": "37947377",
