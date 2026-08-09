@@ -70,20 +70,35 @@
       "gate": "resume leg toward epoch-80 FID eval"
     },
     {
+      "run_id": "curvature_clip_diagnostic_v2",
+      "job_id": "37947377",
+      "partition": "seas_gpu",
+      "status": "pending",
+      "description": "Resubmission of 37947153 with the checkpoint set that survived the disk prune: 1600000/1925000/2050000/2175000/2450000 (both arms). Same probe bank size/config otherwise (20 batches, batch-size 8, 15 power-iter steps).",
+      "submitted_at": "2026-08-10T00:20:00-04:00",
+      "git_sha": "34606c3",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/curvature_clip_diagnostic.sbatch",
+      "expected_runtime": "~30-60min",
+      "phase": "fwrev-fid-scale-test",
+      "gate": "Mechanism check before committing GPU time to a spectral-norm-regularized retrain: does curvature (order-2) predict clipping better than GP's mean-gradient penalty (order-1)?"
+    }
+  ],
+  "completed_runs": [
+    {
       "run_id": "curvature_clip_diagnostic",
       "job_id": "37947153",
       "partition": "seas_gpu",
-      "status": "pending",
+      "status": "cancelled",
       "description": "Offline mechanism check: does the field's Lipschitz constant (||grad_z^2 E||_op, power-iteration spectral norm, FP64-verified against exact eigh() incl. indefinite-Hessian edge case) predict the theta-space grad_norm that gets clipped, better than the order-1 quantity GP already penalizes (mean||grad_z E||^2)? Motivated by quartile finding: loss_gp's RELATIVE growth rate is identical between lambda0/GP arms (37780076/37780078) -- GP only rescales the level by ~9%, doesn't touch the growth slope, consistent with a mean-based penalty being unable to control a tail statistic. 5 checkpoints x 2 arms (1600000/1725000/1950000/2175000/2400000), 20 fixed real probe batches shared across all checkpoints, 15 power-iteration steps. Tests (A) does spectral_norm actually grow over training for each arm, (B) pooled Pearson/Spearman: grad_norm vs loss_gp vs spectral_norm(mean/max-per-batch).",
       "submitted_at": "2026-08-10T00:00:00-04:00",
       "git_sha": "34606c3",
       "sbatch_path": "projects/masked-EqM/slurm/jobs/curvature_clip_diagnostic.sbatch",
       "expected_runtime": "~30-60min (10 checkpoint loads x 20 batches x 15 power-iter HVP calls, 3h cap)",
       "phase": "fwrev-fid-scale-test",
-      "gate": "Mechanism check before committing GPU time to a spectral-norm-regularized retrain: does curvature (order-2) predict clipping better than GP's mean-gradient penalty (order-1)?"
-    }
-  ],
-  "completed_runs": [
+      "gate": "Mechanism check before committing GPU time to a spectral-norm-regularized retrain: does curvature (order-2) predict clipping better than GP's mean-gradient penalty (order-1)?",
+      "completed_at": "2026-08-10T00:20:00-04:00",
+      "error": "OPERATOR ERROR: a checkpoint prune (1-in-5 + latest policy, run to address disk growth) deleted 3 of the 5 checkpoints this job's --ckpts-lambda0/--ckpts-gp arguments pointed to (1725000/1950000/2400000 for both arms), before checking whether an in-flight job depended on them. Caught before the job reached checkpoint-loading (still in git-clone/pip-install phase, 3:19 elapsed) via log inspection; cancelled cleanly, no wasted GPU compute, no corrupted output."
+    },
     {
       "run_id": "fwrev_ddp_smoke",
       "job_id": "37779521",
