@@ -172,6 +172,17 @@ def main():
 
     torch.manual_seed(args.seed)
     device = "cuda" if torch.cuda.is_available() else "cpu"
+    # hvp_z's double-backward (fb_direct/exact_hvp.py) has no derivative for
+    # fused flash/efficient attention kernels ("derivative for
+    # aten::_scaled_dot_product_efficient_attention_backward is not
+    # implemented") -- this is a STANDALONE script that never goes through
+    # train.py's main(), which normally forces the math SDPA backend for
+    # any ebm != 'none' training/eval. Replicate that here explicitly.
+    torch.backends.cuda.enable_flash_sdp(False)
+    torch.backends.cuda.enable_mem_efficient_sdp(False)
+    if hasattr(torch.backends.cuda, "enable_cudnn_sdp"):
+        torch.backends.cuda.enable_cudnn_sdp(False)
+    torch.backends.cuda.enable_math_sdp(True)
 
     from diffusers.models import AutoencoderKL
     vae = AutoencoderKL.from_pretrained(f"stabilityai/sd-vae-ft-{args.vae}").to(device)
