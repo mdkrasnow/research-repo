@@ -247,3 +247,88 @@ def exact_fwrev_backward(model, xt, t, y, ut, gp_lambda=0.0):
         "field_norm": float(field.detach().norm()),
         "target_norm": float(ut.detach().norm()),
     }
+
+
+# -----------------------------------------------------------------------
+# z-space curvature probe (2026-08-10, growing-instability diagnostic)
+#
+# GP (gradient penalty on mean||grad_z E||^2) provably cannot arrest the
+# growing-clip-rate pattern observed in both fwrev arms: quartile forensics
+# on jobs 37780076/37780078 showed loss_gp's RELATIVE growth rate is
+# identical between the penalized and unpenalized arms (~+0.40%/+0.41% over
+# the run) -- GP only rescales the level by a constant ~9% factor, it does
+# not touch the slope. A penalty on E[||grad_z E||^2] (a MEAN) has no
+# theoretical claim on a TAIL statistic (clip events, driven by rare large
+# local curvature) -- Markov/Chebyshev-type bounds require controlling the
+# quantity you want a tail guarantee on. The theoretically correct object
+# for "is the field about to produce a huge gradient" is the OPERATOR NORM
+# of the energy Hessian, ||grad_z^2 E||_op = max_i |eigenvalue_i| -- the
+# Lipschitz constant of the field f = -grad_z E. This section estimates it.
+# -----------------------------------------------------------------------
+
+def hvp_z(model, z, t, y, v):
+    """z-space Hessian-vector product: Hv = (d^2 E / dz^2) v, via standard
+    double-backward (create_graph=True on the first grad, ordinary grad for
+    the second). OFFLINE DIAGNOSTIC ONLY -- same exemption already used by
+    adjoint_optimization.py's jvp_theta_to_cache: this is a frozen-checkpoint
+    probe, not a production training step, so the double-backward graph the
+    rest of this module exists to avoid (for THETA's gradient) is fine here
+    (for Z's Hessian, an offline quantity, never touched by training).
+
+    No TF32/SDPA-backend overrides: deliberately left at whatever the caller
+    (train.py, at import time) already configured, so the estimated
+    curvature is measured under the SAME numerics that produced the
+    grad_norm/clip observations we are trying to explain -- forcing higher
+    precision here would decouple the two and invalidate the comparison.
+
+    z: (B, C, H, W), any requires_grad state (cloned+reset internally).
+    v: same shape as z -- a batch of probe directions, one per sample.
+    Returns Hv, same shape as z. Batched samples are independent (no
+    batchnorm / no cross-sample attention in this architecture), so this is
+    B independent Hessian-vector products computed in one pass.
+    """
+    z = z.detach().clone().requires_grad_(True)
+    E = model(z, t, y, energy_only=True)
+    g = torch.autograd.grad(E.sum(), z, create_graph=True)[0]
+    Hv = torch.autograd.grad(g, z, grad_outputs=v, retain_graph=False)[0]
+    return Hv.detach()
+
+
+def power_iteration_spectral_norm(model, z, t, y, num_iters=15, seed=None):
+    """Per-sample power iteration for ||grad_z^2 E||_op = max_i |eigenvalue_i|
+    (spectral RADIUS, not just the top positive eigenvalue -- E is generally
+    non-convex so the Hessian is indefinite; unshifted power iteration on a
+    symmetric matrix converges to the eigenvector of largest |eigenvalue|
+    regardless of its sign, oscillating u's sign each step if that
+    eigenvalue is negative -- the Rayleigh quotient's ABSOLUTE VALUE still
+    converges monotonically, which is what we track and return. Verified
+    against a full eigh() decomposition on a tiny model in
+    tests/test_fb_direct_curvature_probe.py).
+
+    Runs power iteration independently PER SAMPLE (normalizing each
+    sample's probe vector by its own norm each iteration), not globally
+    across the batch -- correct because this architecture's Hessian of
+    E.sum() w.r.t. the batched z is block-diagonal across samples (no
+    batchnorm, self-attention never mixes across the batch dimension).
+
+    Returns: {"spectral_norm": (B,) tensor of |top eigenvalue| estimates,
+              "rayleigh_history": list of (B,) tensors, one per iteration,
+              for convergence inspection}.
+    """
+    B = z.shape[0]
+    gen = torch.Generator(device="cpu") if seed is not None else None
+    if gen is not None:
+        gen.manual_seed(seed)
+    u = torch.randn(z.shape, generator=gen).to(z.device, z.dtype)
+    u = u / u.flatten(1).norm(dim=1).clamp_min(1e-30).view(-1, *([1] * (u.dim() - 1)))
+
+    history = []
+    rq = None
+    for _ in range(num_iters):
+        Hu = hvp_z(model, z, t, y, u)
+        rq = (u * Hu).flatten(1).sum(dim=1).abs()  # |Rayleigh quotient| per sample
+        history.append(rq.detach().cpu())
+        norm = Hu.flatten(1).norm(dim=1).clamp_min(1e-30)
+        u = (Hu / norm.view(-1, *([1] * (Hu.dim() - 1)))).detach()
+
+    return {"spectral_norm": rq.detach(), "rayleigh_history": history}
