@@ -90,5 +90,9 @@ export_spec="GIT_URL=$git_url,GIT_SHA=$git_sha"
 if [[ -n "$extra_exports" ]]; then
   export_spec+=",$extra_exports"
 fi
-jobid="$("$root/scripts/cluster/ssh.sh" "cd $remote_root && sbatch --export=$export_spec $remote_sbatch" | awk '{print $4}')"
+sbatch_flags="--export=$export_spec"
+if [[ -n "${SBATCH_DEPENDENCY:-}" ]]; then
+  sbatch_flags+=" --dependency=$SBATCH_DEPENDENCY"
+fi
+jobid="$("$root/scripts/cluster/ssh.sh" "cd $remote_root && sbatch $sbatch_flags $remote_sbatch" | awk '{print $4}')"
 echo "$jobid"

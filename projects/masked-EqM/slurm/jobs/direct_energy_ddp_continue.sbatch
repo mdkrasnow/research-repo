@@ -38,6 +38,25 @@ WORK_DIR="/tmp/masked-eqm-ddp-cont-${SLURM_JOB_ID}"
 RESULTS_DIR="$RESULTS_ROOT/${RUN_TAG}_job${SLURM_JOB_ID}"
 MASTER_PORT=$((29500 + RANDOM % 1000))
 
+if [[ "$CKPT" == AUTOLATEST:* ]]; then
+  # Resume-chain support: CKPT wasn't known at submission time (this job was
+  # queued via --dependency=afterany:<prior_job> before the prior job wrote
+  # its final checkpoint). Resolve the highest-step *.pt under the given
+  # directory now, at actual start time, so we always pick up wherever the
+  # prior job (TIMEOUT or otherwise) actually left off -- not a step number
+  # guessed at submission time.
+  search_dir="${CKPT#AUTOLATEST:}"
+  resolved="$(find "$search_dir" -name '*.pt' 2>/dev/null \
+    | sed -E 's#.*/([0-9]+)\.pt$#\1 &#' \
+    | sort -n | tail -1 | awk '{print $2}')"
+  if [[ -z "$resolved" ]]; then
+    echo "AUTOLATEST: no checkpoint found under $search_dir" >&2
+    exit 3
+  fi
+  CKPT="$resolved"
+  echo "AUTOLATEST resolved CKPT=$CKPT"
+fi
+
 mkdir -p "$WORK_DIR" "$RESULTS_DIR"
 cd "$WORK_DIR"
 git init .
