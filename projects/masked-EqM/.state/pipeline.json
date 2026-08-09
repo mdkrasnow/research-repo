@@ -70,13 +70,13 @@
       "gate": "resume leg toward epoch-80 FID eval"
     },
     {
-      "run_id": "curvature_clip_diagnostic_v4",
-      "job_id": "37950691",
+      "run_id": "curvature_clip_diagnostic_v5",
+      "job_id": "37950953",
       "partition": "seas_gpu",
       "status": "pending",
-      "description": "Retry of v2/v3 with --exclude=holygpu8a31105 (that node failed identically twice at vae.to(device)). Same checkpoint set/config otherwise.",
-      "submitted_at": "2026-08-10T00:57:00-04:00",
-      "git_sha": "e7c6de1",
+      "description": "Retry with the SDPA-backend fix (commit 7939781). Still excludes holygpu8a31105. Same checkpoint set/config.",
+      "submitted_at": "2026-08-10T01:06:00-04:00",
+      "git_sha": "7939781",
       "sbatch_path": "projects/masked-EqM/slurm/jobs/curvature_clip_diagnostic.sbatch",
       "expected_runtime": "~30-60min",
       "phase": "fwrev-fid-scale-test",
@@ -84,6 +84,22 @@
     }
   ],
   "completed_runs": [
+    {
+      "run_id": "curvature_clip_diagnostic_v4",
+      "job_id": "37950691",
+      "partition": "seas_gpu",
+      "status": "failed",
+      "description": "Retry of v2/v3 with --exclude=holygpu8a31105 (that node failed identically twice at vae.to(device)). Same checkpoint set/config otherwise.",
+      "submitted_at": "2026-08-10T00:57:00-04:00",
+      "git_sha": "e7c6de1",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/curvature_clip_diagnostic.sbatch",
+      "expected_runtime": "~30-60min",
+      "phase": "fwrev-fid-scale-test",
+      "gate": "Mechanism check before committing GPU time to a spectral-norm-regularized retrain: does curvature (order-2) predict clipping better than GP's mean-gradient penalty (order-1)?",
+      "completed_at": "2026-08-10T01:05:00-04:00",
+      "error": "RuntimeError: derivative for aten::_scaled_dot_product_efficient_attention_backward is not implemented. Real code bug (not a node issue -- landed on a different node, holygpu8a27301, and got past VAE load into actual checkpoint eval/first HVP call): hvp_z's double-backward needs the MATH SDPA backend, which train.py normally forces globally for ebm != 'none' -- this standalone script never went through that setup. Fixed in commit 7939781 (explicit backend disable at script start, matching train.py's pattern). Confirms holygpu8a31105 was correctly diagnosed as a bad node (this failure is unrelated and reproduced on a healthy node).",
+      "exit_code": "1"
+    },
     {
       "run_id": "curvature_clip_diagnostic_v3",
       "job_id": "37947527",
