@@ -37,6 +37,7 @@ from fb_direct.exact_hvp import (
     allreduce_fwrev_grads,
     fwrev_rank_sync_checksum,
 )
+from fb_direct.adaptive_clip import adaptive_clip_update, adaptive_clip_threshold
 from torchvision import datasets, transforms, models
 import matplotlib.pyplot as plt
 from sklearn.metrics import roc_auc_score
@@ -288,6 +289,7 @@ def main(args):
     log_steps = 0
     running_loss = 0
     start_time = time()
+    ema_grad_norm_ema = [None]  # mutable cell: EMA of the unclipped grad norm scale
     grad_metrics_file = None
     if rank == 0 and args.grad_log_every > 0:
         grad_metrics_path = os.path.join(experiment_dir, "gradient_metrics.jsonl")
@@ -369,7 +371,40 @@ def main(args):
                 loss.backward()
             grad_norm = None
             unclipped_grad_norm = None
-            if args.max_grad_norm is not None:
+            effective_max_grad_norm = args.max_grad_norm
+            if args.adaptive_clip:
+                # EMA-tracked threshold (NOT NFNets AGC -- that's a per-
+                # parameter weight-ratio scheme for a different problem).
+                # This targets the specific failure mode flagged in the
+                # growing-clip-rate diagnostic (2026-08-10): a FIXED
+                # threshold becomes progressively more binding if the
+                # natural gradient scale drifts upward over training,
+                # inflating the observed clip rate as an artifact of the
+                # threshold being outgrown -- independent of whether the
+                # landscape is actually getting rougher. Tracking the scale
+                # and clipping at a constant MULTIPLE of it makes "clip
+                # rate stays roughly constant" a design invariant instead
+                # of something we hope holds; it does not by itself control
+                # tail/curvature-driven events (see the curvature-probe
+                # diagnostic for that).
+                probe_norm = torch.nn.utils.clip_grad_norm_(
+                    model.parameters(), float("inf"), error_if_nonfinite=True,
+                )
+                probe_val = float(probe_norm)
+                ema_grad_norm_ema[0] = adaptive_clip_update(
+                    ema_grad_norm_ema[0], probe_val, args.adaptive_clip_ema_decay,
+                )
+                effective_max_grad_norm = adaptive_clip_threshold(
+                    ema_grad_norm_ema[0], args.adaptive_clip_factor,
+                )
+                unclipped_grad_norm = probe_norm
+                if probe_val > effective_max_grad_norm:
+                    scale = effective_max_grad_norm / (probe_val + 1e-30)
+                    for parameter in model.parameters():
+                        if parameter.grad is not None:
+                            parameter.grad.detach().mul_(scale)
+                grad_norm = unclipped_grad_norm
+            elif args.max_grad_norm is not None:
                 unclipped_grad_norm = torch.nn.utils.clip_grad_norm_(
                     model.parameters(),
                     args.max_grad_norm,
@@ -402,12 +437,14 @@ def main(args):
                         "grad_norm": float(grad_norm.detach()),
                         "head_grad_norm": float(head_squared_norm.sqrt()),
                         "backbone_grad_norm": float(backbone_squared_norm.sqrt()),
-                        "max_grad_norm": args.max_grad_norm,
+                        "max_grad_norm": effective_max_grad_norm,
                         "clipped": bool(
                             unclipped_grad_norm is not None
-                            and unclipped_grad_norm > args.max_grad_norm
+                            and effective_max_grad_norm is not None
+                            and unclipped_grad_norm > effective_max_grad_norm
                         ),
                         "learning_rate": opt.param_groups[0]["lr"],
+                        "adaptive_clip": args.adaptive_clip,
                     }
                     if args.exact_fwrev:
                         record["loss_main"] = fwrev_stats["loss_main"]
@@ -759,6 +796,23 @@ if __name__ == "__main__":
         default=None,
         help="optional global gradient-norm clipping threshold",
     )
+    parser.add_argument(
+        "--adaptive-clip", action="store_true",
+        help="EMA-adaptive gradient-norm clipping instead of a fixed --max-grad-norm: "
+             "clip to (EMA of unclipped grad norm) * --adaptive-clip-factor. Targets the "
+             "growing-clip-rate diagnostic (2026-08-10): a fixed threshold becomes "
+             "progressively more binding if the natural gradient scale drifts upward "
+             "over training, independent of any real instability. Mutually exclusive "
+             "with --max-grad-norm.",
+    )
+    parser.add_argument(
+        "--adaptive-clip-factor", type=float, default=4.0,
+        help="(requires --adaptive-clip) clip threshold = ema_grad_norm * this factor",
+    )
+    parser.add_argument(
+        "--adaptive-clip-ema-decay", type=float, default=0.99,
+        help="(requires --adaptive-clip) EMA decay for the tracked grad-norm scale",
+    )
     parser.add_argument("--ckpt-every", type=int, default=50000)
     parser.add_argument(
         "--max-steps",
@@ -812,6 +866,12 @@ if __name__ == "__main__":
         parser.error("--grad-log-every must be non-negative")
     if args.max_grad_norm is not None and args.max_grad_norm <= 0:
         parser.error("--max-grad-norm must be positive")
+    if args.adaptive_clip and args.max_grad_norm is not None:
+        parser.error("--adaptive-clip and --max-grad-norm are mutually exclusive")
+    if args.adaptive_clip_factor <= 0:
+        parser.error("--adaptive-clip-factor must be positive")
+    if not (0.0 < args.adaptive_clip_ema_decay < 1.0):
+        parser.error("--adaptive-clip-ema-decay must be in (0, 1)")
     if args.exact_fwrev and args.ebm != "direct":
         parser.error("--exact-fwrev requires --ebm direct")
     if args.exact_fwrev and args.disp:
