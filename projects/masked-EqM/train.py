@@ -178,7 +178,7 @@ def main(args):
 
     # Note that parameter initialization is done within the EqM constructor
     ema = deepcopy(model).to(device)  # Create an EMA of the model for use after training
-    opt = torch.optim.AdamW(model.parameters(), lr=1e-4, weight_decay=0)
+    opt = torch.optim.AdamW(model.parameters(), lr=1e-4, weight_decay=args.weight_decay)
 
     resume_epoch = 0
     resume_step = None
@@ -344,6 +344,17 @@ def main(args):
                 fwrev_stats = exact_fwrev_backward(
                     model.module, xt_s, t_s, y, ut_s, gp_lambda=args.gp_lambda,
                 )
+                if args.energy_zloss_lambda != 0.0:
+                    # Separate light forward + ordinary (single-differentiation)
+                    # backward: E depends on theta directly, no z-grad needed,
+                    # so this is a plain first-order pass (~none's cost, not
+                    # exact_fwrev's 2x). .backward() accumulates into the same
+                    # .grad tensors exact_fwrev_backward just populated, matching
+                    # loss.backward() accumulation semantics -- no extra opt/zero_grad.
+                    E_reg = model.module(xt_s.detach(), t_s, y, energy_only=True)
+                    zloss = args.energy_zloss_lambda * (E_reg ** 2).mean()
+                    zloss.backward()
+                    fwrev_stats["loss_zloss"] = float(zloss.detach())
                 # DDP's bucketed hooks never fire on this path (no
                 # loss.backward()); explicitly average grads across ranks.
                 allreduce_fwrev_grads(model.module)
@@ -445,6 +456,7 @@ def main(args):
                         ),
                         "learning_rate": opt.param_groups[0]["lr"],
                         "adaptive_clip": args.adaptive_clip,
+                        "weight_decay": args.weight_decay,
                     }
                     if args.exact_fwrev:
                         record["loss_main"] = fwrev_stats["loss_main"]
@@ -452,6 +464,9 @@ def main(args):
                         record["gp_lambda"] = args.gp_lambda
                         record["field_norm"] = fwrev_stats["field_norm"]
                         record["target_norm"] = fwrev_stats["target_norm"]
+                        if "loss_zloss" in fwrev_stats:
+                            record["loss_zloss"] = fwrev_stats["loss_zloss"]
+                            record["energy_zloss_lambda"] = args.energy_zloss_lambda
                     grad_metrics_file.write(json.dumps(record, sort_keys=True) + "\n")
             opt.step()
             update_ema(ema, model.module)
@@ -859,6 +874,26 @@ if __name__ == "__main__":
              "the same forward-over-reverse pass (smoothness regularizer "
              "targeting the mixed-Hessian conditioning)",
     )
+    parser.add_argument(
+        "--weight-decay", type=float, default=0.0,
+        help="AdamW decoupled weight decay. Was hardcoded to 0 (2026-08-10 "
+             "activation-scale diagnostic: median QKV/proj weight spectral "
+             "norm grows +25.6%% monotonically over ~1.2M steps, identically "
+             "in both fwrev arms -- GP touches mean(||grad_z E||^2), never "
+             "raw weight scale, so it cannot arrest this. GPT-2/DeepNet-"
+             "lineage fix: bound weight-norm growth directly.",
+    )
+    parser.add_argument(
+        "--energy-zloss-lambda", type=float, default=0.0,
+        help="(requires --exact-fwrev) adds energy_zloss_lambda * mean(E^2) "
+             "to the loss via a separate light forward + ordinary backward "
+             "(single differentiation, no z-grad needed -- gradients "
+             "accumulate into the same .grad tensors as exact_fwrev_backward, "
+             "matching loss.backward() accumulation semantics). Targets the "
+             "companion 2026-08-10 finding: raw |E| grows +25-40%% over the "
+             "same window, also GP-independent. Analog of Wortsman et al. "
+             "2023's z-loss on output-logit divergence.",
+    )
 
     parse_transport_args(parser)
     args = parser.parse_args()
@@ -880,6 +915,12 @@ if __name__ == "__main__":
         parser.error("--gp-lambda requires --exact-fwrev")
     if args.gp_lambda < 0:
         parser.error("--gp-lambda must be non-negative")
+    if args.weight_decay < 0:
+        parser.error("--weight-decay must be non-negative")
+    if args.energy_zloss_lambda != 0.0 and not args.exact_fwrev:
+        parser.error("--energy-zloss-lambda requires --exact-fwrev")
+    if args.energy_zloss_lambda < 0:
+        parser.error("--energy-zloss-lambda must be non-negative")
     args.save_epochs = None if args.save_epochs is None else {
         int(value) for value in args.save_epochs.split(",") if value.strip()
     }
