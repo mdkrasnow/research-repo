@@ -92,19 +92,6 @@
       "job_id": "38103515",
       "description": "Re-chained after 38044090 was cancelled (same reason). Now depends on 38103380.",
       "gate": "Does the GP-smoothed exact-fwrev arm beat direct's 39.94, and how close does it get to none's 34.16? Note the ~4.8% field/target shrinkage (matches 1/(1+lambda) prediction) may under-transport at fixed eta=0.003 -- an eta-compensated secondary eval is planned if this arm's FID looks worse than expected."
-    },
-    {
-      "run_id": "longitudinal_jacobian_diagnostic_progress_matched",
-      "job_id": "38150502",
-      "partition": "seas_gpu",
-      "status": "pending",
-      "description": "Follow-up to job 38136938 per external review: (1) progress-matches `none` checkpoints per stage instead of holding none fixed (Phase 0 audit found none's chained-resume lineage -- longer40/60/80 -- has checkpoints at 0%/1.15%/0.885% step mismatch vs direct's early/mid/late, not the previously assumed 'no early none checkpoint exists'); (2) raises K from 24 to 64 spike/control at the SAME spike_frac=0.025 criterion (pool_size 960->2560); (3) adds Table 7 tail quantiles (p50/p90/p95/p99/tail_anisotropy_proxy); (4) adds Table 6 longitudinal endpoint G=I(late)-I(early) with bootstrap CI; (5) adds a NEW matrix-free sigma_1(J_backbone) + residual-alignment diagnostic (Phase 6/7, power_iteration_theta_sigma1 in fb_direct/exact_hvp.py) on a late-stage spike/control subset (sv_k=8) to distinguish worse-conditioning vs worse-alignment as the mechanism, if any interaction is confirmed. All new primitives (field_jvp_direct/none, power_iteration_theta_sigma1) validated against an explicitly materialized Jacobian + numpy SVD on a tiny model, 12/12 unit tests PASS FP64 CPU, re-run as sbatch pre-flight.",
-      "submitted_at": "2026-08-10T19:05:00-04:00",
-      "git_sha": "9e3c7c0",
-      "sbatch_path": "projects/masked-EqM/slurm/jobs/longitudinal_jacobian_diagnostic.sbatch",
-      "expected_runtime": "2-6h (uncertain -- first real-scale run of the new sigma_1 power-iteration path, which is 3rd-order autodiff; routed to seas_gpu for memory headroom over gpu_test's 20G MIG slices)",
-      "phase": "growing-instability-mechanism-fix",
-      "gate": "Does G=I(late)-I(early) exclude 0 with progress-matched none and K=64? Is any interaction effect driven by sigma_1 (worse conditioning) or residual/u1 alignment (worse alignment), per Phase 6/7?"
     }
   ],
   "completed_runs": [
@@ -12897,6 +12884,22 @@
       "phase": "growing-instability-mechanism-fix",
       "gate": "does the source-matched interaction (direct's amplification of its own spikes vs none's amplification of the same batches, relative to the reciprocal) show Delta_D - Delta_N > 0 with a CI excluding 0, and does it grow from early to mid to late checkpoint?",
       "final_metric": "Corrected source-matched interaction I(t)=Delta_D-Delta_N (A-based / grad-based), none held FIXED at late reference (superseded by the progress-matched follow-up job, run_id longitudinal_jacobian_diagnostic_progress_matched): early +0.209/+0.377 (CI [-0.197,0.760]/[-0.322,0.742]), mid -0.009/-0.103 (CI [-0.440,0.390]/[-0.516,0.380]), late +0.456/+0.499 (CI [-0.271,0.725]/[-0.349,0.718]). All 3 stages' CIs cross zero at n=24 spike/24 control -- underpowered, not a confirmed effect, but late-stage point estimate (0.456) closely reproduces the user's independent hand-derivation (0.452) from this run's own raw Table 3 numbers, a real consistency check. residual_ratio ~1.0 at every stage/model (0.986-1.045) -- grad_norm spike/control gap is carried by A (Jacobian amplification), not residual magnitude; |r|*A reconstructs the real grad_norm ratio to ~1-2%. Non-monotonic temporal trend (positive/near-zero/largest-positive) motivated the progress-matched, larger-K follow-up rather than treating this as either confirmed or dead."
+    },
+    {
+      "run_id": "longitudinal_jacobian_diagnostic_progress_matched",
+      "job_id": "38150502",
+      "partition": "seas_gpu",
+      "status": "completed",
+      "description": "Follow-up to job 38136938 per external review: (1) progress-matches `none` checkpoints per stage instead of holding none fixed (Phase 0 audit found none's chained-resume lineage -- longer40/60/80 -- has checkpoints at 0%/1.15%/0.885% step mismatch vs direct's early/mid/late, not the previously assumed 'no early none checkpoint exists'); (2) raises K from 24 to 64 spike/control at the SAME spike_frac=0.025 criterion (pool_size 960->2560); (3) adds Table 7 tail quantiles (p50/p90/p95/p99/tail_anisotropy_proxy); (4) adds Table 6 longitudinal endpoint G=I(late)-I(early) with bootstrap CI; (5) adds a NEW matrix-free sigma_1(J_backbone) + residual-alignment diagnostic (Phase 6/7, power_iteration_theta_sigma1 in fb_direct/exact_hvp.py) on a late-stage spike/control subset (sv_k=8) to distinguish worse-conditioning vs worse-alignment as the mechanism, if any interaction is confirmed. All new primitives (field_jvp_direct/none, power_iteration_theta_sigma1) validated against an explicitly materialized Jacobian + numpy SVD on a tiny model, 12/12 unit tests PASS FP64 CPU, re-run as sbatch pre-flight.",
+      "submitted_at": "2026-08-10T19:05:00-04:00",
+      "git_sha": "9e3c7c0",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/longitudinal_jacobian_diagnostic.sbatch",
+      "expected_runtime": "2-6h (uncertain -- first real-scale run of the new sigma_1 power-iteration path, which is 3rd-order autodiff; routed to seas_gpu for memory headroom over gpu_test's 20G MIG slices)",
+      "phase": "growing-instability-mechanism-fix",
+      "gate": "Does G=I(late)-I(early) exclude 0 with progress-matched none and K=64? Is any interaction effect driven by sigma_1 (worse conditioning) or residual/u1 alignment (worse alignment), per Phase 6/7?",
+      "exit_code": "0:0",
+      "duration": "57m15s",
+      "final_metric": "Progress-matched (0%/1.15%/0.885% step mismatch), K=64 spike/control. Interaction I(t)=Delta_D-Delta_N (A-based): early +0.016 (CI [-0.101,0.315], null), mid -0.100 (CI [-0.223,0.050], null), late +0.321 (CI [0.008,0.654], EXCLUDES ZERO -- first significant single-checkpoint result in this investigation). I(late)-I(mid)=+0.421 (CI [0.069,0.769], excludes zero). G=I(late)-I(early)=+0.305 but CI [-0.066,0.688] still crosses zero (conservative independent-normal combination). grad-based late interaction +0.220 CI [-0.102,0.685] does NOT exclude zero -- A-based and grad-based metrics disagree on late-stage significance. residual_ratio~1.0 at every stage/model (0.994/1.016 at late) -- Hypothesis C (residual magnitude) again rejected, now at K=64. Table 7 tail quantiles: direct_own_spike tail_anisotropy_proxy(p99/p50)=7.73 vs direct_own_control=1.16, vs none_own_spike=2.34/none_own_control=1.15 -- direct's spike population has a much heavier RIGHT TAIL than none's, not just a higher median (median A_ratio ~2.5 similar between models). Phase 6/7 sigma_1/alignment (late stage, sv_k=8): on direct-selected batches, direct sigma_1_ratio(spike/control)=1.40 vs none=1.21 (both models' conditioning worsens somewhat, direct only modestly more); direct alignment_ratio=6.62 vs none=2.92 (more than 2x more direct-specific) -- the direct-specific excess is predominantly ALIGNMENT (residual/top-singular-vector alignment growing), not conditioning (sigma_1 growth is shared/modest in both arms). Points toward Mechanism 2 (worse alignment) as primary, Mechanism 1 (worse conditioning) secondary/shared. See documentation/longitudinal_jacobian_audit.md for checkpoint audit."
     }
   ],
   "debugging_notes": [
