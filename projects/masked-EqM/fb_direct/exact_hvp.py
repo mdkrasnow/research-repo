@@ -396,6 +396,173 @@ def hvp_z(model, z, t, y, v):
     return Hv.detach()
 
 
+# -----------------------------------------------------------------------
+# theta-space matrix-free JVP + power iteration for sigma_1(J_theta)
+# (2026-08-10, longitudinal Jacobian-conditioning diagnostic, Phase 6/7).
+#
+# The residual-conditioned VJP A(x,r) = ||J_theta^T (r/||r||)|| already
+# established (exact_field_vjp/field_vjp_none) answers "how much does the
+# ACTUAL residual direction get amplified," but not whether a spike in A
+# reflects (a) a genuinely larger top singular value sigma_1(J) at that
+# batch ("worse conditioning") or (b) the residual direction u = r/||r||
+# happening to align more with an ALREADY-large singular direction
+# ("worse alignment") -- since by SVD, A^2 = ||J^T u||^2 =
+# sum_i sigma_i^2 (u . u_i)^2 <= sigma_1^2. Distinguishing these requires
+# sigma_1 and the top left singular vector u_1 = argmax_i sigma_i's
+# direction, independent of whatever u a specific batch happens to produce.
+# -----------------------------------------------------------------------
+
+def field_jvp_none(model, xt, t, y, params, v):
+    """Matrix-free Jacobian-vector product Jv, J = d(field)/d(params), for
+    ebm='none' (field = model(xt,t,y) directly). `params`: an explicit list
+    of leaf parameter tensors -- may be a SUBSET of model.parameters()
+    (e.g. backbone-only), which restricts J to exactly the columns spanned
+    by that subset. `v`: list of tensors matching params' shapes.
+
+    Standard "double-backward for a forward-mode product" (R-operator)
+    trick -- avoids needing torch.func.jvp/functorch to differentiate
+    w.r.t. an nn.Module's own parameters (fragile: would need in-place
+    parameter substitution under a functional wrapper). Two ORDINARY
+    reverse passes instead, both first derivatives of new scalars, chained
+    via create_graph:
+
+        s(u) = <field(params), u>            u: dummy cotangent, leaf, requires_grad=True
+        g(u) = ds/dparams = J^T u            LINEAR in u (grad(..., create_graph=True))
+        Jv   = d<g(u), v>/du                  since g(u) = (J^T) u as a function of u,
+                                               <g(u), v> = u^T (J v), so its gradient
+                                               w.r.t. u IS EXACTLY J v.
+
+    field is differentiated only once (an ordinary autograd graph); the
+    "double" backward is w.r.t. (params, holding u fixed) then (u, holding
+    the resulting expression fixed) -- no forward-mode AD, but the SECOND
+    grad call (Jv = d<g(u),v>/du) IS a genuine double-backward through
+    field's own graph, which needs a working double-backward derivative
+    for attention; timm's fused F.scaled_dot_product_attention path does
+    not provide one ('derivative for ..._flash_attention_..._backward is
+    not implemented'). Reuses _unfused_attention (same fix as
+    field_jvp_direct above). Validated against an explicitly materialized
+    Jacobian on a tiny model in tests/test_fb_direct_exact_hvp.py.
+    """
+    params = list(params)
+    restore_attn = _unfused_attention(model)
+    try:
+        field = model(xt, t, y, train=True)
+        u = torch.zeros_like(field, requires_grad=True)
+        s = (field * u).sum()
+        g = torch.autograd.grad(s, params, create_graph=True)
+        if not g:
+            raise RuntimeError("field_jvp: `params` is empty -- nothing to differentiate w.r.t.")
+        h = None
+        for gp, vp in zip(g, v):
+            term = (gp * vp).sum()
+            h = term if h is None else h + term
+        Jv = torch.autograd.grad(h, u)[0]
+    finally:
+        restore_attn()
+    return Jv.detach()
+
+
+def field_jvp_direct(model, xt, t, y, params, v):
+    """Same Jv as field_jvp_none, for ebm='direct' (field = -grad_z E).
+    field itself already costs one reverse pass with create_graph=True (E ->
+    grad_z E, theta-differentiable); the R-op trick above is layered on top,
+    so this is a THIRD-order construction overall -- grad(s, params,
+    create_graph=True) is itself a double-backward THROUGH the graph that
+    produced gx, i.e. attention needs a working double-backward derivative,
+    which timm's fused F.scaled_dot_product_attention path does not provide
+    ('derivative for ..._flash_attention_..._backward is not implemented').
+    Reuses _unfused_attention (same fix already applied to
+    exact_fwrev_backward/exact_field_vjp for a related but distinct reason
+    -- there it was forward-AD's in-place-mutation bug; here it is
+    double-backward support). Single forward pass (no dual/fwAD machinery,
+    unlike exact_field_vjp) -- CFG label dropout is drawn once, no
+    cross-pass consistency concern.
+    """
+    params = list(params)
+    restore_attn = _unfused_attention(model)
+    try:
+        z = xt.detach().clone().requires_grad_(True)
+        E = model(z, t, y, energy_only=True)
+        gx = torch.autograd.grad(E.sum(), z, create_graph=True)[0]
+        field = -gx
+        u = torch.zeros_like(field, requires_grad=True)
+        s = (field * u).sum()
+        g = torch.autograd.grad(s, params, create_graph=True)
+    finally:
+        restore_attn()
+    if not g:
+        raise RuntimeError("field_jvp: `params` is empty -- nothing to differentiate w.r.t.")
+    h = None
+    for gp, vp in zip(g, v):
+        term = (gp * vp).sum()
+        h = term if h is None else h + term
+    Jv = torch.autograd.grad(h, u)[0]
+    return Jv.detach()
+
+
+def power_iteration_theta_sigma1(jvp_fn, vjp_fn, model, xt, t, y, params, num_iters=20, seed=0, tol=1e-3):
+    """Matrix-free power iteration for sigma_1(J) = top singular value of
+    J = d(field)/d(params) (params a fixed subset, e.g. backbone-only).
+
+    Alternates v -> q = Jv -> v_new = J^T q (power iteration on the SPD
+    operator J^T J), using `jvp_fn`/`vjp_fn` (field_jvp_direct/
+    exact_field_vjp or field_jvp_none/field_vjp_none) as the matrix-free
+    primitives -- J is never materialized. Tracks sigma_1_est = ||Jv||
+    at the CURRENT v each iteration: this equals sigma_1 exactly once v has
+    converged to the top right singular vector (standard power-iteration
+    Rayleigh estimate), and the corresponding q/||q|| is the top LEFT
+    singular vector u_1 -- needed downstream for the alignment diagnostic
+    alpha_1 = |<r/||r||, u_1>|.
+
+    Deterministic init (seed) for reproducibility. Early-stops once the
+    relative change in sigma_1_est falls below tol (from iteration 2 on),
+    else runs num_iters. Validated against numpy SVD of an explicitly
+    materialized Jacobian on a tiny model in test_fb_direct_exact_hvp.py.
+
+    vjp_fn is called with the model's FULL parameter set internally
+    (matching exact_field_vjp/field_vjp_none's existing signature, which
+    always populates .grad for every parameter); this function reads back
+    only the `params` subset's .grad afterward, which is exactly
+    (J_params)^T q by construction (each parameter's gradient component is
+    independent of every other parameter's existence).
+
+    Returns: {"sigma_1": float, "u1": tensor (field shape, unit norm),
+    "v1": list of tensors (params shapes, unit norm), "history": list of
+    per-iteration sigma_1_est, "n_iters": int}.
+    """
+    gen = torch.Generator(device="cpu")
+    gen.manual_seed(seed)
+    v = [torch.randn(p.shape, generator=gen).to(p.device, p.dtype) for p in params]
+    vnorm = sum(float((vp ** 2).sum()) for vp in v) ** 0.5
+    v = [vp / vnorm for vp in v]
+
+    history = []
+    sigma_prev = None
+    q = None
+    for _ in range(num_iters):
+        model.zero_grad(set_to_none=True)
+        q = jvp_fn(model, xt, t, y, params, v)
+        sigma_est = float(q.norm())
+        history.append(sigma_est)
+        if sigma_prev is not None and sigma_prev > 0:
+            rel_change = abs(sigma_est - sigma_prev) / sigma_prev
+            if rel_change < tol:
+                sigma_prev = sigma_est
+                break
+        sigma_prev = sigma_est
+
+        model.zero_grad(set_to_none=True)
+        vjp_fn(model, xt, t, y, q)  # accumulates J_ALL^T q into .grad
+        v_new = [p.grad.detach().clone() for p in params]
+        vnorm_new = sum(float((vp ** 2).sum()) for vp in v_new) ** 0.5
+        v = [vp / (vnorm_new + 1e-30) for vp in v_new]
+        model.zero_grad(set_to_none=True)
+
+    sigma_1 = sigma_prev
+    u1 = (q / (q.norm() + 1e-30)).detach() if q is not None else None
+    return {"sigma_1": sigma_1, "u1": u1, "v1": v, "history": history, "n_iters": len(history)}
+
+
 def power_iteration_spectral_norm(model, z, t, y, num_iters=15, seed=None):
     """Per-sample power iteration for ||grad_z^2 E||_op = max_i |eigenvalue_i|
     (spectral RADIUS, not just the top positive eigenvalue -- E is generally

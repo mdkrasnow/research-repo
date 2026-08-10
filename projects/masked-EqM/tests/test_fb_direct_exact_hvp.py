@@ -27,7 +27,10 @@ import torch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from fb_direct.exact_hvp import exact_field_vjp, exact_fwrev_backward, field_vjp_none
+from fb_direct.exact_hvp import (
+    exact_field_vjp, exact_fwrev_backward, field_jvp_direct, field_jvp_none,
+    field_vjp_none, power_iteration_theta_sigma1,
+)
 from transport.utils import mean_flat
 
 from test_forward_backwards_direct import make_model, perturb, batch  # noqa: E402
@@ -331,6 +334,100 @@ def test_field_vjp_finite_difference_sanity():
               f"analytic={analytic_directional_deriv:.6e} rel_err={rel_err:.2e}")
 
 
+def _explicit_jacobian(model, ebm, z, t, y, params):
+    """Ground truth for field_jvp_*/power_iteration_theta_sigma1: materialize
+    the FULL Jacobian J (n_out x n_params) by looping over field's output
+    elements, each via an INDEPENDENT torch.autograd.grad call -- no R-op
+    trick, no forward-mode AD, structurally unrelated to the code under
+    test. Only tractable for a small params subset."""
+    def field_of():
+        if ebm == "direct":
+            zc = z.detach().clone().requires_grad_(True)
+            E = model(zc, t, y, energy_only=True)
+            g = torch.autograd.grad(E.sum(), zc, create_graph=True)[0]
+            return -g
+        return model(z, t, y, train=True)
+
+    field = field_of()
+    n_out = field.numel()
+    n_params = sum(p.numel() for p in params)
+    field_flat = field.flatten()
+    J = torch.zeros(n_out, n_params, dtype=torch.float64)
+    for i in range(n_out):
+        gi = torch.autograd.grad(field_flat[i], params, retain_graph=(i < n_out - 1))
+        J[i] = torch.cat([g.flatten() for g in gi])
+    model.zero_grad(set_to_none=True)
+    return field, J
+
+
+def test_theta_jvp_matches_explicit_jacobian():
+    """field_jvp_direct/field_jvp_none (the R-op double-backward trick) must
+    match an EXPLICITLY MATERIALIZED Jacobian -- the ground truth the
+    matrix-free power iteration depends on (Phase 6 engineering
+    requirement: 'validate the matrix-free sigma_1 estimator against an
+    explicitly materialized Jacobian on a tiny model')."""
+    torch.manual_seed(101)
+    for ebm in ("direct", "none"):
+        model = make_model(ebm=ebm, dtype=torch.float64)
+        perturb(model, seed=103)
+        model.eval()
+        z, t, y = batch(n=1, dtype=torch.float64, seed=107)
+        params = [p for n, p in model.named_parameters() if n == "t_embedder.mlp.2.bias"]
+        assert len(params) == 1, "t_embedder.mlp.2.bias not found -- architecture changed"
+
+        field, J = _explicit_jacobian(model, ebm, z, t, y, params)
+        n_params = params[0].numel()
+
+        gen = torch.Generator().manual_seed(109)
+        v_flat = torch.randn(n_params, generator=gen, dtype=torch.float64)
+        v = [v_flat.view(params[0].shape)]
+        Jv_explicit = (J @ v_flat).view(field.shape)
+
+        jvp_fn = field_jvp_direct if ebm == "direct" else field_jvp_none
+        model.zero_grad(set_to_none=True)
+        Jv_got = jvp_fn(model, z, t, y, params, v)
+        model.zero_grad(set_to_none=True)
+
+        torch.testing.assert_close(Jv_got, Jv_explicit, rtol=1e-6, atol=1e-9)
+        print(f"PASS {ebm} field_jvp matches explicitly materialized Jacobian "
+              f"({J.shape[0]}x{J.shape[1]}), "
+              f"max_abs_err={float((Jv_got - Jv_explicit).abs().max()):.2e}")
+
+
+def test_power_iteration_sigma1_matches_explicit_svd():
+    """power_iteration_theta_sigma1 must converge to the top singular value
+    (via numpy SVD of the SAME explicitly materialized Jacobian above) --
+    ground truth independent of whether the JVP and VJP primitives happen
+    to be internally self-consistent with each other."""
+    import numpy as np
+    torch.manual_seed(113)
+    for ebm in ("direct", "none"):
+        model = make_model(ebm=ebm, dtype=torch.float64)
+        perturb(model, seed=127)
+        model.eval()
+        z, t, y = batch(n=1, dtype=torch.float64, seed=131)
+        params = [p for n, p in model.named_parameters() if n == "t_embedder.mlp.2.bias"]
+
+        _, J = _explicit_jacobian(model, ebm, z, t, y, params)
+        sigma1_ref = float(np.linalg.svd(J.numpy(), compute_uv=False)[0])
+
+        jvp_fn = field_jvp_direct if ebm == "direct" else field_jvp_none
+        vjp_fn = exact_field_vjp if ebm == "direct" else field_vjp_none
+        model.zero_grad(set_to_none=True)
+        result = power_iteration_theta_sigma1(jvp_fn, vjp_fn, model, z, t, y, params,
+                                               num_iters=60, seed=17, tol=1e-10)
+        model.zero_grad(set_to_none=True)
+
+        rel_err = abs(result["sigma_1"] - sigma1_ref) / sigma1_ref
+        assert rel_err < 1e-4, (
+            f"{ebm}: power-iteration sigma_1={result['sigma_1']} vs SVD reference={sigma1_ref}, "
+            f"rel_err={rel_err} ({result['n_iters']} iters)"
+        )
+        print(f"PASS {ebm} power_iteration_theta_sigma1 == SVD reference: "
+              f"{result['sigma_1']:.6f} vs {sigma1_ref:.6f} "
+              f"(rel_err={rel_err:.2e}, {result['n_iters']} iters)")
+
+
 import contextlib
 
 
@@ -362,4 +459,6 @@ if __name__ == "__main__":
         test_field_vjp_direct_sign_relation_to_fwrev_w()
         test_field_vjp_none_matches_autograd_grad()
         test_field_vjp_finite_difference_sanity()
+        test_theta_jvp_matches_explicit_jacobian()
+        test_power_iteration_sigma1_matches_explicit_svd()
     print("ALL PASS")
