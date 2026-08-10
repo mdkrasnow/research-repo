@@ -16,19 +16,6 @@
   ],
   "active_runs": [
     {
-      "partition": "gpu_test",
-      "status": "running",
-      "submitted_at": "2026-08-10T00:00:00-04:00",
-      "git_sha": "4c5d20d",
-      "sbatch_path": "projects/masked-EqM/slurm/jobs/spike_batch_amplification_diagnostic.sbatch",
-      "expected_runtime": "<1h (single GPU: 500-batch classification pass + bounded directional check)",
-      "phase": "growing-instability-mechanism-fix",
-      "run_id": "spike_batch_amplification",
-      "job_id": "38093245",
-      "description": "Targeted tail instrumentation per user directive: no more generic stabilization candidates until the specific failing quantity is found. Live-classifies spike (top 2%) vs ordinary (40-60th pct) batches by real grad_norm over a 500-batch pool (batch_size=32, matching training's post-allreduce effective granularity), at direct's 2825000.pt and none's epoch80.pt on IDENTICAL input batches. Measures (1) residual-conditioned amplification gain=||dL/dtheta||/||w or residual|| global+per-block (w is the REAL JVP direction exact_fwrev_backward already computes, now returned as w_norm -- not a random direction, replacing field_sensitivity_diagnostic's wrong-signed isotropic U_t), (2) directional (gradient-aligned, not random) per-block finite-difference top-sensitivity on a bounded spike/ordinary subset. First submission (38087180) stalled 30min at ImageFolder construction on holygpu7c26206 while all 3 prior diagnostics today used the identical code path/data and completed in minutes -- cancelled as a bad node/stuck mount, resubmitted excluding that node.",
-      "gate": "does amplification gain concentrate in specific blocks on spike batches, is it larger/differently-distributed for direct vs none, and does directional top-sensitivity confirm it"
-    },
-    {
       "partition": "seas_gpu",
       "status": "pending",
       "submitted_at": "2026-08-10T00:00:00-04:00",
@@ -12840,6 +12827,49 @@
       "gate": "does residual-conditioned Jacobian amplification A_backbone concentrate/spike specifically under direct on direct-selected spike batches (Hypothesis A), or is it shared across models (B), residual-driven (C), or a selection artifact that doesn't survive matched replay (D)?",
       "completed_at": "2026-08-10T15:40:30-04:00",
       "error": "Pre-flight unit-test step (added this session) called torch.nn.attention.sdpa_kernel unconditionally in test_fb_direct_exact_hvp.py's __main__ block; cluster's torch is 2.1.2 and lacks torch.nn.attention (added in torch 2.3). Never caught locally since the file had only ever been run at FP64 on a newer local torch -- first time it ran inside an sbatch pre-flight check. Fixed (commit 5947c1c): falls back to the pre-2.3 torch.backends.cuda.sdp_kernel API (same one fb_direct/trainer.py's production training loop already uses), preferring the newer API when available. No GPU compute was wasted -- failed at the CPU pre-flight step before touching model/checkpoint."
+    },
+    {
+      "partition": "gpu_test",
+      "status": "cancelled",
+      "submitted_at": "2026-08-10T00:00:00-04:00",
+      "git_sha": "4c5d20d",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/spike_batch_amplification_diagnostic.sbatch",
+      "expected_runtime": "<1h (single GPU: 500-batch classification pass + bounded directional check)",
+      "phase": "growing-instability-mechanism-fix",
+      "run_id": "spike_batch_amplification",
+      "job_id": "38093245",
+      "description": "Targeted tail instrumentation per user directive: no more generic stabilization candidates until the specific failing quantity is found. Live-classifies spike (top 2%) vs ordinary (40-60th pct) batches by real grad_norm over a 500-batch pool (batch_size=32, matching training's post-allreduce effective granularity), at direct's 2825000.pt and none's epoch80.pt on IDENTICAL input batches. Measures (1) residual-conditioned amplification gain=||dL/dtheta||/||w or residual|| global+per-block (w is the REAL JVP direction exact_fwrev_backward already computes, now returned as w_norm -- not a random direction, replacing field_sensitivity_diagnostic's wrong-signed isotropic U_t), (2) directional (gradient-aligned, not random) per-block finite-difference top-sensitivity on a bounded spike/ordinary subset. First submission (38087180) stalled 30min at ImageFolder construction on holygpu7c26206 while all 3 prior diagnostics today used the identical code path/data and completed in minutes -- cancelled as a bad node/stuck mount, resubmitted excluding that node.",
+      "gate": "does amplification gain concentrate in specific blocks on spike batches, is it larger/differently-distributed for direct vs none, and does directional top-sensitivity confirm it",
+      "completed_at": "2026-08-10T12:30:00-04:00",
+      "error": "Superseded: this run_id/job_id was resubmitted as 38105538 after an uncommitted exact_hvp.py edit (w_norm field) caused a mid-session KeyError; 38105538 completed successfully and is recorded separately below. This entry was left stale in active_runs across a context compaction -- fixed now."
+    },
+    {
+      "run_id": "spike_batch_amplification_resubmit",
+      "job_id": "38105538",
+      "partition": "gpu_test",
+      "status": "completed",
+      "submitted_at": "2026-08-10T13:00:00-04:00",
+      "completed_at": "2026-08-10T13:45:00-04:00",
+      "git_sha": "unknown (pre-compaction, not recorded)",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/spike_batch_amplification_diagnostic.sbatch",
+      "phase": "growing-instability-mechanism-fix",
+      "gate": "does amplification gain concentrate in specific blocks on spike batches, is it larger/differently-distributed for direct vs none",
+      "final_metric": "Spike/ordinary gain ratio ~3.4x direct vs ~2.9x none (similar order), same early-layer localization (x_embedder/block0/block1) in both arms -- did NOT find a direct-specific tail-amplification mechanism at this tail depth. SUPERSEDED/CORRECTED by matched_replay_jacobian_diagnostic (job 38127797): Phase 0 audit found this run's gain metric (w_norm-based for direct) was off from none's residual-based gain by a normalization factor ~B*D/2, making the direct-vs-none comparison here not apples-to-apples. The corrected matched-replay diagnostic superseded this result with a clean null."
+    },
+    {
+      "run_id": "matched_replay_jacobian_diagnostic",
+      "job_id": "38127797",
+      "partition": "gpu_test",
+      "status": "completed",
+      "submitted_at": "2026-08-10T15:52:00-04:00",
+      "completed_at": "2026-08-10T16:07:00-04:00",
+      "exit_code": "0:0",
+      "git_sha": "5947c1c",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/matched_replay_jacobian_diagnostic.sbatch",
+      "expected_runtime": "13min actual (much faster than the 2-4h estimate)",
+      "phase": "growing-instability-mechanism-fix",
+      "gate": "does residual-conditioned Jacobian amplification A_backbone concentrate/spike specifically under direct on direct-selected spike batches (Hypothesis A), or is it shared across models (B), residual-driven (C), or a selection artifact (D)?",
+      "final_metric": "CLEAN NULL RESULT for Hypothesis A, first decisive result after 5 prior null/inconclusive diagnostics. R_direct=2.58 (spike/control A_backbone ratio, own-selection) vs R_none=2.49 -- statistically indistinguishable, Delta=0.034 log-units, 95% bootstrap CI [-0.119, 0.279] comfortably includes 0. Both models show ~2.5x normalized Jacobian amplification on their own hard-selected batches -- since A=||J^T(r/||r||)|| is residual-magnitude-normalized BY CONSTRUCTION, this rules out Hypothesis C (residual-size artifact) directly and supports Hypothesis B (shared high-sensitivity batches / generic Transformer-Jacobian-conditioning property, not a direct-EBM-parameterization-specific pathology). Secondary asymmetry (not primary evidence): cross-selection ratios weaker (direct on none's spikes=1.85, none on direct's spikes=1.22) -- grad_norm-based spike selection has a partial model-specific component even though own-selection magnitudes match. Layer localization mixed/inconsistent across blocks -- no clean 'which layer dominates' story. Table 1 validated the canonical residual identity to ~2e-7 relative error in both arms. CONCLUSION: residual-conditioned Jacobian amplification does NOT explain direct's growing-clip-rate instability at this tail depth (top-2.5%-of-960); deprioritize further tail-amplification probes, prioritize the causal single-lever tests (weight-decay 38070968, z-loss 38070989) and the FID-scale evaluation as deciding evidence."
     }
   ],
   "debugging_notes": [
