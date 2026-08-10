@@ -105,19 +105,6 @@
       "job_id": "38103515",
       "description": "Re-chained after 38044090 was cancelled (same reason). Now depends on 38103380.",
       "gate": "Does the GP-smoothed exact-fwrev arm beat direct's 39.94, and how close does it get to none's 34.16? Note the ~4.8% field/target shrinkage (matches 1/(1+lambda) prediction) may under-transport at fixed eta=0.003 -- an eta-compensated secondary eval is planned if this arm's FID looks worse than expected."
-    },
-    {
-      "run_id": "matched_replay_jacobian_diagnostic",
-      "job_id": "38126114",
-      "partition": "gpu_test",
-      "status": "running",
-      "description": "Corrected tail-instrumentation diagnostic replacing spike_batch_amplification_diagnostic (Phase 0 audit found the latter's ~4-order-of-magnitude direct/none gain gap was mostly a normalization artifact: direct's w_norm = -(2/(B*D)) * canonical_residual). Implements user's full matched-replay spec: exact_field_vjp/field_vjp_none (arbitrary-direction VJP, decoupled from loss reduction convention) computing A(x,r)=||J^T(r/||r||)||, validated every batch against loss_main==mean(r^2) identity. 2x2 design: direct-selected + none-selected spike/control batches from a shared 960-batch pool, each replayed through BOTH checkpoints (direct 2825000.pt from job 37780076, none epoch80.pt from job 36632776). Backbone/head/global/per-layer breakdown + batch-level bootstrap CI for cross-model Delta. 8/8 new+existing unit tests (FP64 CPU, double-backward + autograd.grad + finite-difference references) PASS before submission, also re-run inside the sbatch before GPU work.",
-      "submitted_at": "2026-08-10T15:37:00-04:00",
-      "git_sha": "5264004",
-      "sbatch_path": "projects/masked-EqM/slurm/jobs/matched_replay_jacobian_diagnostic.sbatch",
-      "expected_runtime": "2-4h (single GPU: 2x960-batch ranking pass + ~50-100 batch matched VJP replay)",
-      "phase": "growing-instability-mechanism-fix",
-      "gate": "does residual-conditioned Jacobian amplification A_backbone concentrate/spike specifically under direct on direct-selected spike batches (Hypothesis A), or is it shared across models (B), residual-driven (C), or a selection artifact that doesn't survive matched replay (D)?"
     }
   ],
   "completed_runs": [
@@ -12838,6 +12825,21 @@
       "sbatch_path": "projects/masked-EqM/slurm/jobs/fb_direct_gate2_arm.sbatch",
       "status": "completed",
       "submitted_at": "2026-08-06T16:52:00-04:00"
+    },
+    {
+      "run_id": "matched_replay_jacobian_diagnostic",
+      "job_id": "38126114",
+      "partition": "gpu_test",
+      "status": "failed",
+      "description": "Corrected tail-instrumentation diagnostic replacing spike_batch_amplification_diagnostic (Phase 0 audit found the latter's ~4-order-of-magnitude direct/none gain gap was mostly a normalization artifact: direct's w_norm = -(2/(B*D)) * canonical_residual). Implements user's full matched-replay spec: exact_field_vjp/field_vjp_none (arbitrary-direction VJP, decoupled from loss reduction convention) computing A(x,r)=||J^T(r/||r||)||, validated every batch against loss_main==mean(r^2) identity. 2x2 design: direct-selected + none-selected spike/control batches from a shared 960-batch pool, each replayed through BOTH checkpoints (direct 2825000.pt from job 37780076, none epoch80.pt from job 36632776). Backbone/head/global/per-layer breakdown + batch-level bootstrap CI for cross-model Delta. 8/8 new+existing unit tests (FP64 CPU, double-backward + autograd.grad + finite-difference references) PASS before submission, also re-run inside the sbatch before GPU work.",
+      "submitted_at": "2026-08-10T15:37:00-04:00",
+      "git_sha": "5264004",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/matched_replay_jacobian_diagnostic.sbatch",
+      "expected_runtime": "2-4h (single GPU: 2x960-batch ranking pass + ~50-100 batch matched VJP replay)",
+      "phase": "growing-instability-mechanism-fix",
+      "gate": "does residual-conditioned Jacobian amplification A_backbone concentrate/spike specifically under direct on direct-selected spike batches (Hypothesis A), or is it shared across models (B), residual-driven (C), or a selection artifact that doesn't survive matched replay (D)?",
+      "completed_at": "2026-08-10T15:40:30-04:00",
+      "error": "Pre-flight unit-test step (added this session) called torch.nn.attention.sdpa_kernel unconditionally in test_fb_direct_exact_hvp.py's __main__ block; cluster's torch is 2.1.2 and lacks torch.nn.attention (added in torch 2.3). Never caught locally since the file had only ever been run at FP64 on a newer local torch -- first time it ran inside an sbatch pre-flight check. Fixed (commit 5947c1c): falls back to the pre-2.3 torch.backends.cuda.sdp_kernel API (same one fb_direct/trainer.py's production training loop already uses), preferring the newer API when available. No GPU compute was wasted -- failed at the CPU pre-flight step before touching model/checkpoint."
     }
   ],
   "debugging_notes": [
