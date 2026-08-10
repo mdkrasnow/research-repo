@@ -265,7 +265,31 @@ def amplification(eval_model, ebm, groups, xt, t, y, ut, eps=1e-12):
     return diag
 
 
-# ---------------------------------------------------------------- selection + bootstrap
+# ---------------------------------------------------------------- selection + matched interaction
+#
+# CORRECTNESS NOTE (2026-08-10, post-hoc fix after external review): the
+# first version of this script computed
+#     Delta_WRONG = log(median A_direct[direct_spike]/A_direct[direct_control])
+#                 - log(median A_none[none_spike]/A_none[none_control])
+# i.e. it compared EACH model on its OWN independently-selected batches --
+# exactly the unmatched comparison Hypothesis D warns against, and exactly
+# what the matched-replay design exists to avoid. The reviewer's correct
+# statistic holds the SOURCE of the batches fixed and swaps only the
+# EVALUATING model:
+#
+#     Delta_D = log(A_direct[direct_spike]/A_direct[direct_control])
+#             - log(A_none[direct_spike]/A_none[direct_control])          (source = direct's own spikes)
+#     Delta_N = log(A_none[none_spike]/A_none[none_control])
+#             - log(A_direct[none_spike]/A_direct[none_control])          (source = none's own spikes)
+#     interaction = Delta_D - Delta_N
+#
+# Delta_D asks: for the batches direct itself flags as hard, does direct's
+# OWN Jacobian amplify them more than none's Jacobian does (evaluated on
+# the identical tensors)? That is the actual test of "direct-specific
+# geometry," not "is direct's own worst case worse than none's own worst
+# case" (which conflates the amplification effect with which batches each
+# model's selection criterion happens to prefer).
+
 
 def select_spike_control(pool_grad_norms, spike_frac, num_control):
     n = len(pool_grad_norms)
@@ -278,75 +302,70 @@ def select_spike_control(pool_grad_norms, spike_frac, num_control):
     return spike_idx, control_idx
 
 
-def bootstrap_delta_ci(log_a_direct_spike, log_a_direct_control, log_a_none_spike, log_a_none_control,
-                        num_samples=2000, seed=0):
-    """Delta = median(logA_direct[spike]-logA_direct[control]) -
-               median(logA_none[spike]-logA_none[control])
-    Bootstrap over BATCHES (paired within model where possible), reported
-    explicitly as batch-level uncertainty, not a multi-seed CI."""
+def paired_self_minus_other(idxs, a_self, a_other):
+    """Per-batch log(a_self[i]) - log(a_other[i]) for i in idxs. a_self/a_other:
+    dict idx -> value (same batch, two models -- this is what makes it a
+    matched/paired comparison rather than an independent-samples one)."""
+    import math
+    return [math.log(max(a_self[i], 1e-30)) - math.log(max(a_other[i], 1e-30)) for i in idxs]
+
+
+def matched_interaction_bootstrap(rho_source_spike, rho_source_control,
+                                   rho_recip_spike, rho_recip_control,
+                                   num_samples=2000, seed=0):
+    """rho_source_*: per-batch log(A_source_model) - log(A_other_model) on the
+    SOURCE model's own-selected spike/control batches -> Delta_source.
+    rho_recip_*: the reciprocal, per-batch log(A_recip_model) -
+    log(A_other_model) on the RECIPROCAL model's own-selected batches ->
+    Delta_recip. Returns point estimates for both and a bootstrap CI for
+    Delta_source - Delta_recip (the interaction Table 4 should report)."""
     import random
+    import statistics
     rng = random.Random(seed)
 
-    def resample_median_diff(spike_vals, control_vals):
-        if not spike_vals or not control_vals:
+    def point(vals):
+        return statistics.median(vals) if vals else None
+
+    def resample_median(vals):
+        if not vals:
             return None
-        rs = [spike_vals[rng.randrange(len(spike_vals))] for _ in range(len(spike_vals))]
-        rc = [control_vals[rng.randrange(len(control_vals))] for _ in range(len(control_vals))]
-        rs_sorted, rc_sorted = sorted(rs), sorted(rc)
-        med_s = rs_sorted[len(rs_sorted) // 2]
-        med_c = rc_sorted[len(rc_sorted) // 2]
-        return med_s - med_c
+        r = [vals[rng.randrange(len(vals))] for _ in range(len(vals))]
+        return statistics.median(r)
 
-    deltas = []
+    delta_source_point = (point(rho_source_spike) - point(rho_source_control)) \
+        if (rho_source_spike and rho_source_control) else None
+    delta_recip_point = (point(rho_recip_spike) - point(rho_recip_control)) \
+        if (rho_recip_spike and rho_recip_control) else None
+    interaction_point = (delta_source_point - delta_recip_point) \
+        if (delta_source_point is not None and delta_recip_point is not None) else None
+
+    samples = []
     for _ in range(num_samples):
-        d_direct = resample_median_diff(log_a_direct_spike, log_a_direct_control)
-        d_none = resample_median_diff(log_a_none_spike, log_a_none_control)
-        if d_direct is None or d_none is None:
+        d_s = resample_median(rho_source_spike)
+        d_c = resample_median(rho_source_control)
+        n_s = resample_median(rho_recip_spike)
+        n_c = resample_median(rho_recip_control)
+        if None in (d_s, d_c, n_s, n_c):
             continue
-        deltas.append(d_direct - d_none)
-    if not deltas:
-        return {"point": None, "ci95": None, "n_bootstrap": 0}
-    deltas.sort()
-    import statistics
-    med_direct = statistics.median(log_a_direct_spike) - statistics.median(log_a_direct_control) \
-        if log_a_direct_spike and log_a_direct_control else None
-    med_none = statistics.median(log_a_none_spike) - statistics.median(log_a_none_control) \
-        if log_a_none_spike and log_a_none_control else None
-    point_est = (med_direct - med_none) if (med_direct is not None and med_none is not None) else None
-    lo = deltas[int(0.025 * len(deltas))]
-    hi = deltas[int(0.975 * len(deltas)) - 1]
-    return {"point": point_est, "ci95": [lo, hi], "n_bootstrap": len(deltas)}
+        samples.append((d_s - d_c) - (n_s - n_c))
+    if not samples:
+        return {"Delta_source": delta_source_point, "Delta_recip": delta_recip_point,
+                "interaction_point": interaction_point, "interaction_ci95": None, "n_bootstrap": 0}
+    samples.sort()
+    lo = samples[int(0.025 * len(samples))]
+    hi = samples[int(0.975 * len(samples)) - 1]
+    return {"Delta_source": delta_source_point, "Delta_recip": delta_recip_point,
+            "interaction_point": interaction_point, "interaction_ci95": [lo, hi], "n_bootstrap": len(samples)}
 
 
-# ---------------------------------------------------------------- main
+# ---------------------------------------------------------------- pool + ranking + replay helpers
 
-def main():
-    p = argparse.ArgumentParser()
-    p.add_argument("--ckpt-direct", required=True)
-    p.add_argument("--ckpt-none", required=True)
-    p.add_argument("--data-path", required=True)
-    p.add_argument("--model", default="EqM-B/2")
-    p.add_argument("--image-size", type=int, default=256)
-    p.add_argument("--num-classes", type=int, default=1000)
-    p.add_argument("--batch-size", type=int, default=8, help="gpu_test MIG 20G slice needs <=8 for exact_fwrev")
-    p.add_argument("--pool-size", type=int, default=960)
-    p.add_argument("--spike-frac", type=float, default=0.025)
-    p.add_argument("--num-control", type=int, default=24)
-    p.add_argument("--bootstrap-samples", type=int, default=2000)
-    p.add_argument("--vae", default="ema")
-    p.add_argument("--seed", type=int, default=0)
-    p.add_argument("--out", default=None)
-    p.add_argument("--out-md", default=None)
-    args = p.parse_args()
-
-    torch.manual_seed(args.seed)
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+def build_pool(args, device):
     from diffusers.models import AutoencoderKL
     from transport import create_transport
     vae = AutoencoderKL.from_pretrained(f"stabilityai/sd-vae-ft-{args.vae}").to(device)
     vae.eval()
     transport = create_transport("Linear", "velocity", None, None, None)
-
     print(f"[diag] pool: {args.pool_size} batches x {args.batch_size} (real ImageNet), seed={args.seed}")
     probe_bank = build_probe_bank(args.data_path, args.pool_size, args.batch_size, args.image_size, args.seed)
     fixed_inputs = []
@@ -361,54 +380,24 @@ def main():
         fixed_inputs.append((xt.detach(), t.detach(), y, ut.detach()))
     del vae
     torch.cuda.empty_cache()
+    return fixed_inputs
 
-    print("[diag] loading direct + none checkpoints (both resident)...")
-    model_direct = load_model(args.ckpt_direct, args.model, args.image_size, args.num_classes, "direct", device)
-    model_none = load_model(args.ckpt_none, args.model, args.image_size, args.num_classes, "none", device)
-    groups_direct = block_groups(model_direct)
-    groups_none = block_groups(model_none)
 
-    # ---------------- Phase 2a: rank the shared pool under BOTH models' real training grad_norm ----------------
-    print("[diag] ranking pool under direct model (real pre-clip grad_norm, exact_fwrev_backward)...")
-    pool_grad_direct, pool_loss_direct = [], []
+def rank_pool(probe_fn, model, fixed_inputs, label):
+    grads, losses = [], []
     for i, (xt, t, y, ut) in enumerate(fixed_inputs):
-        gn, lm = probe_direct(model_direct, xt, t, y, ut)
-        pool_grad_direct.append(gn)
-        pool_loss_direct.append(lm)
+        gn, lm = probe_fn(model, xt, t, y, ut)
+        grads.append(gn)
+        losses.append(lm)
         if (i + 1) % 100 == 0:
-            print(f"  [direct ranking] {i + 1}/{len(fixed_inputs)}")
+            print(f"  [{label} ranking] {i + 1}/{len(fixed_inputs)}")
+    return grads, losses
 
-    print("[diag] ranking pool under none model (real pre-clip grad_norm)...")
-    pool_grad_none, pool_loss_none = [], []
-    for i, (xt, t, y, ut) in enumerate(fixed_inputs):
-        gn, lm = probe_none(model_none, xt, t, y, ut)
-        pool_grad_none.append(gn)
-        pool_loss_none.append(lm)
-        if (i + 1) % 100 == 0:
-            print(f"  [none ranking] {i + 1}/{len(fixed_inputs)}")
 
-    direct_spike_idx, direct_control_idx = select_spike_control(pool_grad_direct, args.spike_frac, args.num_control)
-    none_spike_idx, none_control_idx = select_spike_control(pool_grad_none, args.spike_frac, args.num_control)
-
-    print(f"[diag] direct-selected: {len(direct_spike_idx)} spike, {len(direct_control_idx)} control "
-          f"(grad_norm spike range {min(pool_grad_direct[i] for i in direct_spike_idx):.3f}-"
-          f"{max(pool_grad_direct[i] for i in direct_spike_idx):.3f})")
-    print(f"[diag] none-selected:   {len(none_spike_idx)} spike, {len(none_control_idx)} control "
-          f"(grad_norm spike range {min(pool_grad_none[i] for i in none_spike_idx):.3f}-"
-          f"{max(pool_grad_none[i] for i in none_spike_idx):.3f})")
-
-    groups_selection = {
-        "direct_spike": direct_spike_idx, "direct_control": direct_control_idx,
-        "none_spike": none_spike_idx, "none_control": none_control_idx,
-    }
-    all_selected_idx = sorted(set(direct_spike_idx) | set(direct_control_idx)
-                               | set(none_spike_idx) | set(none_control_idx))
-    print(f"[diag] {len(all_selected_idx)} unique batches selected for matched 2x2 replay")
-
-    # ---------------- Phase 3: matched replay -- every selected batch through BOTH models ----------------
-    replay = {}  # idx -> {"direct": {...}, "none": {...}}
+def replay_union(model_direct, model_none, groups_direct, groups_none, fixed_inputs, union_idx):
+    replay = {}
     identity_failures = []
-    for n_done, idx in enumerate(all_selected_idx):
+    for n_done, idx in enumerate(union_idx):
         xt, t, y, ut = fixed_inputs[idx]
         try:
             r_direct = amplification(model_direct, "direct", groups_direct, xt, t, y, ut)
@@ -422,178 +411,274 @@ def main():
             r_none = None
         replay[idx] = {"direct": r_direct, "none": r_none}
         if (n_done + 1) % 20 == 0:
-            print(f"  [replay] {n_done + 1}/{len(all_selected_idx)}")
-
+            print(f"  [replay] {n_done + 1}/{len(union_idx)}")
     if identity_failures:
         print(f"[diag] FATAL: {len(identity_failures)} canonical-residual identity violations:")
         for msg in identity_failures[:5]:
             print("   ", msg)
         raise SystemExit(1)
+    return replay
 
-    # ---------------- TABLE 1: instrumentation validation ----------------
+
+def ratio_row(spike_idx, control_idx, d, extra=None):
+    import statistics
+    sv = [d[i] for i in spike_idx]
+    cv = [d[i] for i in control_idx]
+    med_s = statistics.median(sv) if sv else None
+    med_c = statistics.median(cv) if cv else None
+    ratio = (med_s / med_c) if (med_s is not None and med_c and med_c > 0) else None
+    row = {"control_median": med_c, "spike_median": med_s, "ratio": ratio,
+           "n_control": len(cv), "n_spike": len(sv)}
+    if extra:
+        row.update(extra)
+    return row
+
+
+# ---------------------------------------------------------------- per-checkpoint-pairing evaluation
+
+def evaluate_checkpoint_pairing(ckpt_label, model_direct, model_none, groups_direct, groups_none,
+                                 fixed_inputs, pool_grad_none, none_spike_idx, none_control_idx, args):
+    print(f"[diag] === checkpoint pairing: direct={ckpt_label} vs none=FIXED reference ===")
+    pool_grad_direct, _ = rank_pool(probe_direct, model_direct, fixed_inputs, f"direct({ckpt_label})")
+
+    direct_spike_idx, direct_control_idx = select_spike_control(pool_grad_direct, args.spike_frac, args.num_control)
+    print(f"[diag] direct({ckpt_label})-selected: {len(direct_spike_idx)} spike, {len(direct_control_idx)} control "
+          f"(grad_norm spike range {min(pool_grad_direct[i] for i in direct_spike_idx):.3f}-"
+          f"{max(pool_grad_direct[i] for i in direct_spike_idx):.3f})")
+
+    union_idx = sorted(set(direct_spike_idx) | set(direct_control_idx)
+                        | set(none_spike_idx) | set(none_control_idx))
+    print(f"[diag] {len(union_idx)} unique batches for matched replay at {ckpt_label}")
+    replay = replay_union(model_direct, model_none, groups_direct, groups_none, fixed_inputs, union_idx)
+
     table1 = []
-    for eval_name, ckpt in (("direct", args.ckpt_direct), ("none", args.ckpt_none)):
-        diffs = [replay[idx][eval_name]["identity_abs_diff"] for idx in all_selected_idx]
-        rels = [replay[idx][eval_name]["identity_rel_diff"] for idx in all_selected_idx]
+    for eval_name in ("direct", "none"):
+        diffs = [replay[idx][eval_name]["identity_abs_diff"] for idx in union_idx]
+        rels = [replay[idx][eval_name]["identity_rel_diff"] for idx in union_idx]
         table1.append({
-            "model": eval_name, "checkpoint": ckpt, "n_batches": len(all_selected_idx),
-            "max_abs_diff": max(diffs), "max_rel_diff": max(rels), "pass": True,
+            "model": eval_name, "checkpoint_label": ckpt_label if eval_name == "direct" else "none_FIXED",
+            "n_batches": len(union_idx), "max_abs_diff": max(diffs), "max_rel_diff": max(rels), "pass": True,
         })
 
-    # ---------------- TABLE 2: matched replay summary (per batch, per eval model) ----------------
-    def batch_source_labels(idx):
-        labels = []
-        for gname, idxs in groups_selection.items():
-            if idx in idxs:
-                labels.append(gname)
-        return labels
+    def source_labels(idx):
+        out = []
+        if idx in direct_spike_idx:
+            out.append("direct_spike")
+        if idx in direct_control_idx:
+            out.append("direct_control")
+        if idx in none_spike_idx:
+            out.append("none_spike")
+        if idx in none_control_idx:
+            out.append("none_control")
+        return out
 
     table2 = []
-    for idx in all_selected_idx:
+    for idx in union_idx:
         for eval_name in ("direct", "none"):
             d = replay[idx][eval_name]
             table2.append({
-                "batch_idx": idx, "source_groups": batch_source_labels(idx), "eval_model": eval_name,
+                "batch_idx": idx, "source_groups": source_labels(idx), "eval_model": eval_name,
                 "residual_rms": d["residual_rms"], "residual_l2": d["residual_l2"],
                 "residual_abs_max": d["residual_abs_max"],
                 "grad_norm_direct_ranking": pool_grad_direct[idx], "grad_norm_none_ranking": pool_grad_none[idx],
                 "A_backbone": d["A_backbone"], "A_head": d["A_head"], "A_global": d["A_global"],
             })
 
-    # ---------------- TABLE 3 + 4: primary aggregation + cross-model interaction ----------------
-    import math
-    import statistics
+    a_direct = {idx: replay[idx]["direct"]["A_backbone"] for idx in union_idx}
+    a_none = {idx: replay[idx]["none"]["A_backbone"] for idx in union_idx}
+    resid_direct = {idx: replay[idx]["direct"]["residual_rms"] for idx in union_idx}
+    resid_none = {idx: replay[idx]["none"]["residual_rms"] for idx in union_idx}
+    grad_direct = {idx: pool_grad_direct[idx] for idx in union_idx}
+    grad_none = {idx: pool_grad_none[idx] for idx in union_idx}
 
-    def vals(group_idx, eval_name, key="A_backbone"):
-        return [replay[idx][eval_name][key] for idx in group_idx]
+    # TABLE 3: own + CORRECTLY-matched cross (same batches, other model), both A-based and real-grad-based.
+    table3 = [
+        {"eval_model": "direct", "batches_from": "direct", "selection": "own", "metric": "A_backbone",
+         **ratio_row(direct_spike_idx, direct_control_idx, a_direct)},
+        {"eval_model": "none", "batches_from": "direct", "selection": "cross (matched, same batches)", "metric": "A_backbone",
+         **ratio_row(direct_spike_idx, direct_control_idx, a_none)},
+        {"eval_model": "none", "batches_from": "none", "selection": "own", "metric": "A_backbone",
+         **ratio_row(none_spike_idx, none_control_idx, a_none)},
+        {"eval_model": "direct", "batches_from": "none", "selection": "cross (matched, same batches)", "metric": "A_backbone",
+         **ratio_row(none_spike_idx, none_control_idx, a_direct)},
+        {"eval_model": "direct", "batches_from": "direct", "selection": "own", "metric": "grad_norm_real_preclip",
+         **ratio_row(direct_spike_idx, direct_control_idx, grad_direct)},
+        {"eval_model": "none", "batches_from": "direct", "selection": "cross (matched, same batches)", "metric": "grad_norm_real_preclip",
+         **ratio_row(direct_spike_idx, direct_control_idx, grad_none)},
+        {"eval_model": "none", "batches_from": "none", "selection": "own", "metric": "grad_norm_real_preclip",
+         **ratio_row(none_spike_idx, none_control_idx, grad_none)},
+        {"eval_model": "direct", "batches_from": "none", "selection": "cross (matched, same batches)", "metric": "grad_norm_real_preclip",
+         **ratio_row(none_spike_idx, none_control_idx, grad_direct)},
+    ]
 
-    table3 = []
-    for eval_name in ("direct", "none"):
-        # own-selection ordinary/spike, then (below) cross-selection against the OTHER model's batches
-        own_spike = direct_spike_idx if eval_name == "direct" else none_spike_idx
-        own_control = direct_control_idx if eval_name == "direct" else none_control_idx
-        sv = vals(own_spike, eval_name)
-        cv = vals(own_control, eval_name)
-        ratio = (statistics.median(sv) / statistics.median(cv)) if sv and cv and statistics.median(cv) > 0 else None
-        table3.append({
-            "eval_model": eval_name, "selection": "own",
-            "A_backbone_control_median": statistics.median(cv) if cv else None,
-            "A_backbone_spike_median": statistics.median(sv) if sv else None,
-            "spike_over_control_ratio": ratio,
-            "n_control": len(cv), "n_spike": len(sv),
-        })
-        # cross-selection: this eval model's response to the OTHER model's spike/control batches
-        other_spike = none_spike_idx if eval_name == "direct" else direct_spike_idx
-        other_control = none_control_idx if eval_name == "direct" else direct_control_idx
-        sv2 = vals(other_spike, eval_name)
-        cv2 = vals(other_control, eval_name)
-        ratio2 = (statistics.median(sv2) / statistics.median(cv2)) if sv2 and cv2 and statistics.median(cv2) > 0 else None
-        table3.append({
-            "eval_model": eval_name, "selection": "cross (other model's batches)",
-            "A_backbone_control_median": statistics.median(cv2) if cv2 else None,
-            "A_backbone_spike_median": statistics.median(sv2) if sv2 else None,
-            "spike_over_control_ratio": ratio2,
-            "n_control": len(cv2), "n_spike": len(sv2),
-        })
+    # TABLE 4: the CORRECTED source-matched interaction (Delta_D - Delta_N), A-based and grad-based.
+    rho_D_spike_A = paired_self_minus_other(direct_spike_idx, a_direct, a_none)
+    rho_D_control_A = paired_self_minus_other(direct_control_idx, a_direct, a_none)
+    rho_N_spike_A = paired_self_minus_other(none_spike_idx, a_none, a_direct)
+    rho_N_control_A = paired_self_minus_other(none_control_idx, a_none, a_direct)
+    interaction_A = matched_interaction_bootstrap(rho_D_spike_A, rho_D_control_A, rho_N_spike_A, rho_N_control_A,
+                                                   num_samples=args.bootstrap_samples, seed=args.seed)
 
-    def log_vals(group_idx, eval_name):
-        return [math.log(max(v, 1e-30)) for v in vals(group_idx, eval_name)]
+    rho_D_spike_g = paired_self_minus_other(direct_spike_idx, grad_direct, grad_none)
+    rho_D_control_g = paired_self_minus_other(direct_control_idx, grad_direct, grad_none)
+    rho_N_spike_g = paired_self_minus_other(none_spike_idx, grad_none, grad_direct)
+    rho_N_control_g = paired_self_minus_other(none_control_idx, grad_none, grad_direct)
+    interaction_grad = matched_interaction_bootstrap(rho_D_spike_g, rho_D_control_g, rho_N_spike_g, rho_N_control_g,
+                                                       num_samples=args.bootstrap_samples, seed=args.seed)
 
-    log_a_direct_spike = log_vals(direct_spike_idx, "direct")
-    log_a_direct_control = log_vals(direct_control_idx, "direct")
-    log_a_none_spike = log_vals(none_spike_idx, "none")
-    log_a_none_control = log_vals(none_control_idx, "none")
+    # Decomposition |g| ~ (2/(B*D)) * |r| * A -- the (2/(B*D)) constant is IDENTICAL for direct and none
+    # at fixed batch_size/latent shape, so it cancels exactly in a same-model spike/control ratio; grad_ratio
+    # should equal residual_ratio * A_ratio for each model's OWN selection, up to that shared factor cancelling.
+    decomposition = {
+        "direct_own": {
+            "grad_ratio": ratio_row(direct_spike_idx, direct_control_idx, grad_direct)["ratio"],
+            "residual_ratio": ratio_row(direct_spike_idx, direct_control_idx, resid_direct)["ratio"],
+            "A_ratio": ratio_row(direct_spike_idx, direct_control_idx, a_direct)["ratio"],
+        },
+        "none_own": {
+            "grad_ratio": ratio_row(none_spike_idx, none_control_idx, grad_none)["ratio"],
+            "residual_ratio": ratio_row(none_spike_idx, none_control_idx, resid_none)["ratio"],
+            "A_ratio": ratio_row(none_spike_idx, none_control_idx, a_none)["ratio"],
+        },
+    }
+    for row in decomposition.values():
+        row["implied_grad_ratio"] = (row["residual_ratio"] * row["A_ratio"]
+                                      if (row["residual_ratio"] and row["A_ratio"]) else None)
 
-    ci = bootstrap_delta_ci(log_a_direct_spike, log_a_direct_control, log_a_none_spike, log_a_none_control,
-                             num_samples=args.bootstrap_samples, seed=args.seed)
-    r_direct = statistics.median(vals(direct_spike_idx, "direct")) / statistics.median(vals(direct_control_idx, "direct")) \
-        if direct_spike_idx and direct_control_idx else None
-    r_none = statistics.median(vals(none_spike_idx, "none")) / statistics.median(vals(none_control_idx, "none")) \
-        if none_spike_idx and none_control_idx else None
-    table4 = [{
-        "checkpoint_pair": [args.ckpt_direct, args.ckpt_none],
-        "R_direct_own_selection": r_direct, "R_none_own_selection": r_none,
-        "Delta_point": ci["point"], "Delta_ci95": ci["ci95"], "n_bootstrap": ci["n_bootstrap"],
-        "note": "batch-level bootstrap uncertainty only, NOT multi-seed replication",
-    }]
-
-    # ---------------- TABLE 5: layer localization ----------------
     all_groups = sorted((set(groups_direct.values()) | set(groups_none.values())) - {"other"})
     table5 = []
     for g in all_groups:
         row = {"group": g}
         for eval_name, spike_idx, control_idx in (("direct", direct_spike_idx, direct_control_idx),
                                                     ("none", none_spike_idx, none_control_idx)):
-            sv = [replay[idx][eval_name]["A_layer"].get(g, 0.0) for idx in spike_idx]
-            cv = [replay[idx][eval_name]["A_layer"].get(g, 0.0) for idx in control_idx]
-            med_s = statistics.median(sv) if sv else None
-            med_c = statistics.median(cv) if cv else None
-            row[f"{eval_name}_ordinary"] = med_c
-            row[f"{eval_name}_spike"] = med_s
-            row[f"{eval_name}_ratio"] = (med_s / med_c) if (med_s is not None and med_c and med_c > 0) else None
+            layer_vals = {idx: replay[idx][eval_name]["A_layer"].get(g, 0.0) for idx in union_idx}
+            rr = ratio_row(spike_idx, control_idx, layer_vals)
+            row[f"{eval_name}_ordinary"] = rr["control_median"]
+            row[f"{eval_name}_spike"] = rr["spike_median"]
+            row[f"{eval_name}_ratio"] = rr["ratio"]
         table5.append(row)
     table5.sort(key=lambda r: (r.get("direct_ratio") or 0), reverse=True)
 
-    summary = {
+    return {
+        "checkpoint_label": ckpt_label,
+        "n_direct_spike": len(direct_spike_idx), "n_direct_control": len(direct_control_idx),
+        "table1_instrumentation_validation": table1,
+        "table2_matched_replay": table2,
+        "table3_own_and_matched_cross": table3,
+        "table4_source_matched_interaction": {
+            "A_based": interaction_A, "grad_based": interaction_grad,
+            "note": ("interaction_point = Delta_source - Delta_recip, where Delta_source = "
+                     "log(R_direct-on-direct-selected) - log(R_none-on-direct-selected) [SAME "
+                     "batches, both models] and Delta_recip is the reciprocal with none-selected "
+                     "batches. This is the CORRECTED statistic -- see module-level correctness note."),
+        },
+        "residual_decomposition": decomposition,
+        "table5_layer_localization": table5,
+    }
+
+
+# ---------------------------------------------------------------- main
+
+def main():
+    p = argparse.ArgumentParser()
+    p.add_argument("--ckpt-direct", required=True, nargs="+",
+                    help="one or more direct checkpoints, temporal order (early..late); "
+                         "the temporal-trend table needs >=2")
+    p.add_argument("--ckpt-direct-labels", nargs="+", default=None,
+                    help="labels matching --ckpt-direct (default ckpt0, ckpt1, ...)")
+    p.add_argument("--ckpt-none", required=True, help="single FIXED none reference checkpoint")
+    p.add_argument("--data-path", required=True)
+    p.add_argument("--model", default="EqM-B/2")
+    p.add_argument("--image-size", type=int, default=256)
+    p.add_argument("--num-classes", type=int, default=1000)
+    p.add_argument("--batch-size", type=int, default=8, help="gpu_test MIG 20G slice needs <=8 for exact_fwrev")
+    p.add_argument("--pool-size", type=int, default=960)
+    p.add_argument("--spike-frac", type=float, default=0.025)
+    p.add_argument("--num-control", type=int, default=24)
+    p.add_argument("--bootstrap-samples", type=int, default=2000)
+    p.add_argument("--vae", default="ema")
+    p.add_argument("--seed", type=int, default=0)
+    p.add_argument("--out", default=None)
+    args = p.parse_args()
+
+    labels = args.ckpt_direct_labels or [f"ckpt{i}" for i in range(len(args.ckpt_direct))]
+    assert len(labels) == len(args.ckpt_direct), "--ckpt-direct-labels must match --ckpt-direct in count"
+
+    torch.manual_seed(args.seed)
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+
+    fixed_inputs = build_pool(args, device)
+
+    print("[diag] loading FIXED none reference checkpoint...")
+    model_none = load_model(args.ckpt_none, args.model, args.image_size, args.num_classes, "none", device)
+    groups_none = block_groups(model_none)
+
+    print("[diag] ranking pool under FIXED none model (once; reused for every direct checkpoint)...")
+    pool_grad_none, _ = rank_pool(probe_none, model_none, fixed_inputs, "none")
+    none_spike_idx, none_control_idx = select_spike_control(pool_grad_none, args.spike_frac, args.num_control)
+    print(f"[diag] none-selected: {len(none_spike_idx)} spike, {len(none_control_idx)} control "
+          f"(grad_norm spike range {min(pool_grad_none[i] for i in none_spike_idx):.3f}-"
+          f"{max(pool_grad_none[i] for i in none_spike_idx):.3f})")
+
+    per_checkpoint = []
+    for label, ckpt_path in zip(labels, args.ckpt_direct):
+        model_direct = load_model(ckpt_path, args.model, args.image_size, args.num_classes, "direct", device)
+        groups_direct = block_groups(model_direct)
+        result = evaluate_checkpoint_pairing(label, model_direct, model_none, groups_direct, groups_none,
+                                              fixed_inputs, pool_grad_none, none_spike_idx, none_control_idx, args)
+        result["checkpoint_path"] = ckpt_path
+        per_checkpoint.append(result)
+        print(f"[diag] {label} interaction (A-based): point={result['table4_source_matched_interaction']['A_based']['interaction_point']} "
+              f"ci95={result['table4_source_matched_interaction']['A_based']['interaction_ci95']}")
+        del model_direct
+        torch.cuda.empty_cache()
+
+    table6 = []
+    for r in per_checkpoint:
+        ia = r["table4_source_matched_interaction"]["A_based"]
+        ig = r["table4_source_matched_interaction"]["grad_based"]
+        table6.append({
+            "checkpoint_label": r["checkpoint_label"], "checkpoint_path": r["checkpoint_path"],
+            "Delta_D_A": ia["Delta_source"], "Delta_N_A": ia["Delta_recip"],
+            "interaction_A_point": ia["interaction_point"], "interaction_A_ci95": ia["interaction_ci95"],
+            "Delta_D_grad": ig["Delta_source"], "Delta_N_grad": ig["Delta_recip"],
+            "interaction_grad_point": ig["interaction_point"], "interaction_grad_ci95": ig["interaction_ci95"],
+        })
+
+    full = {
         "scope": {
             "pool_size": args.pool_size, "batch_size": args.batch_size, "spike_frac": args.spike_frac,
-            "num_control": args.num_control, "requested_K_spike": 32,
-            "actual_K_direct_spike": len(direct_spike_idx), "actual_K_none_spike": len(none_spike_idx),
-            "checkpoints": {"direct": args.ckpt_direct, "none": args.ckpt_none},
-            "single_checkpoint_pair_only": True,
+            "num_control": args.num_control, "bootstrap_samples": args.bootstrap_samples,
+            "checkpoints_direct": dict(zip(labels, args.ckpt_direct)),
+            "checkpoint_none_FIXED": args.ckpt_none,
+            "none_held_fixed_reason": (
+                "none arm's absolute step numbering does not map cleanly onto direct's "
+                "epoch40-continuation range (direct: 1.6M~=epoch40 start .. ~3.2M=epoch80 target, "
+                "TIMEOUT at 2.825M; none's earliest surviving checkpoint here is 2.45M with unknown "
+                "epoch correspondence to direct's numbering). Rather than guess a wrong early/mid "
+                "none checkpoint, none is held at its one well-characterized late reference "
+                "(epoch80.pt) across the whole direct-checkpoint sweep. This directly answers "
+                "'does direct's own-batch amplification grow over direct's training relative to a "
+                "stable reference' -- the load-bearing half of the temporal question -- but does "
+                "NOT characterize any temporal structure in none's reciprocal Delta_N (held fixed "
+                "at whatever none's own late-checkpoint value is)."
+            ),
         },
-        "table1_instrumentation_validation": table1,
-        "table3_primary_aggregation": table3,
-        "table4_cross_model_interaction": table4,
-        "table5_layer_localization": table5,
-        "n_table2_rows": len(table2),
+        "table6_temporal_trend": table6,
+        "per_checkpoint": per_checkpoint,
     }
-    print(f"\n[diag] SUMMARY:\n{json.dumps(summary, indent=2)}")
+    print("\n[diag] FULL RESULTS (printed unconditionally to stdout regardless of --out outcome -- "
+          "holylabs disk quota has failed silently-recoverable multiple times this session, "
+          "the tee'd log is now the primary copy of record):")
+    print(json.dumps(full, indent=2))
 
-    full = dict(summary)
-    full["table2_matched_replay"] = table2
     if args.out:
         try:
             with open(args.out, "w") as f:
                 json.dump(full, f, indent=2)
         except OSError as e:
-            print(f"[diag] WARNING: --out write failed ({e}); data is in the SUMMARY block above.")
-    if args.out_md:
-        try:
-            with open(args.out_md, "w") as f:
-                f.write(render_markdown(summary, table5))
-        except OSError as e:
-            print(f"[diag] WARNING: --out-md write failed ({e}).")
+            print(f"[diag] WARNING: --out write failed ({e}); data is in the FULL RESULTS block above.")
     return 0
-
-
-def render_markdown(summary, table5):
-    lines = ["# matched_replay_jacobian_diagnostic\n"]
-    lines.append("## Table 1 -- instrumentation validation\n")
-    lines.append("| model | checkpoint | n | max_abs_diff | max_rel_diff | pass |")
-    lines.append("|---|---|---|---|---|---|")
-    for r in summary["table1_instrumentation_validation"]:
-        lines.append(f"| {r['model']} | {r['checkpoint']} | {r['n_batches']} | "
-                      f"{r['max_abs_diff']:.3e} | {r['max_rel_diff']:.3e} | {r['pass']} |")
-    lines.append("\n## Table 3 -- primary aggregation (A_backbone)\n")
-    lines.append("| eval_model | selection | control_median | spike_median | ratio | n_c | n_s |")
-    lines.append("|---|---|---|---|---|---|---|")
-    for r in summary["table3_primary_aggregation"]:
-        lines.append(f"| {r['eval_model']} | {r['selection']} | {r['A_backbone_control_median']} | "
-                      f"{r['A_backbone_spike_median']} | {r['spike_over_control_ratio']} | "
-                      f"{r['n_control']} | {r['n_spike']} |")
-    lines.append("\n## Table 4 -- cross-model interaction\n")
-    for r in summary["table4_cross_model_interaction"]:
-        lines.append(f"R_direct={r['R_direct_own_selection']}, R_none={r['R_none_own_selection']}, "
-                      f"Delta={r['Delta_point']}, 95% CI={r['Delta_ci95']} (n_bootstrap={r['n_bootstrap']})")
-    lines.append("\n## Table 5 -- layer localization (top by direct ratio)\n")
-    lines.append("| group | direct_ord | direct_spike | direct_ratio | none_ord | none_spike | none_ratio |")
-    lines.append("|---|---|---|---|---|---|---|")
-    for r in table5[:15]:
-        lines.append(f"| {r['group']} | {r.get('direct_ordinary')} | {r.get('direct_spike')} | "
-                      f"{r.get('direct_ratio')} | {r.get('none_ordinary')} | {r.get('none_spike')} | "
-                      f"{r.get('none_ratio')} |")
-    return "\n".join(lines) + "\n"
 
 
 if __name__ == "__main__":
