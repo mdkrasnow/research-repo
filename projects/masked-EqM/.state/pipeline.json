@@ -19,14 +19,14 @@
       "partition": "gpu_test",
       "status": "running",
       "submitted_at": "2026-08-10T00:00:00-04:00",
-      "git_sha": "e628d5a",
-      "sbatch_path": "projects/masked-EqM/slurm/jobs/field_sensitivity_diagnostic.sbatch",
-      "expected_runtime": "<30min (single GPU, forward-only + finite-difference)",
+      "git_sha": "4c5d20d",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/spike_batch_amplification_diagnostic.sbatch",
+      "expected_runtime": "<1h (single GPU: 500-batch classification pass + bounded directional check)",
       "phase": "growing-instability-mechanism-fix",
-      "run_id": "field_sensitivity_none_vs_direct",
-      "job_id": "38072967",
-      "description": "External-review follow-up to the 2026-08-10 activation-scale diagnostic: (1) adds the missing `none` control for weight-specnorm/attn-logit growth (was only measured on direct's two GP arms) -- checkpoints 2450000/2750000/epoch80.pt from longer80_none_seed0_ckpt50k_job36632776, vs direct's 1600000/2175000/2825000 from fwrev_ep80_lambda0_job37780076. (2) Replaces the gauge-ambiguous raw-|E| test with a gauge-safe function-space sensitivity U_t=||f(theta+dtheta,x)-f(theta,x)||/||dtheta|| via finite-difference random parameter perturbations (5 directions x 3 probe batches, eps=1e-3 relative per-tensor scale), measuring whether direct's second-order (grad_z E) construction amplifies a given parameter perturbation more than none's first-order field output -- the actual candidate differential-sensitivity mechanism, not a proxy for it.",
-      "gate": "does none also show weight-specnorm growth (generic vs direct-specific)? is U_t(direct) >> U_t(none) at matched-regime checkpoints (differential sensitivity, the real mechanism)?"
+      "run_id": "spike_batch_amplification",
+      "job_id": "38087180",
+      "description": "Targeted tail instrumentation per user directive: no more generic stabilization candidates until the specific failing quantity is found. Live-classifies spike (top 2%) vs ordinary (40-60th pct) batches by real grad_norm over a 500-batch pool (batch_size=32, matching training's post-allreduce effective granularity), at direct's 2825000.pt and none's epoch80.pt on IDENTICAL input batches. Measures (1) residual-conditioned amplification gain=||dL/dtheta||/||w or residual|| global+per-block (w is the REAL JVP direction exact_fwrev_backward already computes, now returned as w_norm -- not a random direction, replacing field_sensitivity_diagnostic's wrong-signed isotropic U_t), (2) directional (gradient-aligned, not random) per-block finite-difference top-sensitivity on a bounded spike/ordinary subset.",
+      "gate": "does amplification gain concentrate in specific blocks on spike batches, is it larger/differently-distributed for direct vs none, and does directional top-sensitivity confirm it"
     },
     {
       "partition": "seas_gpu",
@@ -108,6 +108,20 @@
     }
   ],
   "completed_runs": [
+    {
+      "partition": "gpu_test",
+      "status": "completed",
+      "submitted_at": "2026-08-10T00:00:00-04:00",
+      "completed_at": "2026-08-10T12:05:00-04:00",
+      "git_sha": "e628d5a",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/field_sensitivity_diagnostic.sbatch",
+      "phase": "growing-instability-mechanism-fix",
+      "run_id": "field_sensitivity_none_vs_direct",
+      "job_id": "38074051",
+      "description": "External-review follow-up to activation-scale diagnostic: (1) none-control for weight-specnorm growth, (2) gauge-safe isotropic random-direction field sensitivity U_t=||df||/||dtheta||, replacing gauge-ambiguous raw-|E|. Two prior submissions (38072967, 38073789) failed on infra bugs (CPU/CUDA device mismatch in perturbation direction; attn_logit_stats hardcoded energy_only=True broke on ebm='none'), both fixed same-session.",
+      "gate": "does none also show weight-specnorm growth? is U_t(direct) >> U_t(none)?",
+      "final_metric": "BOTH NEGATIVE for the leading hypothesis. (1) none's weight-specnorm ALSO grows, same order per-step as direct (+1.65%/100k none vs +2.1%/100k direct) -- generic AdamW-zero-decay drift, not direct-specific. (2) isotropic U_t DECREASES for direct over training (0.510->0.469->0.446, -12.4%) while none's mildly increases (0.452->0.455->0.464, +2.7%) -- opposite sign from the amplification hypothesis's prediction. Caveat noted and acted on: U_t is a MEAN/isotropic quantity, catastrophic clip events are a TAIL phenomenon (0.13-0.5% of batches) -- same blind spot that killed GP and the z-Hessian test. Superseded by spike_batch_amplification_diagnostic (targets the tail directly via live spike-vs-ordinary batch classification + real-direction, not random, sensitivity)."
+    },
     {
       "partition": "seas_gpu",
       "status": "timeout",
