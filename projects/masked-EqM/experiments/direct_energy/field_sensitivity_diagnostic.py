@@ -129,7 +129,7 @@ def main():
                     if not v.is_floating_point():
                         perturbed[name] = v
                         continue
-                    direction = torch.randn(v.shape, generator=gen).to(v.dtype)
+                    direction = torch.randn(v.shape, generator=gen).to(device=v.device, dtype=v.dtype)
                     direction = direction / (direction.norm() + 1e-12)
                     delta = args.eps * v.detach().float().norm().item() * direction
                     total_delta_sq += float((delta.float() ** 2).sum())
