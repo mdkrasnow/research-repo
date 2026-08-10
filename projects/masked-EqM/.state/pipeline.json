@@ -92,6 +92,19 @@
       "job_id": "38103515",
       "description": "Re-chained after 38044090 was cancelled (same reason). Now depends on 38103380.",
       "gate": "Does the GP-smoothed exact-fwrev arm beat direct's 39.94, and how close does it get to none's 34.16? Note the ~4.8% field/target shrinkage (matches 1/(1+lambda) prediction) may under-transport at fixed eta=0.003 -- an eta-compensated secondary eval is planned if this arm's FID looks worse than expected."
+    },
+    {
+      "run_id": "matched_replay_jacobian_diagnostic_v2_corrected",
+      "job_id": "38136938",
+      "partition": "gpu_test",
+      "status": "running",
+      "description": "Rerun of matched_replay_jacobian_diagnostic (superseded 38127797) with the corrected source-matched interaction statistic (external review caught the bug: v1 compared each model on its OWN independently-selected batches, not the matched same-batch cross-model contrast). Delta_D = log(R_direct|direct-spikes) - log(R_none|direct-spikes); interaction = Delta_D - Delta_N, proper paired bootstrap. Adds early/mid/late direct checkpoint sweep (1.6M/2.175M/2.825M, none held at fixed epoch80.pt reference -- reason documented in scope block) to test whether the interaction grows over direct's training. Full per-batch data now printed unconditionally to stdout (fixes v1's data loss to a holylabs quota failure) plus a real-grad_norm-based version of the same statistic and a |g|~=(2/(B*D))*|r|*A decomposition.",
+      "submitted_at": "2026-08-10T16:45:00-04:00",
+      "git_sha": "b797524",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/matched_replay_jacobian_diagnostic.sbatch",
+      "expected_runtime": "~40-60min (3x the single-pairing 13min run, shared pool build amortized)",
+      "phase": "growing-instability-mechanism-fix",
+      "gate": "does the source-matched interaction (direct's amplification of its own spikes vs none's amplification of the same batches, relative to the reciprocal) show Delta_D - Delta_N > 0 with a CI excluding 0, and does it grow from early to mid to late checkpoint?"
     }
   ],
   "completed_runs": [
