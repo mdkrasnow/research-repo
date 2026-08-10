@@ -94,17 +94,17 @@
       "gate": "Does the GP-smoothed exact-fwrev arm beat direct's 39.94, and how close does it get to none's 34.16? Note the ~4.8% field/target shrinkage (matches 1/(1+lambda) prediction) may under-transport at fixed eta=0.003 -- an eta-compensated secondary eval is planned if this arm's FID looks worse than expected."
     },
     {
-      "run_id": "matched_replay_jacobian_diagnostic_v2_corrected",
-      "job_id": "38136938",
-      "partition": "gpu_test",
-      "status": "running",
-      "description": "Rerun of matched_replay_jacobian_diagnostic (superseded 38127797) with the corrected source-matched interaction statistic (external review caught the bug: v1 compared each model on its OWN independently-selected batches, not the matched same-batch cross-model contrast). Delta_D = log(R_direct|direct-spikes) - log(R_none|direct-spikes); interaction = Delta_D - Delta_N, proper paired bootstrap. Adds early/mid/late direct checkpoint sweep (1.6M/2.175M/2.825M, none held at fixed epoch80.pt reference -- reason documented in scope block) to test whether the interaction grows over direct's training. Full per-batch data now printed unconditionally to stdout (fixes v1's data loss to a holylabs quota failure) plus a real-grad_norm-based version of the same statistic and a |g|~=(2/(B*D))*|r|*A decomposition.",
-      "submitted_at": "2026-08-10T16:45:00-04:00",
-      "git_sha": "b797524",
-      "sbatch_path": "projects/masked-EqM/slurm/jobs/matched_replay_jacobian_diagnostic.sbatch",
-      "expected_runtime": "~40-60min (3x the single-pairing 13min run, shared pool build amortized)",
+      "run_id": "longitudinal_jacobian_diagnostic_progress_matched",
+      "job_id": "PENDING",
+      "partition": "seas_gpu",
+      "status": "pending",
+      "description": "Follow-up to job 38136938 per external review: (1) progress-matches `none` checkpoints per stage instead of holding none fixed (Phase 0 audit found none's chained-resume lineage -- longer40/60/80 -- has checkpoints at 0%/1.15%/0.885% step mismatch vs direct's early/mid/late, not the previously assumed 'no early none checkpoint exists'); (2) raises K from 24 to 64 spike/control at the SAME spike_frac=0.025 criterion (pool_size 960->2560); (3) adds Table 7 tail quantiles (p50/p90/p95/p99/tail_anisotropy_proxy); (4) adds Table 6 longitudinal endpoint G=I(late)-I(early) with bootstrap CI; (5) adds a NEW matrix-free sigma_1(J_backbone) + residual-alignment diagnostic (Phase 6/7, power_iteration_theta_sigma1 in fb_direct/exact_hvp.py) on a late-stage spike/control subset (sv_k=8) to distinguish worse-conditioning vs worse-alignment as the mechanism, if any interaction is confirmed. All new primitives (field_jvp_direct/none, power_iteration_theta_sigma1) validated against an explicitly materialized Jacobian + numpy SVD on a tiny model, 12/12 unit tests PASS FP64 CPU, re-run as sbatch pre-flight.",
+      "submitted_at": "PENDING",
+      "git_sha": "9e3c7c0",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/longitudinal_jacobian_diagnostic.sbatch",
+      "expected_runtime": "2-6h (uncertain -- first real-scale run of the new sigma_1 power-iteration path, which is 3rd-order autodiff; routed to seas_gpu for memory headroom over gpu_test's 20G MIG slices)",
       "phase": "growing-instability-mechanism-fix",
-      "gate": "does the source-matched interaction (direct's amplification of its own spikes vs none's amplification of the same batches, relative to the reciprocal) show Delta_D - Delta_N > 0 with a CI excluding 0, and does it grow from early to mid to late checkpoint?"
+      "gate": "Does G=I(late)-I(early) exclude 0 with progress-matched none and K=64? Is any interaction effect driven by sigma_1 (worse conditioning) or residual/u1 alignment (worse alignment), per Phase 6/7?"
     }
   ],
   "completed_runs": [
@@ -12883,6 +12883,20 @@
       "phase": "growing-instability-mechanism-fix",
       "gate": "does residual-conditioned Jacobian amplification A_backbone concentrate/spike specifically under direct on direct-selected spike batches (Hypothesis A), or is it shared across models (B), residual-driven (C), or a selection artifact (D)?",
       "final_metric": "CLEAN NULL RESULT for Hypothesis A, first decisive result after 5 prior null/inconclusive diagnostics. R_direct=2.58 (spike/control A_backbone ratio, own-selection) vs R_none=2.49 -- statistically indistinguishable, Delta=0.034 log-units, 95% bootstrap CI [-0.119, 0.279] comfortably includes 0. Both models show ~2.5x normalized Jacobian amplification on their own hard-selected batches -- since A=||J^T(r/||r||)|| is residual-magnitude-normalized BY CONSTRUCTION, this rules out Hypothesis C (residual-size artifact) directly and supports Hypothesis B (shared high-sensitivity batches / generic Transformer-Jacobian-conditioning property, not a direct-EBM-parameterization-specific pathology). Secondary asymmetry (not primary evidence): cross-selection ratios weaker (direct on none's spikes=1.85, none on direct's spikes=1.22) -- grad_norm-based spike selection has a partial model-specific component even though own-selection magnitudes match. Layer localization mixed/inconsistent across blocks -- no clean 'which layer dominates' story. Table 1 validated the canonical residual identity to ~2e-7 relative error in both arms. CONCLUSION: residual-conditioned Jacobian amplification does NOT explain direct's growing-clip-rate instability at this tail depth (top-2.5%-of-960); deprioritize further tail-amplification probes, prioritize the causal single-lever tests (weight-decay 38070968, z-loss 38070989) and the FID-scale evaluation as deciding evidence. SUPERSEDED (2026-08-10, same session): external review caught that the primary interaction statistic compared each model on its OWN independently-selected batches (unmatched), not the source-matched contrast the design was built for. Back-of-envelope recompute on this run's own Table 3 numbers gives interaction ~0.45 log-units (~1.57x, OPPOSITE conclusion) using the correct pairing. Rerunning with the fixed statistic (commit b797524) plus early/mid/late checkpoint sweep -- do not cite this run's 'clean null' conclusion."
+    },
+    {
+      "run_id": "matched_replay_jacobian_diagnostic_v2_corrected",
+      "job_id": "38136938",
+      "partition": "gpu_test",
+      "status": "completed",
+      "description": "Rerun of matched_replay_jacobian_diagnostic (superseded 38127797) with the corrected source-matched interaction statistic (external review caught the bug: v1 compared each model on its OWN independently-selected batches, not the matched same-batch cross-model contrast). Delta_D = log(R_direct|direct-spikes) - log(R_none|direct-spikes); interaction = Delta_D - Delta_N, proper paired bootstrap. Adds early/mid/late direct checkpoint sweep (1.6M/2.175M/2.825M, none held at fixed epoch80.pt reference -- reason documented in scope block) to test whether the interaction grows over direct's training. Full per-batch data now printed unconditionally to stdout (fixes v1's data loss to a holylabs quota failure) plus a real-grad_norm-based version of the same statistic and a |g|~=(2/(B*D))*|r|*A decomposition.",
+      "submitted_at": "2026-08-10T16:45:00-04:00",
+      "git_sha": "b797524",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/matched_replay_jacobian_diagnostic.sbatch",
+      "expected_runtime": "~40-60min (3x the single-pairing 13min run, shared pool build amortized)",
+      "phase": "growing-instability-mechanism-fix",
+      "gate": "does the source-matched interaction (direct's amplification of its own spikes vs none's amplification of the same batches, relative to the reciprocal) show Delta_D - Delta_N > 0 with a CI excluding 0, and does it grow from early to mid to late checkpoint?",
+      "final_metric": "Corrected source-matched interaction I(t)=Delta_D-Delta_N (A-based / grad-based), none held FIXED at late reference (superseded by the progress-matched follow-up job, run_id longitudinal_jacobian_diagnostic_progress_matched): early +0.209/+0.377 (CI [-0.197,0.760]/[-0.322,0.742]), mid -0.009/-0.103 (CI [-0.440,0.390]/[-0.516,0.380]), late +0.456/+0.499 (CI [-0.271,0.725]/[-0.349,0.718]). All 3 stages' CIs cross zero at n=24 spike/24 control -- underpowered, not a confirmed effect, but late-stage point estimate (0.456) closely reproduces the user's independent hand-derivation (0.452) from this run's own raw Table 3 numbers, a real consistency check. residual_ratio ~1.0 at every stage/model (0.986-1.045) -- grad_norm spike/control gap is carried by A (Jacobian amplification), not residual magnitude; |r|*A reconstructs the real grad_norm ratio to ~1-2%. Non-monotonic temporal trend (positive/near-zero/largest-positive) motivated the progress-matched, larger-K follow-up rather than treating this as either confirmed or dead."
     }
   ],
   "debugging_notes": [
