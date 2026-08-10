@@ -18,6 +18,32 @@
     {
       "partition": "seas_gpu",
       "status": "pending",
+      "submitted_at": "2026-08-10T00:00:00-04:00",
+      "git_sha": "2163698",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/direct_energy_ddp_continue.sbatch",
+      "expected_runtime": "~4h (MAX_STEPS=100000, 4xH200)",
+      "phase": "growing-instability-mechanism-fix",
+      "run_id": "fwrev_wd01_from2825k",
+      "job_id": "38070968",
+      "description": "High-potency test A (weight decay): continues fwrev lambda0 arm from its own checkpoint 2825000.pt (job 37780076) with --weight-decay 0.01 turned on (was hardcoded 0 for the entire prior run). Isolated single-lever ablation vs the zero-decay resume (37946478/37946483) already running from the same lineage. Tests the 2026-08-10 activation-scale diagnostic finding: median QKV/proj weight spectral norm grows +25.6% monotonically over ~1.2M steps, identically in both GP arms -- GP cannot touch raw weight scale. Gate: does weight-specnorm growth (measured via activation_scale_diagnostic.py on this run's checkpoints) flatten/reverse within the 100k-step window vs the matched zero-decay control?",
+      "gate": "weight-specnorm growth trend flattens vs zero-decay control"
+    },
+    {
+      "partition": "seas_gpu",
+      "status": "pending",
+      "submitted_at": "2026-08-10T00:00:00-04:00",
+      "git_sha": "2163698",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/direct_energy_ddp_continue.sbatch",
+      "expected_runtime": "~4h (MAX_STEPS=100000, 4xH200)",
+      "phase": "growing-instability-mechanism-fix",
+      "run_id": "fwrev_zloss1e6_from2825k",
+      "job_id": "38070989",
+      "description": "High-potency test B (energy z-loss): continues fwrev lambda0 arm from the same checkpoint 2825000.pt with --energy-zloss-lambda 1e-6 (new train.py flag: mean(E^2) regularizer via a separate light forward + ordinary backward, accumulated into the same .grad tensors as exact_fwrev_backward -- analog of Wortsman et al. 2023's z-loss on output-logit divergence). Isolated single-lever ablation (weight_decay=0, gp_lambda=0) vs the same zero-decay/zero-zloss control. Tests the companion finding: raw |E| grows +25-40% over the same window, also GP-independent. Gate: does |E| growth flatten/reverse within the 100k-step window vs the matched control?",
+      "gate": "|E| growth trend flattens vs zero-decay/zero-zloss control"
+    },
+    {
+      "partition": "seas_gpu",
+      "status": "pending",
       "submitted_at": "2026-08-09T17:45:00-04:00",
       "git_sha": "e9f26f0",
       "sbatch_path": "projects/masked-EqM/slurm/jobs/direct_energy_ddp_continue.sbatch",
@@ -25,7 +51,7 @@
       "phase": "fwrev-fid-scale-test",
       "run_id": "fwrev_ep80_lambda0_resume1",
       "job_id": "37946478",
-      "description": "Auto-fire resume for 37780076 (lambda0 arm): --dependency=afterany:37780076, CKPT=AUTOLATEST:<37780076 checkpoints dir> resolved at job start. No manual intervention needed at the 48h wall.",
+      "description": "Auto-fire resume for 37780076 (lambda0 arm): --dependency=afterany:37780076, CKPT=AUTOLATEST:<37780076 checkpoints dir> resolved at job start. No manual intervention needed at the 48h wall. Serves as the zero-decay/zero-zloss control for the two 2026-08-10 high-potency tests (38070968, 38070989).",
       "gate": "resume leg toward epoch-80 FID eval"
     },
     {
