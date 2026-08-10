@@ -27,7 +27,7 @@ import torch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from fb_direct.exact_hvp import exact_fwrev_backward
+from fb_direct.exact_hvp import exact_field_vjp, exact_fwrev_backward, field_vjp_none
 from transport.utils import mean_flat
 
 from test_forward_backwards_direct import make_model, perturb, batch  # noqa: E402
@@ -163,6 +163,174 @@ def test_rejects_wrong_ebm():
     raise AssertionError("exact_fwrev_backward accepted ebm='none'")
 
 
+def reference_field_vjp_direct(model, xt, t, y, v):
+    """Independent double-backward reference for J_field^T v (ebm='direct'):
+    field = -grad_z E (create_graph=True), s = <v, field> summed, s.backward()
+    accumulates exactly J_field^T v into .grad -- no forward-mode AD, no
+    Pearlmutter trick, structurally independent of exact_field_vjp's
+    implementation path (mirrors reference_double_backward's role above)."""
+    model.zero_grad(set_to_none=True)
+    z = xt.detach().clone().requires_grad_(True)
+    E = model(z, t, y, energy_only=True)
+    g = torch.autograd.grad(E.sum(), z, create_graph=True)[0]
+    field = -g
+    s = (v.detach() * field).sum()
+    s.backward()
+    grads = {n: p.grad.detach().clone() for n, p in model.named_parameters() if p.grad is not None}
+    model.zero_grad(set_to_none=True)
+    return grads, field.detach()
+
+
+def test_field_vjp_direct_matches_double_backward_reference():
+    """exact_field_vjp (forward-over-reverse) must exactly match the
+    independent double-backward reference, for an ARBITRARY direction v
+    (not the training w) -- this is the generalization
+    matched_replay_jacobian_diagnostic.py depends on."""
+    model = make_model(ebm='direct', dtype=torch.float64)
+    perturb(model, seed=41)
+    model.eval()
+    z, t, y = batch(n=3, dtype=torch.float64, seed=43)
+    v = torch.randn(z.shape, generator=torch.Generator().manual_seed(47)).to(z.dtype)
+
+    g_ref, field_ref = reference_field_vjp_direct(model, z, t, y, v)
+
+    model.zero_grad(set_to_none=True)
+    stats = exact_field_vjp(model, z, t, y, v)
+    n = compare_grads(g_ref, model, "field_vjp_direct")
+    torch.testing.assert_close(torch.tensor(stats["field_norm"], dtype=field_ref.dtype), field_ref.norm(), rtol=1e-9, atol=1e-11)
+    model.zero_grad(set_to_none=True)
+    print(f"PASS exact_field_vjp == double-backward J_field^T v reference, {n} param tensors at FP64")
+
+
+def test_field_vjp_direct_sign_relation_to_fwrev_w():
+    """Consistency check tying the new primitive back to the original:
+    exact_fwrev_backward's internal w satisfies (gp_lambda=0)
+        w = (2/(B*D)) * (g + ut) = -(2/(B*D)) * (field - ut) = -(2/(B*D)) * r
+    i.e. w is the canonical residual r RESCALED by 2/(B*D) and NEGATED.
+    So exact_field_vjp(model, z, t, y, v=-w) must reproduce
+    exact_fwrev_backward(model, z, t, y, ut, gp_lambda=0)'s .grad exactly
+    (both compute J_field^T(-w) = J_g^T w, the fwrev function's own
+    definition) -- this is the precise mathematical statement of the Phase 0
+    audit finding: the OLD diagnostic's w_norm differs from the canonical
+    ||r|| by exactly the factor 2/(B*D), not a directional/model-specific
+    effect."""
+    model = make_model(ebm='direct', dtype=torch.float64)
+    perturb(model, seed=51)
+    model.eval()
+    z, t, y = batch(n=2, dtype=torch.float64, seed=53)
+    ut = target_for(z, seed=59)
+    B, D = z.shape[0], z[0].numel()
+
+    model.zero_grad(set_to_none=True)
+    exact_fwrev_backward(model, z, t, y, ut, gp_lambda=0.0)
+    g_fwrev = {n: p.grad.detach().clone() for n, p in model.named_parameters() if p.grad is not None}
+
+    # Recompute field/residual independently (first-order only) to build w by hand.
+    zc = z.detach().clone().requires_grad_(True)
+    E = model(zc, t, y, energy_only=True)
+    g = torch.autograd.grad(E.sum(), zc, create_graph=False)[0].detach()
+    field = -g
+    r = field - ut  # canonical residual
+    w_hand = (2.0 / (B * D)) * (g + ut)  # == -(2/(B*D)) * r
+    torch.testing.assert_close(w_hand, -(2.0 / (B * D)) * r, rtol=1e-9, atol=1e-12)
+
+    model.zero_grad(set_to_none=True)
+    exact_field_vjp(model, z, t, y, v=-w_hand)
+    g_via_field_vjp = {n: p.grad.detach().clone() for n, p in model.named_parameters() if p.grad is not None}
+    n = compare_grads(g_fwrev, model, "sign_relation")
+    for name in g_fwrev:
+        torch.testing.assert_close(g_via_field_vjp[name], g_fwrev[name], rtol=1e-9, atol=1e-11)
+    model.zero_grad(set_to_none=True)
+    print(f"PASS w = -(2/(B*D))*r confirmed algebraically + exact_field_vjp(v=-w) == exact_fwrev_backward.grad, "
+          f"{n} tensors -- Phase 0 audit's normalization-mismatch claim is exact, not approximate")
+
+
+def test_field_vjp_none_matches_autograd_grad():
+    """field_vjp_none must match plain torch.autograd.grad(field, params,
+    grad_outputs=v) -- the textbook VJP, independent implementation path."""
+    model = make_model(ebm='none', dtype=torch.float64)
+    perturb(model, seed=61)
+    model.eval()
+    z, t, y = batch(n=3, dtype=torch.float64, seed=63)
+    v = torch.randn(z.shape, generator=torch.Generator().manual_seed(67)).to(z.dtype)
+
+    field = model(z, t, y, train=True)
+    named_trainable = [(n, p) for n, p in model.named_parameters() if p.requires_grad]
+    ref_grads = torch.autograd.grad(field, [p for _, p in named_trainable],
+                                     grad_outputs=v, allow_unused=True)
+    ref = {n: g for (n, _), g in zip(named_trainable, ref_grads) if g is not None}
+
+    model.zero_grad(set_to_none=True)
+    stats = field_vjp_none(model, z, t, y, v)
+    n = compare_grads(ref, model, "field_vjp_none")
+    torch.testing.assert_close(torch.tensor(stats["field_norm"], dtype=field.dtype), field.detach().norm(), rtol=1e-9, atol=1e-11)
+    model.zero_grad(set_to_none=True)
+    print(f"PASS field_vjp_none == torch.autograd.grad(field, params, grad_outputs=v) reference, {n} tensors")
+
+
+def test_field_vjp_finite_difference_sanity():
+    """Extra independent check (not just two analytic derivations agreeing
+    with each other, but a numerical ground truth): finite-difference the
+    SCALAR s(theta) = <v, field_theta(x)> along a random parameter
+    direction, compare to <exact_field_vjp grad, direction>. FP64, central
+    difference, eps=1e-6 -- both direct and none arms."""
+    torch.manual_seed(71)
+    for ebm in ("direct", "none"):
+        model = make_model(ebm=ebm, dtype=torch.float64)
+        perturb(model, seed=73)
+        model.eval()
+        z, t, y = batch(n=2, dtype=torch.float64, seed=79)
+        v = torch.randn(z.shape, generator=torch.Generator().manual_seed(83)).to(z.dtype)
+
+        model.zero_grad(set_to_none=True)
+        if ebm == "direct":
+            exact_field_vjp(model, z, t, y, v)
+        else:
+            field_vjp_none(model, z, t, y, v)
+        analytic_grad = {n: p.grad.detach().clone() for n, p in model.named_parameters() if p.grad is not None}
+        model.zero_grad(set_to_none=True)
+
+        def s_of_theta():
+            if ebm == "direct":
+                zc = z.detach().clone().requires_grad_(True)
+                E = model(zc, t, y, energy_only=True)
+                g = torch.autograd.grad(E.sum(), zc, create_graph=False)[0]
+                field = -g
+            else:
+                with torch.no_grad():
+                    field = model(z, t, y, train=True)
+            return float((v * field).sum())
+
+        gen = torch.Generator().manual_seed(89)
+        params = [(n, p) for n, p in model.named_parameters() if n in analytic_grad]
+        directions = {n: torch.randn(p.shape, generator=gen).to(p.dtype) for n, p in params}
+        dnorm = (sum(float((d ** 2).sum()) for d in directions.values())) ** 0.5
+        eps = 1e-6
+        with torch.no_grad():
+            for n, p in params:
+                p.add_(eps * directions[n])
+        s_plus = s_of_theta()
+        with torch.no_grad():
+            for n, p in params:
+                p.add_(-2 * eps * directions[n])
+        s_minus = s_of_theta()
+        with torch.no_grad():
+            for n, p in params:
+                p.add_(eps * directions[n])  # restore
+
+        fd_directional_deriv = (s_plus - s_minus) / (2 * eps)
+        analytic_directional_deriv = sum(
+            float((analytic_grad[n] * directions[n]).sum()) for n, _ in params
+        )
+        rel_err = abs(fd_directional_deriv - analytic_directional_deriv) / (abs(fd_directional_deriv) + 1e-12)
+        assert rel_err < 1e-4, (
+            f"{ebm}: finite-difference mismatch, fd={fd_directional_deriv} "
+            f"analytic={analytic_directional_deriv} rel_err={rel_err} (dnorm={dnorm})"
+        )
+        print(f"PASS {ebm} finite-difference sanity: fd={fd_directional_deriv:.6e} "
+              f"analytic={analytic_directional_deriv:.6e} rel_err={rel_err:.2e}")
+
+
 if __name__ == "__main__":
     # Fused SDPA kernels lack double-backward (reference path) and
     # forward-AD (fwrev path) derivatives; train.py forces the math backend
@@ -172,4 +340,8 @@ if __name__ == "__main__":
         test_exact_match_with_gp()
         test_label_dropout_determinism()
         test_rejects_wrong_ebm()
+        test_field_vjp_direct_matches_double_backward_reference()
+        test_field_vjp_direct_sign_relation_to_fwrev_w()
+        test_field_vjp_none_matches_autograd_grad()
+        test_field_vjp_finite_difference_sanity()
     print("ALL PASS")

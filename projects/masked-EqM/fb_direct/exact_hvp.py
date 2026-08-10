@@ -258,6 +258,99 @@ def exact_fwrev_backward(model, xt, t, y, ut, gp_lambda=0.0):
     }
 
 
+def exact_field_vjp(model, xt, t, y, v):
+    """Exact VJP of the FIELD f_theta(x) = -grad_z E_theta(x) w.r.t. theta,
+    in an ARBITRARY caller-supplied direction v (same shape as xt/field) --
+    generalizes exact_fwrev_backward's internally fixed direction
+    w = (2/(B*D))*[(g+u) + gp_lambda*g] to any v. This is what
+    matched_replay_jacobian_diagnostic.py needs: the CANONICAL,
+    unreduced/unrescaled residual-conditioned direction v = r/||r||_2 (r =
+    field - target, no 1/(B*D) factor), not the training loss's specific
+    reduction convention baked into w. (Phase 0 audit, 2026-08-10: using
+    w_norm as a stand-in for ||r|| in spike_batch_amplification_diagnostic.py
+    was exactly this bug -- w is residual rescaled by 2/(B*D) ~ 1e-4-1e-5,
+    which by itself explains the ~4-order-of-magnitude gain gap observed
+    between direct and none in that diagnostic. See module docstring above
+    for the w derivation.)
+
+    Chain rule: field = -g, g = grad_z E. For any v,
+
+        J_field^T v = d/dtheta [ v . field ] = d/dtheta [ -v . g ]
+                    = - d/dtheta [ v . g ]
+                    = - J_g^T v
+
+    and J_g^T v is exactly what the Pearlmutter forward-over-reverse trick
+    above computes for JVP direction w=v: dual-forward pass with tangent=v
+    gives tangent_E = <g, v> per sample (JVP of E in direction v equals
+    <grad_z E, v> by definition of directional derivative), s =
+    tangent_E.sum() over the batch, s.backward() accumulates
+    d/dtheta[sum_b <g_b, v_b>] = J_g^T v into .grad. This function reuses
+    that machinery verbatim with v as the direction (gp_lambda folded out --
+    a single free direction, not a residual+regularizer sum), then negates
+    the resulting .grad in place to convert J_g^T v -> J_field^T v.
+
+    ACCUMULATES into .grad (does not zero_grad) -- caller must zero_grad()
+    immediately before this call for the negation to be well-defined (the
+    in-place negate applies to the FULL current .grad, so any grad already
+    present before this call would also get incorrectly negated).
+
+    Returns dict: field_norm, v_norm.
+    """
+    if getattr(model, "ebm", None) != "direct":
+        raise ValueError(f"exact_field_vjp requires ebm='direct', got {getattr(model, 'ebm', None)!r}")
+
+    y_dropped, restore_labels = _predrop_labels(model, y)
+    restore_attn = _unfused_attention(model)
+    try:
+      with _forward_ad_safe_ops():
+        z = xt.detach().clone().requires_grad_(True)
+        E = model(z, t, y_dropped, energy_only=True)
+        g = torch.autograd.grad(E.sum(), z, create_graph=False)[0].detach()
+        field = -g
+
+        v = v.detach()
+        with fwAD.dual_level():
+            z_dual = fwAD.make_dual(xt.detach().clone(), v)
+            E_dual = model(z_dual, t, y_dropped, energy_only=True)
+            _, tangent = fwAD.unpack_dual(E_dual)
+            if tangent is None:
+                raise RuntimeError(
+                    "forward-mode AD produced no tangent through the energy head -- "
+                    "an op in the model lacks forward-AD support; do not silently "
+                    "fall back (that would reintroduce the semigradient bias)."
+                )
+            s = tangent.sum()
+        s.backward()  # accumulates J_g^T v into p.grad
+        with torch.no_grad():
+            for p in model.parameters():
+                if p.grad is not None:
+                    p.grad.neg_()  # J_g^T v -> J_field^T v = -(J_g^T v)
+    finally:
+        restore_attn()
+        restore_labels()
+
+    return {
+        "field_norm": float(field.detach().norm()),
+        "v_norm": float(v.detach().norm()),
+    }
+
+
+def field_vjp_none(model, xt, t, y, v):
+    """VJP of the field w.r.t. theta for ebm='none' models (field predicted
+    directly, no chain rule needed): J_field^T v via ordinary
+    torch.autograd.backward(field, grad_tensors=v). Accumulates into .grad
+    (caller must zero_grad() first). Companion to exact_field_vjp so both
+    arms of matched_replay_jacobian_diagnostic.py compute literally the same
+    mathematical object -- a parameter-Jacobian-transpose-vector-product in
+    the SAME caller-chosen direction v -- through the same call convention.
+    Returns dict: field_norm, v_norm.
+    """
+    field = model(xt, t, y, train=True)
+    v = v.detach()
+    torch.autograd.backward(field, grad_tensors=v)
+    return {"field_norm": float(field.detach().norm()), "v_norm": float(v.detach().norm())}
+
+
 # -----------------------------------------------------------------------
 # z-space curvature probe (2026-08-10, growing-instability diagnostic)
 #
