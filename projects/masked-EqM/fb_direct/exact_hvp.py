@@ -246,6 +246,15 @@ def exact_fwrev_backward(model, xt, t, y, ut, gp_lambda=0.0):
         "loss_gp": float(loss_gp.detach()),
         "field_norm": float(field.detach().norm()),
         "target_norm": float(ut.detach().norm()),
+        # ||w||: the real residual/JVP direction magnitude (2026-08-10 spike
+        # instrumentation) -- w is already computed above, this is a free
+        # by-product, not an extra pass. Lets a caller form the
+        # residual-CONDITIONED amplification ratio grad_norm/w_norm, instead
+        # of the isotropic-random-direction U_t that field_sensitivity_
+        # diagnostic.py used (which came back wrong-signed -- a mean/
+        # isotropic quantity blind to the tail direction the real training
+        # dynamics actually push along).
+        "w_norm": float(w.detach().norm()),
     }
 
 
