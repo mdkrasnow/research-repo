@@ -331,11 +331,29 @@ def test_field_vjp_finite_difference_sanity():
               f"analytic={analytic_directional_deriv:.6e} rel_err={rel_err:.2e}")
 
 
+import contextlib
+
+
+@contextlib.contextmanager
+def _math_sdpa_backend():
+    """Fused SDPA kernels lack double-backward (reference path) and
+    forward-AD (fwrev path) derivatives; train.py forces the math backend
+    for all ebm != 'none' training (fb_direct/trainer.py, via the
+    torch<2.3-compatible torch.backends.cuda.sdp_kernel API, since the
+    cluster's torch is 2.1.2 and lacks torch.nn.attention.sdpa_kernel,
+    added in 2.3), so the tests must match that regime. Prefers the newer
+    API when available (forward-compatible with future torch upgrades),
+    falls back to the older one otherwise."""
+    if hasattr(torch.nn, "attention"):
+        with torch.nn.attention.sdpa_kernel(torch.nn.attention.SDPBackend.MATH):
+            yield
+    else:
+        with torch.backends.cuda.sdp_kernel(enable_math=True, enable_flash=False, enable_mem_efficient=False):
+            yield
+
+
 if __name__ == "__main__":
-    # Fused SDPA kernels lack double-backward (reference path) and
-    # forward-AD (fwrev path) derivatives; train.py forces the math backend
-    # for all ebm != 'none' training, so the tests must match that regime.
-    with torch.nn.attention.sdpa_kernel(torch.nn.attention.SDPBackend.MATH):
+    with _math_sdpa_backend():
         test_exact_match_no_gp()
         test_exact_match_with_gp()
         test_label_dropout_determinism()
