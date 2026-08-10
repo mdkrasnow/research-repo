@@ -109,7 +109,7 @@ def main():
             wnorms = weight_spectral_norms(model)
             logit_rows = []
             for xt, t, y in fixed_inputs:
-                logit_rows.append(attn_logit_stats(model, xt, t, y, device))
+                logit_rows.append(attn_logit_stats(model, xt, t, y, device, energy_only=(ebm != "none")))
 
             # Base fields (no grad needed on our side).
             with torch.no_grad() if ebm == "none" else torch.enable_grad():

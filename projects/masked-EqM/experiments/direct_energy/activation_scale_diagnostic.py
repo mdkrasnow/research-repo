@@ -33,9 +33,11 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from curvature_clip_diagnostic import build_probe_bank, load_model  # noqa: E402
 
 
-def attn_logit_stats(model, x0, t, y, device):
+def attn_logit_stats(model, x0, t, y, device, energy_only=True):
     """Hook every block's qkv Linear, compute pre-softmax QK^T logits
-    exactly as timm's Attention does, pool abs-value stats across blocks."""
+    exactly as timm's Attention does, pool abs-value stats across blocks.
+    energy_only=True only works for ebm in ('direct','forward-backwards-direct');
+    pass False for ebm='none' (plain forward, still triggers the hooks)."""
     captured = {}
 
     def make_hook(name):
@@ -46,7 +48,7 @@ def attn_logit_stats(model, x0, t, y, device):
     handles = [b.attn.qkv.register_forward_hook(make_hook(i))
                for i, b in enumerate(model.blocks)]
     with torch.no_grad():
-        model(x0, t, y, energy_only=True)
+        model(x0, t, y, energy_only=energy_only)
     for h in handles:
         h.remove()
 
