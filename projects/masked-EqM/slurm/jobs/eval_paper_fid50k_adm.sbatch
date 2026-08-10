@@ -47,6 +47,30 @@ if [[ "$EBM" != "none" && "$EBM" != "direct" ]]; then
   echo "EBM must be none or direct, got: $EBM" >&2
   exit 2
 fi
+
+if [[ "$CKPT" == EPOCHCKPT:* ]]; then
+  # Dependency-chained eval: this job was queued (--dependency=afterany:
+  # <training job>) before the training job finished, so the checkpoint
+  # path wasn't known at submission time. train.py writes an explicit
+  # "epoch{N}.pt" file at the boundary of a --save-epochs epoch, distinct
+  # from the periodic step-numbered checkpoints -- resolve to THAT exact
+  # file rather than "whatever's latest" (AUTOLATEST-style), because a
+  # step-numbered checkpoint could silently be a partial-epoch checkpoint
+  # if the training job hit a second walltime timeout before reaching the
+  # target epoch. Fail loud rather than mislabel an incomplete run's FID
+  # as an epoch-N result.
+  rest="${CKPT#EPOCHCKPT:}"
+  epoch_dir="${rest%:*}"
+  epoch_num="${rest##*:}"
+  CKPT="$epoch_dir/epoch$(printf '%02d' "$epoch_num").pt"
+  echo "EPOCHCKPT resolved CKPT=$CKPT"
+  if [[ ! -f "$CKPT" ]]; then
+    echo "Epoch-$epoch_num checkpoint not found at $CKPT -- training likely didn't reach this epoch " \
+         "(check for a second walltime timeout before concluding this is a real failure)." >&2
+    exit 5
+  fi
+fi
+
 if [[ ! -f "$CKPT" ]]; then
   echo "Checkpoint not found: $CKPT" >&2
   exit 3
