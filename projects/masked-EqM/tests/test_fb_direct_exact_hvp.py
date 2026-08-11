@@ -395,6 +395,58 @@ def test_theta_jvp_matches_explicit_jacobian():
               f"max_abs_err={float((Jv_got - Jv_explicit).abs().max()):.2e}")
 
 
+def test_theta_jvp_handles_zero_jacobian_parameter():
+    """A parameter can be mathematically DISCONNECTED from field's Jacobian
+    without being a bug (found in production 2026-08-11, job 38268323):
+    ScalarEnergyHead.linear.bias is a per-token additive bias summed BEFORE
+    the token dimension, i.e. E = sum_tokens(W.x_token + bias) =
+    W.sum(x_token) + N_tokens*bias -- an ADDITIVE CONSTANT in z, so
+    d(field)/d(bias) = d(-grad_z E)/d(bias) = 0 identically. Before this fix
+    field_jvp_* raised 'One of the differentiated Tensors appears to not
+    have been used in the graph' on any params list containing such a
+    parameter -- allow_unused=True + zero-substitution is the correct fix
+    (an identically-zero Jacobian column, not a missing dependency).
+    Simulated here with a genuinely-unconnected extra leaf parameter
+    appended to a real, connected params list, on a real tiny model."""
+    torch.manual_seed(151)
+    for ebm in ("direct", "none"):
+        model = make_model(ebm=ebm, dtype=torch.float64)
+        perturb(model, seed=157)
+        model.eval()
+        z, t, y = batch(n=1, dtype=torch.float64, seed=163)
+        connected = [p for n, p in model.named_parameters() if n == "t_embedder.mlp.2.bias"][0]
+        disconnected = torch.nn.Parameter(torch.randn(5, dtype=torch.float64))  # never touched by forward
+        params = [connected, disconnected]
+
+        field, J_connected = _explicit_jacobian(model, ebm, z, t, y, [connected])
+        n_conn = connected.numel()
+        gen = torch.Generator().manual_seed(167)
+        v_conn = torch.randn(n_conn, generator=gen, dtype=torch.float64)
+        v_disc = torch.randn(5, generator=gen, dtype=torch.float64)
+        v = [v_conn.view(connected.shape), v_disc.view(disconnected.shape)]
+        Jv_explicit = (J_connected @ v_conn).view(field.shape)  # disconnected column is all-zero
+
+        jvp_fn = field_jvp_direct if ebm == "direct" else field_jvp_none
+        model.zero_grad(set_to_none=True)
+        Jv_got = jvp_fn(model, z, t, y, params, v)  # must NOT raise
+        model.zero_grad(set_to_none=True)
+        torch.testing.assert_close(Jv_got, Jv_explicit, rtol=1e-6, atol=1e-9)
+
+        vjp_fn = exact_field_vjp if ebm == "direct" else field_vjp_none
+        model.zero_grad(set_to_none=True)
+        vjp_fn(model, z, t, y, torch.ones_like(field))
+        assert disconnected.grad is None, "disconnected param should get no .grad from vjp_fn"
+        model.zero_grad(set_to_none=True)
+
+        # block_subspace_iteration_theta must also not crash when params includes
+        # a zero-Jacobian column (exercises the .grad-is-None zero-substitution fix).
+        result = block_subspace_iteration_theta(jvp_fn, vjp_fn, model, z, t, y, params,
+                                                  k=1, num_iters=10, seed=1, tol=1e-6)
+        assert result["sigma"].shape[0] == 1
+        print(f"PASS {ebm} field_jvp/block_subspace_iteration_theta handle a zero-Jacobian "
+              f"parameter without raising (matches explicit-Jacobian ground truth)")
+
+
 def test_power_iteration_sigma1_matches_explicit_svd():
     """power_iteration_theta_sigma1 must converge to the top singular value
     (via numpy SVD of the SAME explicitly materialized Jacobian above) --
@@ -578,6 +630,7 @@ if __name__ == "__main__":
         test_field_vjp_none_matches_autograd_grad()
         test_field_vjp_finite_difference_sanity()
         test_theta_jvp_matches_explicit_jacobian()
+        test_theta_jvp_handles_zero_jacobian_parameter()
         test_power_iteration_sigma1_matches_explicit_svd()
         test_block_subspace_matches_explicit_svd()
     print("ALL PASS")

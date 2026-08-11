@@ -449,13 +449,24 @@ def field_jvp_none(model, xt, t, y, params, v):
         field = model(xt, t, y, train=True)
         u = torch.zeros_like(field, requires_grad=True)
         s = (field * u).sum()
-        g = torch.autograd.grad(s, params, create_graph=True)
-        if not g:
+        # allow_unused=True: a parameter can be mathematically disconnected from
+        # field's Jacobian (e.g. an additive-constant-in-z bias term whose
+        # contribution to a gradient-of-something-w.r.t.-z vanishes identically)
+        # without being a bug -- substitute an exact zero contribution rather than
+        # erroring (2026-08-11, found via energy_head.linear.bias in ScalarEnergyHead:
+        # E = sum_tokens(W.x_token + bias) = W.sum(x_token) + N_tokens*bias, a
+        # z-independent additive constant, so d(field)/d(bias) = 0 exactly).
+        if not params:
             raise RuntimeError("field_jvp: `params` is empty -- nothing to differentiate w.r.t.")
+        g = torch.autograd.grad(s, params, create_graph=True, allow_unused=True)
         h = None
         for gp, vp in zip(g, v):
+            if gp is None:
+                continue
             term = (gp * vp).sum()
             h = term if h is None else h + term
+        if h is None:
+            return torch.zeros_like(field).detach()
         Jv = torch.autograd.grad(h, u)[0]
     finally:
         restore_attn()
@@ -487,15 +498,22 @@ def field_jvp_direct(model, xt, t, y, params, v):
         field = -gx
         u = torch.zeros_like(field, requires_grad=True)
         s = (field * u).sum()
-        g = torch.autograd.grad(s, params, create_graph=True)
+        if not params:
+            raise RuntimeError("field_jvp: `params` is empty -- nothing to differentiate w.r.t.")
+        # allow_unused=True: see field_jvp_none's docstring note -- a head parameter
+        # can be an additive-constant-in-z term (zero field-Jacobian column) without
+        # being a bug.
+        g = torch.autograd.grad(s, params, create_graph=True, allow_unused=True)
     finally:
         restore_attn()
-    if not g:
-        raise RuntimeError("field_jvp: `params` is empty -- nothing to differentiate w.r.t.")
     h = None
     for gp, vp in zip(g, v):
+        if gp is None:
+            continue
         term = (gp * vp).sum()
         h = term if h is None else h + term
+    if h is None:
+        return torch.zeros_like(field).detach()
     Jv = torch.autograd.grad(h, u)[0]
     return Jv.detach()
 
@@ -553,7 +571,9 @@ def power_iteration_theta_sigma1(jvp_fn, vjp_fn, model, xt, t, y, params, num_it
 
         model.zero_grad(set_to_none=True)
         vjp_fn(model, xt, t, y, q)  # accumulates J_ALL^T q into .grad
-        v_new = [p.grad.detach().clone() for p in params]
+        # p.grad may be None for a parameter with a zero field-Jacobian column
+        # (e.g. an additive-constant-in-z head bias) -- exact zero, not a bug.
+        v_new = [p.grad.detach().clone() if p.grad is not None else torch.zeros_like(p) for p in params]
         vnorm_new = sum(float((vp ** 2).sum()) for vp in v_new) ** 0.5
         v = [vp / (vnorm_new + 1e-30) for vp in v_new]
         model.zero_grad(set_to_none=True)
@@ -644,7 +664,10 @@ def block_subspace_iteration_theta(jvp_fn, vjp_fn, model, xt, t, y, params, k=8,
             u_dir = Uq[:, j].view(field_shape)
             model.zero_grad(set_to_none=True)
             vjp_fn(model, xt, t, y, u_dir)
-            v_new = flatten_tensors([p.grad.detach().clone() for p in params])
+            # p.grad may be None for a zero-field-Jacobian parameter (see
+            # field_jvp_none's docstring note) -- exact zero, not a bug.
+            v_new = flatten_tensors([p.grad.detach().clone() if p.grad is not None else torch.zeros_like(p)
+                                      for p in params])
             Vnew_cols.append(v_new)
         Vnew = torch.stack(Vnew_cols, dim=1)
         Vnew_q, R_v = torch.linalg.qr(Vnew)
