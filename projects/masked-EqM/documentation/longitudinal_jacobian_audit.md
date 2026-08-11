@@ -48,6 +48,15 @@ fixed" scoping decision was an infra-discovery gap, not a real data limitation. 
 
 ## 4. Matched checkpoints (this experiment)
 
+CORRECTION (2026-08-11, added after job 38265027 FAILED on `FileNotFoundError`): the `...`
+abbreviated paths below never recorded the actual filesystem root, which caused a real
+resubmission failure in the follow-up `topk_subspace_diagnostic.py` job. **True root:**
+`/n/netscratch/ydu_lab/Lab/mkrasnow_eqm/direct_energy_longer_retry/` (netscratch, NOT
+`/n/holylabs/.../masked-EqM/results/` as was wrongly assumed by convention when resubmitting).
+Full paths:
+- direct: `/n/netscratch/ydu_lab/Lab/mkrasnow_eqm/direct_energy_longer_retry/fwrev_ep80_lambda0_job37780076/000-EqM-B-2-Linear-velocity-None-ebm-direct/checkpoints/<step>.pt`
+- none: `/n/netscratch/ydu_lab/Lab/mkrasnow_eqm/direct_energy_longer_retry/longer80_none_seed0_ckpt50k_job36632776/000-EqM-B-2-Linear-velocity-None-ebm-none/checkpoints/<step>.pt`
+
 Direct checkpoints (unchanged, `fwrev_ep80_lambda0_job37780076`, exact steps as filenames):
 
 | stage | direct checkpoint | direct step |

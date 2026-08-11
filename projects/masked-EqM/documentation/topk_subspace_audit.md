@@ -51,6 +51,13 @@ existing A-based interaction, so compute is spent where the signal is):
 |---|---|---|---|
 | late | `fwrev_ep80_lambda0_job37780076/.../2825000.pt` (2,825,000) | `longer80_none_seed0_ckpt50k_job36632776/.../2800000.pt` (2,800,000) | 0.885% |
 
+CORRECTION (2026-08-11, after job 38265027 FAILED on `FileNotFoundError` -- the `...`
+abbreviated paths above never recorded the actual root): true root is
+`/n/netscratch/ydu_lab/Lab/mkrasnow_eqm/direct_energy_longer_retry/` (netscratch), NOT
+`/n/holylabs/.../masked-EqM/results/`. Full paths used for this job's resubmission (38268323):
+- `CKPT_DIRECT_LATE=/n/netscratch/ydu_lab/Lab/mkrasnow_eqm/direct_energy_longer_retry/fwrev_ep80_lambda0_job37780076/000-EqM-B-2-Linear-velocity-None-ebm-direct/checkpoints/2825000.pt`
+- `CKPT_NONE_LATE=/n/netscratch/ydu_lab/Lab/mkrasnow_eqm/direct_energy_longer_retry/longer80_none_seed0_ckpt50k_job36632776/000-EqM-B-2-Linear-velocity-None-ebm-none/checkpoints/2800000.pt`
+
 ## 4. Tail-severity criterion (A2) — pool sizing, criterion UNCHANGED
 
 Spike/control selection rule is preserved EXACTLY (`select_spike_control`: top
