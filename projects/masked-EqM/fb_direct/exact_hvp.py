@@ -563,6 +563,123 @@ def power_iteration_theta_sigma1(jvp_fn, vjp_fn, model, xt, t, y, params, num_it
     return {"sigma_1": sigma_1, "u1": u1, "v1": v, "history": history, "n_iters": len(history)}
 
 
+# -----------------------------------------------------------------------
+# Block (orthogonal-iteration) top-k singular SUBSPACE, theta-space.
+# (2026-08-10, Stage-A top-k high-gain subspace diagnostic.)
+#
+# power_iteration_theta_sigma1 above tracks a SINGLE vector; when
+# sigma_1 ~ sigma_2 ~ ... the top singular vector is not an individually
+# stable object (a small perturbation rotates it inside the near-degenerate
+# subspace), even though the SPAN of the top-k subspace is stable. This is
+# standard orthogonal iteration (block power method): alternately apply
+# J then re-orthonormalize (QR) in output space, apply J^T then
+# re-orthonormalize in theta space -- converges the COLUMN SPACE of the
+# iterate to the top-k right singular subspace of J, with the QR R-factor
+# diagonal converging to the singular values themselves (not merely a
+# Rayleigh-quotient proxy), and the output-space orthonormal factor
+# converging to the top-k LEFT singular subspace. No deflation, no
+# individual-vector bookkeeping -- correct in the presence of
+# near-degenerate spectra by construction.
+# -----------------------------------------------------------------------
+
+def block_subspace_iteration_theta(jvp_fn, vjp_fn, model, xt, t, y, params, k=8,
+                                    num_iters=12, seed=0, tol=1e-3):
+    """Top-k singular subspace of J = d(field)/d(params) via orthogonal
+    iteration. `params`: fixed subset (e.g. energy-head parameters only).
+
+    Returns:
+      sigma: (k,) tensor, descending singular value estimates (final QR
+        R-factor diagonal in theta-space, i.e. after the J^T half-step).
+      V: (P, k) tensor, orthonormal theta-space basis (flattened param
+        order matches `params`), columns = right singular vectors.
+      U: (n_out, k) tensor, orthonormal field-space basis (flattened field
+        order), columns = left singular vectors, U[:, i] approx J V[:, i] / sigma[i].
+      v_list / u_list: same content as V/U but unflattened back to
+        param-shape / field-shape tensors, per column, for direct use in
+        P_k/Q_k projection metrics.
+      history: list of per-iteration sigma vectors (convergence trace).
+      ortho_error_V / ortho_error_U: ||V^T V - I||_F / ||U^T U - I||_F at
+        the final iterate (should be ~0 by QR construction; reported as an
+        explicit numerical sanity check per the spec).
+    """
+    params = list(params)
+    dtype = params[0].dtype
+    device = params[0].device
+    P = sum(p.numel() for p in params)
+    shapes = [p.shape for p in params]
+
+    def unflatten_theta(col):
+        out, i = [], 0
+        for shp in shapes:
+            n = int(torch.tensor(shp).prod()) if len(shp) else 1
+            out.append(col[i:i + n].view(shp))
+            i += n
+        return out
+
+    def flatten_tensors(tensors):
+        return torch.cat([t.reshape(-1) for t in tensors])
+
+    gen = torch.Generator(device="cpu")
+    gen.manual_seed(seed)
+    V0 = torch.randn(P, k, generator=gen).to(device=device, dtype=dtype)
+    V, _ = torch.linalg.qr(V0)
+
+    field_shape = None
+    history = []
+    Uq, R_v_diag = None, None
+    for it in range(num_iters):
+        Q_cols = []
+        for j in range(k):
+            v_dirs = unflatten_theta(V[:, j])
+            model.zero_grad(set_to_none=True)
+            Jv = jvp_fn(model, xt, t, y, params, v_dirs)
+            if field_shape is None:
+                field_shape = Jv.shape
+            Q_cols.append(Jv.reshape(-1))
+        Q = torch.stack(Q_cols, dim=1)
+        Uq, _ = torch.linalg.qr(Q)
+
+        Vnew_cols = []
+        for j in range(k):
+            u_dir = Uq[:, j].view(field_shape)
+            model.zero_grad(set_to_none=True)
+            vjp_fn(model, xt, t, y, u_dir)
+            v_new = flatten_tensors([p.grad.detach().clone() for p in params])
+            Vnew_cols.append(v_new)
+        Vnew = torch.stack(Vnew_cols, dim=1)
+        Vnew_q, R_v = torch.linalg.qr(Vnew)
+        sigma_est = R_v.diagonal().abs()
+        history.append(sigma_est.detach().cpu().tolist())
+
+        if R_v_diag is not None:
+            rel_change = float((sigma_est - R_v_diag).abs().max() / (R_v_diag.abs().max() + 1e-30))
+            V, R_v_diag = Vnew_q, sigma_est
+            if rel_change < tol:
+                break
+        else:
+            V, R_v_diag = Vnew_q, sigma_est
+        model.zero_grad(set_to_none=True)
+
+    assert R_v_diag is not None and Uq is not None, "num_iters must be >= 1"
+    sigma = R_v_diag
+    order = torch.argsort(sigma, descending=True)
+    sigma = sigma[order]
+    V = V[:, order]
+    Uq = Uq[:, order]
+
+    ortho_error_V = float((V.T @ V - torch.eye(V.shape[1], dtype=V.dtype, device=V.device)).norm())
+    ortho_error_U = float((Uq.T @ Uq - torch.eye(Uq.shape[1], dtype=Uq.dtype, device=Uq.device)).norm())
+
+    v_list = [unflatten_theta(V[:, j]) for j in range(V.shape[1])]
+    u_list = [Uq[:, j].view(field_shape).detach() for j in range(Uq.shape[1])]
+
+    return {
+        "sigma": sigma.detach(), "V": V.detach(), "U": Uq.detach(),
+        "v_list": v_list, "u_list": u_list, "history": history, "n_iters": len(history),
+        "ortho_error_V": ortho_error_V, "ortho_error_U": ortho_error_U,
+    }
+
+
 def power_iteration_spectral_norm(model, z, t, y, num_iters=15, seed=None):
     """Per-sample power iteration for ||grad_z^2 E||_op = max_i |eigenvalue_i|
     (spectral RADIUS, not just the top positive eigenvalue -- E is generally

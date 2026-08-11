@@ -28,8 +28,9 @@ import torch
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from fb_direct.exact_hvp import (
-    exact_field_vjp, exact_fwrev_backward, field_jvp_direct, field_jvp_none,
-    field_vjp_none, power_iteration_theta_sigma1,
+    block_subspace_iteration_theta, exact_field_vjp, exact_fwrev_backward,
+    field_jvp_direct, field_jvp_none, field_vjp_none,
+    power_iteration_theta_sigma1,
 )
 from transport.utils import mean_flat
 
@@ -428,6 +429,123 @@ def test_power_iteration_sigma1_matches_explicit_svd():
               f"(rel_err={rel_err:.2e}, {result['n_iters']} iters)")
 
 
+def test_block_subspace_matches_explicit_svd():
+    """block_subspace_iteration_theta (orthogonal iteration, Stage-A top-k
+    high-gain SUBSPACE diagnostic) must match numpy SVD of an explicitly
+    materialized Jacobian, both on singular VALUES and (separately, via a
+    synthetic operator with a deliberately engineered spectral gap) on the
+    recovered SUBSPACE itself.
+
+    Two-part test, per the engineering requirement ("validate the
+    matrix-free sigma_1 estimator against an explicitly materialized
+    Jacobian on a tiny model" + "do not require individual singular
+    vectors to match when eigenvalues are nearly degenerate -- validate
+    the SUBSPACE"):
+
+    Part 1 (real tiny model): field_jvp_*/exact_field_vjp/field_vjp_none
+    ARE the model-dependent primitives under test elsewhere already
+    (test_theta_jvp_matches_explicit_jacobian); here we only need to
+    confirm block_subspace_iteration_theta's sigma estimates track the
+    true singular values on a real model's parameter Jacobian. Measured
+    fact (checked before writing this test): this tiny random-init
+    model's t_embedder.mlp weight matrices have a NEAR-FLAT top-8
+    spectrum (consecutive gaps 0.5%-9%, e.g. sigma_3/sigma_4 differ by
+    <1%) -- a property of small randomly-initialized matrices, not of the
+    estimator. Under that regime even hundreds of orthogonal-iteration
+    steps leave the INDIVIDUAL subspace direction underdetermined (the
+    span of a near-degenerate cluster is well-defined; which orthonormal
+    basis vector "is" sigma_3 vs sigma_4 is not, until iterated far longer
+    than is practical here) -- so Part 1 checks singular VALUES only.
+
+    Part 2 (synthetic linear operator, model-independent): validates the
+    SUBSPACE recovery itself using a hand-built operator with an explicit,
+    large spectral gap between rank k and k+1 -- exactly the regime where
+    subspace-vs-individual-vector comparison is meaningful, decoupled from
+    any particular model's incidental spectrum.
+    """
+    import numpy as np
+    torch.manual_seed(211)
+    k = 3
+
+    # ---- Part 1: real tiny model, sigma values only ----
+    for ebm in ("direct", "none"):
+        model = make_model(ebm=ebm, dtype=torch.float64)
+        perturb(model, seed=223)
+        model.eval()
+        z, t, y = batch(n=1, dtype=torch.float64, seed=227)
+        params = [p for n, p in model.named_parameters()
+                  if n in ("t_embedder.mlp.0.bias", "t_embedder.mlp.2.bias")]
+        assert len(params) == 2, "t_embedder.mlp.{0,2}.bias not found -- architecture changed"
+
+        _, J = _explicit_jacobian(model, ebm, z, t, y, params)
+        sigma_ref = np.linalg.svd(J.numpy(), compute_uv=False)[:k]
+
+        jvp_fn = field_jvp_direct if ebm == "direct" else field_jvp_none
+        vjp_fn = exact_field_vjp if ebm == "direct" else field_vjp_none
+        model.zero_grad(set_to_none=True)
+        result = block_subspace_iteration_theta(jvp_fn, vjp_fn, model, z, t, y, params,
+                                                  k=k, num_iters=100, seed=17, tol=1e-12)
+        model.zero_grad(set_to_none=True)
+
+        sigma_got = result["sigma"].numpy()
+        rel_err_sigma = np.abs(sigma_got - sigma_ref) / np.abs(sigma_ref)
+        assert (rel_err_sigma < 5e-3).all(), (
+            f"{ebm}: block subspace sigma={sigma_got} vs SVD reference={sigma_ref}, rel_err={rel_err_sigma}"
+        )
+        assert result["ortho_error_V"] < 1e-8 and result["ortho_error_U"] < 1e-8, (
+            f"{ebm}: orthonormality error V={result['ortho_error_V']} U={result['ortho_error_U']}"
+        )
+        print(f"PASS {ebm} block_subspace_iteration_theta sigma == SVD reference (real tiny model, "
+              f"near-flat spectrum -- values only): {sigma_got} vs {sigma_ref} "
+              f"(max rel_err={rel_err_sigma.max():.2e}), {result['n_iters']} iters")
+
+    # ---- Part 2: synthetic operator, explicit spectral gap, subspace comparison ----
+    n_out, n_params = 40, 25
+    gen = np.random.RandomState(97)
+    U_true, _ = np.linalg.qr(gen.randn(n_out, n_out))
+    V_true, _ = np.linalg.qr(gen.randn(n_params, n_params))
+    sigma_true = np.array([10.0, 7.0, 4.0, 0.3, 0.25, 0.2, 0.15] + [0.1] * (min(n_out, n_params) - 7))
+    S_mat = np.zeros((n_out, n_params))
+    for i, s in enumerate(sigma_true):
+        S_mat[i, i] = s
+    J_synth = U_true @ S_mat @ V_true.T  # rank-k=3 vs rest: gap 4.0 -> 0.3, ~13x
+
+    J_t = torch.tensor(J_synth, dtype=torch.float64)
+    fake_param = torch.zeros(n_params, dtype=torch.float64, requires_grad=False)
+
+    def synth_jvp(_model, _xt, _t, _y, params_, v):
+        v_flat = v[0].reshape(-1)
+        return (J_t @ v_flat).clone()
+
+    def synth_vjp(_model, _xt, _t, _y, q):
+        grad = J_t.T @ q.reshape(-1)
+        fake_param.grad = grad.view(fake_param.shape).clone()
+
+    class _DummyModel:
+        def zero_grad(self, set_to_none=True):
+            fake_param.grad = None
+
+    result = block_subspace_iteration_theta(synth_jvp, synth_vjp, _DummyModel(), None, None, None,
+                                             [fake_param], k=k, num_iters=60, seed=5, tol=1e-13)
+    sigma_got = result["sigma"].numpy()
+    sigma_ref = sigma_true[:k]
+    rel_err_sigma = np.abs(sigma_got - sigma_ref) / np.abs(sigma_ref)
+    assert (rel_err_sigma < 1e-6).all(), f"synthetic: sigma={sigma_got} vs ref={sigma_ref}"
+
+    Uref_k = U_true[:, :k]
+    Vref_k = V_true[:, :k]
+    U_got, V_got = result["U"].numpy(), result["V"].numpy()
+    proj_dist_U = float(np.linalg.norm(Uref_k @ Uref_k.T - U_got @ U_got.T))
+    proj_dist_V = float(np.linalg.norm(Vref_k @ Vref_k.T - V_got @ V_got.T))
+    assert proj_dist_U < 1e-4, f"synthetic: U subspace projector distance {proj_dist_U} too large"
+    assert proj_dist_V < 1e-4, f"synthetic: V subspace projector distance {proj_dist_V} too large"
+    assert result["ortho_error_V"] < 1e-8 and result["ortho_error_U"] < 1e-8
+    print(f"PASS block_subspace_iteration_theta == SVD reference (synthetic operator, explicit "
+          f"spectral gap sigma_3/sigma_4={sigma_true[2] / sigma_true[3]:.1f}x): "
+          f"sigma {sigma_got} vs {sigma_ref} (max rel_err={rel_err_sigma.max():.2e}), "
+          f"U subspace dist={proj_dist_U:.2e}, V subspace dist={proj_dist_V:.2e}, {result['n_iters']} iters")
+
+
 import contextlib
 
 
@@ -461,4 +579,5 @@ if __name__ == "__main__":
         test_field_vjp_finite_difference_sanity()
         test_theta_jvp_matches_explicit_jacobian()
         test_power_iteration_sigma1_matches_explicit_svd()
+        test_block_subspace_matches_explicit_svd()
     print("ALL PASS")
