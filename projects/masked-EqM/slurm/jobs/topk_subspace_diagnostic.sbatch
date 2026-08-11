@@ -33,9 +33,9 @@ cd projects/masked-EqM
 pip install --quiet timm 'diffusers==0.27.2' 'huggingface_hub==0.23.5' 'transformers==4.40.2' accelerate torchvision
 
 echo "=== FP64 CPU unit tests (must pass before any GPU work, incl. block-subspace validation) ==="
-python tests/test_fb_direct_exact_hvp.py
+python -u tests/test_fb_direct_exact_hvp.py
 
-python experiments/direct_energy/topk_subspace_diagnostic.py \
+python -u experiments/direct_energy/topk_subspace_diagnostic.py \
     --ckpt-direct "$CKPT_DIRECT_LATE" \
     --ckpt-none "$CKPT_NONE_LATE" \
     --data-path "$IMAGENET_PATH" \
