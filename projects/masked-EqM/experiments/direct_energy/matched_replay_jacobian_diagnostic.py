@@ -368,8 +368,10 @@ def build_pool(args, device):
     transport = create_transport("Linear", "velocity", None, None, None)
     print(f"[diag] pool: {args.pool_size} batches x {args.batch_size} (real ImageNet), seed={args.seed}")
     probe_bank = build_probe_bank(args.data_path, args.pool_size, args.batch_size, args.image_size, args.seed)
+    import time
+    t_enc0 = time.time()
     fixed_inputs = []
-    for x, y in probe_bank:
+    for i, (x, y) in enumerate(probe_bank):
         x, y = x.to(device), y.to(device)
         with torch.no_grad():
             x1 = vae.encode(x).latent_dist.sample().mul_(0.18215)
@@ -378,6 +380,8 @@ def build_pool(args, device):
         t, xt, ut = transport.path_sampler.plan(t, x0, x1)
         ut = ut * transport.get_ct(t)[:, None, None, None]
         fixed_inputs.append((xt.detach(), t.detach(), y, ut.detach()))
+        if (i + 1) % 500 == 0 or (i + 1) == len(probe_bank):
+            print(f"[diag] pool: {i + 1}/{len(probe_bank)} VAE-encoded ({time.time() - t_enc0:.1f}s elapsed)")
     del vae
     torch.cuda.empty_cache()
     return fixed_inputs

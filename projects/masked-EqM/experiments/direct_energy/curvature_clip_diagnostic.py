@@ -60,20 +60,38 @@ from torch.utils.data import DataLoader
 
 
 def build_probe_bank(data_path, num_batches, batch_size, image_size, seed):
+    # 2026-08-11: progress logging added after repeated silent stalls (3 of 4
+    # topk_subspace_diagnostic.py submissions hung with zero output for
+    # 45min-1h35m before being cancelled as presumed bad-node/stuck-mount
+    # incidents -- indistinguishable from "genuinely slow" without this).
+    # ImageFolder() below walks the full ~1.28M-image tree on every call
+    # (COST IS INDEPENDENT OF num_batches/pool_size -- this is a FIXED
+    # per-job cost, not something scaling pool_size larger makes worse),
+    # exactly matching a previously-documented "ImageFolder construction
+    # bad node/stuck mount" incident from project memory.
+    import time
+    t0 = time.time()
+    print(f"  [build_probe_bank] indexing ImageFolder at {data_path} ...")
     transform = transforms.Compose([
         transforms.Lambda(lambda pil_image: center_crop_arr(pil_image, image_size)),
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5], inplace=True),
     ])
     dataset = ImageFolder(data_path, transform=transform)
+    print(f"  [build_probe_bank] ImageFolder indexed in {time.time() - t0:.1f}s: "
+          f"{len(dataset)} images, {len(dataset.classes)} classes")
     gen = torch.Generator().manual_seed(seed)
     loader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=4,
                          drop_last=True, generator=gen)
     bank = []
     it = iter(loader)
-    for _ in range(num_batches):
+    t1 = time.time()
+    for i in range(num_batches):
         x, y = next(it)
         bank.append((x, y))
+        if (i + 1) % 200 == 0 or (i + 1) == num_batches:
+            print(f"  [build_probe_bank] {i + 1}/{num_batches} batches loaded "
+                  f"({time.time() - t1:.1f}s elapsed)")
     return bank
 
 
