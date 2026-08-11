@@ -1472,3 +1472,34 @@ direction) is equally stable, leaves the main loss unaffected (10.76), and reduc
 structured-start-state story (OOD/composition/energy-ordering claims), the decisive test is now cheap —
 a FID-scale run of exact-fwrev direct (+/- GP) vs the none/dot baseline. Otherwise we settle on none/dot
 as the backbone and carry the energy semantics via the derived-energy parameterizations. Which way?
+
+## 2026-08-11 — energy z-loss causal test REVERSED on the real target metric (DRAFT, not sent)
+
+Follow-up on the weight-decay/z-loss single-lever causal tests reported this session: the earlier
+gate ("|E| growth flattens/reverses") measured |E| magnitude (`E_std_mean`), not clip-rate, the
+actual quantity the growing-instability investigation cares about. Both were assumed correlated;
+they are not.
+
+Per-step `clipped`/`grad_norm` was already being logged for the full duration of all 3 relevant
+training jobs (`GRAD_LOG_EVERY=1` was on), so clip-rate over the same matched 75k-step window
+(checkpoints 2825000-2900000) could be computed directly from existing logs -- no new compute.
+
+- **energy z-loss (1e-6): clip-rate 28.47% vs control's 0.50% (~57x higher)**, median grad_norm
+  4.88 vs 1.70 (2.9x), p95 11.85 vs 2.63 (4.5x). z-loss suppresses |E| magnitude but sharply
+  *worsens* the real clip instability -- the opposite of what the |E|-based gate suggested.
+  Likely mechanism: penalizing E directly pushes gradient mass into backbone/attention (matches
+  the already-noted side effect of z-loss growing attention-logit magnitude) rather than fixing
+  the underlying ill-conditioning that's actually driving clips.
+- weight-decay (0.01): clip-rate 0.52%, indistinguishable from control -- consistent with its
+  earlier weight_specnorm null.
+
+Both pre-registered causal single-lever tests for the growing-clip-rate instability are now
+closed, both negative on the real target metric. z-loss is killed as a lever per the stop
+conditions (diagnostic signal was on the wrong quantity, not the one that matters).
+
+**Ask of PI**: no immediate decision needed -- both levers are cleanly dead, no ambiguous branch.
+Flagging because this reverses a result already framed as "the strongest single-lever result on
+this thread" in the prior update draft; wanted that correction visible before any downstream
+framing (paper draft, next PI sync) builds on the superseded read. Next step on this thread is to
+propose a new lever or escalate to a structural fix, informed by this session's Stage A
+top-k-subspace diagnostic once it completes (job 38326556).
