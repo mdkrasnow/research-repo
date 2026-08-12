@@ -16,19 +16,6 @@
   ],
   "active_runs": [
     {
-      "run_id": "wfb_stage2_armC_exact_adamreset",
-      "job_id": "38651959",
-      "partition": "seas_gpu",
-      "status": "pending",
-      "submitted_at": "2026-08-12T09:55:00-04:00",
-      "git_sha": "178aa60",
-      "sbatch_path": "projects/masked-EqM/slurm/jobs/wfb_stage2_paired_train.sbatch",
-      "expected_runtime": "~15min (500 steps, 4x H200 DDP, exact-fwrev)",
-      "phase": "wfb-eqm-stage2",
-      "description": "WFB-EqM Stage 2 2x2 factorial ARM C: exact-fwrev + --reset-adam-state (commit 178aa60, generalized reset flag). Completes the {exact,wfb} x {loaded,reset} factorial with A (38613540, exact+loaded), B (38613563, wfb+loaded), D (38646819, wfb+reset, in progress). Isolates whether resetting Adam state ALONE changes anything for exact-direct (should be near-identical to A if the reset explanation for D vs B is correct and specific to WFB coordinate change, not a generic reset effect).",
-      "gate": "Does C (exact+reset) look like A (exact+loaded)? If yes, confirms the D-vs-B improvement is specifically about WFB needing recalibration, not a generic reset artifact."
-    },
-    {
       "run_id": "wfb_stage2_5_alpha_diagnostic",
       "job_id": "38673961",
       "partition": "gpu_test",
@@ -13261,6 +13248,20 @@
       "description": "WFB-EqM Stage 2 follow-up: ARM B with --wfb-reset-adam-state (commit 4cf630b). Tests whether resetting AdamW second-moment state at the backward-mode swap closes the ~40x delta_theta_norm gap vs ARM A found in v3-v5 (direction was already MORE consistently correct than baseline per v5s real-data probe cosine, 74%% vs 49.8%%; net learning was ~90x smaller, hypothesized to be an optimizer-scale-mismatch artifact). Compare against ARM A v5 (job 38613540) baseline -- no ARM A rerun needed, exact-fwrev is deterministic and already reproduced identically 3x. -- COMPLETED, see final_metric.",
       "gate": "Does resetting AdamW state close the delta_theta_norm gap and bring probe_delta_L/net learning progress to a magnitude comparable to ARM A v5 (-0.030 over 500 steps)? PASS = optimizer-calibration artifact confirmed, not a WFB mechanism flaw. FAIL (still ~40x smaller) = deeper issue, not just stale Adam state.",
       "final_metric": "delta_theta_norm median=0.23987 (ratio D/A=0.965, matches ARM A within ~3.5%, confound resolved). BUT probe_delta_L sum over 500 steps = +0.04466 (net WORSENING) vs ARM A -0.0245 (net improvement); probe_cos_field_update_vs_neg_r mean=-0.00063, 44.2% positive (worse than coinflip, worse than ARM B loaded-state WFB 74.0% positive). Stable across all 4 quartiles (not a transient early-Adam-ramp-up artifact) -- Q2-Q4 all net-worsening. REVERSES an earlier optimistic 3-step mid-run peek. CONCLUSION (pending ARM C control): matching delta_theta_norm via full Adam reset does NOT close the WFB learning gap -- properly-scaled WFB steps under fresh Adam produce net-negative held-out progress. Contradicts simple optimizer-staleness hypothesis. Reviewer analysis (2026-08-12): consistent with WFB (alpha=1/2) fixing PARAMETER-gradient conditioning (bounded sigma_i gain) but leaving one power of sigma_i in the INDUCED FIELD update (unbounded sigma_i gain) -- proposes alpha-family generalization g_alpha = M^T(A+lam I)^-alpha r, alpha=1 = full damped Gauss-Newton (FBGN, bounded [0,1] field-update gain per mode). See fb_direct/exact_hvp.py alpha param (commit pending) + tests/test_fb_direct_exact_hvp.py test_wfb_alpha_family_singular_mode_gain."
+    },
+    {
+      "run_id": "wfb_stage2_armC_exact_adamreset",
+      "job_id": "38651959",
+      "partition": "seas_gpu",
+      "status": "completed",
+      "submitted_at": "2026-08-12T09:55:00-04:00",
+      "git_sha": "178aa60",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/wfb_stage2_paired_train.sbatch",
+      "expected_runtime": "~15min (500 steps, 4x H200 DDP, exact-fwrev)",
+      "phase": "wfb-eqm-stage2",
+      "description": "WFB-EqM Stage 2 2x2 factorial ARM C: exact-fwrev + --reset-adam-state (commit 178aa60, generalized reset flag). Completes the {exact,wfb} x {loaded,reset} factorial with A (38613540, exact+loaded), B (38613563, wfb+loaded), D (38646819, wfb+reset, in progress). Isolates whether resetting Adam state ALONE changes anything for exact-direct (should be near-identical to A if the reset explanation for D vs B is correct and specific to WFB coordinate change, not a generic reset effect). -- COMPLETED, see final_metric.",
+      "gate": "Does C (exact+reset) look like A (exact+loaded)? If yes, confirms the D-vs-B improvement is specifically about WFB needing recalibration, not a generic reset artifact.",
+      "final_metric": "grad_norm median=1.6742, clip_rate=0.4%, delta_theta_norm median=0.2492 (matches ARM A 0.2485 almost exactly). probe_delta_L sum over 500 steps=-0.0211 (net IMPROVEMENT, close to ARM A -0.0245); probe_loss net change (first10->last10)=-0.0242 (vs ARM A -0.0302); cosine mean=+0.00212, 49.6% positive (vs ARM A 49.8% -- statistically indistinguishable). CONCLUSION: ARM C (exact+reset) behaves ESSENTIALLY IDENTICALLY to ARM A (exact+loaded) -- Adam-state reset ALONE has no material effect on exact-direct training. This completes the 2x2 factorial and DECISIVELY ISOLATES the D-vs-B degradation as WFB-SPECIFIC, not a generic fresh-Adam-large-step-on-converged-checkpoint artifact: exact is robust to reset (A ~= C), but WFB is NOT robust to reset (B: net-flat/74% cos-positive -> D: net-WORSE/44.2% cos-positive). Falsifies the stale-Adam-state hypothesis entirely; supports reviewer alpha-family account (WFB alpha=0.5 bounds the parameter gradient but not the induced field update -- see commit f1dcf25, compute_wfb_gradient alpha kwarg + Stage 2.5 diagnostic, job 38673961 running)."
     }
   ],
   "debugging_notes": [
