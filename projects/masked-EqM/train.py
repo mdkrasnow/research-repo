@@ -302,17 +302,28 @@ def main(args):
             buffering=1,
         )
 
-    # Fixed held-out diagnostic probe (WFB-EqM Stage 2 checklist, 2026-08-12): a SINGLE
-    # fixed (xt,t,y,ut) point, deterministic seed (identical across arms -- a fair paired
-    # comparison needs the SAME probe under both), used ONLY to measure one-step functional
-    # progress (field-MSE delta L) and field-update/residual alignment (cosine). Never
-    # touches training data statistics or any .grad -- pure eval-mode forward + z-grad only.
-    probe_gen = torch.Generator(device="cpu")
-    probe_gen.manual_seed(999)
-    probe_xt = torch.randn(local_batch_size, 4, latent_size, latent_size, generator=probe_gen).to(device)
-    probe_t = torch.rand(local_batch_size, generator=probe_gen).to(device)
-    probe_y = torch.randint(0, args.num_classes, (local_batch_size,), generator=probe_gen).to(device)
-    probe_ut = torch.randn(local_batch_size, 4, latent_size, latent_size, generator=probe_gen).to(device)
+    # Fixed held-out diagnostic probe (WFB-EqM Stage 2 checklist, 2026-08-12, v2 after v4's
+    # synthetic-noise probe was found uninformative -- both arms showed ~flat probe_delta_L
+    # since independent random noise isn't a target real training has any reason to fit): a
+    # SINGLE REAL image, VAE-encoded and run through the exact same transport sampling path
+    # as training (transport.sample/plan/get_ct), fixed and reused identically every step.
+    # Reproducible across arms: global RNG state entering this call is identical between arms
+    # (same --global-seed, identical program flow up to this point -- the ARM-specific
+    # backward-mode branch only executes inside the training loop, after this). Used ONLY to
+    # measure one-step functional progress (held-out field-MSE delta L) and field-update/
+    # residual alignment (cosine) -- never touches training data statistics or any .grad
+    # beyond a pure eval-mode forward + z-grad-only probe.
+    _probe_x, _probe_y_raw = next(iter(loader))
+    _probe_x = _probe_x.to(device)
+    probe_y = _probe_y_raw.to(device)
+    with torch.no_grad():
+        _probe_x1 = vae.encode(_probe_x).latent_dist.sample().mul_(0.18215)
+    _probe_t, _probe_x0, _probe_x1 = transport.sample(_probe_x1)
+    probe_t, probe_xt, probe_ut = transport.path_sampler.plan(_probe_t, _probe_x0, _probe_x1)
+    probe_ut = probe_ut * transport.get_ct(probe_t)[:, None, None, None]
+    probe_xt = probe_xt.detach()
+    probe_t = probe_t.detach()
+    probe_ut = probe_ut.detach()
 
     def probe_field(raw_model):
         was_training = raw_model.training
