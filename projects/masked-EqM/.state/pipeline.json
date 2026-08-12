@@ -18,30 +18,30 @@
     {
       "partition": "seas_gpu",
       "status": "pending",
-      "submitted_at": "2026-08-12T02:10:00-04:00",
-      "git_sha": "ae95865",
+      "submitted_at": "2026-08-12T02:55:00-04:00",
+      "git_sha": "6694858",
       "sbatch_path": "projects/masked-EqM/slurm/jobs/wfb_stage2_paired_train.sbatch",
-      "expected_runtime": "~15min-2h (500 steps, 4x H200 DDP)",
+      "expected_runtime": "~15min-1h (500 steps, 4x H200 DDP)",
       "phase": "wfb-eqm-stage2",
-      "gate": "Stage 2 gate 1-6 (spec Section 9): clip/would-clip events down >=5x (or ~0) vs exact-direct arm; p99.9 applied grad norm dramatically reduced; no NaN/divergence; held-out field error improves and is not grossly worse than baseline; WFB effect stronger on spike than ordinary batches; overhead characterized.",
-      "run_id": "wfb_stage2_armA_exact_v3",
-      "job_id": "38573830",
-      "description": "WFB-EqM Stage 2 ARM A (control) v3: rerun at commit ae95865 (WFB native-scale fix) for a clean paired comparison. exact-fwrev backward, 500 steps from CKPT_DIRECT_LATE, global_seed=42, max_grad_norm=6.87141. Supersedes v2 (38570562, cancelled pre-GPU-step alongside armB).",
-      "superseded_job_id": "38570562"
+      "gate": "Stage 2 gate 1-6 + checklist: clip-rate down; p99.9 grad norm down; no NaN; |delta_theta| comparable magnitude to ARM A (not neutralized by stale Adam state); held-out probe_delta_L negative (learning) comparable to ARM A; probe_cos(field update, -r) positive and comparable to ARM A; overhead characterized.",
+      "run_id": "wfb_stage2_armA_exact_v4",
+      "job_id": "38590354",
+      "description": "WFB-EqM Stage 2 ARM A (control) v4: rerun with checklist instrumentation (|delta_theta|, held-out probe delta_L, field-update cosine) at commit 6694858. exact-fwrev, 500 steps from CKPT_DIRECT_LATE, global_seed=42, max_grad_norm=6.87141. Supersedes v3 (38573830, completed cleanly, same result expected -- rerun purely to get checklist fields for the paired comparison).",
+      "superseded_job_id": "38573830"
     },
     {
       "partition": "seas_gpu",
       "status": "pending",
-      "submitted_at": "2026-08-12T02:10:00-04:00",
-      "git_sha": "ae95865",
+      "submitted_at": "2026-08-12T02:55:00-04:00",
+      "git_sha": "6694858",
       "sbatch_path": "projects/masked-EqM/slurm/jobs/wfb_stage2_paired_train.sbatch",
-      "expected_runtime": "~15min-2h (500 steps, 4x H200 DDP)",
+      "expected_runtime": "~15min-1h (500 steps, 4x H200 DDP)",
       "phase": "wfb-eqm-stage2",
-      "gate": "Stage 2 gate 1-6 (spec Section 9): clip/would-clip events down >=5x (or ~0) vs exact-direct arm; p99.9 applied grad norm dramatically reduced; no NaN/divergence; held-out field error improves and is not grossly worse than baseline; WFB effect stronger on spike than ordinary batches; overhead characterized.",
-      "run_id": "wfb_stage2_armB_wfb_v3",
-      "job_id": "38573835",
-      "description": "WFB-EqM Stage 2 ARM B (treatment) v3: rerun after fixing the 2/(B*D) native-scale normalization bug (commit ae95865, caught by external review pre-GPU-step). wfb-backward (rho=1e-4, k=12), 500 steps from CKPT_DIRECT_LATE, global_seed=42, max_grad_norm=6.87141. Supersedes v2 (38570595, cancelled pre-GPU-step, real ~16384x scale bug).",
-      "superseded_job_id": "38570595"
+      "gate": "Stage 2 gate 1-6 + checklist: clip-rate down; p99.9 grad norm down; no NaN; |delta_theta| comparable magnitude to ARM A (not neutralized by stale Adam state); held-out probe_delta_L negative (learning) comparable to ARM A; probe_cos(field update, -r) positive and comparable to ARM A; overhead characterized.",
+      "run_id": "wfb_stage2_armB_wfb_v4",
+      "job_id": "38590381",
+      "description": "WFB-EqM Stage 2 ARM B (treatment) v4: rerun with checklist instrumentation. v3 (38573835) showed applied grad_norm uniformly ~100-200x smaller than ARM A and near-constant (0.016-0.018), raising the concern that AdamW stale second-moment state (loaded from checkpoint, calibrated to old raw-gradient scale) may be neutralizing the update rather than WFB producing a well-scaled one. wfb-backward (rho=1e-4, k=12), 500 steps, global_seed=42, max_grad_norm=6.87141.",
+      "superseded_job_id": "38573835"
     }
   ],
   "completed_runs": [
@@ -13153,6 +13153,38 @@
       "superseded_job_id": "38493610",
       "exit_code": "n/a",
       "error": "Cancelled pre-GPU-step (still in CPU pre-flight tests): g_wfb was being applied UNSCALED as the optimizer gradient, missing the 2/(B*D) native-scale factor exact_fwrev_backward applies via w=-(2/(B*D))*r -- off by ~16384x for this checkpoint latent shape. Root-caused, fixed + proven via new regression test, commit ae95865."
+    },
+    {
+      "partition": "seas_gpu",
+      "status": "completed",
+      "submitted_at": "2026-08-12T02:10:00-04:00",
+      "git_sha": "ae95865",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/wfb_stage2_paired_train.sbatch",
+      "expected_runtime": "~15min-2h (500 steps, 4x H200 DDP)",
+      "phase": "wfb-eqm-stage2",
+      "gate": "Stage 2 gate 1-6 (spec Section 9): clip/would-clip events down >=5x (or ~0) vs exact-direct arm; p99.9 applied grad norm dramatically reduced; no NaN/divergence; held-out field error improves and is not grossly worse than baseline; WFB effect stronger on spike than ordinary batches; overhead characterized.",
+      "run_id": "wfb_stage2_armA_exact_v3",
+      "job_id": "38573830",
+      "description": "WFB-EqM Stage 2 ARM A (control) v3: rerun at commit ae95865 (WFB native-scale fix) for a clean paired comparison. exact-fwrev backward, 500 steps from CKPT_DIRECT_LATE, global_seed=42, max_grad_norm=6.87141. Supersedes v2 (38570562, cancelled pre-GPU-step alongside armB).",
+      "superseded_job_id": "38570562",
+      "exit_code": "0:0",
+      "final_metric": "ARM A completed cleanly, 500 steps. grad_norm median=1.686, p99=4.001, max=8.378, clip_rate=0.40%% (2/500). loss mean=10.636. See gradient_metrics.jsonl."
+    },
+    {
+      "partition": "seas_gpu",
+      "status": "completed",
+      "submitted_at": "2026-08-12T02:10:00-04:00",
+      "git_sha": "ae95865",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/wfb_stage2_paired_train.sbatch",
+      "expected_runtime": "~15min-2h (500 steps, 4x H200 DDP)",
+      "phase": "wfb-eqm-stage2",
+      "gate": "Stage 2 gate 1-6 (spec Section 9): clip/would-clip events down >=5x (or ~0) vs exact-direct arm; p99.9 applied grad norm dramatically reduced; no NaN/divergence; held-out field error improves and is not grossly worse than baseline; WFB effect stronger on spike than ordinary batches; overhead characterized.",
+      "run_id": "wfb_stage2_armB_wfb_v3",
+      "job_id": "38573835",
+      "description": "WFB-EqM Stage 2 ARM B (treatment) v3: rerun after fixing the 2/(B*D) native-scale normalization bug (commit ae95865, caught by external review pre-GPU-step). wfb-backward (rho=1e-4, k=12), 500 steps from CKPT_DIRECT_LATE, global_seed=42, max_grad_norm=6.87141. Supersedes v2 (38570595, cancelled pre-GPU-step, real ~16384x scale bug).",
+      "superseded_job_id": "38570595",
+      "exit_code": "0:0",
+      "final_metric": "ARM B completed cleanly, 500 steps, 0 breakdowns. Applied grad_norm median=0.016, p99=0.018, max=0.018, clip_rate=0.00%% -- never clips. Hypothetical raw (native-scaled) g_raw_norm median=3.244, p99=7.736, max=11.806, 9/500 (1.8%%) would-clip -- underlying instability signature persists in raw trace but never reaches the optimizer, exactly the ideal causal result per spec. CONCERN: applied grad_norm is uniformly ~100-200x smaller than ARM A and nearly constant (little spread) -- raised whether AdamW stale second-moment state (loaded from checkpoint, calibrated to old raw-gradient scale) is silently neutralizing the update rather than WFB producing a well-scaled one. loss mean=10.642 (near-identical to ARM A, but n=500 too noisy to resolve on loss alone). Resulted in checklist instrumentation added (commit 6694858) and v4 rerun."
     }
   ],
   "debugging_notes": [
