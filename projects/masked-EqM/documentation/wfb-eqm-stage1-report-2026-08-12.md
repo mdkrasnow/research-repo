@@ -5,6 +5,36 @@ Full results: `results/wfb_stage1_diagnostic_38484995.json` (recovered from the 
 `FULL RESULTS` block after `--out` hit the known holylabs disk-quota issue -- graceful
 `OSError` handling worked as designed, no data lost).
 
+## 0. Normalization note (added 2026-08-12, post-review)
+
+All `g_raw_norm`/`g_wfb_norm` magnitudes in this report are in `compute_wfb_gradient`'s
+CANONICAL, UNRESCALED residual convention (`r = field - ut`, no loss-reduction factor) --
+**not** directly comparable in absolute terms to the production clip threshold
+(`max_grad_norm=6.87141`) or to `exact_fwrev_backward`'s actually-applied gradient, which
+uses `w = -(2/(B*D)) * r`. The native-scale mapping is `g_native = (2/(B*D)) * g_diagnostic`,
+proven exactly (machine precision) on the real model in
+`test_wfb_gradient_matches_native_fwrev_scale` (`tests/test_fb_direct_exact_hvp.py`), which
+also proves `compute_wfb_gradient`'s whole `(A+lambda I)^{-1/2}` chain is linear in `r`
+(`A`/`lambda_max`/`lambda` depend only on the model's Jacobian `M`, never on `r`'s scale) --
+so this same rescaling applies uniformly to `g_wfb`, not just `g_raw`.
+
+**This does not affect any conclusion in this report.** Every claim here is a *ratio*
+(spike/control) of same-convention quantities, and any constant rescaling cancels exactly in
+a ratio. As a sanity cross-check: rescaling Table 2's control-median `g_raw_norm` (51,417) by
+`2/(B*D)` for this checkpoint's latent shape (`B=8, D=4096`, `scale=2/32768~6.1e-5`) gives
+`~3.14` -- squarely in the range of previously-recorded native `grad_norm` medians for this
+training regime (`clip_rate_zloss_wd01_vs_control` row: control median 1.70-4.88 depending on
+arm); the spike-median rescales to `~7.66`, just above the clip threshold `6.87141` -- exactly
+consistent with "spike" batches being selected via the native-scale `probe_direct` ranking.
+This is strong independent confirmation the `2/(B*D)` mapping is correct, not merely an
+algebraic assertion.
+
+**Real consequence found by this check**: the WFB-EqM Stage 2 v1 training integration
+(`train.py --wfb-backward`) applied `g_wfb` UNSCALED as the optimizer's gradient -- missing
+this exact factor, off from the intended/calibrated scale by ~`(B*D)/2 ~ 16384x` for this
+checkpoint. Caught pre-GPU-step (both v1 jobs cancelled while still in CPU pre-flight), fixed
+in commit `ae95865` before any real training step ran under the bug.
+
 ## 1. Question
 
 On batches where raw direct training exhibits a large gradient spike, does WFB
