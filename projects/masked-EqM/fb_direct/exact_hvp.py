@@ -703,6 +703,299 @@ def block_subspace_iteration_theta(jvp_fn, vjp_fn, model, xt, t, y, params, k=8,
     }
 
 
+# -----------------------------------------------------------------------
+# Whitened Forward-Backward EqM (WFB-EqM), Stage 0 operator primitives.
+# (2026-08-11.) M := d(field)/d(theta) = d^2 E/(dz dtheta), the SAME mixed
+# Jacobian already computed by exact_field_vjp (M^T v) and field_jvp_direct
+# (M p) above -- no new Jacobian machinery, only the Gram operator
+# A = M M^T (field-space -> field-space, PSD symmetric) and a matrix-free
+# Lanczos approximation of (A + lambda I)^{-1/2} r built on top of it.
+#
+# Convention: r = field - ut, UNRESCALED (no 1/(B*D) factor) -- the same
+# canonical residual convention as exact_field_vjp's docstring and
+# matched_replay_jacobian_diagnostic.py's canonical_residual_and_validate,
+# deliberately NOT exact_fwrev_backward's internal w = (2/(B*D))*(...).
+# -----------------------------------------------------------------------
+
+def mixed_gram_mv(model, xt, t, y, params, v):
+    """A v = M (M^T v), v a field-space tensor (same shape as field/ut).
+    `params` must be the SAME full list used consistently across a given
+    WFB call (typically list(model.parameters())) -- A's spectrum depends
+    on which parameter subset M is restricted to.
+    """
+    model.zero_grad(set_to_none=True)
+    exact_field_vjp(model, xt, t, y, v)  # accumulates M^T v into every p.grad
+    Mtv = [p.grad.detach().clone() if p.grad is not None else torch.zeros_like(p) for p in params]
+    model.zero_grad(set_to_none=True)
+    Av = field_jvp_direct(model, xt, t, y, params, Mtv)  # M (M^T v)
+    return Av.detach()
+
+
+def _estimate_lambda_max_generic(gram_mv_fn, v0, num_iters=20, tol=1e-3):
+    """Model-agnostic top-eigenvalue power iteration on a PSD operator
+    exposed only through a matrix-free `gram_mv_fn(v) -> A v` callable.
+    Factored out from estimate_lambda_max so Stage-0 tests can validate the
+    pure math against a synthetic operator with a known spectrum, decoupled
+    from the real model (same rationale as block_subspace_iteration_theta's
+    injectable jvp_fn/vjp_fn above).
+    """
+    v = v0 / (v0.norm() + 1e-30)
+    history = []
+    lam_prev = None
+    for _ in range(num_iters):
+        Av = gram_mv_fn(v)
+        lam_est = float((v * Av).sum())  # Rayleigh quotient, ||v||=1
+        history.append(lam_est)
+        if lam_prev is not None and abs(lam_prev) > 0:
+            rel_change = abs(lam_est - lam_prev) / abs(lam_prev)
+            if rel_change < tol:
+                lam_prev = lam_est
+                break
+        lam_prev = lam_est
+        nrm = float(Av.norm())
+        if nrm < 1e-30:
+            break
+        v = (Av / nrm).detach()
+    return {"lambda_max": lam_prev if lam_prev is not None else 0.0,
+            "history": history, "n_iters": len(history)}
+
+
+def estimate_lambda_max(model, xt, t, y, params, num_iters=20, seed=0, tol=1e-3):
+    """Matrix-free top-eigenvalue estimate of A = M M^T via ordinary power
+    iteration on the field-space Gram operator (mixed_gram_mv). A is PSD by
+    construction (it's a Gram matrix), so its dominant eigenvalue equals
+    sigma_1(M)^2 and the Rayleigh quotient <v, Av>/<v,v> converges
+    monotonically from below.
+
+    Returns {"lambda_max": float, "history": list of per-iter Rayleigh
+    estimates, "n_iters": int}.
+    """
+    gen = torch.Generator(device="cpu")
+    gen.manual_seed(seed)
+    # field/residual/target all share xt's shape in this codebase (image tensor
+    # in -> field tensor out, same shape) -- no probe call needed.
+    v0 = torch.randn(xt.shape, generator=gen).to(xt.device, xt.dtype)
+    return _estimate_lambda_max_generic(
+        lambda v: mixed_gram_mv(model, xt, t, y, params, v), v0, num_iters=num_iters, tol=tol)
+
+
+def _lanczos_inv_sqrt_apply_generic(gram_mv_fn, r, lam, k=8, reorth=True, eps=1e-10):
+    """Model-agnostic matrix-free k-step Lanczos approximation of
+
+        u = (A + lambda I)^{-1/2} r,      A exposed only via gram_mv_fn(v) -> A v.
+
+    Builds an orthonormal Krylov basis Q = [q1..qm] (q1 = r/||r||, m<=k) for
+    A via three-term recurrence with full reorthogonalization, forms the
+    mxm tridiagonal T_m, then uses T_m's tiny explicit eigendecomposition:
+
+        (A + lambda I)^{-1/2} r  ~=  ||r|| * Q  (T_m + lambda I)^{-1/2} e1
+                                  =  ||r|| * Q S diag(1/sqrt(theta_i+lam)) S^T e1
+
+    where T_m = S diag(theta) S^T. Standard Lanczos approximation to a
+    matrix function applied to a vector (Saad 2003, Ch. 13); T_m's largest
+    Ritz value theta_max is also a matrix-free top-eigenvalue estimate of A
+    (Kaniel-Paige), returned here as a free diagnostic cross-check against
+    estimate_lambda_max's independent power-iteration estimate -- they
+    should agree once both have converged.
+
+    Breakdown handling (mandatory, per spec -- never silently substitute
+    something else): zero residual, an invariant subspace found early
+    (beta_i ~ 0, m < k), or a non-finite A-apply all set breakdown=True with
+    an explicit breakdown_reason; callers MUST check this and fail loudly
+    rather than proceeding with a degenerate u.
+
+    Factored model-agnostic so Stage-0 tests can validate against an
+    explicitly eigendecomposed synthetic operator with a hand-built,
+    intentionally extreme singular spectrum, decoupled from the real model
+    (same rationale as block_subspace_iteration_theta's injectable-fn
+    testing pattern). The model-specific entry point is
+    lanczos_inv_sqrt_apply below.
+
+    Returns {"u": tensor (r's shape) or None on breakdown-with-zero-residual,
+    "T_eigmax": float, "m": int (Lanczos steps actually taken),
+    "breakdown": bool, "breakdown_reason": str or None,
+    "ortho_error": float (||Q^T Q - I||_F, numerical sanity check),
+    "residual_norm": float}.
+    """
+    r = r.detach()
+    r_norm = float(r.norm())
+    if r_norm < eps:
+        return {"u": torch.zeros_like(r), "T_eigmax": 0.0, "m": 0,
+                "breakdown": True, "breakdown_reason": "zero_residual",
+                "ortho_error": 0.0, "residual_norm": r_norm}
+
+    q = r / r_norm
+    Q = [q]
+    alphas, betas = [], []
+    q_prev = torch.zeros_like(r)
+    beta_prev = 0.0
+    breakdown, breakdown_reason = False, None
+
+    for i in range(k):
+        w = gram_mv_fn(Q[-1])
+        if not torch.isfinite(w).all():
+            breakdown, breakdown_reason = True, f"non_finite_A_apply_at_step_{i}"
+            break
+        alpha_i = float((w * Q[-1]).sum())
+        alphas.append(alpha_i)
+        w = w - alpha_i * Q[-1] - beta_prev * q_prev
+        if reorth:
+            for qj in Q:
+                w = w - float((w * qj).sum()) * qj
+        if i == k - 1:
+            break  # last alpha collected; no need for the (k+1)th basis vector
+        beta_i = float(w.norm())
+        if beta_i < eps:
+            breakdown, breakdown_reason = True, f"invariant_subspace_at_step_{i}"
+            break
+        betas.append(beta_i)
+        q_prev = Q[-1]
+        Q.append((w / beta_i).detach())
+        beta_prev = beta_i
+
+    m = len(alphas)
+    if m == 0:
+        return {"u": None, "T_eigmax": 0.0, "m": 0,
+                "breakdown": True, "breakdown_reason": breakdown_reason or "no_steps_completed",
+                "ortho_error": 0.0, "residual_norm": r_norm}
+
+    T = torch.diag(torch.tensor(alphas, dtype=torch.float64))
+    if m > 1:
+        b = torch.tensor(betas, dtype=torch.float64)
+        T = T + torch.diag(b, 1) + torch.diag(b, -1)
+    theta, S = torch.linalg.eigh(T)  # T = S diag(theta) S^T, ascending theta
+    T_eigmax = float(theta.max())
+
+    e1 = torch.zeros(m, dtype=torch.float64)
+    e1[0] = 1.0
+    coeff = S @ (torch.diag(1.0 / torch.sqrt(theta + lam)) @ (S.T @ e1))  # (T+lam I)^{-1/2} e1
+
+    Qmat = torch.stack([qi.reshape(-1) for qi in Q], dim=1).to(torch.float64)  # (n, m)
+    ortho_error = float((Qmat.T @ Qmat - torch.eye(m, dtype=torch.float64)).norm())
+
+    u_flat = r_norm * (Qmat @ coeff.to(Qmat.dtype))
+    u = u_flat.view(r.shape).to(r.dtype)
+
+    return {"u": u.detach(), "T_eigmax": T_eigmax, "m": m,
+            "breakdown": breakdown, "breakdown_reason": breakdown_reason,
+            "ortho_error": ortho_error, "residual_norm": r_norm}
+
+
+def lanczos_inv_sqrt_apply(model, xt, t, y, params, r, lam, k=8, reorth=True, eps=1e-10):
+    """Model-specific entry point for _lanczos_inv_sqrt_apply_generic, using
+    mixed_gram_mv (A = M M^T for the real model) as the operator. See the
+    generic function's docstring for the algorithm and return contract.
+    """
+    return _lanczos_inv_sqrt_apply_generic(
+        lambda v: mixed_gram_mv(model, xt, t, y, params, v), r, lam, k=k, reorth=reorth, eps=eps)
+
+
+def compute_wfb_gradient(model, xt, t, y, ut, params=None, rho=1e-4, k=8,
+                          lambda_max_num_iters=20, seed=0):
+    """Orchestrates the Whitened Forward-Backward pseudo-gradient
+
+        g_wfb = M^T (A + lambda I)^{-1/2} r,   A = M M^T,
+        lambda = rho * lambda_max(A),          r = field - ut  (canonical, unrescaled)
+
+    u = (A+lambda I)^{-1/2} r is computed under an implicit stopgrad -- it is
+    treated as a fixed direction handed to exact_field_vjp exactly like any
+    other caller-supplied v (matching exact_field_vjp's existing contract),
+    never differentiated through. field = -grad_z E remains exactly the
+    model's native output; only the BACKWARD operator changes. Does not call
+    model.zero_grad() on entry/exit beyond what's needed internally -- the
+    caller (train.py) owns .grad's final state and must zero_grad() before
+    this call, matching exact_fwrev_backward/exact_field_vjp's convention.
+
+    Raises RuntimeError (does not silently degrade) on a genuine numerical
+    failure -- a non-finite A-apply, non-finite residual, or zero completed
+    Lanczos steps -- per spec, WFB must fail loudly on numerical problems
+    rather than falling back to ordinary clipping unannounced. Does NOT
+    raise on an "invariant_subspace" Lanczos breakdown (a LUCKY breakdown:
+    for the symmetric PSD operator A, this means the Krylov subspace built
+    so far is exactly A-invariant, so the reconstruction is EXACT, not
+    approximate, in fewer than k steps -- the best possible outcome, not a
+    failure) or on a zero residual (nothing to precondition, u=0 is correct).
+
+    Returns dict: g_wfb (list of tensors, params shapes), r (tensor),
+    field (tensor), r_norm, lambda_max, lam, T_eigmax (Lanczos's own
+    cross-check estimate of lambda_max), m (Lanczos steps taken),
+    breakdown, breakdown_reason, ortho_error, g_wfb_norm,
+    g_raw (list of tensors -- the hypothetical M^T r, ALWAYS computed as a
+    diagnostic per spec Section 9 even when the WFB gradient is what gets
+    applied), g_raw_norm.
+    """
+    params = list(params) if params is not None else list(model.parameters())
+
+    model.zero_grad(set_to_none=True)
+    field = compute_field_direct(model, xt, t, y)
+    r = (field - ut).detach()
+    r_norm = float(r.norm())
+    if not torch.isfinite(r).all():
+        raise RuntimeError("compute_wfb_gradient: residual r is non-finite -- failing loudly, not degrading to a fallback.")
+
+    # Hypothetical raw gradient M^T r -- diagnostic, always computed (Section 9/18).
+    model.zero_grad(set_to_none=True)
+    exact_field_vjp(model, xt, t, y, r)
+    g_raw = [p.grad.detach().clone() if p.grad is not None else torch.zeros_like(p) for p in params]
+    g_raw_norm = sum(float((gp ** 2).sum()) for gp in g_raw) ** 0.5
+
+    lam_result = estimate_lambda_max(model, xt, t, y, params, num_iters=lambda_max_num_iters, seed=seed)
+    lambda_max = lam_result["lambda_max"]
+    lam = rho * lambda_max
+
+    lz = lanczos_inv_sqrt_apply(model, xt, t, y, params, r, lam, k=k)
+    reason = lz["breakdown_reason"]
+    # "invariant_subspace_at_step_i" is a LUCKY Lanczos breakdown, not a failure: for
+    # symmetric operators (A is PSD-symmetric by construction) beta_i=0 means the Krylov
+    # subspace built so far is exactly A-invariant, so the m-term tridiagonal
+    # reconstruction of (A+lam I)^{-1/2} r is EXACT (not approximate) restricted to that
+    # subspace -- and since r itself lies in it, this IS the exact global answer, achieved
+    # in fewer than k steps. "zero_residual" (nothing to precondition) is also benign.
+    # Only a genuine numerical failure (non-finite A-apply, or zero completed steps) fails loudly.
+    fatal = lz["breakdown"] and (reason == "no_steps_completed" or (reason or "").startswith("non_finite"))
+    if fatal:
+        raise RuntimeError(f"compute_wfb_gradient: Lanczos breakdown ({reason}) at "
+                            f"m={lz['m']}/{k} -- failing loudly per spec, not silently substituting.")
+    u = lz["u"]
+    if u is None or not torch.isfinite(u).all():
+        raise RuntimeError("compute_wfb_gradient: Lanczos produced a non-finite/absent u.")
+
+    model.zero_grad(set_to_none=True)
+    exact_field_vjp(model, xt, t, y, u)  # accumulates g_wfb = M^T u into .grad
+    g_wfb = [p.grad.detach().clone() if p.grad is not None else torch.zeros_like(p) for p in params]
+    g_wfb_norm = sum(float((gp ** 2).sum()) for gp in g_wfb) ** 0.5
+
+    return {
+        "g_wfb": g_wfb, "g_wfb_norm": g_wfb_norm,
+        "g_raw": g_raw, "g_raw_norm": g_raw_norm,
+        "r": r, "r_norm": r_norm, "field": field.detach(),
+        "lambda_max": lambda_max, "lambda_max_history": lam_result["history"], "lam": lam,
+        "T_eigmax": lz["T_eigmax"], "m": lz["m"],
+        "breakdown": lz["breakdown"], "breakdown_reason": lz["breakdown_reason"],
+        "ortho_error": lz["ortho_error"],
+    }
+
+
+def compute_field_direct(model, xt, t, y):
+    """field = -grad_z E_theta(z), the model's native ebm='direct' output,
+    computed WITHOUT create_graph (no theta-graph retained) -- used wherever
+    WFB needs the field value itself as a diagnostic, independent of any
+    particular VJP/JVP direction.
+    """
+    if getattr(model, "ebm", None) != "direct":
+        raise ValueError(f"compute_field_direct requires ebm='direct', got {getattr(model, 'ebm', None)!r}")
+    restore_attn = _unfused_attention(model)
+    y_dropped, restore_labels = _predrop_labels(model, y)
+    try:
+        z = xt.detach().clone().requires_grad_(True)
+        E = model(z, t, y_dropped, energy_only=True)
+        g = torch.autograd.grad(E.sum(), z, create_graph=False)[0]
+    finally:
+        restore_attn()
+        restore_labels()
+    return (-g).detach()
+
+
 def power_iteration_spectral_norm(model, z, t, y, num_iters=15, seed=None):
     """Per-sample power iteration for ||grad_z^2 E||_op = max_i |eigenvalue_i|
     (spectral RADIUS, not just the top positive eigenvalue -- E is generally

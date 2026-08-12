@@ -28,9 +28,11 @@ import torch
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from fb_direct.exact_hvp import (
-    block_subspace_iteration_theta, exact_field_vjp, exact_fwrev_backward,
+    block_subspace_iteration_theta, compute_field_direct, compute_wfb_gradient,
+    estimate_lambda_max, exact_field_vjp, exact_fwrev_backward,
     field_jvp_direct, field_jvp_none, field_vjp_none,
-    power_iteration_theta_sigma1,
+    lanczos_inv_sqrt_apply, mixed_gram_mv, power_iteration_theta_sigma1,
+    _estimate_lambda_max_generic, _lanczos_inv_sqrt_apply_generic,
 )
 from transport.utils import mean_flat
 
@@ -598,6 +600,209 @@ def test_block_subspace_matches_explicit_svd():
           f"U subspace dist={proj_dist_U:.2e}, V subspace dist={proj_dist_V:.2e}, {result['n_iters']} iters")
 
 
+def test_wfb_operators_match_explicit_jacobian():
+    """WFB-EqM Stage 0.A: on a real tiny model with an explicitly
+    materialized mixed Jacobian M (n_out=64 x n_params, tractable per
+    _explicit_jacobian's per-output-element autograd.grad loop), verify:
+
+    1. mixed_gram_mv matches the explicit A = M M^T applied to a random v.
+    2. estimate_lambda_max matches A's true top eigenvalue (explicit eigh).
+    3. lanczos_inv_sqrt_apply at k=n_out (exact Krylov recovery -- a Krylov
+       subspace of dimension >= rank(A) spans A's full range, so m=n_out
+       Lanczos steps reproduce (A+lam I)^{-1/2}r to numerical precision,
+       not merely approximate it) matches the explicit eigh-based
+       (A+lam I)^{-1/2} r.
+    4. g_wfb = M^T u (via compute_wfb_gradient) matches M.T @ u_exact.
+    5. Norm bound ||g_wfb|| <= ||r|| holds (spec Section 3 diagnostic identity).
+    6. compute_field_direct matches the explicitly-computed field (backward
+       operator swap does not change the model's forward-computed field).
+    """
+    torch.manual_seed(201)
+    model = make_model(ebm="direct", dtype=torch.float64)
+    perturb(model, seed=203)
+    model.eval()
+    z, t, y = batch(n=1, dtype=torch.float64, seed=207)
+    params = [p for n, p in model.named_parameters() if n == "t_embedder.mlp.2.bias"]
+    assert len(params) == 1, "t_embedder.mlp.2.bias not found -- architecture changed"
+
+    field, J = _explicit_jacobian(model, "direct", z, t, y, params)
+    n_out, n_params = J.shape
+
+    gen = torch.Generator().manual_seed(211)
+    ut = torch.randn(field.shape, generator=gen, dtype=torch.float64)
+    r = (field.detach() - ut)
+    r_norm = float(r.norm())
+
+    A = J @ J.T  # (n_out, n_out), explicit Gram matrix
+    assert float((A - A.T).abs().max()) < 1e-12, "A must be numerically symmetric"
+    eigvals_A = torch.linalg.eigvalsh(A)
+    assert float(eigvals_A.min()) > -1e-9, "A must be PSD (it's a Gram matrix)"
+    lambda_max_explicit = float(eigvals_A.max())
+
+    # 1. mixed_gram_mv vs explicit A @ v
+    gen2 = torch.Generator().manual_seed(213)
+    v_probe = torch.randn(field.shape, generator=gen2, dtype=torch.float64)
+    Av_explicit = (A @ v_probe.flatten()).view(field.shape)
+    model.zero_grad(set_to_none=True)
+    Av_got = mixed_gram_mv(model, z, t, y, params, v_probe)
+    torch.testing.assert_close(Av_got, Av_explicit, rtol=1e-6, atol=1e-9)
+
+    # 2. estimate_lambda_max vs explicit top eigenvalue
+    lam_result = estimate_lambda_max(model, z, t, y, params, num_iters=200, seed=217, tol=1e-14)
+    rel_err_lambda_max = abs(lam_result["lambda_max"] - lambda_max_explicit) / abs(lambda_max_explicit)
+    assert rel_err_lambda_max < 1e-5, (
+        f"estimate_lambda_max={lam_result['lambda_max']} vs explicit={lambda_max_explicit}, "
+        f"rel_err={rel_err_lambda_max:.2e}")
+
+    # 3. lanczos_inv_sqrt_apply at k=n_out (exact recovery) vs explicit (A+lam I)^{-1/2} r
+    lam = 1e-2 * lambda_max_explicit
+    theta_A, S_A = torch.linalg.eigh(A)
+    u_exact_flat = S_A @ (torch.diag(1.0 / torch.sqrt(theta_A + lam)) @ (S_A.T @ r.flatten()))
+    u_exact = u_exact_flat.view(field.shape)
+
+    lz = lanczos_inv_sqrt_apply(model, z, t, y, params, r, lam, k=n_out)
+    assert not lz["breakdown"], f"unexpected Lanczos breakdown: {lz['breakdown_reason']}"
+    torch.testing.assert_close(lz["u"], u_exact, rtol=1e-4, atol=1e-7)
+    assert lz["ortho_error"] < 1e-6, f"Lanczos basis orthogonality error too large: {lz['ortho_error']}"
+    rel_err_T_eigmax = abs(lz["T_eigmax"] - lambda_max_explicit) / abs(lambda_max_explicit)
+    assert rel_err_T_eigmax < 1e-6, f"Lanczos T_eigmax vs explicit: rel_err={rel_err_T_eigmax:.2e}"
+
+    # Convergence trend with growing k (spec Section 7.A: k=2,4,8,12 where affordable)
+    err_prev = float("inf")
+    for k in (2, 4, 8, min(12, n_out)):
+        lz_k = lanczos_inv_sqrt_apply(model, z, t, y, params, r, lam, k=k)
+        if lz_k["breakdown"]:
+            continue
+        err_k = float((lz_k["u"] - u_exact).norm())
+        assert err_k <= err_prev + 1e-8, f"Lanczos error should not increase with larger k: k={k} err={err_k} vs prev={err_prev}"
+        err_prev = err_k
+
+    # 4. g_wfb via compute_wfb_gradient vs explicit M^T u_exact
+    g_wfb_explicit = (J.T @ u_exact_flat).view(params[0].shape)
+    result = compute_wfb_gradient(model, z, t, y, ut, params=params, rho=1e-2, k=n_out,
+                                   lambda_max_num_iters=200, seed=219)
+    assert not result["breakdown"], f"unexpected breakdown in compute_wfb_gradient: {result['breakdown_reason']}"
+    # Loose tolerance here: compute_wfb_gradient's internal lambda_max estimate uses its own
+    # early-stop tol (checked separately below), which perturbs lam slightly vs this test's
+    # externally-fixed lam -- items 1-3/5/6 above already validate the exact math tightly.
+    # A small lam shift has an outsized RELATIVE effect on near-zero-eigenvalue modes of
+    # g_wfb_explicit (small denominator), so this is a wrapper self-consistency check, not
+    # a math-correctness check -- atol carries it for those near-zero components.
+    torch.testing.assert_close(result["g_wfb"][0], g_wfb_explicit, rtol=5e-2, atol=2e-4)
+    # compute_wfb_gradient's internal estimate_lambda_max uses its own default early-stop
+    # tol (1e-3), independent of this test's tighter tol=1e-14 call above -- loose bound here.
+    rel_err_lambda_max_internal = abs(result["lambda_max"] - lambda_max_explicit) / abs(lambda_max_explicit)
+    assert rel_err_lambda_max_internal < 5e-2, (
+        f"compute_wfb_gradient's internal lambda_max={result['lambda_max']} vs "
+        f"explicit={lambda_max_explicit}, rel_err={rel_err_lambda_max_internal:.2e}")
+
+    # 5. Norm bound: ||g_wfb|| <= ||r|| (spec Section 3)
+    g_wfb_norm = float(g_wfb_explicit.norm())
+    assert g_wfb_norm <= r_norm + 1e-6, f"||g_wfb||={g_wfb_norm} exceeds ||r||={r_norm}"
+
+    # 6. field unchanged by the backward-operator swap
+    field_via_helper = compute_field_direct(model, z, t, y)
+    torch.testing.assert_close(field_via_helper, field.detach(), rtol=1e-9, atol=1e-12)
+
+    print(f"PASS WFB Stage 0.A (explicit-Jacobian toy test, n_out={n_out} n_params={n_params}): "
+          f"lambda_max rel_err={rel_err_lambda_max:.2e}, Lanczos(k={n_out}) u rel err "
+          f"{float((lz['u'] - u_exact).norm() / u_exact.norm()):.2e}, "
+          f"||g_wfb||={g_wfb_norm:.4f} <= ||r||={r_norm:.4f}")
+
+
+def test_wfb_singular_mode_gain():
+    """WFB-EqM Stage 0.B: SINGULAR-MODE TEST (spec Section 7.B). Synthetic
+    M with an intentionally extreme, hand-built singular spectrum
+    (sigma = [50, 20, 5, 1, 0.5, 0.2, 0.1] -- a 500x gap top-to-bottom) run
+    through the model-agnostic generic Lanczos/power-iteration cores
+    directly (no real model involved, decoupled from any model's incidental
+    spectrum -- same rationale as block_subspace_iteration_theta's
+    synthetic-operator test). Confirms per-mode gain:
+
+        ordinary (raw):  gain = sigma_i
+        WFB:              gain = sigma_i / sqrt(sigma_i^2 + lambda)
+
+    i.e. a very large sigma_i produces an unbounded-looking raw contribution
+    but a WFB contribution capped near 1/sqrt(lambda)-independent-of-sigma
+    for sigma_i >> sqrt(lambda), and near sigma_i (unchanged) for
+    sigma_i << sqrt(lambda) -- exactly the damped-whitening transition the
+    method is designed to produce.
+    """
+    torch.manual_seed(223)
+    sigma_true = torch.tensor([50.0, 20.0, 5.0, 1.0, 0.5, 0.2, 0.1], dtype=torch.float64)
+    n = sigma_true.numel()
+    n_out, n_params = n, n  # square, diagonal-in-its-own-basis synthetic M
+    Q1, _ = torch.linalg.qr(torch.randn(n_out, n_out, dtype=torch.float64, generator=torch.Generator().manual_seed(227)))
+    Q2, _ = torch.linalg.qr(torch.randn(n_params, n_params, dtype=torch.float64, generator=torch.Generator().manual_seed(229)))
+    M = Q1 @ torch.diag(sigma_true) @ Q2.T  # explicit M with EXACTLY sigma_true as its singular values
+
+    def gram_mv_fn(v):
+        return M @ (M.T @ v)
+
+    lam_result = _estimate_lambda_max_generic(gram_mv_fn, torch.randn(n_out, dtype=torch.float64,
+                                               generator=torch.Generator().manual_seed(233)),
+                                               num_iters=300, tol=1e-15)
+    lambda_max_true = float((sigma_true.max()) ** 2)
+    rel_err_lambda_max = abs(lam_result["lambda_max"] - lambda_max_true) / lambda_max_true
+    assert rel_err_lambda_max < 1e-6, f"synthetic lambda_max: rel_err={rel_err_lambda_max:.2e}"
+
+    rho = 1e-3
+    lam = rho * lambda_max_true
+
+    for r_dir_idx in range(n):  # probe with r aligned to EACH known singular direction of M
+        r = Q1[:, r_dir_idx].clone()  # r = u_i (a left singular vector of M, unit norm)
+        lz = _lanczos_inv_sqrt_apply_generic(gram_mv_fn, r, lam, k=n)  # k=n: exact Krylov recovery
+        # r is BY CONSTRUCTION an exact eigenvector of A here (r=u_i => A r = sigma_i^2 r),
+        # so a "lucky" 1-step Lanczos breakdown (invariant_subspace_at_step_0) is the
+        # EXPECTED, exact-answer outcome, not a failure -- only reject other reasons.
+        reason = lz["breakdown_reason"]
+        assert not lz["breakdown"] or (reason or "").startswith("invariant_subspace"), (
+            f"unexpected breakdown at mode {r_dir_idx}: {reason}")
+        u_wfb = lz["u"]
+        g_wfb = M.T @ u_wfb
+
+        sigma_i = float(sigma_true[r_dir_idx])
+        raw_gain = sigma_i  # ||M^T r|| for r = u_i, since M^T u_i = sigma_i v_i
+        wfb_gain_expected = sigma_i / (sigma_i ** 2 + lam) ** 0.5
+        wfb_gain_got = float(g_wfb.norm())  # ||r||=1, so this IS the mode gain
+
+        rel_err_gain = abs(wfb_gain_got - wfb_gain_expected) / wfb_gain_expected
+        assert rel_err_gain < 1e-4, (
+            f"mode {r_dir_idx} (sigma={sigma_i}): WFB gain got={wfb_gain_got} "
+            f"expected={wfb_gain_expected}, rel_err={rel_err_gain:.2e}")
+        assert wfb_gain_got <= raw_gain + 1e-9, (
+            f"mode {r_dir_idx}: WFB gain ({wfb_gain_got}) must not exceed raw gain ({raw_gain})")
+
+    # Explicit large-sigma-bounded check: top mode's raw gain is 50x its own
+    # sigma-independent damping ceiling ~1/sqrt(lam); WFB gain stays near
+    # sqrt(lam) while raw stays at 50 -- the core claim under test.
+    top_raw = float(sigma_true[0])
+    top_wfb = float(sigma_true[0] / (sigma_true[0] ** 2 + lam) ** 0.5)
+    assert top_wfb < top_raw * 0.1, f"expected WFB to sharply suppress the extreme top mode: raw={top_raw} wfb={top_wfb}"
+    print(f"PASS WFB Stage 0.B (singular-mode test, sigma={sigma_true.tolist()}, rho={rho}, "
+          f"lambda={lam:.4f}): top mode raw_gain={top_raw:.2f} -> wfb_gain={top_wfb:.4f} "
+          f"({top_raw / top_wfb:.1f}x suppression), lambda_max rel_err={rel_err_lambda_max:.2e}")
+
+
+def test_wfb_zero_residual_breakdown():
+    """Zero residual (r=0, e.g. field already matches target exactly) must
+    be reported as an explicit breakdown, not silently treated as u=0 being
+    a normal converged result -- caller-visible per spec Section 5's
+    breakdown-handling requirement."""
+    torch.manual_seed(241)
+    n = 6
+    M = torch.randn(n, n, dtype=torch.float64, generator=torch.Generator().manual_seed(243))
+
+    def gram_mv_fn(v):
+        return M @ (M.T @ v)
+
+    r = torch.zeros(n, dtype=torch.float64)
+    lz = _lanczos_inv_sqrt_apply_generic(gram_mv_fn, r, lam=1.0, k=4)
+    assert lz["breakdown"] and lz["breakdown_reason"] == "zero_residual"
+    assert torch.equal(lz["u"], torch.zeros(n, dtype=torch.float64))
+    print("PASS WFB Stage 0: zero-residual breakdown reported explicitly (not silently substituted)")
+
+
 import contextlib
 
 
@@ -633,4 +838,7 @@ if __name__ == "__main__":
         test_theta_jvp_handles_zero_jacobian_parameter()
         test_power_iteration_sigma1_matches_explicit_svd()
         test_block_subspace_matches_explicit_svd()
+        test_wfb_operators_match_explicit_jacobian()
+        test_wfb_singular_mode_gain()
+        test_wfb_zero_residual_breakdown()
     print("ALL PASS")
