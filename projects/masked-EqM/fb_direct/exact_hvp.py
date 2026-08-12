@@ -913,6 +913,135 @@ def _lanczos_inv_pow_apply_generic(gram_mv_fn, r, lam, alpha, k=8, reorth=True, 
             "ortho_error": ortho_error, "residual_norm": r_norm}
 
 
+def _lanczos_shifted_solve_residual_certificate(gram_mv_fn, r, lam, k=8, reorth=True, eps=1e-10):
+    """FBGN (alpha=1) k-step Lanczos solve of (A+lam I) u = r, WITH the exact
+    linear-system-residual certificate (2026-08-12 reviewer derivation) that
+    reconciles the >1 induced-field-gain measurements in
+    documentation/wfb-eqm-stage2-5-report-2026-08-12.md.
+
+    By the Lanczos three-term recurrence, A Q_m = Q_m T_m + beta_m q_{m+1} e_m^T
+    (q_{m+1}/beta_m is the (m+1)-th Krylov vector/norm this function's k-step
+    sibling _lanczos_inv_pow_apply_generic never computes, since it stops after
+    collecting m=k alphas). Multiplying the Lanczos approximation
+    u_m = ||r|| Q_m (T_m+lam I)^{-1} e1 through by B = A+lam I gives
+
+        B u_m = r + ||r|| * beta_m * [e_m^T (T_m+lam I)^{-1} e1] * q_{m+1}
+              = r - ell_m                      (ell_m := the leakage/error term)
+
+    so the TRUE linear-system residual rho_m := r - B u_m satisfies rho_m =
+    -ell_m EXACTLY (not approximately) -- both are computed independently
+    below (rho_m from a real extra A-apply on u_m; ell_m from the Lanczos
+    recurrence's own byproducts) as a mandatory cross-check.
+
+    Consequently, since q* = A u* (u* = B^{-1} r, the EXACT solve) satisfies
+    the provable bound ||q*|| <= ||r|| (eigenvalues of A B^{-1} = A(A+lam I)^{-1}
+    lie in [0,1)), and u_m - u* = -B^{-1} rho_m => q_m - q* = -A B^{-1} rho_m
+    with ||A B^{-1}|| <= 1 as well, we get the CERTIFICATE
+
+        ||q_m|| / ||r||  <=  1 + ||rho_m|| / ||r||.
+
+    A measured field gain > 1 is diagnostic of an UNCONVERGED shifted solve
+    (||rho_m||/||r|| large), not a violated theorem -- this function exists to
+    make that certificate directly checkable, batch by batch, k by k.
+
+    Returns dict: u (the Lanczos solve, same as alpha=1's u), Au (A u_m, one
+    genuine extra operator application -- NOT reused from the Lanczos
+    recurrence, so this is an independent check), rho (r - Au - lam*u, the
+    actual linear-system residual, a tensor), rho_norm, ell (the
+    Lanczos-recurrence-predicted leakage vector, or a zero tensor if Lanczos
+    hit a lucky invariant-subspace/zero-residual breakdown before step k,
+    in which case rho is exactly zero too by construction), ell_norm,
+    field_gain (||Au||/||r||), certificate_bound (1 + rho_norm/r_norm),
+    m (Lanczos steps actually completed), breakdown, breakdown_reason.
+    """
+    r = r.detach()
+    r_norm = float(r.norm())
+    if r_norm < eps:
+        z = torch.zeros_like(r)
+        return {"u": z, "Au": z, "rho": z, "rho_norm": 0.0, "ell": z, "ell_norm": 0.0,
+                "field_gain": 0.0, "certificate_bound": 1.0, "m": 0,
+                "breakdown": True, "breakdown_reason": "zero_residual"}
+
+    q = r / r_norm
+    Q = [q]
+    alphas, betas = [], []
+    q_prev = torch.zeros_like(r)
+    beta_prev = 0.0
+    breakdown, breakdown_reason = False, None
+    beta_m = 0.0     # the (possibly never-taken) k-th beta, i.e. leakage into q_{m+1}
+    q_next = None    # the (k+1)-th Krylov vector, if it exists
+
+    for i in range(k):
+        w = gram_mv_fn(Q[-1])
+        if not torch.isfinite(w).all():
+            breakdown, breakdown_reason = True, f"non_finite_A_apply_at_step_{i}"
+            break
+        alpha_i = float((w * Q[-1]).sum())
+        alphas.append(alpha_i)
+        w = w - alpha_i * Q[-1] - beta_prev * q_prev
+        if reorth:
+            for qj in Q:
+                w = w - float((w * qj).sum()) * qj
+        beta_i = float(w.norm())
+        if beta_i < eps:
+            breakdown, breakdown_reason = True, f"invariant_subspace_at_step_{i}"
+            break
+        if i == k - 1:
+            # m = k steps done; this beta/q are the (m+1)-th pair the leakage term needs.
+            beta_m = beta_i
+            q_next = (w / beta_i).detach()
+            break
+        betas.append(beta_i)
+        q_prev = Q[-1]
+        Q.append((w / beta_i).detach())
+        beta_prev = beta_i
+
+    m = len(alphas)
+    if m == 0:
+        z = torch.zeros_like(r)
+        return {"u": None, "Au": z, "rho": z, "rho_norm": 0.0, "ell": z, "ell_norm": 0.0,
+                "field_gain": 0.0, "certificate_bound": 1.0, "m": 0,
+                "breakdown": True, "breakdown_reason": breakdown_reason or "no_steps_completed"}
+
+    device = r.device
+    T = torch.diag(torch.tensor(alphas, dtype=torch.float64))
+    if m > 1:
+        b = torch.tensor(betas, dtype=torch.float64)
+        T = T + torch.diag(b, 1) + torch.diag(b, -1)
+    theta, S = torch.linalg.eigh(T)
+    e1 = torch.zeros(m, dtype=torch.float64)
+    e1[0] = 1.0
+    Tshift_inv_e1 = S @ (torch.diag((theta + lam) ** (-1.0)) @ (S.T @ e1))  # (T_m+lam I)^{-1} e1
+    coeff = Tshift_inv_e1.to(device)
+
+    Qmat = torch.stack([qi.reshape(-1) for qi in Q], dim=1).to(torch.float64)
+    u_flat = r_norm * (Qmat @ coeff.to(Qmat.dtype))
+    u = u_flat.view(r.shape).to(r.dtype)
+
+    # Independent check #1: apply the REAL operator to u_m (not reused from the recurrence).
+    Au = gram_mv_fn(u)
+    rho = r - Au - lam * u
+    rho_norm = float(rho.norm())
+
+    # Independent check #2: the Lanczos-recurrence-predicted leakage term ell_m.
+    # ell_m = ||r|| * beta_m * [e_m^T (T_m+lam I)^{-1} e1] * q_{m+1}, zero if Lanczos broke
+    # down early (invariant subspace / no (m+1)-th vector exists -- exact solve, rho=0 too).
+    if q_next is not None and beta_m > 0:
+        last_coeff = float(Tshift_inv_e1[-1])  # e_m^T (T_m+lam I)^{-1} e1
+        ell = r_norm * beta_m * last_coeff * q_next
+    else:
+        ell = torch.zeros_like(r)
+    ell_norm = float(ell.norm())
+
+    field_gain = float(Au.norm()) / r_norm
+    certificate_bound = 1.0 + rho_norm / r_norm
+
+    return {"u": u.detach(), "Au": Au.detach(), "rho": rho.detach(), "rho_norm": rho_norm,
+            "ell": ell.detach(), "ell_norm": ell_norm, "field_gain": field_gain,
+            "certificate_bound": certificate_bound, "m": m,
+            "breakdown": breakdown, "breakdown_reason": breakdown_reason}
+
+
 def _lanczos_inv_sqrt_apply_generic(gram_mv_fn, r, lam, k=8, reorth=True, eps=1e-10):
     """alpha=1/2 (WFB) specialization of _lanczos_inv_pow_apply_generic, kept
     as a thin named wrapper for backward compatibility with existing
@@ -941,6 +1070,16 @@ def lanczos_inv_pow_apply(model, xt, t, y, params, r, lam, alpha, k=8, reorth=Tr
     """
     return _lanczos_inv_pow_apply_generic(
         lambda v: mixed_gram_mv(model, xt, t, y, params, v), r, lam, alpha, k=k, reorth=reorth, eps=eps)
+
+
+def lanczos_shifted_solve_residual_certificate(model, xt, t, y, params, r, lam, k=8, reorth=True, eps=1e-10):
+    """Model-specific entry point for _lanczos_shifted_solve_residual_certificate,
+    using mixed_gram_mv (A = M M^T for the real model) as the operator. See the
+    generic function's docstring for the rho_m = -ell_m identity and the
+    ||q_m||/||r|| <= 1 + ||rho_m||/||r|| certificate this exists to check.
+    """
+    return _lanczos_shifted_solve_residual_certificate(
+        lambda v: mixed_gram_mv(model, xt, t, y, params, v), r, lam, k=k, reorth=reorth, eps=eps)
 
 
 def compute_wfb_gradient(model, xt, t, y, ut, params=None, rho=1e-4, k=8,
