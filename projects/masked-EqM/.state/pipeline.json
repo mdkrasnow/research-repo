@@ -16,32 +16,17 @@
   ],
   "active_runs": [
     {
+      "run_id": "wfb_stage2_armB_wfb_adamreset",
+      "job_id": "38646819",
       "partition": "seas_gpu",
       "status": "pending",
-      "submitted_at": "2026-08-12T03:40:00-04:00",
-      "git_sha": "1422f5b",
+      "submitted_at": "2026-08-12T09:15:00-04:00",
+      "git_sha": "4cf630b",
       "sbatch_path": "projects/masked-EqM/slurm/jobs/wfb_stage2_paired_train.sbatch",
-      "expected_runtime": "~15min-1h (500 steps, 4x H200 DDP)",
+      "expected_runtime": "~1h (500 steps, 4x H200 DDP, wfb backward)",
       "phase": "wfb-eqm-stage2",
-      "gate": "Stage 2 gate 1-6 + checklist: clip-rate down; delta_theta magnitude context; probe_delta_L (real-data probe) comparable/improving on both arms; probe_cos(field update, -r) positive and comparable; overhead characterized.",
-      "run_id": "wfb_stage2_armA_exact_v5",
-      "job_id": "38613540",
-      "description": "WFB-EqM Stage 2 ARM A (control) v5: real-data diagnostic probe (commit 1422f5b, fixes v4 uninformative noise-probe). exact-fwrev, 500 steps, global_seed=42, max_grad_norm=6.87141. Supersedes v4 (38590354).",
-      "superseded_job_id": "38590354"
-    },
-    {
-      "partition": "seas_gpu",
-      "status": "pending",
-      "submitted_at": "2026-08-12T03:40:00-04:00",
-      "git_sha": "1422f5b",
-      "sbatch_path": "projects/masked-EqM/slurm/jobs/wfb_stage2_paired_train.sbatch",
-      "expected_runtime": "~15min-1h (500 steps, 4x H200 DDP)",
-      "phase": "wfb-eqm-stage2",
-      "gate": "Stage 2 gate 1-6 + checklist: clip-rate down; delta_theta magnitude context; probe_delta_L (real-data probe) comparable/improving on both arms; probe_cos(field update, -r) positive and comparable; overhead characterized.",
-      "run_id": "wfb_stage2_armB_wfb_v5",
-      "job_id": "38613563",
-      "description": "WFB-EqM Stage 2 ARM B (treatment) v5: real-data diagnostic probe. v4 showed delta_theta_norm ~40x smaller than ARM A (real, substantial) but probe_delta_L/cosine were uninformative (noise-probe flaw). wfb-backward (rho=1e-4, k=12), 500 steps, global_seed=42.",
-      "superseded_job_id": "38590381"
+      "description": "WFB-EqM Stage 2 follow-up: ARM B with --wfb-reset-adam-state (commit 4cf630b). Tests whether resetting AdamW second-moment state at the backward-mode swap closes the ~40x delta_theta_norm gap vs ARM A found in v3-v5 (direction was already MORE consistently correct than baseline per v5s real-data probe cosine, 74%% vs 49.8%%; net learning was ~90x smaller, hypothesized to be an optimizer-scale-mismatch artifact). Compare against ARM A v5 (job 38613540) baseline -- no ARM A rerun needed, exact-fwrev is deterministic and already reproduced identically 3x.",
+      "gate": "Does resetting AdamW state close the delta_theta_norm gap and bring probe_delta_L/net learning progress to a magnitude comparable to ARM A v5 (-0.030 over 500 steps)? PASS = optimizer-calibration artifact confirmed, not a WFB mechanism flaw. FAIL (still ~40x smaller) = deeper issue, not just stale Adam state."
     }
   ],
   "completed_runs": [
@@ -13217,6 +13202,38 @@
       "superseded_job_id": "38573835",
       "exit_code": "0:0",
       "final_metric": "ARM B v4 completed cleanly. KEY FINDING: delta_theta_norm median=0.0063178, ratio vs ARM A = 0.0253 (~40x smaller actual AdamW displacement, even after normalization -- narrower gap than the raw grad_norm ratio ~100x but still substantial). probe_delta_L/cosine UNINFORMATIVE: probe was built from independent random noise, not real data -- both arms showed flat/near-chance results, a probe design flaw, not evidence either way. User decision: fix probe with real transport-sampled data (commit 1422f5b), rerun as v5."
+    },
+    {
+      "partition": "seas_gpu",
+      "status": "completed",
+      "submitted_at": "2026-08-12T03:40:00-04:00",
+      "git_sha": "1422f5b",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/wfb_stage2_paired_train.sbatch",
+      "expected_runtime": "~15min-1h (500 steps, 4x H200 DDP)",
+      "phase": "wfb-eqm-stage2",
+      "gate": "Stage 2 gate 1-6 + checklist: clip-rate down; delta_theta magnitude context; probe_delta_L (real-data probe) comparable/improving on both arms; probe_cos(field update, -r) positive and comparable; overhead characterized.",
+      "run_id": "wfb_stage2_armA_exact_v5",
+      "job_id": "38613540",
+      "description": "WFB-EqM Stage 2 ARM A (control) v5: real-data diagnostic probe (commit 1422f5b, fixes v4 uninformative noise-probe). exact-fwrev, 500 steps, global_seed=42, max_grad_norm=6.87141. Supersedes v4 (38590354).",
+      "superseded_job_id": "38590354",
+      "exit_code": "0:0",
+      "final_metric": "ARM A v5 completed cleanly. grad_norm median=1.683, clip_rate=0.60%%. delta_theta_norm median=0.2485. probe_loss net change (first10->last10) = -0.0302 (real improvement on held-out real-data probe). probe_cos median~0, 49.8%% positive (coin-flip direction)."
+    },
+    {
+      "partition": "seas_gpu",
+      "status": "completed",
+      "submitted_at": "2026-08-12T03:40:00-04:00",
+      "git_sha": "1422f5b",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/wfb_stage2_paired_train.sbatch",
+      "expected_runtime": "~15min-1h (500 steps, 4x H200 DDP)",
+      "phase": "wfb-eqm-stage2",
+      "gate": "Stage 2 gate 1-6 + checklist: clip-rate down; delta_theta magnitude context; probe_delta_L (real-data probe) comparable/improving on both arms; probe_cos(field update, -r) positive and comparable; overhead characterized.",
+      "run_id": "wfb_stage2_armB_wfb_v5",
+      "job_id": "38613563",
+      "description": "WFB-EqM Stage 2 ARM B (treatment) v5: real-data diagnostic probe. v4 showed delta_theta_norm ~40x smaller than ARM A (real, substantial) but probe_delta_L/cosine were uninformative (noise-probe flaw). wfb-backward (rho=1e-4, k=12), 500 steps, global_seed=42.",
+      "superseded_job_id": "38590381",
+      "exit_code": "0:0",
+      "final_metric": "ARM B v5 completed cleanly (first run with WORKING real-data probe). KEY FINDING: delta_theta_norm ratio B/A = 0.0254 (~40x smaller, matches v4 exactly -- reproducible). probe_cos_field_update_vs_neg_r: 74.0%% positive (mean +0.0053) vs ARM A 49.8%% (mean +0.0023) -- WFB field-update direction is MORE consistently correct than baseline, not less. But net probe_loss change over 500 steps: -0.0003 (essentially flat) vs ARM A -0.0302 (~90x less net improvement) -- direction good, magnitude far too small to translate into comparable learning progress within 500 steps. Diagnosed mechanism: AdamW state loaded from checkpoint calibrated to raw-direct gradient scale, WFB changes scale by ~2 orders of magnitude. Follow-up: --wfb-reset-adam-state test (commit 4cf630b)."
     }
   ],
   "debugging_notes": [
