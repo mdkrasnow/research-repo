@@ -59,10 +59,21 @@ if [[ "$CKPT" == EPOCHCKPT:* ]]; then
   # if the training job hit a second walltime timeout before reaching the
   # target epoch. Fail loud rather than mislabel an incomplete run's FID
   # as an epoch-N result.
+  #
+  # EPOCHCKPT:<experiment_dir>:<epoch_num> -- <experiment_dir> is the run's
+  # top-level experiment directory (e.g. .../000-EqM-B-2-...-ebm-direct),
+  # NOT the checkpoints/ subdirectory. train.py's own save invariant
+  # (checkpoint_dir = f"{experiment_dir}/checkpoints", train.py:157/596)
+  # is authoritative here and enforced unconditionally below, so a caller
+  # cannot mis-specify the checkpoints/ subdir one way or the other
+  # (2026-08-11 postmortem: jobs 38103466/38103515 were passed the
+  # experiment_dir directly and the resolution then omitted /checkpoints,
+  # producing a spurious "checkpoint not found" 6s after submission on
+  # checkpoints that had, in fact, saved successfully).
   rest="${CKPT#EPOCHCKPT:}"
   epoch_dir="${rest%:*}"
   epoch_num="${rest##*:}"
-  CKPT="$epoch_dir/epoch$(printf '%02d' "$epoch_num").pt"
+  CKPT="$epoch_dir/checkpoints/epoch$(printf '%02d' "$epoch_num").pt"
   echo "EPOCHCKPT resolved CKPT=$CKPT"
   if [[ ! -f "$CKPT" ]]; then
     echo "Epoch-$epoch_num checkpoint not found at $CKPT -- training likely didn't reach this epoch " \
