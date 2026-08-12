@@ -14,21 +14,7 @@
       "title": "Results-dir race: two concurrent same-corruption-mode jobs silently mixed checkpoints"
     }
   ],
-  "active_runs": [
-    {
-      "run_id": "wfb_stage2_armE_fbgn_adamreset",
-      "job_id": "38697891",
-      "partition": "seas_gpu",
-      "status": "pending",
-      "description": "WFB-EqM Stage 2 2x2 factorial extension ARM E: --wfb-backward --wfb-alpha 1.0 (FBGN, full damped Gauss-Newton) --reset-adam-state, otherwise IDENTICAL design to ARM D (38646819, wfb alpha=0.5 + reset -- net-worse held-out probe loss, 44.2% cosine-positive). Decisive test predicted by Stage 2.5 (job 38673961, alpha-family diagnostic): does FBGN boundedness (field gain O(1) vs WFB O(100-200) vs direct O(40k-160k), commit 79cdf5c) survive Adam step-size normalization the way WFB alpha=0.5 did not (B->D degraded)? If probe_delta_L stays negative like A/C: confirms alpha=1 as the fix, graduate to Stage 3. If it also flips positive like D: falsifies the sigma_i-conditioning account as the full story, points to checkpoint brittleness requiring trust-region/LM acceptance mechanism instead.",
-      "submitted_at": "2026-08-12",
-      "git_sha": "79cdf5c",
-      "sbatch_path": "projects/masked-EqM/slurm/jobs/wfb_stage2_paired_train.sbatch",
-      "expected_runtime": "~15min (4xH200 seas_gpu DDP, 500 steps, matches ARM D)",
-      "phase": "DEBUG",
-      "gate": "decides whether FBGN (alpha=1) graduates to Stage 3 training candidate"
-    }
-  ],
+  "active_runs": [],
   "completed_runs": [
     {
       "partition": "seas_gpu",
@@ -13276,6 +13262,21 @@
       "phase": "DEBUG",
       "gate": "informs whether to pursue alpha=1 (FBGN) as Stage 3 candidate vs continue WFB (alpha=0.5) forensics",
       "final_metric": "Field-gain sweep (n=8 spike/8 control): induced field-update gain median alpha=0:164233(spike)/43041(control) -> alpha=0.5:217/93 -> alpha=1:2.83/3.41 -- ~750x collapse direct->WFB, further ~65x WFB->FBGN, landing at O(1) as predicted. One-step apply/revert probe (eta=1, native scale, n=16, max_restore_err=0.0 exact): direct median delta_L=+70.48 (0/16 improved, catastrophic, up to +4.4M); wfb median=-0.00167 (13/16 improved); fbgn median=-0.0000296 (11/16 improved) -- both wfb/fbgn safe at RAW scale (expected, both far smaller than direct); this sub-result alone does not distinguish bounded (fbgn) vs merely-tiny (wfb) safety -- the field-gain ratio is the decisive evidence. See documentation/wfb-eqm-stage2-5-report-2026-08-12.md. Predicts ARM E (fbgn alpha=1.0 + reset-adam, mirroring D) as the decisive next test: does FBGN boundedness survive Adam step-size inflation the way WFB alpha=0.5 did not."
+    },
+    {
+      "run_id": "wfb_stage2_armE_fbgn_adamreset",
+      "job_id": "38697891",
+      "partition": "seas_gpu",
+      "status": "cancelled",
+      "description": "WFB-EqM Stage 2 2x2 factorial extension ARM E: --wfb-backward --wfb-alpha 1.0 (FBGN, full damped Gauss-Newton) --reset-adam-state, otherwise IDENTICAL design to ARM D (38646819, wfb alpha=0.5 + reset -- net-worse held-out probe loss, 44.2% cosine-positive). Decisive test predicted by Stage 2.5 (job 38673961, alpha-family diagnostic): does FBGN boundedness (field gain O(1) vs WFB O(100-200) vs direct O(40k-160k), commit 79cdf5c) survive Adam step-size normalization the way WFB alpha=0.5 did not (B->D degraded)? If probe_delta_L stays negative like A/C: confirms alpha=1 as the fix, graduate to Stage 3. If it also flips positive like D: falsifies the sigma_i-conditioning account as the full story, points to checkpoint brittleness requiring trust-region/LM acceptance mechanism instead. -- CANCELLED, see error field.",
+      "submitted_at": "2026-08-12",
+      "git_sha": "79cdf5c",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/wfb_stage2_paired_train.sbatch",
+      "expected_runtime": "~15min (4xH200 seas_gpu DDP, 500 steps, matches ARM D)",
+      "phase": "DEBUG",
+      "gate": "decides whether FBGN (alpha=1) graduates to Stage 3 training candidate",
+      "final_metric": null,
+      "error": "Cancelled while still PENDING (never started, zero GPU-hours spent, no log file ever created) per reviewer guidance (2026-08-12): before running FBGN under a fresh Adam optimizer, (a) the Stage 2.5 field-gain measurement for alpha=1 (median 2.83/3.41) needs reconciling against the exact theoretical bound ||M g_1||/||r|| <= 1 -- the reviewer suspected a hidden scale factor, currently under investigation (leading hypothesis: Lanczos k=12 truncation on a ~32768-dim field space, not a scale bug -- A/M are the identical operators used both inside compute_wfb_gradient and in the diagnostic script's field_jvp_direct call, so no separate scalar convention exists); (b) reviewer proposes Stage 2.6 first: optimal-linearized-step-size comparison (eta_alpha* = r^T q_alpha / ||q_alpha||^2) between alpha=0.5 and alpha=1 with NO Adam, to remove step-size as a confound before deciding whether alpha=1 or alpha=0.5 is the better geometry, and whether Adam should be used at all vs a natural/Gauss-Newton update applied directly."
     }
   ],
   "debugging_notes": [
