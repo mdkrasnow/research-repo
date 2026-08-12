@@ -71,6 +71,44 @@ CIFAR-level sanity only until real signal + diagnosed. No jump to IN-1K without 
 
 No formal phase gates / summer plan written yet. Write `documentation/summer-2026-plan.md` once step 2 (masking) shows signal at CIFAR scale.
 
+## Second track: fb_direct scalar-energy training stability (active, parallel to Structured Start-State EqM)
+
+Separate research thread within the same `masked-EqM` codebase/repo scope, investigating why
+`--ebm direct` (scalar energy head, field = ∇_z E) trains less stably than `--ebm none`
+(direct field prediction) at IN-1K B/2 scale. Not part of the Structured Start-State EqM
+question above — orthogonal axis (backward/optimization mechanics vs. corruption/start
+distribution) on the same codebase. Runs concurrently; does not block or get blocked by
+Steps 1-5 above.
+
+History (chronological, full detail in `documentation/`):
+- 2026-08-01/05: gradient-guard calibration (`max_grad_norm=6.87141`); forensic finding that
+  `direct` has a real, growing (~24x), backbone-dominated gradient-clip-event signature
+  invisible in the training loss, mechanistically tied to double-backward-through-Hessian
+  training (`direct-energy-gradient-guard-2026-08-01.md`).
+- 2026-08-06/08: `forward-backwards-direct`/`exact_hvp.py` (exact forward-over-reverse,
+  proven mathematically identical to double-backward) reproduces the same signature — rules
+  out autograd-implementation artifact, confirms the instability is structural
+  (`forward-backwards-direct.md`, `fb_direct/exact_hvp.py`).
+- 2026-08-10/11: mechanism-check sweep, each falsified: gradient penalty on `‖∇_z E‖²`,
+  z-space Hessian curvature, weight/logit spectral-norm drift, gauge-safe sensitivity,
+  weight decay, z-loss (`memory/2026-08-10.md`, `memory/2026-08-11.md`).
+- 2026-08-11: Stage A top-k head-Jacobian subspace confirmation — **gate FAILED**; energy
+  head is not the dominant contributor on spike batches; redirect finding: backbone
+  spike/control amplification scales monotonically with tail severity (2.50x/3.56x/4.45x)
+  (`documentation/postmortem-stageA-topk-subspace-2026-08-11.md`).
+- 2026-08-11 (current): implementing/testing **Whitened Forward-Backward EqM (WFB-EqM)** —
+  mixed input-parameter Jacobian whitening on the backward operator, staged Stage 0
+  (operator correctness) through Stage 5 (full run) with explicit gates per stage. See
+  session record for full spec; artifacts land in `documentation/wfb-eqm-*.md` and
+  `experiments/direct_energy/` as stages complete.
+
+Checkpoints (true root is netscratch, not holylabs — see `documentation/longitudinal_jacobian_audit.md`):
+`CKPT_DIRECT_LATE=/n/netscratch/ydu_lab/Lab/mkrasnow_eqm/direct_energy_longer_retry/fwrev_ep80_lambda0_job37780076/000-EqM-B-2-Linear-velocity-None-ebm-direct/checkpoints/2825000.pt`
+`CKPT_NONE_LATE=/n/netscratch/ydu_lab/Lab/mkrasnow_eqm/direct_energy_longer_retry/longer80_none_seed0_ckpt50k_job36632776/000-EqM-B-2-Linear-velocity-None-ebm-none/checkpoints/2800000.pt`
+
 ## Scope
 
 Only active project in this repo (root `AGENTS.md`). Do not touch `projects/archive/*`.
+Two active tracks within this project: Structured Start-State EqM (primary, per Origin
+above) and fb_direct scalar-energy stability (secondary/parallel, per above). Both share
+this codebase and `.state/pipeline.json` job tracking.
