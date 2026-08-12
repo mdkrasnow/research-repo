@@ -36,6 +36,7 @@ from fb_direct.exact_hvp import (
     exact_fwrev_backward,
     allreduce_fwrev_grads,
     fwrev_rank_sync_checksum,
+    compute_wfb_gradient,
 )
 from fb_direct.adaptive_clip import adaptive_clip_update, adaptive_clip_threshold
 from torchvision import datasets, transforms, models
@@ -374,6 +375,46 @@ def main(args):
                     fwrev_stats["loss_main"] + args.gp_lambda * fwrev_stats["loss_gp"],
                     device=device,
                 )
+            elif args.wfb_backward:
+                # WFB-EqM Stage 2 (2026-08-12): Whitened Forward-Backward preconditioned
+                # gradient (fb_direct/exact_hvp.py:compute_wfb_gradient) as a REPLACEMENT
+                # backward operator, not layered on exact_fwrev. Same sampling sequence as
+                # the exact-fwrev branch above (canonical residual convention). The model's
+                # predicted field remains EXACTLY -grad_z E at all times -- only the
+                # optimizer-supplied pseudo-gradient changes; see Stage 0/1 reports for the
+                # mathematical justification and causal validation this rests on.
+                t_s, x0_s, x1_s = transport.sample(x)
+                t_s, xt_s, ut_s = transport.path_sampler.plan(t_s, x0_s, x1_s)
+                ut_s = ut_s * transport.get_ct(t_s)[:, None, None, None]
+                opt.zero_grad()
+                wfb_result = compute_wfb_gradient(
+                    model.module, xt_s, t_s, y, ut_s,
+                    params=None, rho=args.wfb_rho, k=args.wfb_k, seed=train_steps,
+                )
+                for p, g in zip(wfb_result["params"], wfb_result["g_wfb"]):
+                    p.grad = g.clone()
+                # DDP bucketed hooks never fire on this path (no loss.backward());
+                # reuses the exact-fwrev branch's averaging + rank-sync-checksum machinery
+                # verbatim -- both paths populate .grad manually and skip loss.backward().
+                allreduce_fwrev_grads(model.module)
+                if dist.get_world_size() > 1 and args.grad_log_every > 0 \
+                        and (train_steps + 1) % args.grad_log_every == 0:
+                    checksum = fwrev_rank_sync_checksum(model.module).to(device)
+                    mn, mx = checksum.clone(), checksum.clone()
+                    dist.all_reduce(mn, op=dist.ReduceOp.MIN)
+                    dist.all_reduce(mx, op=dist.ReduceOp.MAX)
+                    if float(mx - mn) > 1e-6:
+                        raise RuntimeError(
+                            f"wfb-backward rank desync at step {train_steps + 1}: "
+                            f"parameter checksum spread {float(mx - mn):.3e} -- "
+                            "ranks have diverged; aborting before silent corruption."
+                        )
+                # loss_main == residual_rms**2 identity (validated in
+                # matched_replay_jacobian_diagnostic.py's canonical_residual_and_validate)
+                # -- directly comparable to the exact-fwrev arm's loss_main for logging.
+                loss = torch.tensor(
+                    wfb_result["r_norm"] ** 2 / wfb_result["r"].numel(), device=device,
+                )
             else:
                 model_kwargs = dict(y=y, return_act=args.disp, train=True)
                 loss_dict = transport.training_losses(model, x, model_kwargs)
@@ -467,6 +508,23 @@ def main(args):
                         if "loss_zloss" in fwrev_stats:
                             record["loss_zloss"] = fwrev_stats["loss_zloss"]
                             record["energy_zloss_lambda"] = args.energy_zloss_lambda
+                    if args.wfb_backward:
+                        # "applied" grad_norm/head_grad_norm/backbone_grad_norm above are
+                        # already the WFB-preconditioned gradient (computed generically from
+                        # .grad, which this branch populated with g_wfb). g_raw_norm_hypothetical
+                        # is the CAUSAL diagnostic spec Section 9 requires: the SAME residual's
+                        # raw M^T r, computed for free by compute_wfb_gradient -- the ideal
+                        # result is this trace still spiking while grad_norm (applied) does not.
+                        record["r_norm"] = wfb_result["r_norm"]
+                        record["g_raw_norm_hypothetical"] = wfb_result["g_raw_norm"]
+                        record["lambda_max"] = wfb_result["lambda_max"]
+                        record["lam"] = wfb_result["lam"]
+                        record["T_eigmax"] = wfb_result["T_eigmax"]
+                        record["m_lanczos"] = wfb_result["m"]
+                        record["wfb_breakdown"] = wfb_result["breakdown"]
+                        record["wfb_breakdown_reason"] = wfb_result["breakdown_reason"]
+                        record["wfb_rho"] = args.wfb_rho
+                        record["wfb_k"] = args.wfb_k
                     grad_metrics_file.write(json.dumps(record, sort_keys=True) + "\n")
             opt.step()
             update_ema(ema, model.module)
@@ -895,6 +953,29 @@ if __name__ == "__main__":
              "2023's z-loss on output-logit divergence.",
     )
 
+    parser.add_argument(
+        "--wfb-backward", action="store_true",
+        help="(ebm='direct' only, WFB-EqM Stage 2) compute the parameter gradient via "
+             "Whitened Forward-Backward preconditioning: g_wfb = M^T(A+lambda I)^{-1/2}r, "
+             "A = M M^T (mixed input-parameter Jacobian Gram operator), "
+             "lambda = wfb_rho * lambda_max(A). Independent alternative to --exact-fwrev "
+             "(not layered on top of it -- both require ebm='direct' but are mutually "
+             "exclusive). See fb_direct/exact_hvp.py:compute_wfb_gradient and "
+             "documentation/wfb-eqm-stage0-stage1-plan.md.",
+    )
+    parser.add_argument(
+        "--wfb-rho", type=float, default=1e-4,
+        help="(requires --wfb-backward) relative spectral damping: lambda = wfb_rho * "
+             "lambda_max(A). Spec default 1e-4.",
+    )
+    parser.add_argument(
+        "--wfb-k", type=int, default=12,
+        help="(requires --wfb-backward) Lanczos iterations for the (A+lambda I)^{-1/2} r "
+             "approximation. Stage 1 (job 38484995) found k=8's g_wfb_norm not fully "
+             "converged vs k=12 (~7-12%% further decrease on severe batches) though "
+             "T_eigmax converges by k=4 -- k=12 recommended as the production default.",
+    )
+
     parse_transport_args(parser)
     args = parser.parse_args()
     if args.grad_log_every < 0:
@@ -921,6 +1002,20 @@ if __name__ == "__main__":
         parser.error("--energy-zloss-lambda requires --exact-fwrev")
     if args.energy_zloss_lambda < 0:
         parser.error("--energy-zloss-lambda must be non-negative")
+    if args.wfb_backward and args.ebm != "direct":
+        parser.error("--wfb-backward requires --ebm direct")
+    if args.wfb_backward and args.exact_fwrev:
+        parser.error("--wfb-backward and --exact-fwrev are mutually exclusive backward modes")
+    if args.wfb_backward and args.disp:
+        parser.error("--wfb-backward does not support --disp")
+    if args.wfb_backward and args.gp_lambda != 0.0:
+        parser.error("--gp-lambda requires --exact-fwrev, not supported with --wfb-backward")
+    if args.wfb_backward and args.energy_zloss_lambda != 0.0:
+        parser.error("--energy-zloss-lambda requires --exact-fwrev, not supported with --wfb-backward")
+    if args.wfb_k < 1:
+        parser.error("--wfb-k must be >= 1")
+    if args.wfb_rho <= 0:
+        parser.error("--wfb-rho must be positive")
     args.save_epochs = None if args.save_epochs is None else {
         int(value) for value in args.save_epochs.split(",") if value.strip()
     }
