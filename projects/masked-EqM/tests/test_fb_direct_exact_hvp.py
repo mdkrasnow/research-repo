@@ -841,6 +841,47 @@ def test_wfb_compute_wfb_gradient_filters_frozen_parameters():
           f"parameter(s) ({frozen_names}) out of the default full-params path without crashing")
 
 
+def test_wfb_compute_wfb_gradient_stable_under_train_mode_cfg_dropout():
+    """Regression test (found in production 2026-08-12, WFB-EqM Stage 2 job 38493610):
+    compute_wfb_gradient crashed with 'Lanczos produced a non-finite/absent u' on
+    literally the FIRST real training step -- the first time it ever ran with
+    model.training=True (Stage 0/1 only ever used model.eval()). Root cause: this
+    function calls the model MANY times (lambda_max power iterations + Lanczos steps,
+    each an exact_field_vjp/field_jvp_direct call) to build/apply A = M M^T: with CFG
+    label dropout active (dropout_prob>0, only in train mode), each call independently
+    redraws its own random dropout mask, making M a DIFFERENT operator on every
+    internal application -- violating the fixed-linear-operator assumption the whole
+    Lanczos three-term recurrence depends on, producing numerical garbage. Fixed by
+    predrawing the dropout ONCE at the top of compute_wfb_gradient and holding it
+    fixed for every internal call (mirrors exact_fwrev_backward/exact_field_vjp's
+    existing _predrop_labels usage, just scoped across compute_wfb_gradient's many
+    internal calls instead of a single VJP/JVP pair).
+
+    High dropout_prob (0.9) + several seeds to make an un-fixed dropout draw very
+    likely to produce a large finite-difference between successive calls if the bug
+    were still present."""
+    torch.manual_seed(271)
+    model = make_model(ebm="direct", dtype=torch.float64)
+    perturb(model, seed=273)
+    model.y_embedder.dropout_prob = 0.9  # aggressive, to make an unfixed re-draw likely
+    model.train()
+    for trial_seed in range(5):
+        z, t, y = batch(n=2, dtype=torch.float64, seed=277 + trial_seed)
+        gen = torch.Generator().manual_seed(281 + trial_seed)
+        ut = torch.randn(z.shape, generator=gen, dtype=torch.float64)
+        result = compute_wfb_gradient(model, z, t, y, ut, params=None, rho=1e-3, k=6, seed=283 + trial_seed)
+        assert torch.isfinite(result["g_wfb_norm"] * torch.ones(1)).all(), \
+            f"trial {trial_seed}: g_wfb_norm not finite ({result['g_wfb_norm']})"
+        for gp in result["g_wfb"]:
+            assert torch.isfinite(gp).all(), f"trial {trial_seed}: non-finite entries in g_wfb"
+        assert not result["breakdown"] or (result["breakdown_reason"] or "").startswith("invariant_subspace"), \
+            f"trial {trial_seed}: unexpected breakdown {result['breakdown_reason']}"
+    assert model.y_embedder.dropout_prob == 0.9, "dropout_prob must be restored after compute_wfb_gradient returns"
+    model.eval()
+    print("PASS WFB Stage 0: compute_wfb_gradient stable under model.train() + CFG label "
+          "dropout (5 trials, dropout_prob=0.9), dropout_prob correctly restored")
+
+
 import contextlib
 
 
@@ -880,4 +921,5 @@ if __name__ == "__main__":
         test_wfb_singular_mode_gain()
         test_wfb_zero_residual_breakdown()
         test_wfb_compute_wfb_gradient_filters_frozen_parameters()
+        test_wfb_compute_wfb_gradient_stable_under_train_mode_cfg_dropout()
     print("ALL PASS")

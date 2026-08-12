@@ -958,44 +958,60 @@ def compute_wfb_gradient(model, xt, t, y, ut, params=None, rho=1e-4, k=8,
     if not params:
         raise RuntimeError("compute_wfb_gradient: no trainable (requires_grad=True) parameters in `params`.")
 
-    model.zero_grad(set_to_none=True)
-    field = compute_field_direct(model, xt, t, y)
-    r = (field - ut).detach()
-    r_norm = float(r.norm())
-    if not torch.isfinite(r).all():
-        raise RuntimeError("compute_wfb_gradient: residual r is non-finite -- failing loudly, not degrading to a fallback.")
+    # Predraw CFG label dropout ONCE and hold it fixed for every internal model call below
+    # (compute_field_direct, exact_field_vjp x{1 + Lanczos steps}, field_jvp_direct x
+    # {lambda_max power-iters + Lanczos steps}) -- same fix, same reason, as
+    # exact_fwrev_backward/exact_field_vjp's existing _predrop_labels usage: this function
+    # calls the model MANY times to build A = M M^T and apply (A+lambda I)^{-1/2}, and if
+    # model.training=True with dropout_prob>0 (true during actual training, never true in
+    # Stage 0/1's model.eval()-only usage), an independent dropout draw per call would
+    # silently make M a DIFFERENT operator on every application -- violating the fixed-
+    # linear-operator assumption the whole Lanczos three-term recurrence depends on, which
+    # manifests as numerical garbage (confirmed in production, WFB-EqM Stage 2 job
+    # 38493610: 'Lanczos produced a non-finite/absent u' on literally the first training
+    # step, the first time this function ran with model.training=True).
+    y, restore_labels = _predrop_labels(model, y)
+    try:
+        model.zero_grad(set_to_none=True)
+        field = compute_field_direct(model, xt, t, y)
+        r = (field - ut).detach()
+        r_norm = float(r.norm())
+        if not torch.isfinite(r).all():
+            raise RuntimeError("compute_wfb_gradient: residual r is non-finite -- failing loudly, not degrading to a fallback.")
 
-    # Hypothetical raw gradient M^T r -- diagnostic, always computed (Section 9/18).
-    model.zero_grad(set_to_none=True)
-    exact_field_vjp(model, xt, t, y, r)
-    g_raw = [p.grad.detach().clone() if p.grad is not None else torch.zeros_like(p) for p in params]
-    g_raw_norm = sum(float((gp ** 2).sum()) for gp in g_raw) ** 0.5
+        # Hypothetical raw gradient M^T r -- diagnostic, always computed (Section 9/18).
+        model.zero_grad(set_to_none=True)
+        exact_field_vjp(model, xt, t, y, r)
+        g_raw = [p.grad.detach().clone() if p.grad is not None else torch.zeros_like(p) for p in params]
+        g_raw_norm = sum(float((gp ** 2).sum()) for gp in g_raw) ** 0.5
 
-    lam_result = estimate_lambda_max(model, xt, t, y, params, num_iters=lambda_max_num_iters, seed=seed)
-    lambda_max = lam_result["lambda_max"]
-    lam = rho * lambda_max
+        lam_result = estimate_lambda_max(model, xt, t, y, params, num_iters=lambda_max_num_iters, seed=seed)
+        lambda_max = lam_result["lambda_max"]
+        lam = rho * lambda_max
 
-    lz = lanczos_inv_sqrt_apply(model, xt, t, y, params, r, lam, k=k)
-    reason = lz["breakdown_reason"]
-    # "invariant_subspace_at_step_i" is a LUCKY Lanczos breakdown, not a failure: for
-    # symmetric operators (A is PSD-symmetric by construction) beta_i=0 means the Krylov
-    # subspace built so far is exactly A-invariant, so the m-term tridiagonal
-    # reconstruction of (A+lam I)^{-1/2} r is EXACT (not approximate) restricted to that
-    # subspace -- and since r itself lies in it, this IS the exact global answer, achieved
-    # in fewer than k steps. "zero_residual" (nothing to precondition) is also benign.
-    # Only a genuine numerical failure (non-finite A-apply, or zero completed steps) fails loudly.
-    fatal = lz["breakdown"] and (reason == "no_steps_completed" or (reason or "").startswith("non_finite"))
-    if fatal:
-        raise RuntimeError(f"compute_wfb_gradient: Lanczos breakdown ({reason}) at "
-                            f"m={lz['m']}/{k} -- failing loudly per spec, not silently substituting.")
-    u = lz["u"]
-    if u is None or not torch.isfinite(u).all():
-        raise RuntimeError("compute_wfb_gradient: Lanczos produced a non-finite/absent u.")
+        lz = lanczos_inv_sqrt_apply(model, xt, t, y, params, r, lam, k=k)
+        reason = lz["breakdown_reason"]
+        # "invariant_subspace_at_step_i" is a LUCKY Lanczos breakdown, not a failure: for
+        # symmetric operators (A is PSD-symmetric by construction) beta_i=0 means the Krylov
+        # subspace built so far is exactly A-invariant, so the m-term tridiagonal
+        # reconstruction of (A+lam I)^{-1/2} r is EXACT (not approximate) restricted to that
+        # subspace -- and since r itself lies in it, this IS the exact global answer, achieved
+        # in fewer than k steps. "zero_residual" (nothing to precondition) is also benign.
+        # Only a genuine numerical failure (non-finite A-apply, or zero completed steps) fails loudly.
+        fatal = lz["breakdown"] and (reason == "no_steps_completed" or (reason or "").startswith("non_finite"))
+        if fatal:
+            raise RuntimeError(f"compute_wfb_gradient: Lanczos breakdown ({reason}) at "
+                                f"m={lz['m']}/{k} -- failing loudly per spec, not silently substituting.")
+        u = lz["u"]
+        if u is None or not torch.isfinite(u).all():
+            raise RuntimeError("compute_wfb_gradient: Lanczos produced a non-finite/absent u.")
 
-    model.zero_grad(set_to_none=True)
-    exact_field_vjp(model, xt, t, y, u)  # accumulates g_wfb = M^T u into .grad
-    g_wfb = [p.grad.detach().clone() if p.grad is not None else torch.zeros_like(p) for p in params]
-    g_wfb_norm = sum(float((gp ** 2).sum()) for gp in g_wfb) ** 0.5
+        model.zero_grad(set_to_none=True)
+        exact_field_vjp(model, xt, t, y, u)  # accumulates g_wfb = M^T u into .grad
+        g_wfb = [p.grad.detach().clone() if p.grad is not None else torch.zeros_like(p) for p in params]
+        g_wfb_norm = sum(float((gp ** 2).sum()) for gp in g_wfb) ** 0.5
+    finally:
+        restore_labels()
 
     return {
         "params": params,
