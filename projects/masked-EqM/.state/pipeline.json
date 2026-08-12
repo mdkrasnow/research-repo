@@ -17,10 +17,10 @@
   "active_runs": [
     {
       "run_id": "wfb_stage2_6a_residual_certificate",
-      "job_id": "38723664",
+      "job_id": "38724217",
       "partition": "gpu_test",
       "status": "running",
-      "description": "WFB-EqM Stage 2.6a: FBGN Lanczos residual-certificate k-convergence check (k=12/24/48/96), reconciling Stage 2.5's >1 induced-field-gain measurement via rho_m=-ell_m identity + ||q_m||/||r||<=1+||rho_m||/||r|| certificate -- reviewer-mandated gate before any further FBGN work",
+      "description": "WFB-EqM Stage 2.6a: FBGN Lanczos residual-certificate k-convergence check (k=12/24/48/96), reconciling Stage 2.5's >1 induced-field-gain measurement via rho_m=-ell_m identity + ||q_m||/||r||<=1+||rho_m||/||r|| certificate -- reviewer-mandated gate before any further FBGN work. Resubmitted correctly via SBATCH_EXPORTS after attempt 1's env-passing mistake.",
       "submitted_at": "2026-08-12",
       "git_sha": "6b8e022",
       "sbatch_path": "projects/masked-EqM/slurm/jobs/wfb_stage2_6_residual_certificate.sbatch",
@@ -13291,6 +13291,20 @@
       "gate": "decides whether FBGN (alpha=1) graduates to Stage 3 training candidate",
       "final_metric": null,
       "error": "Cancelled while still PENDING (never started, zero GPU-hours spent, no log file ever created) per reviewer guidance (2026-08-12): before running FBGN under a fresh Adam optimizer, (a) the Stage 2.5 field-gain measurement for alpha=1 (median 2.83/3.41) needs reconciling against the exact theoretical bound ||M g_1||/||r|| <= 1 -- the reviewer suspected a hidden scale factor, currently under investigation (leading hypothesis: Lanczos k=12 truncation on a ~32768-dim field space, not a scale bug -- A/M are the identical operators used both inside compute_wfb_gradient and in the diagnostic script's field_jvp_direct call, so no separate scalar convention exists); (b) reviewer proposes Stage 2.6 first: optimal-linearized-step-size comparison (eta_alpha* = r^T q_alpha / ||q_alpha||^2) between alpha=0.5 and alpha=1 with NO Adam, to remove step-size as a confound before deciding whether alpha=1 or alpha=0.5 is the better geometry, and whether Adam should be used at all vs a natural/Gauss-Newton update applied directly."
+    },
+    {
+      "run_id": "wfb_stage2_6a_residual_certificate_attempt1",
+      "job_id": "38723664",
+      "partition": "gpu_test",
+      "status": "failed",
+      "description": "Stage 2.6a submission attempt 1: env vars passed as shell prefix to remote_submit.sh, not via SBATCH_EXPORTS -- remote_submit.sh only forwards SBATCH_EXPORTS, so CKPT_DIRECT_LATE never reached the job; failed in 3s on 'set CKPT_DIRECT_LATE' unbound-var check before any compute. Zero GPU-hours spent.",
+      "submitted_at": "2026-08-12",
+      "git_sha": "6b8e022",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/wfb_stage2_6_residual_certificate.sbatch",
+      "phase": "2.6",
+      "gate": "reconcile ||M g_1||/||r|| <= 1 bound",
+      "exit_code": 1,
+      "error": "CKPT_DIRECT_LATE unbound -- submission mechanics error, not a code/math bug"
     }
   ],
   "debugging_notes": [
