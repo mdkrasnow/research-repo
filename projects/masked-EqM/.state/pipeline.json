@@ -18,30 +18,30 @@
     {
       "partition": "seas_gpu",
       "status": "pending",
-      "submitted_at": "2026-08-12T02:55:00-04:00",
-      "git_sha": "6694858",
+      "submitted_at": "2026-08-12T03:40:00-04:00",
+      "git_sha": "1422f5b",
       "sbatch_path": "projects/masked-EqM/slurm/jobs/wfb_stage2_paired_train.sbatch",
       "expected_runtime": "~15min-1h (500 steps, 4x H200 DDP)",
       "phase": "wfb-eqm-stage2",
-      "gate": "Stage 2 gate 1-6 + checklist: clip-rate down; p99.9 grad norm down; no NaN; |delta_theta| comparable magnitude to ARM A (not neutralized by stale Adam state); held-out probe_delta_L negative (learning) comparable to ARM A; probe_cos(field update, -r) positive and comparable to ARM A; overhead characterized.",
-      "run_id": "wfb_stage2_armA_exact_v4",
-      "job_id": "38590354",
-      "description": "WFB-EqM Stage 2 ARM A (control) v4: rerun with checklist instrumentation (|delta_theta|, held-out probe delta_L, field-update cosine) at commit 6694858. exact-fwrev, 500 steps from CKPT_DIRECT_LATE, global_seed=42, max_grad_norm=6.87141. Supersedes v3 (38573830, completed cleanly, same result expected -- rerun purely to get checklist fields for the paired comparison).",
-      "superseded_job_id": "38573830"
+      "gate": "Stage 2 gate 1-6 + checklist: clip-rate down; delta_theta magnitude context; probe_delta_L (real-data probe) comparable/improving on both arms; probe_cos(field update, -r) positive and comparable; overhead characterized.",
+      "run_id": "wfb_stage2_armA_exact_v5",
+      "job_id": "38613540",
+      "description": "WFB-EqM Stage 2 ARM A (control) v5: real-data diagnostic probe (commit 1422f5b, fixes v4 uninformative noise-probe). exact-fwrev, 500 steps, global_seed=42, max_grad_norm=6.87141. Supersedes v4 (38590354).",
+      "superseded_job_id": "38590354"
     },
     {
       "partition": "seas_gpu",
       "status": "pending",
-      "submitted_at": "2026-08-12T02:55:00-04:00",
-      "git_sha": "6694858",
+      "submitted_at": "2026-08-12T03:40:00-04:00",
+      "git_sha": "1422f5b",
       "sbatch_path": "projects/masked-EqM/slurm/jobs/wfb_stage2_paired_train.sbatch",
       "expected_runtime": "~15min-1h (500 steps, 4x H200 DDP)",
       "phase": "wfb-eqm-stage2",
-      "gate": "Stage 2 gate 1-6 + checklist: clip-rate down; p99.9 grad norm down; no NaN; |delta_theta| comparable magnitude to ARM A (not neutralized by stale Adam state); held-out probe_delta_L negative (learning) comparable to ARM A; probe_cos(field update, -r) positive and comparable to ARM A; overhead characterized.",
-      "run_id": "wfb_stage2_armB_wfb_v4",
-      "job_id": "38590381",
-      "description": "WFB-EqM Stage 2 ARM B (treatment) v4: rerun with checklist instrumentation. v3 (38573835) showed applied grad_norm uniformly ~100-200x smaller than ARM A and near-constant (0.016-0.018), raising the concern that AdamW stale second-moment state (loaded from checkpoint, calibrated to old raw-gradient scale) may be neutralizing the update rather than WFB producing a well-scaled one. wfb-backward (rho=1e-4, k=12), 500 steps, global_seed=42, max_grad_norm=6.87141.",
-      "superseded_job_id": "38573835"
+      "gate": "Stage 2 gate 1-6 + checklist: clip-rate down; delta_theta magnitude context; probe_delta_L (real-data probe) comparable/improving on both arms; probe_cos(field update, -r) positive and comparable; overhead characterized.",
+      "run_id": "wfb_stage2_armB_wfb_v5",
+      "job_id": "38613563",
+      "description": "WFB-EqM Stage 2 ARM B (treatment) v5: real-data diagnostic probe. v4 showed delta_theta_norm ~40x smaller than ARM A (real, substantial) but probe_delta_L/cosine were uninformative (noise-probe flaw). wfb-backward (rho=1e-4, k=12), 500 steps, global_seed=42.",
+      "superseded_job_id": "38590381"
     }
   ],
   "completed_runs": [
@@ -13185,6 +13185,38 @@
       "superseded_job_id": "38570595",
       "exit_code": "0:0",
       "final_metric": "ARM B completed cleanly, 500 steps, 0 breakdowns. Applied grad_norm median=0.016, p99=0.018, max=0.018, clip_rate=0.00%% -- never clips. Hypothetical raw (native-scaled) g_raw_norm median=3.244, p99=7.736, max=11.806, 9/500 (1.8%%) would-clip -- underlying instability signature persists in raw trace but never reaches the optimizer, exactly the ideal causal result per spec. CONCERN: applied grad_norm is uniformly ~100-200x smaller than ARM A and nearly constant (little spread) -- raised whether AdamW stale second-moment state (loaded from checkpoint, calibrated to old raw-gradient scale) is silently neutralizing the update rather than WFB producing a well-scaled one. loss mean=10.642 (near-identical to ARM A, but n=500 too noisy to resolve on loss alone). Resulted in checklist instrumentation added (commit 6694858) and v4 rerun."
+    },
+    {
+      "partition": "seas_gpu",
+      "status": "completed",
+      "submitted_at": "2026-08-12T02:55:00-04:00",
+      "git_sha": "6694858",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/wfb_stage2_paired_train.sbatch",
+      "expected_runtime": "~15min-1h (500 steps, 4x H200 DDP)",
+      "phase": "wfb-eqm-stage2",
+      "gate": "Stage 2 gate 1-6 + checklist: clip-rate down; p99.9 grad norm down; no NaN; |delta_theta| comparable magnitude to ARM A (not neutralized by stale Adam state); held-out probe_delta_L negative (learning) comparable to ARM A; probe_cos(field update, -r) positive and comparable to ARM A; overhead characterized.",
+      "run_id": "wfb_stage2_armA_exact_v4",
+      "job_id": "38590354",
+      "description": "WFB-EqM Stage 2 ARM A (control) v4: rerun with checklist instrumentation (|delta_theta|, held-out probe delta_L, field-update cosine) at commit 6694858. exact-fwrev, 500 steps from CKPT_DIRECT_LATE, global_seed=42, max_grad_norm=6.87141. Supersedes v3 (38573830, completed cleanly, same result expected -- rerun purely to get checklist fields for the paired comparison).",
+      "superseded_job_id": "38573830",
+      "exit_code": "0:0",
+      "final_metric": "ARM A v4 completed cleanly. delta_theta_norm median=0.250008 p99=0.398577. grad_norm/clip identical to v3 (deterministic, same seed)."
+    },
+    {
+      "partition": "seas_gpu",
+      "status": "completed",
+      "submitted_at": "2026-08-12T02:55:00-04:00",
+      "git_sha": "6694858",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/wfb_stage2_paired_train.sbatch",
+      "expected_runtime": "~15min-1h (500 steps, 4x H200 DDP)",
+      "phase": "wfb-eqm-stage2",
+      "gate": "Stage 2 gate 1-6 + checklist: clip-rate down; p99.9 grad norm down; no NaN; |delta_theta| comparable magnitude to ARM A (not neutralized by stale Adam state); held-out probe_delta_L negative (learning) comparable to ARM A; probe_cos(field update, -r) positive and comparable to ARM A; overhead characterized.",
+      "run_id": "wfb_stage2_armB_wfb_v4",
+      "job_id": "38590381",
+      "description": "WFB-EqM Stage 2 ARM B (treatment) v4: rerun with checklist instrumentation. v3 (38573835) showed applied grad_norm uniformly ~100-200x smaller than ARM A and near-constant (0.016-0.018), raising the concern that AdamW stale second-moment state (loaded from checkpoint, calibrated to old raw-gradient scale) may be neutralizing the update rather than WFB producing a well-scaled one. wfb-backward (rho=1e-4, k=12), 500 steps, global_seed=42, max_grad_norm=6.87141.",
+      "superseded_job_id": "38573835",
+      "exit_code": "0:0",
+      "final_metric": "ARM B v4 completed cleanly. KEY FINDING: delta_theta_norm median=0.0063178, ratio vs ARM A = 0.0253 (~40x smaller actual AdamW displacement, even after normalization -- narrower gap than the raw grad_norm ratio ~100x but still substantial). probe_delta_L/cosine UNINFORMATIVE: probe was built from independent random noise, not real data -- both arms showed flat/near-chance results, a probe design flaw, not evidence either way. User decision: fix probe with real transport-sampled data (commit 1422f5b), rerun as v5."
     }
   ],
   "debugging_notes": [
