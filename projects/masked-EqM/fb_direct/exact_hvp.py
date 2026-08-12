@@ -859,6 +859,12 @@ def _lanczos_inv_sqrt_apply_generic(gram_mv_fn, r, lam, k=8, reorth=True, eps=1e
                 "breakdown": True, "breakdown_reason": breakdown_reason or "no_steps_completed",
                 "ortho_error": 0.0, "residual_norm": r_norm}
 
+    # The mxm tridiagonal eigendecomposition is tiny (m<=k, ~O(10)) and computed on CPU
+    # regardless of r's device -- but Qmat (the n-dimensional Krylov basis, n = full
+    # parameter/field count) lives on r's device, so every CPU-built tensor below must be
+    # moved there before combining with Qmat (device mismatch is silent on CPU-only tests,
+    # only surfaces on GPU -- found in production, job 38479632).
+    device = r.device
     T = torch.diag(torch.tensor(alphas, dtype=torch.float64))
     if m > 1:
         b = torch.tensor(betas, dtype=torch.float64)
@@ -868,10 +874,10 @@ def _lanczos_inv_sqrt_apply_generic(gram_mv_fn, r, lam, k=8, reorth=True, eps=1e
 
     e1 = torch.zeros(m, dtype=torch.float64)
     e1[0] = 1.0
-    coeff = S @ (torch.diag(1.0 / torch.sqrt(theta + lam)) @ (S.T @ e1))  # (T+lam I)^{-1/2} e1
+    coeff = (S @ (torch.diag(1.0 / torch.sqrt(theta + lam)) @ (S.T @ e1))).to(device)  # (T+lam I)^{-1/2} e1
 
-    Qmat = torch.stack([qi.reshape(-1) for qi in Q], dim=1).to(torch.float64)  # (n, m)
-    ortho_error = float((Qmat.T @ Qmat - torch.eye(m, dtype=torch.float64)).norm())
+    Qmat = torch.stack([qi.reshape(-1) for qi in Q], dim=1).to(torch.float64)  # (n, m), on `device`
+    ortho_error = float((Qmat.T @ Qmat - torch.eye(m, dtype=torch.float64, device=device)).norm())
 
     u_flat = r_norm * (Qmat @ coeff.to(Qmat.dtype))
     u = u_flat.view(r.shape).to(r.dtype)
