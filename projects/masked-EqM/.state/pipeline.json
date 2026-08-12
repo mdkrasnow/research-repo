@@ -14,7 +14,21 @@
       "title": "Results-dir race: two concurrent same-corruption-mode jobs silently mixed checkpoints"
     }
   ],
-  "active_runs": [],
+  "active_runs": [
+    {
+      "run_id": "wfb_stage2_armE_fbgn_adamreset",
+      "job_id": "38697891",
+      "partition": "seas_gpu",
+      "status": "pending",
+      "description": "WFB-EqM Stage 2 2x2 factorial extension ARM E: --wfb-backward --wfb-alpha 1.0 (FBGN, full damped Gauss-Newton) --reset-adam-state, otherwise IDENTICAL design to ARM D (38646819, wfb alpha=0.5 + reset -- net-worse held-out probe loss, 44.2% cosine-positive). Decisive test predicted by Stage 2.5 (job 38673961, alpha-family diagnostic): does FBGN boundedness (field gain O(1) vs WFB O(100-200) vs direct O(40k-160k), commit 79cdf5c) survive Adam step-size normalization the way WFB alpha=0.5 did not (B->D degraded)? If probe_delta_L stays negative like A/C: confirms alpha=1 as the fix, graduate to Stage 3. If it also flips positive like D: falsifies the sigma_i-conditioning account as the full story, points to checkpoint brittleness requiring trust-region/LM acceptance mechanism instead.",
+      "submitted_at": "2026-08-12",
+      "git_sha": "79cdf5c",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/wfb_stage2_paired_train.sbatch",
+      "expected_runtime": "~15min (4xH200 seas_gpu DDP, 500 steps, matches ARM D)",
+      "phase": "DEBUG",
+      "gate": "decides whether FBGN (alpha=1) graduates to Stage 3 training candidate"
+    }
+  ],
   "completed_runs": [
     {
       "partition": "seas_gpu",
