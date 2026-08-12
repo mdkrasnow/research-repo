@@ -18,28 +18,30 @@
     {
       "partition": "seas_gpu",
       "status": "pending",
-      "submitted_at": "2026-08-12T00:35:00-04:00",
-      "git_sha": "1680771",
+      "submitted_at": "2026-08-12T01:20:00-04:00",
+      "git_sha": "e0b2f14",
       "sbatch_path": "projects/masked-EqM/slurm/jobs/wfb_stage2_paired_train.sbatch",
-      "expected_runtime": "~30min-2h (500 steps, 4x H200 DDP)",
+      "expected_runtime": "~15min-2h (500 steps, 4x H200 DDP)",
       "phase": "wfb-eqm-stage2",
       "gate": "Stage 2 gate 1-6 (spec Section 9): clip/would-clip events down >=5x (or ~0) vs exact-direct arm; p99.9 applied grad norm dramatically reduced; no NaN/divergence; held-out field error improves and is not grossly worse than baseline; WFB effect stronger on spike than ordinary batches; overhead characterized.",
-      "run_id": "wfb_stage2_armA_exact",
-      "job_id": "38493588",
-      "description": "WFB-EqM Stage 2 ARM A (control): exact-fwrev backward, 500 steps from CKPT_DIRECT_LATE (step 2825000), global_seed=42, max_grad_norm=6.87141, grad-log-every=1. Paired against 38493610 (ARM B, same seed/ckpt/data, wfb-backward)."
+      "run_id": "wfb_stage2_armA_exact_v2",
+      "job_id": "38570562",
+      "description": "WFB-EqM Stage 2 ARM A (control) v2: rerun at fixed commit e0b2f14 for a clean paired comparison (ARM B needed the CFG-dropout fix; ARM A rerun purely for git_sha parity, its own exact-fwrev path was never affected by that bug). exact-fwrev backward, 500 steps from CKPT_DIRECT_LATE, global_seed=42, max_grad_norm=6.87141. Supersedes 38493588 (completed cleanly at the pre-fix commit).",
+      "superseded_job_id": "38493588"
     },
     {
       "partition": "seas_gpu",
       "status": "pending",
-      "submitted_at": "2026-08-12T00:35:00-04:00",
-      "git_sha": "1680771",
+      "submitted_at": "2026-08-12T01:20:00-04:00",
+      "git_sha": "e0b2f14",
       "sbatch_path": "projects/masked-EqM/slurm/jobs/wfb_stage2_paired_train.sbatch",
-      "expected_runtime": "~30min-2h (500 steps, 4x H200 DDP)",
+      "expected_runtime": "~15min-2h (500 steps, 4x H200 DDP)",
       "phase": "wfb-eqm-stage2",
       "gate": "Stage 2 gate 1-6 (spec Section 9): clip/would-clip events down >=5x (or ~0) vs exact-direct arm; p99.9 applied grad norm dramatically reduced; no NaN/divergence; held-out field error improves and is not grossly worse than baseline; WFB effect stronger on spike than ordinary batches; overhead characterized.",
-      "run_id": "wfb_stage2_armB_wfb",
-      "job_id": "38493610",
-      "description": "WFB-EqM Stage 2 ARM B (treatment): wfb-backward (rho=1e-4, k=12), 500 steps from CKPT_DIRECT_LATE (step 2825000), global_seed=42, max_grad_norm=6.87141 (emergency guard, both arms), grad-log-every=1. Paired against 38493588 (ARM A, same seed/ckpt/data, exact-fwrev)."
+      "run_id": "wfb_stage2_armB_wfb_v2",
+      "job_id": "38570595",
+      "description": "WFB-EqM Stage 2 ARM B (treatment) v2: rerun after fixing the train-mode CFG-dropout bug (commit e0b2f14). wfb-backward (rho=1e-4, k=12), 500 steps from CKPT_DIRECT_LATE, global_seed=42, max_grad_norm=6.87141. Supersedes 38493610 (FAILED, non-finite Lanczos u).",
+      "superseded_job_id": "38493610"
     }
   ],
   "completed_runs": [
@@ -13089,6 +13091,36 @@
       "gate": "Does the GP-smoothed exact-fwrev arm beat direct's 39.94, and how close does it get to none's 34.16?",
       "exit_code": "0:0",
       "final_metric": "FID=37.67, IS=38.71, sFID=17.84. GP=0.05 arm ~1.7 FID BETTER than lambda0 (37.67 vs 39.39), despite GP being independently ruled out as a fix for the clip-rate growth mechanism (2026-08-10 mechanism-check sweep) -- suggests GP may help final sample quality via a different pathway than the instability mechanism, worth noting but not yet explained."
+    },
+    {
+      "partition": "seas_gpu",
+      "status": "completed",
+      "submitted_at": "2026-08-12T00:35:00-04:00",
+      "git_sha": "1680771",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/wfb_stage2_paired_train.sbatch",
+      "expected_runtime": "~30min-2h (500 steps, 4x H200 DDP)",
+      "phase": "wfb-eqm-stage2",
+      "gate": "Stage 2 gate 1-6 (spec Section 9): clip/would-clip events down >=5x (or ~0) vs exact-direct arm; p99.9 applied grad norm dramatically reduced; no NaN/divergence; held-out field error improves and is not grossly worse than baseline; WFB effect stronger on spike than ordinary batches; overhead characterized.",
+      "run_id": "wfb_stage2_armA_exact",
+      "job_id": "38493588",
+      "description": "WFB-EqM Stage 2 ARM A (control): exact-fwrev backward, 500 steps from CKPT_DIRECT_LATE (step 2825000), global_seed=42, max_grad_norm=6.87141, grad-log-every=1. Paired against 38493610 (ARM B, same seed/ckpt/data, wfb-backward).",
+      "exit_code": "0:0",
+      "final_metric": "ARM A (exact) completed cleanly, 500 steps. See gradient_metrics.jsonl for per-step diagnostics -- paired comparison against ARM B pending resubmission."
+    },
+    {
+      "partition": "seas_gpu",
+      "status": "failed",
+      "submitted_at": "2026-08-12T00:35:00-04:00",
+      "git_sha": "1680771",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/wfb_stage2_paired_train.sbatch",
+      "expected_runtime": "~30min-2h (500 steps, 4x H200 DDP)",
+      "phase": "wfb-eqm-stage2",
+      "gate": "Stage 2 gate 1-6 (spec Section 9): clip/would-clip events down >=5x (or ~0) vs exact-direct arm; p99.9 applied grad norm dramatically reduced; no NaN/divergence; held-out field error improves and is not grossly worse than baseline; WFB effect stronger on spike than ordinary batches; overhead characterized.",
+      "run_id": "wfb_stage2_armB_wfb",
+      "job_id": "38493610",
+      "description": "WFB-EqM Stage 2 ARM B (treatment): wfb-backward (rho=1e-4, k=12), 500 steps from CKPT_DIRECT_LATE (step 2825000), global_seed=42, max_grad_norm=6.87141 (emergency guard, both arms), grad-log-every=1. Paired against 38493588 (ARM A, same seed/ckpt/data, exact-fwrev).",
+      "exit_code": "1:0",
+      "error": "RuntimeError: Lanczos produced a non-finite/absent u -- compute_wfb_gradient never ran under model.training=True with CFG dropout active before this job. Root-caused and fixed commit e0b2f14 (predraw dropout once, hold fixed across all internal calls)."
     }
   ],
   "debugging_notes": [
