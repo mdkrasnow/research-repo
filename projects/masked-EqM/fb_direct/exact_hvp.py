@@ -779,17 +779,43 @@ def estimate_lambda_max(model, xt, t, y, params, num_iters=20, seed=0, tol=1e-3)
         lambda v: mixed_gram_mv(model, xt, t, y, params, v), v0, num_iters=num_iters, tol=tol)
 
 
-def _lanczos_inv_sqrt_apply_generic(gram_mv_fn, r, lam, k=8, reorth=True, eps=1e-10):
+def _lanczos_inv_pow_apply_generic(gram_mv_fn, r, lam, alpha, k=8, reorth=True, eps=1e-10):
     """Model-agnostic matrix-free k-step Lanczos approximation of
 
-        u = (A + lambda I)^{-1/2} r,      A exposed only via gram_mv_fn(v) -> A v.
+        u = (A + lambda I)^{-alpha} r,      A exposed only via gram_mv_fn(v) -> A v.
+
+    Generalizes _lanczos_inv_sqrt_apply_generic (alpha=1/2, WFB) to an
+    arbitrary power alpha, giving the family
+
+        g_alpha = M^T (A + lambda I)^{-alpha} r,
+
+    whose induced first-order field update in a singular mode i (M's i-th
+    singular value sigma_i) is
+
+        delta_s_i  ~  -eta * sigma_i^2 / (sigma_i^2 + lambda)^alpha * r_i,
+
+    i.e. alpha=0 recovers ordinary direct training (raw M^T r, unbounded
+    sigma_i^2 gain), alpha=1/2 is WFB (sigma_i gain -- fixes the PARAMETER
+    gradient's conditioning but leaves one power of sigma_i in the induced
+    FIELD update), and alpha=1 is full damped Gauss-Newton (FBGN: gain
+    sigma_i^2/(sigma_i^2+lambda) in [0,1], i.e. it is the induced field
+    update, not just the parameter gradient, that is bounded). See
+    documentation/wfb-eqm-stage1-report-2026-08-12.md and the Stage 2.5
+    reviewer note (2026-08-12) for the full derivation motivating this
+    generalization from the Stage 2 v5/D factorial finding that alpha=1/2
+    alone does not permit ordinary-sized optimizer steps.
+
+    Same algorithm as the alpha=1/2 case (Saad 2003 Ch. 13's Lanczos
+    approximation to f(A)v, here f(x)=(x+lambda)^{-alpha}), only the final
+    eigenvalue transform changes: (T_m+lambda I)^{-alpha} instead of
+    (T_m+lambda I)^{-1/2}.
 
     Builds an orthonormal Krylov basis Q = [q1..qm] (q1 = r/||r||, m<=k) for
     A via three-term recurrence with full reorthogonalization, forms the
     mxm tridiagonal T_m, then uses T_m's tiny explicit eigendecomposition:
 
-        (A + lambda I)^{-1/2} r  ~=  ||r|| * Q  (T_m + lambda I)^{-1/2} e1
-                                  =  ||r|| * Q S diag(1/sqrt(theta_i+lam)) S^T e1
+        (A + lambda I)^{-alpha} r  ~=  ||r|| * Q  (T_m + lambda I)^{-alpha} e1
+                                    =  ||r|| * Q S diag((theta_i+lam)^{-alpha}) S^T e1
 
     where T_m = S diag(theta) S^T. Standard Lanczos approximation to a
     matrix function applied to a vector (Saad 2003, Ch. 13); T_m's largest
@@ -874,7 +900,7 @@ def _lanczos_inv_sqrt_apply_generic(gram_mv_fn, r, lam, k=8, reorth=True, eps=1e
 
     e1 = torch.zeros(m, dtype=torch.float64)
     e1[0] = 1.0
-    coeff = (S @ (torch.diag(1.0 / torch.sqrt(theta + lam)) @ (S.T @ e1))).to(device)  # (T+lam I)^{-1/2} e1
+    coeff = (S @ (torch.diag((theta + lam) ** (-alpha)) @ (S.T @ e1))).to(device)  # (T+lam I)^{-alpha} e1
 
     Qmat = torch.stack([qi.reshape(-1) for qi in Q], dim=1).to(torch.float64)  # (n, m), on `device`
     ortho_error = float((Qmat.T @ Qmat - torch.eye(m, dtype=torch.float64, device=device)).norm())
@@ -887,23 +913,55 @@ def _lanczos_inv_sqrt_apply_generic(gram_mv_fn, r, lam, k=8, reorth=True, eps=1e
             "ortho_error": ortho_error, "residual_norm": r_norm}
 
 
+def _lanczos_inv_sqrt_apply_generic(gram_mv_fn, r, lam, k=8, reorth=True, eps=1e-10):
+    """alpha=1/2 (WFB) specialization of _lanczos_inv_pow_apply_generic, kept
+    as a thin named wrapper for backward compatibility with existing
+    Stage 0 callers/tests -- identical math and return contract to before
+    this function was generalized, see _lanczos_inv_pow_apply_generic for
+    the full docstring/algorithm."""
+    return _lanczos_inv_pow_apply_generic(gram_mv_fn, r, lam, alpha=0.5, k=k, reorth=reorth, eps=eps)
+
+
 def lanczos_inv_sqrt_apply(model, xt, t, y, params, r, lam, k=8, reorth=True, eps=1e-10):
-    """Model-specific entry point for _lanczos_inv_sqrt_apply_generic, using
-    mixed_gram_mv (A = M M^T for the real model) as the operator. See the
-    generic function's docstring for the algorithm and return contract.
+    """Model-specific entry point for _lanczos_inv_sqrt_apply_generic (alpha=1/2,
+    WFB), using mixed_gram_mv (A = M M^T for the real model) as the operator.
+    See _lanczos_inv_pow_apply_generic's docstring for the algorithm and
+    return contract. Thin alpha=0.5 specialization of lanczos_inv_pow_apply
+    below, kept for backward compatibility.
     """
-    return _lanczos_inv_sqrt_apply_generic(
-        lambda v: mixed_gram_mv(model, xt, t, y, params, v), r, lam, k=k, reorth=reorth, eps=eps)
+    return lanczos_inv_pow_apply(model, xt, t, y, params, r, lam, alpha=0.5, k=k, reorth=reorth, eps=eps)
+
+
+def lanczos_inv_pow_apply(model, xt, t, y, params, r, lam, alpha, k=8, reorth=True, eps=1e-10):
+    """Model-specific entry point for _lanczos_inv_pow_apply_generic, using
+    mixed_gram_mv (A = M M^T for the real model) as the operator. See the
+    generic function's docstring for the algorithm, the alpha-family
+    interpretation (alpha=0 direct, alpha=1/2 WFB, alpha=1 FBGN), and the
+    return contract.
+    """
+    return _lanczos_inv_pow_apply_generic(
+        lambda v: mixed_gram_mv(model, xt, t, y, params, v), r, lam, alpha, k=k, reorth=reorth, eps=eps)
 
 
 def compute_wfb_gradient(model, xt, t, y, ut, params=None, rho=1e-4, k=8,
-                          lambda_max_num_iters=20, seed=0):
-    """Orchestrates the Whitened Forward-Backward pseudo-gradient
+                          lambda_max_num_iters=20, seed=0, alpha=0.5):
+    """Orchestrates the alpha-family Forward-Backward pseudo-gradient
 
-        g_wfb = M^T (A + lambda I)^{-1/2} r,   A = M M^T,
-        lambda = rho * lambda_max(A),          r = field - ut  (canonical, unrescaled)
+        g_alpha = M^T (A + lambda I)^{-alpha} r,   A = M M^T,
+        lambda = rho * lambda_max(A),              r = field - ut  (canonical, unrescaled)
 
-    u = (A+lambda I)^{-1/2} r is computed under an implicit stopgrad -- it is
+    `alpha` defaults to 0.5 (WFB, the original formulation -- this default
+    preserves exact prior behavior for all existing callers). alpha=0 is
+    ordinary direct training's raw M^T r (parameter-gradient gain
+    sigma_i^2, unbounded); alpha=1 is full damped Gauss-Newton ("FBGN":
+    induced FIELD-update gain sigma_i^2/(sigma_i^2+lambda) in [0,1] --
+    see _lanczos_inv_pow_apply_generic's docstring for the derivation).
+    Despite the name, this function computes g_alpha for whatever alpha is
+    passed; the name/docstring/return-key "wfb"/"g_wfb" are kept for
+    backward compatibility with existing callers (train.py's
+    --wfb-backward, Stage 0-2 tests) rather than renamed wholesale.
+
+    u = (A+lambda I)^{-alpha} r is computed under an implicit stopgrad -- it is
     treated as a fixed direction handed to exact_field_vjp exactly like any
     other caller-supplied v (matching exact_field_vjp's existing contract),
     never differentiated through. field = -grad_z E remains exactly the
@@ -989,7 +1047,7 @@ def compute_wfb_gradient(model, xt, t, y, ut, params=None, rho=1e-4, k=8,
         lambda_max = lam_result["lambda_max"]
         lam = rho * lambda_max
 
-        lz = lanczos_inv_sqrt_apply(model, xt, t, y, params, r, lam, k=k)
+        lz = lanczos_inv_pow_apply(model, xt, t, y, params, r, lam, alpha, k=k)
         reason = lz["breakdown_reason"]
         # "invariant_subspace_at_step_i" is a LUCKY Lanczos breakdown, not a failure: for
         # symmetric operators (A is PSD-symmetric by construction) beta_i=0 means the Krylov
@@ -1019,6 +1077,7 @@ def compute_wfb_gradient(model, xt, t, y, ut, params=None, rho=1e-4, k=8,
         "g_raw": g_raw, "g_raw_norm": g_raw_norm,
         "r": r, "r_norm": r_norm, "field": field.detach(),
         "lambda_max": lambda_max, "lambda_max_history": lam_result["history"], "lam": lam,
+        "alpha": alpha,
         "T_eigmax": lz["T_eigmax"], "m": lz["m"],
         "breakdown": lz["breakdown"], "breakdown_reason": lz["breakdown_reason"],
         "ortho_error": lz["ortho_error"],

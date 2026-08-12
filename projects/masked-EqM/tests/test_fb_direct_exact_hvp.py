@@ -31,8 +31,8 @@ from fb_direct.exact_hvp import (
     block_subspace_iteration_theta, compute_field_direct, compute_wfb_gradient,
     estimate_lambda_max, exact_field_vjp, exact_fwrev_backward,
     field_jvp_direct, field_jvp_none, field_vjp_none,
-    lanczos_inv_sqrt_apply, mixed_gram_mv, power_iteration_theta_sigma1,
-    _estimate_lambda_max_generic, _lanczos_inv_sqrt_apply_generic,
+    lanczos_inv_pow_apply, lanczos_inv_sqrt_apply, mixed_gram_mv, power_iteration_theta_sigma1,
+    _estimate_lambda_max_generic, _lanczos_inv_pow_apply_generic, _lanczos_inv_sqrt_apply_generic,
 )
 from transport.utils import mean_flat
 
@@ -784,6 +784,142 @@ def test_wfb_singular_mode_gain():
           f"({top_raw / top_wfb:.1f}x suppression), lambda_max rel_err={rel_err_lambda_max:.2e}")
 
 
+def test_wfb_alpha_family_singular_mode_gain():
+    """WFB-EqM Stage 2.5 (reviewer note, 2026-08-12): generalizes
+    test_wfb_singular_mode_gain from a fixed alpha=1/2 to the full
+    alpha-family g_alpha = M^T (A+lambda I)^{-alpha} r, confirming BOTH
+    the parameter-gradient gain (||g_alpha|| for r=u_i, a left singular
+    vector of M) AND the first-order INDUCED FIELD update gain (M g_alpha,
+    per the linearization delta_s = M delta_theta) match their closed forms:
+
+        param-gradient gain:  sigma_i / (sigma_i^2+lambda)^alpha
+        induced-field gain:   sigma_i^2 / (sigma_i^2+lambda)^alpha
+
+    for alpha in {0 (direct), 1/2 (WFB), 1 (FBGN)}. This is the concrete
+    claim motivating FBGN: at alpha=1 the field gain collapses to
+    sigma_i^2/(sigma_i^2+lambda), which is bounded in [0,1] for every mode
+    (unlike alpha=0's unbounded sigma_i^2, or alpha=1/2's still-unbounded
+    sigma_i), i.e. alpha=1/2 fixes the PARAMETER gradient's conditioning
+    but not the induced FIELD update's conditioning -- exactly the gap the
+    Stage 2 v5/D factorial (delta_theta_norm matched via Adam reset, yet
+    held-out probe loss got WORSE under WFB) points to.
+    """
+    torch.manual_seed(241)
+    sigma_true = torch.tensor([50.0, 20.0, 5.0, 1.0, 0.5, 0.2, 0.1], dtype=torch.float64)
+    n = sigma_true.numel()
+    Q1, _ = torch.linalg.qr(torch.randn(n, n, dtype=torch.float64, generator=torch.Generator().manual_seed(243)))
+    Q2, _ = torch.linalg.qr(torch.randn(n, n, dtype=torch.float64, generator=torch.Generator().manual_seed(247)))
+    M = Q1 @ torch.diag(sigma_true) @ Q2.T
+
+    def gram_mv_fn(v):
+        return M @ (M.T @ v)
+
+    lambda_max_true = float(sigma_true.max() ** 2)
+    rho = 1e-3
+    lam = rho * lambda_max_true
+
+    for alpha in (0.0, 0.5, 1.0):
+        for r_dir_idx in range(n):
+            r = Q1[:, r_dir_idx].clone()  # r = u_i, an exact eigenvector of A=MM^T
+            lz = _lanczos_inv_pow_apply_generic(gram_mv_fn, r, lam, alpha, k=n)
+            reason = lz["breakdown_reason"]
+            assert not lz["breakdown"] or (reason or "").startswith("invariant_subspace"), (
+                f"alpha={alpha} mode {r_dir_idx}: unexpected breakdown: {reason}")
+            u = lz["u"]
+            g_alpha = M.T @ u          # parameter-space pseudo-gradient
+            q_alpha = M @ g_alpha      # induced first-order field update M g_alpha
+
+            sigma_i = float(sigma_true[r_dir_idx])
+            param_gain_expected = sigma_i / (sigma_i ** 2 + lam) ** alpha
+            field_gain_expected = sigma_i ** 2 / (sigma_i ** 2 + lam) ** alpha
+            param_gain_got = float(g_alpha.norm())  # ||r||=1
+            field_gain_got = float(q_alpha.norm())
+
+            rel_err_param = abs(param_gain_got - param_gain_expected) / (param_gain_expected + 1e-30)
+            rel_err_field = abs(field_gain_got - field_gain_expected) / (field_gain_expected + 1e-30)
+            assert rel_err_param < 1e-4, (
+                f"alpha={alpha} mode {r_dir_idx} (sigma={sigma_i}): param gain got={param_gain_got} "
+                f"expected={param_gain_expected}, rel_err={rel_err_param:.2e}")
+            assert rel_err_field < 1e-4, (
+                f"alpha={alpha} mode {r_dir_idx} (sigma={sigma_i}): field gain got={field_gain_got} "
+                f"expected={field_gain_expected}, rel_err={rel_err_field:.2e}")
+
+    # The central FBGN claim: at alpha=1, EVERY mode's induced field gain is in [0,1],
+    # unlike alpha=0 (unbounded, = sigma_i^2) or alpha=0.5 (still unbounded, = sigma_i).
+    for sigma_i in sigma_true.tolist():
+        field_gain_alpha1 = sigma_i ** 2 / (sigma_i ** 2 + lam) ** 1.0
+        assert 0.0 <= field_gain_alpha1 <= 1.0 + 1e-9, (
+            f"alpha=1 field gain must lie in [0,1]: sigma={sigma_i} gain={field_gain_alpha1}")
+    top_sigma = float(sigma_true[0])
+    field_gain_alpha0 = top_sigma ** 2
+    field_gain_alpha05 = top_sigma
+    field_gain_alpha1 = top_sigma ** 2 / (top_sigma ** 2 + lam)
+    assert field_gain_alpha1 < field_gain_alpha05 < field_gain_alpha0, (
+        "expected strictly decreasing top-mode field gain as alpha increases 0 -> 0.5 -> 1: "
+        f"{field_gain_alpha0} / {field_gain_alpha05} / {field_gain_alpha1}")
+    print(f"PASS WFB Stage 2.5 (alpha-family mode-gain test, sigma={sigma_true.tolist()}, rho={rho}, "
+          f"lambda={lam:.4f}): top-mode induced field gain alpha=0:{field_gain_alpha0:.2f} -> "
+          f"alpha=0.5:{field_gain_alpha05:.2f} -> alpha=1:{field_gain_alpha1:.4f} (bounded, as predicted)")
+
+
+def test_lanczos_inv_pow_apply_alpha_half_matches_sqrt_apply():
+    """Regression: the generalized _lanczos_inv_pow_apply_generic(alpha=0.5)
+    must reproduce _lanczos_inv_sqrt_apply_generic's u/T_eigmax/breakdown
+    output EXACTLY (both are now thin wrappers around the same alpha-power
+    core) -- guards against the Stage 2.5 generalization silently changing
+    alpha=0.5/WFB's existing, already-validated (Stage 0/1) numerics."""
+    torch.manual_seed(251)
+    n = 9
+    A_sqrt = torch.randn(n, n, dtype=torch.float64, generator=torch.Generator().manual_seed(253))
+    A = A_sqrt @ A_sqrt.T + 0.01 * torch.eye(n, dtype=torch.float64)  # PSD
+
+    def gram_mv_fn(v):
+        return A @ v
+
+    r = torch.randn(n, dtype=torch.float64, generator=torch.Generator().manual_seed(257))
+    lam = 0.37
+    lz_old = _lanczos_inv_sqrt_apply_generic(gram_mv_fn, r, lam, k=6)
+    lz_new = _lanczos_inv_pow_apply_generic(gram_mv_fn, r, lam, alpha=0.5, k=6)
+    assert lz_old["breakdown"] == lz_new["breakdown"] and lz_old["breakdown_reason"] == lz_new["breakdown_reason"]
+    torch.testing.assert_close(lz_old["u"], lz_new["u"], rtol=1e-12, atol=1e-14)
+    assert lz_old["T_eigmax"] == lz_new["T_eigmax"]
+    print("PASS: alpha=0.5 specialization of the generalized Lanczos apply matches the original exactly.")
+
+
+def test_compute_wfb_gradient_alpha_param_threads_through_on_real_model():
+    """WFB-EqM Stage 2.5: compute_wfb_gradient's new `alpha` kwarg actually
+    changes the returned gradient on the real tiny model (not silently
+    ignored), alpha=0.5 (default, omitted) matches alpha=0.5 (explicit),
+    and alpha=1 (FBGN) produces a DIFFERENT, and per the theory a SMALLER
+    (more damped), gradient norm than alpha=0.5 on the same residual --
+    consistent with (theta+lam)^{-alpha} being a decreasing function of
+    alpha for theta+lam > 1 (true here: lambda_max estimated on a real
+    130-ish-param tiny model's mixed Jacobian is >> 1)."""
+    torch.manual_seed(261)
+    model = make_model(ebm="direct", dtype=torch.float64)
+    perturb(model, seed=263)
+    model.eval()
+    z, t, y = batch(n=2, dtype=torch.float64, seed=267)
+
+    result_default = compute_wfb_gradient(model, z, t, y, torch.zeros_like(z), rho=1e-2, k=8,
+                                           lambda_max_num_iters=50, seed=269)
+    assert result_default["alpha"] == 0.5
+    result_half = compute_wfb_gradient(model, z, t, y, torch.zeros_like(z), rho=1e-2, k=8,
+                                        lambda_max_num_iters=50, seed=269, alpha=0.5)
+    for g_d, g_h in zip(result_default["g_wfb"], result_half["g_wfb"]):
+        torch.testing.assert_close(g_d, g_h, rtol=1e-8, atol=1e-10)
+
+    result_fbgn = compute_wfb_gradient(model, z, t, y, torch.zeros_like(z), rho=1e-2, k=8,
+                                        lambda_max_num_iters=50, seed=269, alpha=1.0)
+    assert result_fbgn["alpha"] == 1.0
+    assert not result_fbgn["breakdown"] or (result_fbgn["breakdown_reason"] or "").startswith("invariant_subspace")
+    assert result_fbgn["g_wfb_norm"] < result_half["g_wfb_norm"], (
+        f"expected alpha=1 (FBGN) gradient norm ({result_fbgn['g_wfb_norm']}) < alpha=0.5 (WFB) "
+        f"gradient norm ({result_half['g_wfb_norm']}) since lambda_max >> 1 here")
+    print(f"PASS: compute_wfb_gradient(alpha=...) threads through correctly on real model "
+          f"(||g_wfb|| alpha=0.5: {result_half['g_wfb_norm']:.6f} -> alpha=1.0: {result_fbgn['g_wfb_norm']:.6f})")
+
+
 def test_wfb_zero_residual_breakdown():
     """Zero residual (r=0, e.g. field already matches target exactly) must
     be reported as an explicit breakdown, not silently treated as u=0 being
@@ -982,6 +1118,9 @@ if __name__ == "__main__":
         test_block_subspace_matches_explicit_svd()
         test_wfb_operators_match_explicit_jacobian()
         test_wfb_singular_mode_gain()
+        test_wfb_alpha_family_singular_mode_gain()
+        test_lanczos_inv_pow_apply_alpha_half_matches_sqrt_apply()
+        test_compute_wfb_gradient_alpha_param_threads_through_on_real_model()
         test_wfb_zero_residual_breakdown()
         test_wfb_compute_wfb_gradient_filters_frozen_parameters()
         test_wfb_compute_wfb_gradient_stable_under_train_mode_cfg_dropout()
