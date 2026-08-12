@@ -27,6 +27,19 @@
       "phase": "wfb-eqm-stage2",
       "description": "WFB-EqM Stage 2 2x2 factorial ARM C: exact-fwrev + --reset-adam-state (commit 178aa60, generalized reset flag). Completes the {exact,wfb} x {loaded,reset} factorial with A (38613540, exact+loaded), B (38613563, wfb+loaded), D (38646819, wfb+reset, in progress). Isolates whether resetting Adam state ALONE changes anything for exact-direct (should be near-identical to A if the reset explanation for D vs B is correct and specific to WFB coordinate change, not a generic reset effect).",
       "gate": "Does C (exact+reset) look like A (exact+loaded)? If yes, confirms the D-vs-B improvement is specifically about WFB needing recalibration, not a generic reset artifact."
+    },
+    {
+      "run_id": "wfb_stage2_5_alpha_diagnostic",
+      "job_id": "38673961",
+      "partition": "gpu_test",
+      "status": "pending",
+      "description": "WFB-EqM Stage 2.5: frozen-checkpoint alpha-family diagnostic (commit f1dcf25). Tests alpha in {0 direct, 0.5 WFB, 1 FBGN} on the real instability-regime checkpoint: (1) per-batch induced-field-gain/cosine sweep, (2) real one-step apply-then-revert probe at native-scale eta=1 on a held-out batch. Responds to Stage 2 v5/D factorial finding that Adam-reset alone (matched delta_theta_norm) did NOT close the WFB learning gap -- reviewer hypothesis: WFB (alpha=0.5) bounds the PARAMETER gradient but not the induced FIELD update, alpha=1 (FBGN) should bound both. No training/weight updates persisted.",
+      "submitted_at": "2026-08-12",
+      "git_sha": "f1dcf255c7130b117caa64c2f78e81b69ae964f1",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/wfb_stage2_5_alpha_diagnostic.sbatch",
+      "expected_runtime": "1-3h (gpu_test, 8 spike + 8 control batches x 3 alphas x Lanczos k=12)",
+      "phase": "DEBUG",
+      "gate": "informs whether to pursue alpha=1 (FBGN) as Stage 3 candidate vs continue WFB (alpha=0.5) forensics"
     }
   ],
   "completed_runs": [
