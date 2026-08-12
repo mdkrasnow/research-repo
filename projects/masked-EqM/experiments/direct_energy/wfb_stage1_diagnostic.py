@@ -45,15 +45,22 @@ from matched_replay_jacobian_diagnostic import (  # noqa: E402
 from fb_direct.exact_hvp import compute_wfb_gradient  # noqa: E402
 
 
-def group_split_norm(model, groups, tensors):
-    """Split a list of per-parameter tensors (params-shape order matching
-    model.parameters()) into head/backbone/total L2 norms via the same
-    block_groups taxonomy topk_subspace/matched_replay already use."""
+def group_split_norm(name_by_id, groups, params_used, tensors):
+    """Split a list of per-parameter tensors into head/backbone/total L2
+    norms via the same block_groups taxonomy topk_subspace/matched_replay
+    already use. Aligns by id(param) via `name_by_id` (not position/zip
+    against model.named_parameters()) because compute_wfb_gradient's
+    returned `params` may have fewer entries than the caller's original
+    list -- e.g. this codebase's `pos_embed` is registered as an
+    nn.Parameter with requires_grad=False (a fixed sinusoidal embedding),
+    which compute_wfb_gradient filters out (see its docstring) since
+    autograd.grad raises unconditionally on a requires_grad=False input
+    regardless of allow_unused."""
     head_sq, backbone_sq, total_sq = 0.0, 0.0, 0.0
-    for (n, _), t in zip(model.named_parameters(), tensors):
+    for p, t in zip(params_used, tensors):
         sq = float(t.detach().float().square().sum())
         total_sq += sq
-        g = groups[n]
+        g = groups[name_by_id[id(p)]]
         if is_backbone_group(g):
             backbone_sq += sq
         elif g != "other":
@@ -68,7 +75,7 @@ def cosine(a_list, b_list):
     return dot / (na * nb + 1e-30)
 
 
-def run_batch(model, groups, xt, t, y, ut, rho, k, lambda_max_num_iters, seed, track_memory):
+def run_batch(model, groups, name_by_id, xt, t, y, ut, rho, k, lambda_max_num_iters, seed, track_memory):
     if track_memory and torch.cuda.is_available():
         torch.cuda.reset_peak_memory_stats()
     t0 = time.time()
@@ -77,8 +84,8 @@ def run_batch(model, groups, xt, t, y, ut, rho, k, lambda_max_num_iters, seed, t
     wall_s = time.time() - t0
     peak_mem_mb = float(torch.cuda.max_memory_allocated() / 1e6) if (track_memory and torch.cuda.is_available()) else None
 
-    raw_split = group_split_norm(model, groups, result["g_raw"])
-    wfb_split = group_split_norm(model, groups, result["g_wfb"])
+    raw_split = group_split_norm(name_by_id, groups, result["params"], result["g_raw"])
+    wfb_split = group_split_norm(name_by_id, groups, result["params"], result["g_wfb"])
 
     row = {
         "r_norm": result["r_norm"],
@@ -95,11 +102,11 @@ def run_batch(model, groups, xt, t, y, ut, rho, k, lambda_max_num_iters, seed, t
     return row
 
 
-def run_group(model, groups, fixed_inputs, idx_list, rho, k, lambda_max_num_iters, seed, label, track_memory):
+def run_group(model, groups, name_by_id, fixed_inputs, idx_list, rho, k, lambda_max_num_iters, seed, label, track_memory):
     rows = []
     for n_done, i in enumerate(idx_list):
         xt, t, y, ut = fixed_inputs[i]
-        row = run_batch(model, groups, xt, t, y, ut, rho, k, lambda_max_num_iters, seed, track_memory)
+        row = run_batch(model, groups, name_by_id, xt, t, y, ut, rho, k, lambda_max_num_iters, seed, track_memory)
         row["batch_idx"] = i
         rows.append(row)
         if (n_done + 1) % 4 == 0 or (n_done + 1) == len(idx_list):
@@ -174,6 +181,11 @@ def main():
     print("[stage1] loading direct checkpoint (instability regime)...")
     model = load_model(args.ckpt_direct, args.model, args.image_size, args.num_classes, "direct", device)
     groups = block_groups(model)
+    name_by_id = {id(p): n for n, p in model.named_parameters()}
+    n_frozen = sum(1 for p in model.parameters() if not p.requires_grad)
+    if n_frozen:
+        print(f"[stage1] note: {n_frozen} parameter tensor(s) have requires_grad=False "
+              f"(e.g. fixed pos_embed) -- compute_wfb_gradient filters these out automatically.")
     n_params = sum(p.numel() for p in model.parameters())
     print(f"[stage1] model params: {n_params}")
 
@@ -194,7 +206,7 @@ def main():
             rows[label] = []
             continue
         print(f"[stage1] === {label}: {len(idx_list)} batches ===")
-        rows[label] = run_group(model, groups, fixed_inputs, idx_list, args.rho, args.k,
+        rows[label] = run_group(model, groups, name_by_id, fixed_inputs, idx_list, args.rho, args.k,
                                  args.lambda_max_num_iters, args.seed, label, track_memory)
 
     table_1_residual_sanity = ratio_field(rows["spike"], rows["control"], "r_norm")

@@ -916,15 +916,41 @@ def compute_wfb_gradient(model, xt, t, y, ut, params=None, rho=1e-4, k=8,
     approximate, in fewer than k steps -- the best possible outcome, not a
     failure) or on a zero residual (nothing to precondition, u=0 is correct).
 
-    Returns dict: g_wfb (list of tensors, params shapes), r (tensor),
-    field (tensor), r_norm, lambda_max, lam, T_eigmax (Lanczos's own
-    cross-check estimate of lambda_max), m (Lanczos steps taken),
-    breakdown, breakdown_reason, ortho_error, g_wfb_norm,
-    g_raw (list of tensors -- the hypothetical M^T r, ALWAYS computed as a
-    diagnostic per spec Section 9 even when the WFB gradient is what gets
-    applied), g_raw_norm.
+    Returns dict: g_wfb (list of tensors, matching `params` returned in the
+    dict -- see note below), r (tensor), field (tensor), r_norm, lambda_max,
+    lam, T_eigmax (Lanczos's own cross-check estimate of lambda_max), m
+    (Lanczos steps taken), breakdown, breakdown_reason, ortho_error,
+    g_wfb_norm, g_raw (list of tensors -- the hypothetical M^T r, ALWAYS
+    computed as a diagnostic per spec Section 9 even when the WFB gradient
+    is what gets applied), g_raw_norm, params (the ACTUAL parameter list
+    used, after filtering -- see note).
+
+    NOTE: some architectures register fixed (non-trainable) tensors as
+    nn.Parameter (e.g. this codebase's sinusoidal `pos_embed`,
+    requires_grad=False) so they appear in model.parameters() but are not
+    valid autograd.grad `inputs` regardless of allow_unused (that flag only
+    covers a requires_grad=True tensor that is disconnected from the graph,
+    not a requires_grad=False tensor -- PyTorch raises unconditionally on
+    the latter). When `params` is left as the default (None), it is built
+    from model.parameters() filtered to requires_grad=True; when the caller
+    supplies an explicit `params`, it is used AS GIVEN (caller's
+    responsibility) EXCEPT this same filter is still applied, since silently
+    including a requires_grad=False tensor would crash rather than degrade
+    gracefully, and there is no meaningful WFB contribution from a frozen
+    parameter (its true Jacobian column is simply never trained). Callers
+    that need to align a params-shaped list elsewhere (e.g. splitting
+    g_wfb by architecture group) MUST use the returned `params`, not their
+    own unfiltered list, to avoid a length/order mismatch.
     """
-    params = list(params) if params is not None else list(model.parameters())
+    params_in = list(params) if params is not None else list(model.parameters())
+    params = [p for p in params_in if p.requires_grad]
+    if len(params) != len(params_in):
+        dropped = len(params_in) - len(params)
+        print(f"[compute_wfb_gradient] filtered {dropped} requires_grad=False parameter(s) out of "
+              f"the {len(params_in)}-tensor params list (e.g. a fixed/frozen buffer registered as "
+              f"nn.Parameter) -- WFB only operates on trainable parameters.")
+    if not params:
+        raise RuntimeError("compute_wfb_gradient: no trainable (requires_grad=True) parameters in `params`.")
 
     model.zero_grad(set_to_none=True)
     field = compute_field_direct(model, xt, t, y)
@@ -966,6 +992,7 @@ def compute_wfb_gradient(model, xt, t, y, ut, params=None, rho=1e-4, k=8,
     g_wfb_norm = sum(float((gp ** 2).sum()) for gp in g_wfb) ** 0.5
 
     return {
+        "params": params,
         "g_wfb": g_wfb, "g_wfb_norm": g_wfb_norm,
         "g_raw": g_raw, "g_raw_norm": g_raw_norm,
         "r": r, "r_norm": r_norm, "field": field.detach(),

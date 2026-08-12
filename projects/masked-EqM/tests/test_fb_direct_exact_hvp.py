@@ -803,6 +803,44 @@ def test_wfb_zero_residual_breakdown():
     print("PASS WFB Stage 0: zero-residual breakdown reported explicitly (not silently substituted)")
 
 
+def test_wfb_compute_wfb_gradient_filters_frozen_parameters():
+    """Regression test (found in production 2026-08-11, job 38472301):
+    this codebase's `pos_embed` is registered as `nn.Parameter(...,
+    requires_grad=False)` (a fixed sinusoidal embedding) so it appears in
+    model.parameters(), but torch.autograd.grad raises unconditionally on a
+    requires_grad=False `inputs` tensor -- allow_unused=True only covers a
+    requires_grad=True tensor that is DISCONNECTED from the graph, not this
+    case. No prior diagnostic (topk_subspace, matched_replay) ever hit this
+    because they always passed a restricted head/backbone-only params
+    subset that happened to exclude pos_embed; compute_wfb_gradient is the
+    first caller in this codebase to pass the FULL parameter list by
+    default. Must filter silently (with a printed note) rather than crash,
+    and the returned `params` must be usable to correctly align g_raw/g_wfb
+    against model.named_parameters() despite being shorter than
+    list(model.parameters())."""
+    torch.manual_seed(251)
+    model = make_model(ebm="direct", dtype=torch.float64)
+    perturb(model, seed=253)
+    model.eval()
+    z, t, y = batch(n=1, dtype=torch.float64, seed=257)
+    frozen_names = [n for n, p in model.named_parameters() if not p.requires_grad]
+    assert "pos_embed" in frozen_names, "expected pos_embed to be requires_grad=False -- architecture changed"
+
+    gen = torch.Generator().manual_seed(259)
+    ut = torch.randn(z.shape, generator=gen, dtype=torch.float64)
+
+    result = compute_wfb_gradient(model, z, t, y, ut, params=None, rho=1e-3, k=6, seed=263)
+    assert not result["breakdown"] or (result["breakdown_reason"] or "").startswith("invariant_subspace")
+    n_trainable = sum(1 for p in model.parameters() if p.requires_grad)
+    assert len(result["params"]) == n_trainable, (
+        f"expected filtered params to match the {n_trainable} trainable tensors, got {len(result['params'])}")
+    assert len(result["g_wfb"]) == len(result["params"]) == len(result["g_raw"])
+    for p in result["params"]:
+        assert p.requires_grad, "compute_wfb_gradient must not include a requires_grad=False parameter"
+    print(f"PASS WFB Stage 0: compute_wfb_gradient filters {len(frozen_names)} frozen "
+          f"parameter(s) ({frozen_names}) out of the default full-params path without crashing")
+
+
 import contextlib
 
 
@@ -841,4 +879,5 @@ if __name__ == "__main__":
         test_wfb_operators_match_explicit_jacobian()
         test_wfb_singular_mode_gain()
         test_wfb_zero_residual_breakdown()
+        test_wfb_compute_wfb_gradient_filters_frozen_parameters()
     print("ALL PASS")
