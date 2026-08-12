@@ -30,6 +30,7 @@ from download import find_model
 from transport import create_transport, Sampler
 from diffusers.models import AutoencoderKL
 from train_utils import parse_transport_args
+from transport.utils import mean_flat
 import wandb_utils
 from fb_direct import ForwardBackwardsDirectTrainer
 from fb_direct.exact_hvp import (
@@ -301,6 +302,27 @@ def main(args):
             buffering=1,
         )
 
+    # Fixed held-out diagnostic probe (WFB-EqM Stage 2 checklist, 2026-08-12): a SINGLE
+    # fixed (xt,t,y,ut) point, deterministic seed (identical across arms -- a fair paired
+    # comparison needs the SAME probe under both), used ONLY to measure one-step functional
+    # progress (field-MSE delta L) and field-update/residual alignment (cosine). Never
+    # touches training data statistics or any .grad -- pure eval-mode forward + z-grad only.
+    probe_gen = torch.Generator(device="cpu")
+    probe_gen.manual_seed(999)
+    probe_xt = torch.randn(local_batch_size, 4, latent_size, latent_size, generator=probe_gen).to(device)
+    probe_t = torch.rand(local_batch_size, generator=probe_gen).to(device)
+    probe_y = torch.randint(0, args.num_classes, (local_batch_size,), generator=probe_gen).to(device)
+    probe_ut = torch.randn(local_batch_size, 4, latent_size, latent_size, generator=probe_gen).to(device)
+
+    def probe_field(raw_model):
+        was_training = raw_model.training
+        raw_model.eval()
+        z = probe_xt.detach().clone().requires_grad_(True)
+        E = raw_model(z, probe_t, probe_y, energy_only=True)
+        g = torch.autograd.grad(E.sum(), z, create_graph=False)[0].detach()
+        raw_model.train(was_training)
+        return -g
+
     # Labels to condition the model with (feel free to change):
     ys = torch.randint(1000, size=(local_batch_size,), device=device)
     use_cfg = args.cfg_scale > 1.0
@@ -545,9 +567,42 @@ def main(args):
                         record["wfb_breakdown_reason"] = wfb_result["breakdown_reason"]
                         record["wfb_rho"] = args.wfb_rho
                         record["wfb_k"] = args.wfb_k
+                    # Stage 2 checklist (2026-08-12, external review, requested before trusting
+                    # any WFB-vs-exact comparison): |delta_theta| (actual AdamW displacement --
+                    # NOT just the pre-clip pseudo-gradient; Adam's stale second-moment state
+                    # from the loaded checkpoint could silently neutralize a correctly-directed
+                    # but differently-scaled update), one-step held-out field-MSE delta L on a
+                    # FIXED probe (the noisy single-batch training loss cannot answer "is this
+                    # arm still learning"), and cos(field update, -residual) on that same probe
+                    # (the field should keep moving toward reducing the residual even if the
+                    # parameter-space gradient looks totally different under WFB).
+                    field_pre = probe_field(model.module)
+                    probe_r = field_pre - probe_ut
+                    probe_loss_pre = float(mean_flat((field_pre - probe_ut) ** 2).mean())
+                    trainable_params = [p for p in model.parameters() if p.requires_grad]
+                    pre_flat = torch.cat([p.detach().reshape(-1) for p in trainable_params])
                     grad_metrics_file.write(json.dumps(record, sort_keys=True) + "\n")
             opt.step()
             update_ema(ema, model.module)
+
+            if grad_norm is not None and rank == 0 and args.grad_log_every > 0 \
+                    and (train_steps + 1) % args.grad_log_every == 0:
+                post_flat = torch.cat([p.detach().reshape(-1) for p in trainable_params])
+                delta_theta_norm = float((post_flat - pre_flat).norm())
+                field_post = probe_field(model.module)
+                probe_loss_post = float(mean_flat((field_post - probe_ut) ** 2).mean())
+                field_delta = field_post - field_pre
+                cos_val = float((field_delta * (-probe_r)).sum()
+                                 / (field_delta.norm() * probe_r.norm() + 1e-30))
+                checklist_record = {
+                    "step": train_steps + 1,
+                    "delta_theta_norm": delta_theta_norm,
+                    "probe_loss_pre": probe_loss_pre,
+                    "probe_loss_post": probe_loss_post,
+                    "probe_delta_L": probe_loss_post - probe_loss_pre,
+                    "probe_cos_field_update_vs_neg_r": cos_val,
+                }
+                grad_metrics_file.write(json.dumps(checklist_record, sort_keys=True) + "\n")
 
             # Log loss values:
             running_loss += loss.item()
