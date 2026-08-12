@@ -40,20 +40,6 @@
       "job_id": "38440738",
       "description": "Resubmit of 38103515 after fixing the EPOCHCKPT path bug (commit 528d5f5) -- checkpoint at .../fwrev_ep80_gp005_resume2_job38103380/000-EqM-B-2-Linear-velocity-None-ebm-direct/checkpoints/epoch80.pt confirmed to exist. EBM=direct, GLOBAL_SEED=0. Queued PENDING(Priority) on seas_gpu as of first poll (~60s post-submit, no init errors).",
       "gate": "Does the GP-smoothed exact-fwrev arm beat direct's 39.94, and how close does it get to none's 34.16?"
-    },
-    {
-      "run_id": "wfb_stage1_diagnostic",
-      "job_id": "38484995",
-      "partition": "gpu_test",
-      "status": "pending",
-      "description": "WFB-EqM Stage 1, 3rd attempt: fixed CPU/GPU device mismatch in Lanczos tridiagonal eigendecomposition (commit 27cf048). Superseded 38479632 (FAILED, pos_embed fix worked but hit this new GPU-only bug immediately after).",
-      "submitted_at": "2026-08-11T23:05:00-04:00",
-      "git_sha": "27cf048",
-      "sbatch_path": "projects/masked-EqM/slurm/jobs/wfb_stage1_diagnostic.sbatch",
-      "expected_runtime": "~1-4 hours (single GPU, no DDP, gpu_test 12h cap)",
-      "phase": "wfb-eqm-stage1",
-      "superseded_job_id": "38479632",
-      "gate": "Stage 1 gate A-E (spec Section 8): WFB spike/control ratio substantially closer to 1 than raw; not caused by numerical failure/zeroing; k=8 sufficiently converged vs k=12; cost plausible for a short training experiment."
     }
   ],
   "completed_runs": [
@@ -13057,6 +13043,22 @@
       "gate": "Stage 1 gate A-E (spec Section 8): WFB spike/control ratio substantially closer to 1 than raw; not caused by numerical failure/zeroing; k=8 sufficiently converged vs k=12; cost plausible for a short training experiment.",
       "error": "RuntimeError: device mismatch (cuda:0 vs cpu) in _lanczos_inv_sqrt_apply_generic -- torch.eye/tiny tridiagonal eigendecomposition defaulted to CPU, never caught by CPU-only Stage 0 tests. Fixed in commit 27cf048.",
       "exit_code": 1
+    },
+    {
+      "run_id": "wfb_stage1_diagnostic",
+      "job_id": "38484995",
+      "partition": "gpu_test",
+      "status": "completed",
+      "description": "WFB-EqM Stage 1, 3rd attempt: fixed CPU/GPU device mismatch in Lanczos tridiagonal eigendecomposition (commit 27cf048). Superseded 38479632 (FAILED, pos_embed fix worked but hit this new GPU-only bug immediately after).",
+      "submitted_at": "2026-08-11T23:05:00-04:00",
+      "git_sha": "27cf048",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/wfb_stage1_diagnostic.sbatch",
+      "expected_runtime": "~1-4 hours (single GPU, no DDP, gpu_test 12h cap)",
+      "phase": "wfb-eqm-stage1",
+      "superseded_job_id": "38479632",
+      "gate": "Stage 1 gate A-E (spec Section 8): WFB spike/control ratio substantially closer to 1 than raw; not caused by numerical failure/zeroing; k=8 sufficiently converged vs k=12; cost plausible for a short training experiment.",
+      "exit_code": 0,
+      "final_metric": "Stage 1 gate PASSES. Table 2: raw spike/control g_raw_norm ratio=2.441, WFB spike/control g_wfb_norm ratio=0.949 (statistically ~1). Table 7 (actual real clip events, n=30): WFB ratio=0.951 -- same result on literal production clip-triggering batches. Table 3: backbone ratio 2.508->0.946, head ratio 2.088->1.124 (backbone-dominant suppression, consistent with Stage A redirect finding). Zero Lanczos breakdowns on 94 real batches; T_eigmax vs independent lambda_max agree to 0.27%. Caveat (gate D): g_wfb_norm not fully converged at k=8 (~7-12% further decrease k=8->k=12 on most-severe batches) though T_eigmax converges by k=4 and qualitative suppression is robust even at k=2 -- recommend k=12 for Stage 2. Cost ~10.3s/batch (bs=8, full 130M params, gpu_test MIG slice), plausible for a short paired training run per gate E. Full report: documentation/wfb-eqm-stage1-report-2026-08-12.md. Decision: PROCEED TO STAGE 2."
     }
   ],
   "debugging_notes": [
