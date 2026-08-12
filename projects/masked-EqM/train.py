@@ -446,6 +446,7 @@ def main(args):
                 wfb_result = compute_wfb_gradient(
                     model.module, xt_s, t_s, y, ut_s,
                     params=None, rho=args.wfb_rho, k=args.wfb_k, seed=train_steps,
+                    alpha=args.wfb_alpha,
                 )
                 # compute_wfb_gradient/exact_field_vjp operate on the CANONICAL, UNRESCALED
                 # residual r = field - ut (no loss-reduction factor). exact_fwrev_backward's
@@ -601,6 +602,7 @@ def main(args):
                         record["wfb_breakdown_reason"] = wfb_result["breakdown_reason"]
                         record["wfb_rho"] = args.wfb_rho
                         record["wfb_k"] = args.wfb_k
+                        record["wfb_alpha"] = args.wfb_alpha
                     # Stage 2 checklist (2026-08-12, external review, requested before trusting
                     # any WFB-vs-exact comparison): |delta_theta| (actual AdamW displacement --
                     # NOT just the pre-clip pseudo-gradient; Adam's stale second-moment state
@@ -1099,6 +1101,15 @@ if __name__ == "__main__":
              "T_eigmax converges by k=4 -- k=12 recommended as the production default.",
     )
     parser.add_argument(
+        "--wfb-alpha", type=float, default=0.5,
+        help="(requires --wfb-backward) power in g_alpha = M^T(A+lambda I)^{-alpha} r. "
+             "0.5 is the original WFB formulation (default, preserves prior behavior). "
+             "1.0 is full damped Gauss-Newton ('FBGN'): bounds the INDUCED FIELD update's "
+             "per-mode gain sigma_i^2/(sigma_i^2+lambda) in [0,1], not just the parameter "
+             "gradient's gain (which alpha=0.5 alone bounds). See Stage 2.5 diagnostic "
+             "(job 38673961, 2026-08-12) for the empirical field-gain comparison.",
+    )
+    parser.add_argument(
         "--reset-adam-state", action="store_true",
         help="Reset AdamW's loaded exp_avg/exp_avg_sq/step to fresh right after --ckpt "
              "loading, regardless of backward mode (2026-08-12, generalized from the "
@@ -1151,6 +1162,8 @@ if __name__ == "__main__":
         parser.error("--wfb-k must be >= 1")
     if args.wfb_rho <= 0:
         parser.error("--wfb-rho must be positive")
+    if args.wfb_alpha < 0:
+        parser.error("--wfb-alpha must be >= 0 (0=direct, 0.5=WFB, 1=FBGN)")
     if args.reset_adam_state and args.ckpt is None:
         parser.error("--reset-adam-state has no effect without --ckpt (no loaded optimizer state to reset)")
     args.save_epochs = None if args.save_epochs is None else {

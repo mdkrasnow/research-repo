@@ -14,21 +14,7 @@
       "title": "Results-dir race: two concurrent same-corruption-mode jobs silently mixed checkpoints"
     }
   ],
-  "active_runs": [
-    {
-      "run_id": "wfb_stage2_5_alpha_diagnostic",
-      "job_id": "38673961",
-      "partition": "gpu_test",
-      "status": "pending",
-      "description": "WFB-EqM Stage 2.5: frozen-checkpoint alpha-family diagnostic (commit f1dcf25). Tests alpha in {0 direct, 0.5 WFB, 1 FBGN} on the real instability-regime checkpoint: (1) per-batch induced-field-gain/cosine sweep, (2) real one-step apply-then-revert probe at native-scale eta=1 on a held-out batch. Responds to Stage 2 v5/D factorial finding that Adam-reset alone (matched delta_theta_norm) did NOT close the WFB learning gap -- reviewer hypothesis: WFB (alpha=0.5) bounds the PARAMETER gradient but not the induced FIELD update, alpha=1 (FBGN) should bound both. No training/weight updates persisted.",
-      "submitted_at": "2026-08-12",
-      "git_sha": "f1dcf255c7130b117caa64c2f78e81b69ae964f1",
-      "sbatch_path": "projects/masked-EqM/slurm/jobs/wfb_stage2_5_alpha_diagnostic.sbatch",
-      "expected_runtime": "1-3h (gpu_test, 8 spike + 8 control batches x 3 alphas x Lanczos k=12)",
-      "phase": "DEBUG",
-      "gate": "informs whether to pursue alpha=1 (FBGN) as Stage 3 candidate vs continue WFB (alpha=0.5) forensics"
-    }
-  ],
+  "active_runs": [],
   "completed_runs": [
     {
       "partition": "seas_gpu",
@@ -13262,6 +13248,20 @@
       "description": "WFB-EqM Stage 2 2x2 factorial ARM C: exact-fwrev + --reset-adam-state (commit 178aa60, generalized reset flag). Completes the {exact,wfb} x {loaded,reset} factorial with A (38613540, exact+loaded), B (38613563, wfb+loaded), D (38646819, wfb+reset, in progress). Isolates whether resetting Adam state ALONE changes anything for exact-direct (should be near-identical to A if the reset explanation for D vs B is correct and specific to WFB coordinate change, not a generic reset effect). -- COMPLETED, see final_metric.",
       "gate": "Does C (exact+reset) look like A (exact+loaded)? If yes, confirms the D-vs-B improvement is specifically about WFB needing recalibration, not a generic reset artifact.",
       "final_metric": "grad_norm median=1.6742, clip_rate=0.4%, delta_theta_norm median=0.2492 (matches ARM A 0.2485 almost exactly). probe_delta_L sum over 500 steps=-0.0211 (net IMPROVEMENT, close to ARM A -0.0245); probe_loss net change (first10->last10)=-0.0242 (vs ARM A -0.0302); cosine mean=+0.00212, 49.6% positive (vs ARM A 49.8% -- statistically indistinguishable). CONCLUSION: ARM C (exact+reset) behaves ESSENTIALLY IDENTICALLY to ARM A (exact+loaded) -- Adam-state reset ALONE has no material effect on exact-direct training. This completes the 2x2 factorial and DECISIVELY ISOLATES the D-vs-B degradation as WFB-SPECIFIC, not a generic fresh-Adam-large-step-on-converged-checkpoint artifact: exact is robust to reset (A ~= C), but WFB is NOT robust to reset (B: net-flat/74% cos-positive -> D: net-WORSE/44.2% cos-positive). Falsifies the stale-Adam-state hypothesis entirely; supports reviewer alpha-family account (WFB alpha=0.5 bounds the parameter gradient but not the induced field update -- see commit f1dcf25, compute_wfb_gradient alpha kwarg + Stage 2.5 diagnostic, job 38673961 running)."
+    },
+    {
+      "run_id": "wfb_stage2_5_alpha_diagnostic",
+      "job_id": "38673961",
+      "partition": "gpu_test",
+      "status": "completed",
+      "description": "WFB-EqM Stage 2.5: frozen-checkpoint alpha-family diagnostic (commit f1dcf25). Tests alpha in {0 direct, 0.5 WFB, 1 FBGN} on the real instability-regime checkpoint: (1) per-batch induced-field-gain/cosine sweep, (2) real one-step apply-then-revert probe at native-scale eta=1 on a held-out batch. Responds to Stage 2 v5/D factorial finding that Adam-reset alone (matched delta_theta_norm) did NOT close the WFB learning gap -- reviewer hypothesis: WFB (alpha=0.5) bounds the PARAMETER gradient but not the induced FIELD update, alpha=1 (FBGN) should bound both. No training/weight updates persisted. -- COMPLETED, see final_metric.",
+      "submitted_at": "2026-08-12",
+      "git_sha": "f1dcf255c7130b117caa64c2f78e81b69ae964f1",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/wfb_stage2_5_alpha_diagnostic.sbatch",
+      "expected_runtime": "1-3h (gpu_test, 8 spike + 8 control batches x 3 alphas x Lanczos k=12)",
+      "phase": "DEBUG",
+      "gate": "informs whether to pursue alpha=1 (FBGN) as Stage 3 candidate vs continue WFB (alpha=0.5) forensics",
+      "final_metric": "Field-gain sweep (n=8 spike/8 control): induced field-update gain median alpha=0:164233(spike)/43041(control) -> alpha=0.5:217/93 -> alpha=1:2.83/3.41 -- ~750x collapse direct->WFB, further ~65x WFB->FBGN, landing at O(1) as predicted. One-step apply/revert probe (eta=1, native scale, n=16, max_restore_err=0.0 exact): direct median delta_L=+70.48 (0/16 improved, catastrophic, up to +4.4M); wfb median=-0.00167 (13/16 improved); fbgn median=-0.0000296 (11/16 improved) -- both wfb/fbgn safe at RAW scale (expected, both far smaller than direct); this sub-result alone does not distinguish bounded (fbgn) vs merely-tiny (wfb) safety -- the field-gain ratio is the decisive evidence. See documentation/wfb-eqm-stage2-5-report-2026-08-12.md. Predicts ARM E (fbgn alpha=1.0 + reset-adam, mirroring D) as the decisive next test: does FBGN boundedness survive Adam step-size inflation the way WFB alpha=0.5 did not."
     }
   ],
   "debugging_notes": [
