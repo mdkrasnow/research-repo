@@ -391,8 +391,24 @@ def main(args):
                     model.module, xt_s, t_s, y, ut_s,
                     params=None, rho=args.wfb_rho, k=args.wfb_k, seed=train_steps,
                 )
+                # compute_wfb_gradient/exact_field_vjp operate on the CANONICAL, UNRESCALED
+                # residual r = field - ut (no loss-reduction factor). exact_fwrev_backward's
+                # applied gradient uses w = (2/(B*D)) * (g+ut) = -(2/(B*D)) * r, i.e. the
+                # SAME field_vjp machinery applied to r rescaled by 2/(B*D) -- proven exactly
+                # (machine precision) in test_field_vjp_direct_sign_relation_to_fwrev_w and
+                # test_wfb_gradient_matches_native_fwrev_scale. Since compute_wfb_gradient's
+                # whole (A+lambda I)^{-1/2} chain is linear in r (A/lambda/lambda_max depend
+                # only on M, never on r's scale), g_wfb(c*r) = c*g_wfb(r) exactly -- so the
+                # IDENTICAL 2/(B*D) rescaling applied to exact-fwrev's w must be applied here
+                # too, or the applied WFB gradient is off by ~(B*D)/2 (tens of thousands of x
+                # for this checkpoint's latent shape) relative to ARM A's native scale, the
+                # calibrated clip threshold, and AdamW's tuned hyperparameters -- silently
+                # invalidating any Stage 2+ comparison (caught before any GPU step ran,
+                # 2026-08-12, external review).
+                B_wfb, D_wfb = xt_s.shape[0], xt_s[0].numel()
+                wfb_native_scale = 2.0 / (B_wfb * D_wfb)
                 for p, g in zip(wfb_result["params"], wfb_result["g_wfb"]):
-                    p.grad = g.clone()
+                    p.grad = (wfb_native_scale * g).clone()
                 # DDP bucketed hooks never fire on this path (no loss.backward());
                 # reuses the exact-fwrev branch's averaging + rank-sync-checksum machinery
                 # verbatim -- both paths populate .grad manually and skip loss.backward().
@@ -511,12 +527,16 @@ def main(args):
                     if args.wfb_backward:
                         # "applied" grad_norm/head_grad_norm/backbone_grad_norm above are
                         # already the WFB-preconditioned gradient (computed generically from
-                        # .grad, which this branch populated with g_wfb). g_raw_norm_hypothetical
-                        # is the CAUSAL diagnostic spec Section 9 requires: the SAME residual's
-                        # raw M^T r, computed for free by compute_wfb_gradient -- the ideal
-                        # result is this trace still spiking while grad_norm (applied) does not.
+                        # .grad, which this branch populated with the NATIVE-SCALE g_wfb --
+                        # see the 2/(B*D) rescaling note above). g_raw_norm_hypothetical is
+                        # the CAUSAL diagnostic spec Section 9 requires: the SAME residual's
+                        # raw M^T r, ALSO native-scaled here for direct comparability against
+                        # ARM A's grad_norm and the calibrated clip threshold -- the ideal
+                        # result is this trace still spiking past the clip threshold while
+                        # grad_norm (applied) does not.
                         record["r_norm"] = wfb_result["r_norm"]
-                        record["g_raw_norm_hypothetical"] = wfb_result["g_raw_norm"]
+                        record["g_raw_norm_hypothetical"] = wfb_native_scale * wfb_result["g_raw_norm"]
+                        record["wfb_native_scale"] = wfb_native_scale
                         record["lambda_max"] = wfb_result["lambda_max"]
                         record["lam"] = wfb_result["lam"]
                         record["T_eigmax"] = wfb_result["T_eigmax"]

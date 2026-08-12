@@ -882,6 +882,69 @@ def test_wfb_compute_wfb_gradient_stable_under_train_mode_cfg_dropout():
           "dropout (5 trials, dropout_prob=0.9), dropout_prob correctly restored")
 
 
+def test_wfb_gradient_matches_native_fwrev_scale():
+    """Normalization-mapping proof requested during external review of WFB-EqM Stage 1/2
+    (2026-08-12): g_diagnostic (compute_wfb_gradient's canonical, UNRESCALED convention)
+    must be tied to g_optimizer_preclip (the actual gradient exact_fwrev_backward/ordinary
+    direct training would apply) by an EXPLICIT, PROVEN factor -- not just documented in
+    prose. Composes two facts:
+
+    (a) w = -(2/(B*D)) * r EXACTLY (already proven at machine precision in
+        test_field_vjp_direct_sign_relation_to_fwrev_w, Phase 0 audit finding), so
+        exact_fwrev_backward's applied gradient g_fwrev = exact_field_vjp(v=-w) =
+        (2/(B*D)) * exact_field_vjp(v=r) = (2/(B*D)) * g_raw.
+    (b) compute_wfb_gradient's entire (A + lambda I)^{-1/2} chain is LINEAR in r: A,
+        lambda_max, and lambda depend only on M (the model's Jacobian at this batch),
+        NEVER on r's scale, so g_wfb(c*r) = c*g_wfb(r) for any scalar c -- proven here
+        directly on the REAL model (not just the generic/synthetic Stage 0 test) by
+        constructing two targets ut1/ut2 whose residuals differ by a KNOWN factor c and
+        confirming g_wfb2 == c*g_wfb1 to near machine precision.
+
+    Together: the correctly native-scaled WFB gradient the optimizer should receive is
+    wfb_native_scale * g_wfb(r), wfb_native_scale = 2/(B*D) -- EXACTLY the factor train.py's
+    --wfb-backward branch applies before p.grad = ... (fixed 2026-08-12 after this
+    mismatch was caught pre-Stage-2-GPU-step, external review: WFB-EqM Stage 2 v1 applied
+    g_wfb UNSCALED, off from native by ~(B*D)/2, before this fix)."""
+    torch.manual_seed(291)
+    model = make_model(ebm="direct", dtype=torch.float64)
+    perturb(model, seed=293)
+    model.eval()
+    z, t, y = batch(n=2, dtype=torch.float64, seed=297)
+    B, D = z.shape[0], z[0].numel()
+
+    # (a) exact_fwrev's native applied gradient vs (2/(B*D))*g_raw.
+    ut1 = target_for(z, seed=301)
+    model.zero_grad(set_to_none=True)
+    exact_fwrev_backward(model, z, t, y, ut1, gp_lambda=0.0)
+    g_fwrev = {n: p.grad.detach().clone() for n, p in model.named_parameters() if p.grad is not None}
+    model.zero_grad(set_to_none=True)
+
+    result1 = compute_wfb_gradient(model, z, t, y, ut1, params=None, rho=1e-3, k=10, seed=307)
+    scale = 2.0 / (B * D)
+    g_raw_native = {p: scale * gr for p, gr in zip(result1["params"], result1["g_raw"])}
+    for p, g_native in g_raw_native.items():
+        name = [n for n, pp in model.named_parameters() if pp is p][0]
+        if name in g_fwrev:
+            torch.testing.assert_close(g_native, g_fwrev[name], rtol=1e-8, atol=1e-10)
+
+    # (b) g_wfb linear in r: build ut2 so that r2 = c * r1 for a known c != 1.
+    c = -2.37
+    field1 = result1["field"]
+    r1 = result1["r"]
+    ut2 = field1 - c * r1  # field - ut2 = c*r1  =>  r2 = c*r1
+    result2 = compute_wfb_gradient(model, z, t, y, ut2, params=None, rho=1e-3, k=10, seed=307)
+    torch.testing.assert_close(result2["r"], c * r1, rtol=1e-8, atol=1e-10)
+    assert abs(result2["lambda_max"] - result1["lambda_max"]) / abs(result1["lambda_max"]) < 1e-10, \
+        "lambda_max must be identical across ut1/ut2 -- A depends only on M, never on r"
+    for g1, g2 in zip(result1["g_wfb"], result2["g_wfb"]):
+        torch.testing.assert_close(g2, c * g1, rtol=1e-6, atol=1e-8)
+
+    print(f"PASS WFB Stage 0: normalization-mapping proof -- (a) (2/(B*D))*g_raw == "
+          f"exact_fwrev_backward's native applied gradient exactly (B={B},D={D},scale={scale:.3e}); "
+          f"(b) g_wfb(c*r) == c*g_wfb(r) confirmed on the real model (c={c}), completing the "
+          f"g_diagnostic -> g_optimizer_preclip mapping train.py's --wfb-backward branch uses.")
+
+
 import contextlib
 
 
@@ -922,4 +985,5 @@ if __name__ == "__main__":
         test_wfb_zero_residual_breakdown()
         test_wfb_compute_wfb_gradient_filters_frozen_parameters()
         test_wfb_compute_wfb_gradient_stable_under_train_mode_cfg_dropout()
+        test_wfb_gradient_matches_native_fwrev_scale()
     print("ALL PASS")
