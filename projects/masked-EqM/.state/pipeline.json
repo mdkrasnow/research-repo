@@ -43,15 +43,16 @@
     },
     {
       "run_id": "wfb_stage1_diagnostic",
-      "job_id": "38472301",
+      "job_id": "38479632",
       "partition": "gpu_test",
       "status": "pending",
-      "description": "WFB-EqM Stage 1: zero-update real-checkpoint causal diagnostic (no training). compute_wfb_gradient vs raw M^T r on spike/control/actual-clip-event batches from frozen CKPT_DIRECT_LATE (step 2825000, elevated clip-rate regime). Tests whether mixed-Jacobian whitening suppresses known real gradient spikes at the SAME residual/model, before any paired training.",
-      "submitted_at": "2026-08-11T22:16:00-04:00",
-      "git_sha": "1e8263e",
+      "description": "WFB-EqM Stage 1 resubmit after fixing the pos_embed requires_grad=False crash (commit 5fd6c05). Superseded 38472301 (FAILED, exit 1:0, root-caused and fixed same session).",
+      "submitted_at": "2026-08-11T22:45:00-04:00",
+      "git_sha": "5fd6c05",
       "sbatch_path": "projects/masked-EqM/slurm/jobs/wfb_stage1_diagnostic.sbatch",
       "expected_runtime": "~1-4 hours (single GPU, no DDP, gpu_test 12h cap)",
       "phase": "wfb-eqm-stage1",
+      "superseded_job_id": "38472301",
       "gate": "Stage 1 gate A-E (spec Section 8): WFB spike/control ratio substantially closer to 1 than raw; not caused by numerical failure/zeroing; k=8 sufficiently converged vs k=12; cost plausible for a short training experiment."
     }
   ],
@@ -13025,6 +13026,21 @@
       "exit_code": "0:0",
       "duration": "57m15s",
       "final_metric": "Progress-matched (0%/1.15%/0.885% step mismatch), K=64 spike/control. Interaction I(t)=Delta_D-Delta_N (A-based): early +0.016 (CI [-0.101,0.315], null), mid -0.100 (CI [-0.223,0.050], null), late +0.321 (CI [0.008,0.654], EXCLUDES ZERO -- first significant single-checkpoint result in this investigation). I(late)-I(mid)=+0.421 (CI [0.069,0.769], excludes zero). G=I(late)-I(early)=+0.305 but CI [-0.066,0.688] still crosses zero (conservative independent-normal combination). grad-based late interaction +0.220 CI [-0.102,0.685] does NOT exclude zero -- A-based and grad-based metrics disagree on late-stage significance. residual_ratio~1.0 at every stage/model (0.994/1.016 at late) -- Hypothesis C (residual magnitude) again rejected, now at K=64. Table 7 tail quantiles: direct_own_spike tail_anisotropy_proxy(p99/p50)=7.73 vs direct_own_control=1.16, vs none_own_spike=2.34/none_own_control=1.15 -- direct's spike population has a much heavier RIGHT TAIL than none's, not just a higher median (median A_ratio ~2.5 similar between models). Phase 6/7 sigma_1/alignment (late stage, sv_k=8): on direct-selected batches, direct sigma_1_ratio(spike/control)=1.40 vs none=1.21 (both models' conditioning worsens somewhat, direct only modestly more); direct alignment_ratio=6.62 vs none=2.92 (more than 2x more direct-specific) -- the direct-specific excess is predominantly ALIGNMENT (residual/top-singular-vector alignment growing), not conditioning (sigma_1 growth is shared/modest in both arms). Points toward Mechanism 2 (worse alignment) as primary, Mechanism 1 (worse conditioning) secondary/shared. See documentation/longitudinal_jacobian_audit.md for checkpoint audit."
+    },
+    {
+      "run_id": "wfb_stage1_diagnostic",
+      "job_id": "38472301",
+      "partition": "gpu_test",
+      "status": "failed",
+      "description": "WFB-EqM Stage 1: zero-update real-checkpoint causal diagnostic (no training). compute_wfb_gradient vs raw M^T r on spike/control/actual-clip-event batches from frozen CKPT_DIRECT_LATE (step 2825000, elevated clip-rate regime). Tests whether mixed-Jacobian whitening suppresses known real gradient spikes at the SAME residual/model, before any paired training.",
+      "submitted_at": "2026-08-11T22:16:00-04:00",
+      "git_sha": "1e8263e",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/wfb_stage1_diagnostic.sbatch",
+      "expected_runtime": "~1-4 hours (single GPU, no DDP, gpu_test 12h cap)",
+      "phase": "wfb-eqm-stage1",
+      "gate": "Stage 1 gate A-E (spec Section 8): WFB spike/control ratio substantially closer to 1 than raw; not caused by numerical failure/zeroing; k=8 sufficiently converged vs k=12; cost plausible for a short training experiment.",
+      "error": "RuntimeError: One of the differentiated Tensors does not require grad -- pos_embed (nn.Parameter, requires_grad=False) included in full params list crashed field_jvp_direct/autograd.grad. Fixed in commit 5fd6c05 (compute_wfb_gradient now filters requires_grad=True).",
+      "exit_code": 1
     }
   ],
   "debugging_notes": [
