@@ -38,6 +38,7 @@ WEIGHT_DECAY="${WEIGHT_DECAY:-0.0}"
 MAX_STEPS="${MAX_STEPS:-500}"
 WFB_RHO="${WFB_RHO:-1e-4}"
 WFB_K="${WFB_K:-12}"
+WFB_RESET_ADAM_STATE="${WFB_RESET_ADAM_STATE:-0}"
 export ENTITY="${ENTITY:-none}"
 export PROJECT="${PROJECT:-none}"
 WORK_DIR="/tmp/masked-eqm-wfbstage2-${SLURM_JOB_ID}"
@@ -61,11 +62,14 @@ if [[ "$ARM" == "exact" ]]; then
   CMD+=" --exact-fwrev"
 elif [[ "$ARM" == "wfb" ]]; then
   CMD+=" --wfb-backward --wfb-rho $WFB_RHO --wfb-k $WFB_K"
+  if [[ "$WFB_RESET_ADAM_STATE" == "1" ]]; then
+    CMD+=" --wfb-reset-adam-state"
+  fi
 else
   echo "ARM must be 'exact' or 'wfb', got: $ARM" >&2
   exit 2
 fi
-echo "Stage 2 configuration: ARM=$ARM GLOBAL_SEED=$GLOBAL_SEED CKPT=$CKPT MAX_STEPS=$MAX_STEPS MAX_GRAD_NORM=$MAX_GRAD_NORM WEIGHT_DECAY=$WEIGHT_DECAY GRAD_LOG_EVERY=$GRAD_LOG_EVERY WFB_RHO=$WFB_RHO WFB_K=$WFB_K RESULTS_DIR=$RESULTS_DIR"
+echo "Stage 2 configuration: ARM=$ARM GLOBAL_SEED=$GLOBAL_SEED CKPT=$CKPT MAX_STEPS=$MAX_STEPS MAX_GRAD_NORM=$MAX_GRAD_NORM WEIGHT_DECAY=$WEIGHT_DECAY GRAD_LOG_EVERY=$GRAD_LOG_EVERY WFB_RHO=$WFB_RHO WFB_K=$WFB_K WFB_RESET_ADAM_STATE=$WFB_RESET_ADAM_STATE RESULTS_DIR=$RESULTS_DIR"
 echo "$CMD"
 eval "$CMD" 2>&1 | tee train.log
 EXIT_CODE=${PIPESTATUS[0]}

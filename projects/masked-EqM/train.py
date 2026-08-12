@@ -208,6 +208,26 @@ def main(args):
 
         ema = ema.to(device)
         model = model.to(device)
+
+        if args.wfb_backward and args.wfb_reset_adam_state:
+            # WFB-EqM Stage 2 (2026-08-12, v5 finding + follow-up test): v3-v5 showed
+            # delta_theta_norm (actual AdamW displacement) ~40x smaller for WFB than
+            # exact-direct, even though the field-update direction is MORE consistently
+            # correct than baseline's (v5: 74% positive cosine vs baseline's 49.8% coin-flip
+            # on a held-out real-data probe). The loaded optimizer state's exp_avg_sq (Adam's
+            # second-moment estimate) is calibrated to the RAW-direct gradient scale WFB
+            # changes by ~2 orders of magnitude -- dividing an already-small, well-directed
+            # WFB gradient by a stale, much-larger v_hat plausibly explains the gap. A full
+            # reset (not a rescale) is the principled choice here, not a hack: Adam's bias
+            # correction (v_hat = v/(1-beta2^t)) is specifically designed to give an unbiased
+            # estimate from a fresh start (at t=1, v_hat_1 = v_1/(1-beta2) = g_1^2 exactly,
+            # for beta2 close to 1) -- this is what "warm-starting a new optimization phase"
+            # means, not an approximation.
+            opt.state.clear()
+            logger.info("wfb-backward: reset AdamW optimizer state (exp_avg/exp_avg_sq/step) "
+                        "to fresh at the backward-mode swap -- loaded state was calibrated to "
+                        "the raw-direct gradient scale, which WFB changes by ~2 orders of "
+                        "magnitude (Stage 2 v3-v5 findings).")
     requires_grad(ema, False)
     # The direct scalar head returns an input gradient produced by an
     # inner autograd.grad call.  DDP cannot reliably discover every scalar
@@ -1061,6 +1081,16 @@ if __name__ == "__main__":
              "converged vs k=12 (~7-12%% further decrease on severe batches) though "
              "T_eigmax converges by k=4 -- k=12 recommended as the production default.",
     )
+    parser.add_argument(
+        "--wfb-reset-adam-state", action="store_true",
+        help="(requires --wfb-backward) reset AdamW's loaded exp_avg/exp_avg_sq/step to "
+             "fresh at the backward-mode swap. Stage 2 v3-v5 (2026-08-12) found WFB's actual "
+             "parameter displacement ~40x smaller than exact-direct despite a MORE "
+             "consistently correct field-update direction (held-out probe cosine 74%% "
+             "positive vs baseline's 49.8%%) -- consistent with the loaded optimizer state's "
+             "second-moment estimate being stale for WFB's much smaller gradient scale. "
+             "Off by default (only relevant to this specific follow-up test).",
+    )
 
     parse_transport_args(parser)
     args = parser.parse_args()
@@ -1102,6 +1132,8 @@ if __name__ == "__main__":
         parser.error("--wfb-k must be >= 1")
     if args.wfb_rho <= 0:
         parser.error("--wfb-rho must be positive")
+    if args.wfb_reset_adam_state and not args.wfb_backward:
+        parser.error("--wfb-reset-adam-state requires --wfb-backward")
     args.save_epochs = None if args.save_epochs is None else {
         int(value) for value in args.save_epochs.split(",") if value.strip()
     }
