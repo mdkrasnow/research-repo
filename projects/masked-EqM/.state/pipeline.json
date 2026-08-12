@@ -14,21 +14,7 @@
       "title": "Results-dir race: two concurrent same-corruption-mode jobs silently mixed checkpoints"
     }
   ],
-  "active_runs": [
-    {
-      "run_id": "wfb_stage2_6a_residual_certificate",
-      "job_id": "38724217",
-      "partition": "gpu_test",
-      "status": "running",
-      "description": "WFB-EqM Stage 2.6a: FBGN Lanczos residual-certificate k-convergence check (k=12/24/48/96), reconciling Stage 2.5's >1 induced-field-gain measurement via rho_m=-ell_m identity + ||q_m||/||r||<=1+||rho_m||/||r|| certificate -- reviewer-mandated gate before any further FBGN work. Resubmitted correctly via SBATCH_EXPORTS after attempt 1's env-passing mistake.",
-      "submitted_at": "2026-08-12",
-      "git_sha": "6b8e022",
-      "sbatch_path": "projects/masked-EqM/slurm/jobs/wfb_stage2_6_residual_certificate.sbatch",
-      "expected_runtime": "~1h (frozen checkpoint, no training)",
-      "phase": "2.6",
-      "gate": "reconcile ||M g_1||/||r|| <= 1 bound before Stage 2.6b (no-Adam optimal-step-size comparison)"
-    }
-  ],
+  "active_runs": [],
   "completed_runs": [
     {
       "partition": "seas_gpu",
@@ -13305,6 +13291,23 @@
       "gate": "reconcile ||M g_1||/||r|| <= 1 bound",
       "exit_code": 1,
       "error": "CKPT_DIRECT_LATE unbound -- submission mechanics error, not a code/math bug"
+    },
+    {
+      "run_id": "wfb_stage2_6a_residual_certificate",
+      "job_id": "38724217",
+      "partition": "gpu_test",
+      "status": "completed",
+      "description": "Stage 2.6a: FBGN Lanczos residual-certificate k-convergence check on real spike/control ImageNet batches (frozen CKPT_DIRECT_LATE, no training)",
+      "submitted_at": "2026-08-12",
+      "git_sha": "6b8e022",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/wfb_stage2_6_residual_certificate.sbatch",
+      "phase": "2.6",
+      "gate": "reconcile ||M g_1||/||r|| <= 1 bound",
+      "exit_code": 0,
+      "final_metric": [
+        "Field-gain median vs k -- spike: k12=2.80 k24=1.56 k48=0.78 k96=0.69; control: k12=3.61 k24=2.19 k48=1.00 k96=0.70. k=12 medians reproduce Stage 2.5's 2.83/3.41 almost exactly, confirming k=12 truncation (not a bound violation) as the cause; gain collapses toward <=1 by k=96 on both. Loose certificate gain<=1+rho/r NEVER violated (certificate_violations=0 at every k, all 8 batches). CAVEAT (unresolved): the tighter identity rho_m=-ell_m, exact to 1e-8 on the fp64 CPU synthetic test, does NOT hold tightly on the real fp32 GPU model -- identity_err stays 35-280 vs r_norm~500-600 (~20-45% relative) and GROWS with k rather than shrinking. Leading hypothesis (unverified): lambda_max here is huge (4-8e5, condition number 1e3-1e4), and single-reorthogonalization Lanczos in fp32 is known to lose orthogonality under this spectral spread at k~50-100, breaking the Q_m^T Q_m=I assumption the rho=-ell derivation needs -- without necessarily invalidating the independently-measured field-gain trend (read off a real re-application of A, not recurrence byproducts). Needs explicit ||Q^T Q - I|| reporting at large k to confirm before treating this as settled."
+      ],
+      "out_json": "--out write failed (holylabs disk quota, known recurring issue) -- full data recovered from stdout/log (wfb_stage2_6_residual_certificate_38724217.log)"
     }
   ],
   "debugging_notes": [
