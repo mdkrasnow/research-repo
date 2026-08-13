@@ -16,19 +16,6 @@
   ],
   "active_runs": [
     {
-      "run_id": "wfb_stage2_6b_optimal_step",
-      "job_id": "38889193",
-      "partition": "gpu_test",
-      "status": "running",
-      "description": "WFB-EqM Stage 2.6b: optimal linearized step-size (eta_alpha*) comparison, WFB(0.5) vs FBGN(1.0), no Adam, trust-region bracket {0.5,1,1.5}x eta_star, rho=actual/predicted, k=96 both alphas -- removes Stage 2.5's fixed-eta step-size confound per reviewer spec",
-      "submitted_at": "2026-08-13",
-      "git_sha": "4c8d9b6",
-      "sbatch_path": "projects/masked-EqM/slurm/jobs/wfb_stage2_6b_optimal_step.sbatch",
-      "expected_runtime": "~1.5-2h (frozen checkpoint, no training, k=96 x 2 alphas x 32 batches)",
-      "phase": "2.6",
-      "gate": "does WFB or FBGN dominate at the OPTIMAL step size, with rho close to 1 confirming local linearization validity"
-    },
-    {
       "run_id": "wfb_stage3_smoke_alpha0p5",
       "job_id": "38899724",
       "partition": "gpu_test",
@@ -13349,6 +13336,22 @@
       "gate": "smoke pass before full 300-step run",
       "exit_code": 0,
       "final_metric": "accept_rate=1.0 (n_bt=0 every step -- eta_star itself tiny, eta_used~2.6e-06), SAME-batch loss decreased every step (Armijo satisfied trivially), but HELD-OUT probe loss got WORSE (10.767->10.860, +0.093) over 20 steps. Expected negative-control signature: raw/direct's locally-accepted step does not generalize -- consistent with its known unbounded per-mode field-update conditioning making the step overfit to the single training batch. Smoke PASS (no crash, finite losses); proceeding to alpha=0.5/1.0 smokes."
+    },
+    {
+      "run_id": "wfb_stage2_6b_optimal_step",
+      "job_id": "38889193",
+      "partition": "gpu_test",
+      "status": "completed",
+      "description": "Stage 2.6b: optimal linearized step-size (eta_alpha*) comparison, WFB(0.5) vs FBGN(1.0), no Adam, k=96, 32 batches (16 spike + 16 control -- sweep_n capped effective 15/8 by pool ranking)",
+      "submitted_at": "2026-08-13",
+      "git_sha": "4c8d9b6",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/wfb_stage2_6b_optimal_step.sbatch",
+      "phase": "2.6",
+      "gate": "does WFB or FBGN dominate at the optimal step, rho close to 1 confirming local linearization validity",
+      "exit_code": 0,
+      "final_metric": [
+        "DECISIVE: WFB's local quadratic model IS trustworthy at eta_alpha* -- rho stays near 1 across the {0.5,1,1.5}x bracket (spike medians 0.93/0.99/1.38; control 0.97/0.92/0.66), same-batch loss reliably decreases as predicted (median -1.0 to -1.4). FBGN's model is NOT trustworthy at its own eta_alpha* -- rho massively negative (spike -0.19/-3.41/-12.26; control -0.43/-5.38/-30.29), same-batch loss often EXPLODES (+191 at 1.5x control). HOWEVER: even WFB's well-linearized, locally-optimal step does NOT generalize -- probe_delta_L_median is POSITIVE at every bracket for BOTH alphas, frac_probe_improved=0.0 across all 12 (alpha x bracket x spike/control) cells. Single-batch Gauss-Newton-family steps appear to systematically overfit their own batch at this checkpoint (matches Stage 3 alpha=0 negative-control smoke's finding: probe loss also worsened despite 100% same-batch Armijo accept rate). Reading: WFB's GEOMETRY is locally sound (unlike FBGN's), but generalization requires the STOCHASTIC AVERAGING of many steps (standard SGD-family argument), not any single step -- informs Stage 3's 300-step run to judge on the PROBE-LOSS TRAJECTORY over many steps, not any individual step's sign."
+      ]
     }
   ],
   "debugging_notes": [
