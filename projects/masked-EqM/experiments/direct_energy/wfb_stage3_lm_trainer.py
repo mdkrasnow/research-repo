@@ -242,13 +242,13 @@ def main():
         else:
             n_skipped_backtrack += 1
 
+        print(f"  [step {step+1}/{len(train_batches)}] accepted={info['accepted']} "
+              f"skip_reason={info['skip_reason']} eta_used={info['eta_used']} n_bt={info['n_backtracks']} "
+              f"L_before={info.get('L_before')} dL={info['actual_delta_L']} "
+              f"(accept_rate={n_accepted/(step+1):.3f}, wall={info['wall_s_cum']:.0f}s)", flush=True)
         if (step + 1) % args.probe_every == 0 or step == len(train_batches) - 1:
             info["probe_loss"] = probe_loss_avg(model, probe_batches)
-            print(f"  [step {step+1}/{len(train_batches)}] accepted={info['accepted']} "
-                  f"eta_used={info['eta_used']} n_bt={info['n_backtracks']} "
-                  f"L_before={info.get('L_before')} dL={info['actual_delta_L']} "
-                  f"probe_loss={info['probe_loss']:.6f} "
-                  f"(accept_rate={n_accepted/(step+1):.3f}, wall={info['wall_s_cum']:.0f}s)")
+            print(f"    -> probe_loss={info['probe_loss']:.6f}", flush=True)
         metrics_f.write(json.dumps(info, default=lambda o: o.tolist() if hasattr(o, "tolist") else str(o)) + "\n")
         metrics_f.flush()
 
