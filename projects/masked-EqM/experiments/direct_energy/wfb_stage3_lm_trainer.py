@@ -147,7 +147,7 @@ def train_step(model, xt, t, y, ut, rho, k, lambda_max_num_iters, alpha, seed,
     if r_dot_q <= 0.0:
         step_info.update({"accepted": False, "skip_reason": "not_descent_direction",
                            "eta_star": None, "eta_used": None, "n_backtracks": 0,
-                           "actual_delta_L": None, "predicted_delta_L": None})
+                           "actual_delta_L": None, "predicted_delta_L": None, "rho_lm": None})
         return step_info
 
     eta_star = r_dot_q / q_norm_sq
@@ -178,11 +178,13 @@ def train_step(model, xt, t, y, ut, rho, k, lambda_max_num_iters, alpha, seed,
     if not accepted:
         _restore_params(params, saved)
 
+    rho_lm = (actual_delta_L / predicted_delta_L) if (predicted_delta_L is not None
+              and abs(predicted_delta_L) > 1e-30) else None
     step_info.update({
         "accepted": accepted, "skip_reason": None if accepted else "backtrack_exhausted",
         "eta_star": eta_star, "eta_used": eta if accepted else None, "n_backtracks": n_backtracks,
         "actual_delta_L": actual_delta_L, "predicted_delta_L": predicted_delta_L,
-        "L_before": L_before,
+        "L_before": L_before, "rho_lm": rho_lm,
     })
     model.zero_grad(set_to_none=True)
     return step_info
@@ -218,6 +220,22 @@ def main():
     p.add_argument("--vae", default="ema")
     p.add_argument("--results-dir", required=True)
     p.add_argument("--run-tag", required=True)
+    p.add_argument("--adaptive-damping", action="store_true",
+                    help="Levenberg-Marquardt style: after each accepted step, adjust rho (hence "
+                         "lambda = rho*lambda_max in the shifted solve) based on rho_lm = "
+                         "actual_delta_L/predicted_delta_L at the applied eta (Stage 3 postmortem "
+                         "2026-08-13: FBGN's curvature (lambda_max) grew ~36x avg/~19000x peak "
+                         "uncontrolled over 300 steps at fixed rho, coinciding exactly with every "
+                         "same-batch loss spike -- Armijo alone cannot see or prevent this, since it "
+                         "only checks sufficient decrease relative to the CURRENT point). "
+                         "rho_lm > --lm-good-threshold -> shrink rho (more aggressive); "
+                         "rho_lm < --lm-bad-threshold -> grow rho (more conservative/damped).")
+    p.add_argument("--lm-good-threshold", type=float, default=0.75)
+    p.add_argument("--lm-bad-threshold", type=float, default=0.25)
+    p.add_argument("--lm-shrink-factor", type=float, default=0.5)
+    p.add_argument("--lm-grow-factor", type=float, default=2.0)
+    p.add_argument("--rho-min", type=float, default=1e-6)
+    p.add_argument("--rho-max", type=float, default=1e-1)
     args = p.parse_args()
 
     torch.manual_seed(args.seed)
@@ -243,14 +261,16 @@ def main():
     print(f"[stage3] initial probe loss (avg over {len(probe_batches)} batches): {probe_loss_initial:.6f}")
 
     n_accepted, n_skipped_not_descent, n_skipped_backtrack = 0, 0, 0
+    current_rho = args.rho
     t_start = time.time()
     for step, (xt, t, y, ut) in enumerate(train_batches):
-        info = train_step(model, xt, t, y, ut, args.rho, args.k, args.lambda_max_num_iters, args.alpha,
+        info = train_step(model, xt, t, y, ut, current_rho, args.k, args.lambda_max_num_iters, args.alpha,
                            seed=args.seed * 100000 + step, armijo_c1=args.armijo_c1,
                            backtrack_factor=args.backtrack_factor, max_backtracks=args.max_backtracks,
                            solver=args.solver, cg_tol=args.cg_tol, cg_max_iters=args.cg_max_iters)
         info["step"] = step
         info["wall_s_cum"] = time.time() - t_start
+        info["rho_used"] = current_rho
         if info["accepted"]:
             n_accepted += 1
         elif info["skip_reason"] == "not_descent_direction":
@@ -258,9 +278,19 @@ def main():
         else:
             n_skipped_backtrack += 1
 
+        if args.adaptive_damping and info.get("rho_lm") is not None:
+            rho_lm = info["rho_lm"]
+            if rho_lm > args.lm_good_threshold:
+                current_rho = max(args.rho_min, current_rho * args.lm_shrink_factor)
+            elif rho_lm < args.lm_bad_threshold:
+                current_rho = min(args.rho_max, current_rho * args.lm_grow_factor)
+            info["rho_next"] = current_rho
+
         print(f"  [step {step+1}/{len(train_batches)}] accepted={info['accepted']} "
               f"skip_reason={info['skip_reason']} eta_used={info['eta_used']} n_bt={info['n_backtracks']} "
-              f"L_before={info.get('L_before')} dL={info['actual_delta_L']} "
+              f"L_before={info.get('L_before')} dL={info['actual_delta_L']} rho_lm={info.get('rho_lm')} "
+              f"rho_used={info['rho_used']:.3g}"
+              f"{' rho_next=' + format(info['rho_next'], '.3g') if 'rho_next' in info else ''} "
               f"(accept_rate={n_accepted/(step+1):.3f}, wall={info['wall_s_cum']:.0f}s)", flush=True)
         if (step + 1) % args.probe_every == 0 or step == len(train_batches) - 1:
             info["probe_loss"] = probe_loss_avg(model, probe_batches)
@@ -278,6 +308,7 @@ def main():
     summary = {
         "alpha": args.alpha, "max_steps": args.max_steps, "k": args.k, "rho": args.rho,
         "solver": args.solver, "cg_tol": args.cg_tol,
+        "adaptive_damping": args.adaptive_damping, "final_rho": current_rho,
         "n_accepted": n_accepted, "n_skipped_not_descent_direction": n_skipped_not_descent,
         "n_skipped_backtrack_exhausted": n_skipped_backtrack,
         "accept_rate": n_accepted / len(train_batches),

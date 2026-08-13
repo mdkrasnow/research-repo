@@ -37,6 +37,10 @@ MAX_BACKTRACKS="${MAX_BACKTRACKS:-6}"
 SOLVER="${SOLVER:-lanczos}"
 CG_TOL="${CG_TOL:-1e-3}"
 CG_MAX_ITERS="${CG_MAX_ITERS:-500}"
+ADAPTIVE_DAMPING_FLAG=""
+if [[ "${ADAPTIVE_DAMPING:-0}" == "1" ]]; then
+  ADAPTIVE_DAMPING_FLAG="--adaptive-damping"
+fi
 WORK_DIR="/tmp/masked-eqm-wfbstage3-${SLURM_JOB_ID}"
 RESULTS_DIR="$RESULTS_ROOT/${RUN_TAG}_job${SLURM_JOB_ID}"
 
@@ -69,7 +73,8 @@ python -u experiments/direct_energy/wfb_stage3_lm_trainer.py \
     --cg-max-iters "$CG_MAX_ITERS" \
     --seed "$GLOBAL_SEED" \
     --results-dir "$RESULTS_DIR" \
-    --run-tag "$RUN_TAG" 2>&1 | tee wfbstage3.log
+    --run-tag "$RUN_TAG" \
+    $ADAPTIVE_DAMPING_FLAG 2>&1 | tee wfbstage3.log
 EXIT_CODE=${PIPESTATUS[0]}
 cp wfbstage3.log "/n/home03/mkrasnow/research-repo/projects/masked-EqM/slurm/logs/${RUN_TAG}_${SLURM_JOB_ID}.log" || true
 rm -rf "$WORK_DIR"
