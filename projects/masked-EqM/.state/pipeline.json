@@ -16,19 +16,6 @@
   ],
   "active_runs": [
     {
-      "run_id": "wfb_stage3_smoke_alpha0p5",
-      "job_id": "38899724",
-      "partition": "gpu_test",
-      "status": "running",
-      "description": "Stage 3 smoke (20 steps): alpha=0.5 WFB, no-Adam Armijo backtracking trainer",
-      "submitted_at": "2026-08-13",
-      "git_sha": "7bc4e9d",
-      "sbatch_path": "projects/masked-EqM/slurm/jobs/wfb_stage3_lm_trainer.sbatch",
-      "expected_runtime": "~20-25min (20 steps, k=96)",
-      "phase": "3",
-      "gate": "smoke pass before full 300-step run"
-    },
-    {
       "run_id": "wfb_stage3_smoke_alpha1p0",
       "job_id": "38900551",
       "partition": "gpu_test",
@@ -13365,6 +13352,20 @@
       "final_metric": [
         "DECISIVE: WFB's local quadratic model IS trustworthy at eta_alpha* -- rho stays near 1 across the {0.5,1,1.5}x bracket (spike medians 0.93/0.99/1.38; control 0.97/0.92/0.66), same-batch loss reliably decreases as predicted (median -1.0 to -1.4). FBGN's model is NOT trustworthy at its own eta_alpha* -- rho massively negative (spike -0.19/-3.41/-12.26; control -0.43/-5.38/-30.29), same-batch loss often EXPLODES (+191 at 1.5x control). HOWEVER: even WFB's well-linearized, locally-optimal step does NOT generalize -- probe_delta_L_median is POSITIVE at every bracket for BOTH alphas, frac_probe_improved=0.0 across all 12 (alpha x bracket x spike/control) cells. Single-batch Gauss-Newton-family steps appear to systematically overfit their own batch at this checkpoint (matches Stage 3 alpha=0 negative-control smoke's finding: probe loss also worsened despite 100% same-batch Armijo accept rate). Reading: WFB's GEOMETRY is locally sound (unlike FBGN's), but generalization requires the STOCHASTIC AVERAGING of many steps (standard SGD-family argument), not any single step -- informs Stage 3's 300-step run to judge on the PROBE-LOSS TRAJECTORY over many steps, not any individual step's sign."
       ]
+    },
+    {
+      "run_id": "wfb_stage3_smoke_alpha0p5",
+      "job_id": "38899724",
+      "partition": "gpu_test",
+      "status": "completed",
+      "description": "Stage 3 smoke (20 steps): alpha=0.5 WFB, no-Adam Armijo backtracking trainer",
+      "submitted_at": "2026-08-13",
+      "git_sha": "7bc4e9d",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/wfb_stage3_lm_trainer.sbatch",
+      "phase": "3",
+      "gate": "smoke pass before full 300-step run",
+      "exit_code": 0,
+      "final_metric": "accept_rate=1.0, n_bt=0 EVERY step (matches Stage 2.6b: WFB's local model is trustworthy, eta_star accepted on first try every time), same-batch dL consistently -1.0 to -1.9 across all 20 steps. probe_loss WORSENED 10.767->11.036 (+0.269), slightly MORE than alpha=0's +0.093 over the same 20 steps. Read with caution: L_before swings 8.2-12.8 across steps (huge batch-to-batch noise) -- a 20-step probe-loss delta is not a reliable trend signal, only a smoke test (no crash, finite losses, sane step behavior) -- PASS. Real generalization read must come from the 300-step trajectory, not this smoke."
     }
   ],
   "debugging_notes": [
