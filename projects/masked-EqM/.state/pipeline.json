@@ -40,19 +40,6 @@
       "expected_runtime": "~5-6h (300 steps, k=96, ~65s/step)",
       "phase": "3",
       "gate": "probe-loss trajectory over 300 steps, compared against WFB's -- does WFB's preconditioning beat the raw-direction floor under identical globalization"
-    },
-    {
-      "run_id": "wfb_stage3_postmortem_group_breakdown",
-      "job_id": "38942662",
-      "partition": "seas_gpu",
-      "status": "running",
-      "description": "Stage 3 postmortem: backbone-vs-head breakdown of CG-FBGN's lambda_max growth (metrics.jsonl showed ~36x average / ~19000x peak growth, coinciding with every same-batch loss spike, while r_norm stayed bounded) -- compares top-k singular subspace of the field-parameter Jacobian on the step100 vs step300 checkpoints from job 38909657, separately for backbone and energy-head groups.",
-      "submitted_at": "2026-08-13",
-      "git_sha": "c38d504",
-      "sbatch_path": "projects/masked-EqM/slurm/jobs/wfb_stage3_postmortem_group_breakdown.sbatch",
-      "expected_runtime": "~20-30min (no training, frozen checkpoints, 4 probe batches x 2 groups x 2 checkpoints)",
-      "phase": "3",
-      "gate": "identify whether lambda_max growth is backbone-localized (matching the prior Stage A postmortem finding on Adam-trained instability) or head-localized"
     }
   ],
   "completed_runs": [
@@ -13439,6 +13426,22 @@
       "exit_code": 0,
       "final_metric": [
         "MECHANISM CLEAN, TRAJECTORY NEGATIVE: accept_rate=1.0, ZERO skips of any kind across all 300 steps (CG fix held for the entire run -- no recurrence of the theoretically-impossible not_descent_direction failures seen with fixed-k=96 Lanczos). probe_loss 10.625->14.881 (+4.257), a NET WORSENING over the full run. Notably, same-batch L_before showed growing instability late in the run despite the clean Armijo mechanism: spiked to 40.7 at step 285 and 130.6(!) at step 292 (each 'accepted' via a correspondingly huge dL, but wandering into such high-loss regions at all is itself a real finding -- Armijo only guarantees LOCAL sufficient decrease relative to the current point, not that the trajectory stays in a reasonable region overall). Distinct from the earlier Lanczos-truncation pathology: this is a genuine finding about FBGN's Gauss-Newton direction applied via pure line search over many steps, not a numerical-methods bug. Awaiting WFB (38903397) and direct (38904393) completion for the full 3-way comparison via experiments/direct_energy/analyze_stage3_results.py."
+      ]
+    },
+    {
+      "run_id": "wfb_stage3_postmortem_group_breakdown",
+      "job_id": "38942662",
+      "partition": "seas_gpu",
+      "status": "completed",
+      "description": "Stage 3 postmortem: backbone-vs-head breakdown of CG-FBGN's lambda_max growth",
+      "submitted_at": "2026-08-13",
+      "git_sha": "c38d504",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/wfb_stage3_postmortem_group_breakdown.sbatch",
+      "phase": "3",
+      "gate": "identify whether lambda_max growth is backbone- or head-localized",
+      "exit_code": 0,
+      "final_metric": [
+        "DECISIVE: median top-1 sigma, backbone 6597->10101 (1.53x growth), head 434->414 (0.95x, flat/slight shrink). Curvature growth over the 300-step CG-FBGN run is ENTIRELY a backbone phenomenon -- matches the prior Stage A postmortem finding on the ORIGINAL Adam-trained instability (documentation/postmortem-stageA-topk-subspace-2026-08-11.md, CLAUDE.md summary: 'energy head is not the dominant contributor... backbone spike/control amplification scales monotonically with tail severity'). Same structural signature reappearing under a completely different optimizer (no-Adam Gauss-Newton via CG/line search) -- strong evidence this is a property of the backbone architecture under double-backward/energy-gradient training itself, not an artifact of Adam specifically. Caveat: postmortem used a fixed 4-batch probe pool (not exact training batches), so magnitude doesn't exactly match the live lambda_max power-iteration's ~36x avg/~19000x peak growth during training -- the backbone-vs-head SPLIT is the robust finding, not the exact ratio."
       ]
     }
   ],
