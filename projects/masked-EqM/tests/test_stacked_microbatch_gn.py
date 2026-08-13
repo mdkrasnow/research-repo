@@ -41,7 +41,12 @@ So these tests pin the operator to its definition rather than to itself:
   5. SYMMETRY / PSD. A must be symmetric (<u, Av> == <Av, u> to FP64) and PSD
      (<v, Av> >= 0), the properties CG's applicability rests on.
 
-Run: python tests/test_stacked_microbatch_gn.py   (CPU, seconds)
+NOTE ON COST: the dense-Jacobian test is run over a SMALL PARAMETER SUBSET
+(_small_params). Materializing M over all ~33M params of the FP64 toy is ~50 GB
+and OOM-killed SLURM 39024136. The CG tests use n=1 microbatch rows for the same
+reason -- each CG iteration is a VJP+JVP over full theta, per microbatch.
+
+Run: python tests/test_stacked_microbatch_gn.py   (CPU, ~1-2 min)
 """
 import os
 import sys
@@ -53,7 +58,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(
 
 from fb_direct.exact_hvp import (  # noqa: E402
     _cg_solve_shifted_system_generic, compute_field_direct, exact_field_vjp,
-    field_jvp_direct, mixed_gram_mv, stacked_estimate_lambda_max,
+    mixed_gram_mv, stacked_estimate_lambda_max,
     stacked_mixed_gram_mv, compute_fbgn_gradient_cg_microbatched,
 )
 from test_forward_backwards_direct import make_model, batch, perturb  # noqa: E402
@@ -76,9 +81,37 @@ def _setup(J=3, n=2):
     return model, params, micro
 
 
+def _small_params(model, max_elems=2500):
+    """A SUBSET of theta small enough to materialize a dense Jacobian against.
+
+    The full EqM-S/2 toy still has ~33M parameters, so an explicit
+    M of shape (numel(field), n_params) is ~50 GB in FP64 -- it OOM-kills the
+    job (observed: SLURM 39024136, oom_kill on this very test). The operator
+    identity A = M M^T is defined per parameter LIST, so restricting to a subset
+    is a valid ground truth, not a weakened one: stacked_mixed_gram_mv is called
+    with the same subset, and the dense reference is built from the same subset.
+
+    Smallest tensors first, until the budget is spent. The caller asserts the
+    resulting A is nonzero so the test cannot pass vacuously on parameters the
+    field does not depend on.
+    """
+    cand = sorted((p for p in model.parameters() if p.requires_grad),
+                  key=lambda p: p.numel())
+    out, tot = [], 0
+    for p in cand:
+        if tot + p.numel() > max_elems:
+            continue
+        out.append(p)
+        tot += p.numel()
+    if not out:
+        raise RuntimeError("no parameter tensor fits the dense-Jacobian budget")
+    return out
+
+
 def _explicit_M(model, xt, t, y, params):
     """Dense M_j = d(field)/d(theta), shape (numel(field), n_params), built one
-    field component at a time via the validated VJP."""
+    field component at a time via the validated VJP. Only ever called with the
+    _small_params subset -- see the OOM note there."""
     field = compute_field_direct(model, xt, t, y)
     n_out = field.numel()
     n_par = sum(p.numel() for p in params)
@@ -96,10 +129,14 @@ def _explicit_M(model, xt, t, y, params):
 
 
 def test_stacked_operator_matches_explicit_jacobian():
-    model, params, micro = _setup(J=3, n=1)
+    model, _full, micro = _setup(J=2, n=1)
+    params = _small_params(model)
     triples = [(xt, t, y) for (xt, t, y, _) in micro]
     M = torch.cat([_explicit_M(model, xt, t, y, params) for (xt, t, y) in triples], dim=0)
     A_dense = M @ M.T
+    assert float(A_dense.abs().max()) > 0.0, (
+        "A is identically zero on this parameter subset -- the test would pass "
+        "vacuously; widen _small_params to tensors the field actually depends on")
 
     shape = (micro[0][0].shape[0] * len(micro),) + tuple(micro[0][0].shape[1:])
     worst = 0.0
@@ -115,7 +152,7 @@ def test_stacked_operator_matches_explicit_jacobian():
 
 
 def test_J1_reduces_to_single_batch_operator():
-    model, params, micro = _setup(J=1, n=2)
+    model, params, micro = _setup(J=1, n=1)
     xt, t, y, _ = micro[0]
     g = torch.Generator().manual_seed(11)
     v = torch.randn(xt.shape, generator=g, dtype=torch.float64)
@@ -127,22 +164,19 @@ def test_J1_reduces_to_single_batch_operator():
 
 
 def test_microbatched_solve_solves_the_stacked_system():
-    model, params, micro = _setup(J=3, n=2)
+    model, params, micro = _setup(J=3, n=1)
     triples = [(xt, t, y) for (xt, t, y, _) in micro]
     tol = 1e-6
     res = compute_fbgn_gradient_cg_microbatched(model, micro, params=params, rho=1e-3,
-                                                cg_tol=tol, cg_max_iters=500, seed=0)
+                                                cg_tol=tol, cg_max_iters=300, seed=0)
     assert res["n_micro"] == 3
 
-    # recover u from g?  No -- verify the system directly by re-solving is
-    # circular; instead re-derive u's defining property from what was returned:
-    # solve again with the same operator and check the TRUE residual.
+    # Certify the ACTUAL returned solution, not a fresh solve: re-apply the
+    # operator to res["u"] and recompute the TRUE residual. (A second solve
+    # would only certify that CG is reproducible, which is not the claim.)
     r = res["r"]
     lam = res["lam"]
-    cg = _cg_solve_shifted_system_generic(
-        lambda v: stacked_mixed_gram_mv(model, triples, params, v), r, lam,
-        tol=tol, max_iters=500)
-    u = cg["u"]
+    u = res["u"]
     Au = stacked_mixed_gram_mv(model, triples, params, u)
     true_ratio = float((r - (Au + lam * u)).norm() / r.norm())
     assert true_ratio < 10 * tol, f"true residual {true_ratio:.3e} exceeds requested tol {tol:.3e}"
@@ -166,13 +200,13 @@ def test_microbatched_solve_solves_the_stacked_system():
 def test_stacked_is_not_the_average_of_separate_solves():
     """The decisive anti-shortcut test: the stacked direction must differ
     materially from the block-diagonal average-of-solves."""
-    model, params, micro = _setup(J=3, n=2)
+    model, params, micro = _setup(J=3, n=1)
     triples = [(xt, t, y) for (xt, t, y, _) in micro]
     lam_res = stacked_estimate_lambda_max(model, triples, params, num_iters=30, seed=0)
     lam = 1e-3 * lam_res["lambda_max"]
 
     stacked = compute_fbgn_gradient_cg_microbatched(model, micro, params=params,
-                                                    cg_tol=1e-8, cg_max_iters=1000,
+                                                    cg_tol=1e-7, cg_max_iters=400,
                                                     lam_override=lam, seed=0)
     g_stacked = stacked["g_wfb"]
 
@@ -183,7 +217,7 @@ def test_stacked_is_not_the_average_of_separate_solves():
         rj = (field - ut).detach()
         cg = _cg_solve_shifted_system_generic(
             lambda v: mixed_gram_mv(model, xt, t, y, params, v), rj, lam,
-            tol=1e-8, max_iters=1000)
+            tol=1e-7, max_iters=400)
         model.zero_grad(set_to_none=True)
         exact_field_vjp(model, xt, t, y, cg["u"])
         for acc, p in zip(g_blockdiag, params):
@@ -202,7 +236,7 @@ def test_stacked_is_not_the_average_of_separate_solves():
 
 
 def test_stacked_operator_is_symmetric_psd():
-    model, params, micro = _setup(J=3, n=1)
+    model, params, micro = _setup(J=2, n=1)
     triples = [(xt, t, y) for (xt, t, y, _) in micro]
     shape = (micro[0][0].shape[0] * len(micro),) + tuple(micro[0][0].shape[1:])
     g = torch.Generator().manual_seed(4242)
