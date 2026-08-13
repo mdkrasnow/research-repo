@@ -1042,6 +1042,169 @@ def _lanczos_shifted_solve_residual_certificate(gram_mv_fn, r, lam, k=8, reorth=
             "breakdown": breakdown, "breakdown_reason": breakdown_reason}
 
 
+def _cg_solve_shifted_system_generic(gram_mv_fn, r, lam, tol=1e-2, max_iters=200, eps=1e-30):
+    """Matrix-free Hestenes-Stiefel conjugate gradient solve of
+
+        (A + lambda I) u = r,      A exposed only via gram_mv_fn(v) -> A v.
+
+    Reviewer proposal (2026-08-13), replacing FBGN's fixed-k Lanczos-FA
+    approximation: since A is PSD (Gram matrix) and lambda > 0, (A+lambda I) is
+    SPD, exactly the setting CG solves without approximation error beyond
+    floating point -- unlike a fixed k-step Lanczos truncation (Stage 2.6a
+    found k=96 still leaves the FBGN field-gain median at 0.69-0.70 on some
+    checkpoints, not the theoretical <=1 bound's near-equality), CG is an
+    ADAPTIVE-COST, EXACT-TOLERANCE method: it terminates once the true
+    residual ||rho|| = ||r - (A+lambda I)u|| satisfies ||rho||/||r|| < tol,
+    not after a fixed number of operator applications. Standard algorithm
+    (Hestenes & Stiestel 1952; Nocedal & Wright 2006, Algorithm 5.2):
+
+        u_0 = 0, r_0 = r, p_0 = r_0
+        for i = 0, 1, 2, ...:
+            Ap = (A+lambda I) p_i
+            alpha_i = (r_i . r_i) / (p_i . Ap)
+            u_{i+1} = u_i + alpha_i p_i
+            r_{i+1} = r_i - alpha_i Ap
+            if ||r_{i+1}|| / ||r|| < tol: stop
+            beta_i = (r_{i+1} . r_{i+1}) / (r_i . r_i)
+            p_{i+1} = r_{i+1} + beta_i p_i
+
+    r_i here is the LINEAR-SYSTEM residual (matches _lanczos_shifted_solve_
+    residual_certificate's rho, computed exactly by construction of the CG
+    recurrence -- no separate verification call needed, unlike the Lanczos
+    certificate which required an independent re-application of A). By the
+    residual-gain certificate proven in that function's docstring,
+    ||q||/||r|| <= 1 + ||rho||/||r|| -- so tol=1e-2 guarantees the induced
+    field gain is within 1% of the theoretical <=1 bound, REGARDLESS of A's
+    condition number (unlike fixed-k Lanczos, whose convergence rate DOES
+    depend on the condition number and spectral gap structure).
+
+    Returns {"u": tensor, "n_iters": int, "converged": bool,
+    "final_residual_norm": float, "final_residual_ratio": float (rho_norm/r_norm),
+    "breakdown": bool, "breakdown_reason": str or None}.
+    """
+    r = r.detach()
+    r_norm = float(r.norm())
+    if r_norm < 1e-10:
+        return {"u": torch.zeros_like(r), "n_iters": 0, "converged": True,
+                "final_residual_norm": 0.0, "final_residual_ratio": 0.0,
+                "breakdown": True, "breakdown_reason": "zero_residual"}
+
+    u = torch.zeros_like(r)
+    r_cg = r.clone()
+    p = r_cg.clone()
+    rs_old = float((r_cg * r_cg).sum())
+
+    for i in range(max_iters):
+        Ap = gram_mv_fn(p) + lam * p
+        if not torch.isfinite(Ap).all():
+            return {"u": u.detach(), "n_iters": i, "converged": False,
+                    "final_residual_norm": float(r_cg.norm()), "final_residual_ratio": float(r_cg.norm()) / r_norm,
+                    "breakdown": True, "breakdown_reason": f"non_finite_A_apply_at_iter_{i}"}
+        pAp = float((p * Ap).sum())
+        if pAp <= eps:
+            # (A+lambda I) SPD guarantees pAp>0 for p!=0 in exact arithmetic; a
+            # non-positive value here means p has numerically collapsed to (near)
+            # zero (CG has converged as far as floating point allows) -- stop,
+            # not a failure (matches the Lanczos "invariant_subspace" lucky-
+            # breakdown handling in _lanczos_inv_pow_apply_generic).
+            break
+        alpha_i = rs_old / pAp
+        u = u + alpha_i * p
+        r_cg = r_cg - alpha_i * Ap
+        rs_new = float((r_cg * r_cg).sum())
+        ratio = (rs_new ** 0.5) / r_norm
+        if ratio < tol:
+            return {"u": u.detach(), "n_iters": i + 1, "converged": True,
+                    "final_residual_norm": rs_new ** 0.5, "final_residual_ratio": ratio,
+                    "breakdown": False, "breakdown_reason": None}
+        beta_i = rs_new / (rs_old + eps)
+        p = r_cg + beta_i * p
+        rs_old = rs_new
+
+    return {"u": u.detach(), "n_iters": max_iters, "converged": False,
+            "final_residual_norm": rs_old ** 0.5, "final_residual_ratio": (rs_old ** 0.5) / r_norm,
+            "breakdown": True, "breakdown_reason": "max_iters_exceeded_without_tol"}
+
+
+def cg_solve_shifted_system(model, xt, t, y, params, r, lam, tol=1e-2, max_iters=200):
+    """Model-specific entry point for _cg_solve_shifted_system_generic, using
+    mixed_gram_mv (A = M M^T for the real model) as the operator."""
+    return _cg_solve_shifted_system_generic(
+        lambda v: mixed_gram_mv(model, xt, t, y, params, v), r, lam, tol=tol, max_iters=max_iters)
+
+
+def compute_fbgn_gradient_cg(model, xt, t, y, ut, params=None, rho=1e-4, cg_tol=1e-2,
+                              cg_max_iters=200, lambda_max_num_iters=20, seed=0):
+    """FBGN (alpha=1) gradient via the CG adaptive-tolerance solve instead of
+    fixed-k Lanczos -- see _cg_solve_shifted_system_generic's docstring for
+    why this removes the truncation-error confound Stage 2.6a/Stage 3's
+    alpha=1.0 smoke found at k=96 (not_descent_direction skips, theoretically
+    impossible for the exact solve since A(A+lambda I)^{-1} is PSD).
+
+    Mirrors compute_wfb_gradient's structure/return contract exactly (same
+    keys, so callers can swap between the two without branching), except
+    `m`/`T_eigmax`/`ortho_error` (Lanczos-specific diagnostics) are replaced
+    by `cg_n_iters`/`cg_converged`/`cg_final_residual_ratio`.
+    """
+    params_in = list(params) if params is not None else list(model.parameters())
+    params = [p for p in params_in if p.requires_grad]
+    if not params:
+        raise RuntimeError("compute_fbgn_gradient_cg: no trainable (requires_grad=True) parameters in `params`.")
+
+    y, restore_labels = _predrop_labels(model, y)
+    try:
+        model.zero_grad(set_to_none=True)
+        field = compute_field_direct(model, xt, t, y)
+        r = (field - ut).detach()
+        r_norm = float(r.norm())
+        if not torch.isfinite(r).all():
+            raise RuntimeError("compute_fbgn_gradient_cg: residual r is non-finite -- failing loudly.")
+
+        model.zero_grad(set_to_none=True)
+        exact_field_vjp(model, xt, t, y, r)
+        g_raw = [p.grad.detach().clone() if p.grad is not None else torch.zeros_like(p) for p in params]
+        g_raw_norm = sum(float((gp ** 2).sum()) for gp in g_raw) ** 0.5
+
+        lam_result = estimate_lambda_max(model, xt, t, y, params, num_iters=lambda_max_num_iters, seed=seed)
+        lambda_max = lam_result["lambda_max"]
+        lam = rho * lambda_max
+
+        cg = cg_solve_shifted_system(model, xt, t, y, params, r, lam, tol=cg_tol, max_iters=cg_max_iters)
+        if cg["breakdown"] and cg["breakdown_reason"] not in ("zero_residual",):
+            if cg["breakdown_reason"] == "max_iters_exceeded_without_tol":
+                # Not fatal -- use the best-so-far u, but flag it clearly (caller can
+                # choose to skip the step; the CG solve did NOT reach the requested
+                # tolerance within the compute budget).
+                pass
+            elif (cg["breakdown_reason"] or "").startswith("non_finite"):
+                raise RuntimeError(f"compute_fbgn_gradient_cg: CG breakdown ({cg['breakdown_reason']}) "
+                                    f"at iter {cg['n_iters']}/{cg_max_iters} -- failing loudly.")
+        u = cg["u"]
+        if u is None or not torch.isfinite(u).all():
+            raise RuntimeError("compute_fbgn_gradient_cg: CG produced a non-finite/absent u.")
+
+        model.zero_grad(set_to_none=True)
+        exact_field_vjp(model, xt, t, y, u)
+        g_wfb = [p.grad.detach().clone() if p.grad is not None else torch.zeros_like(p) for p in params]
+        g_wfb_norm = sum(float((gp ** 2).sum()) for gp in g_wfb) ** 0.5
+    finally:
+        restore_labels()
+
+    return {
+        "params": params,
+        "g_wfb": g_wfb, "g_wfb_norm": g_wfb_norm,
+        "g_raw": g_raw, "g_raw_norm": g_raw_norm,
+        "r": r, "r_norm": r_norm, "field": field.detach(),
+        "lambda_max": lambda_max, "lambda_max_history": lam_result["history"], "lam": lam,
+        "alpha": 1.0,
+        "cg_n_iters": cg["n_iters"], "cg_converged": cg["converged"],
+        "cg_final_residual_ratio": cg["final_residual_ratio"],
+        "breakdown": cg["breakdown"] and cg["breakdown_reason"] not in ("max_iters_exceeded_without_tol",),
+        "breakdown_reason": cg["breakdown_reason"],
+        "ortho_error": 0.0, "T_eigmax": None, "m": cg["n_iters"],
+    }
+
+
 def _lanczos_inv_sqrt_apply_generic(gram_mv_fn, r, lam, k=8, reorth=True, eps=1e-10):
     """alpha=1/2 (WFB) specialization of _lanczos_inv_pow_apply_generic, kept
     as a thin named wrapper for backward compatibility with existing

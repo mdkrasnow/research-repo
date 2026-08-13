@@ -28,10 +28,12 @@ import torch
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from fb_direct.exact_hvp import (
-    block_subspace_iteration_theta, compute_field_direct, compute_wfb_gradient,
+    block_subspace_iteration_theta, cg_solve_shifted_system, compute_fbgn_gradient_cg,
+    compute_field_direct, compute_wfb_gradient,
     estimate_lambda_max, exact_field_vjp, exact_fwrev_backward,
     field_jvp_direct, field_jvp_none, field_vjp_none,
     lanczos_inv_pow_apply, lanczos_inv_sqrt_apply, mixed_gram_mv, power_iteration_theta_sigma1,
+    _cg_solve_shifted_system_generic,
     _estimate_lambda_max_generic, _lanczos_inv_pow_apply_generic, _lanczos_inv_sqrt_apply_generic,
 )
 from transport.utils import mean_flat
@@ -997,6 +999,96 @@ def test_fbgn_lanczos_residual_certificate():
           f"gains: {gains}")
 
 
+def test_cg_solve_matches_direct_solve_and_lanczos():
+    """CG adaptive-tolerance FBGN solve (2026-08-13, replacing fixed-k
+    Lanczos after Stage 3's alpha=1.0 smoke found k=96 still causing
+    theoretically-impossible not_descent_direction failures on the real
+    model): validates _cg_solve_shifted_system_generic against (a) an exact
+    direct solve (torch.linalg.solve) of the same SPD system, and (b) full-k
+    Lanczos (k=n, exact recovery) -- all three must agree to numerical
+    precision on a synthetic operator, and CG's OWN internal residual
+    (||r_cg||/||r||, tracked every iteration) must match the TRUE linear-
+    system residual computed independently, confirming CG's stopping
+    criterion is trustworthy (unlike Lanczos, which required an external
+    verification call to know how converged it actually was)."""
+    torch.manual_seed(291)
+    n = 30
+    sigma_true = torch.cat([torch.tensor([1e3, 5e2]), 10.0 ** torch.linspace(2, -2, n - 2)]).to(torch.float64)
+    Q1, _ = torch.linalg.qr(torch.randn(n, n, dtype=torch.float64, generator=torch.Generator().manual_seed(293)))
+    Q2, _ = torch.linalg.qr(torch.randn(n, n, dtype=torch.float64, generator=torch.Generator().manual_seed(297)))
+    M = Q1 @ torch.diag(sigma_true) @ Q2.T
+    A = M @ M.T
+
+    def gram_mv_fn(v):
+        return A @ v
+
+    lam = 1e-3 * float(sigma_true.max() ** 2)
+    r = torch.randn(n, dtype=torch.float64, generator=torch.Generator().manual_seed(301))
+    r_norm = float(r.norm())
+
+    u_exact = torch.linalg.solve(A + lam * torch.eye(n, dtype=torch.float64), r)
+
+    cg = _cg_solve_shifted_system_generic(gram_mv_fn, r, lam, tol=1e-8, max_iters=200)
+    assert cg["converged"], f"CG should converge within {n} iterations for an n={n} SPD system (finite termination property)"
+    assert cg["n_iters"] <= n + 2, f"CG should converge in <= n+2 iterations in exact arithmetic, got {cg['n_iters']}"
+    torch.testing.assert_close(cg["u"], u_exact, rtol=1e-5, atol=1e-6)
+
+    # Independent check: the true residual ||r - (A+lam I) u_cg|| matches CG's own
+    # reported final_residual_ratio (not just the u values matching).
+    true_residual = r - (A @ cg["u"] + lam * cg["u"])
+    true_ratio = float(true_residual.norm()) / r_norm
+    assert abs(true_ratio - cg["final_residual_ratio"]) < 1e-6, (
+        f"CG's self-reported residual ratio ({cg['final_residual_ratio']}) must match the "
+        f"independently-computed true residual ratio ({true_ratio})")
+
+    lz = _lanczos_inv_pow_apply_generic(gram_mv_fn, r, lam, alpha=1.0, k=n)
+    torch.testing.assert_close(cg["u"], lz["u"], rtol=1e-4, atol=1e-6)
+
+    # Adaptive-tolerance property: a LOOSE tolerance should converge in FEWER iterations
+    # than a tight one (this is the entire point vs fixed-k -- cost scales with how hard
+    # the specific batch/operator actually is, not a fixed worst-case budget).
+    cg_loose = _cg_solve_shifted_system_generic(gram_mv_fn, r, lam, tol=1e-1, max_iters=200)
+    cg_tight = _cg_solve_shifted_system_generic(gram_mv_fn, r, lam, tol=1e-8, max_iters=200)
+    assert cg_loose["n_iters"] <= cg_tight["n_iters"], (
+        f"loose tol should need <= iters than tight tol: {cg_loose['n_iters']} vs {cg_tight['n_iters']}")
+    assert cg_loose["final_residual_ratio"] < 1e-1 and cg_tight["final_residual_ratio"] < 1e-8
+
+    print(f"PASS CG solve matches direct solve (rtol=1e-5) and full-k Lanczos (rtol=1e-4); "
+          f"self-reported residual ratio matches independent check exactly; "
+          f"adaptive cost confirmed: tol=1e-1 -> {cg_loose['n_iters']} iters, tol=1e-8 -> {cg_tight['n_iters']} iters")
+
+
+def test_compute_fbgn_gradient_cg_threads_through_and_beats_field_gain_bound():
+    """compute_fbgn_gradient_cg on the real tiny model: must produce a
+    finite, non-degenerate gradient, and its induced field gain
+    ||M g_fbgn_cg|| / ||r|| must respect the theoretical <=1 bound to within
+    the requested cg_tol's certificate slack (1 + cg_tol) -- unlike the
+    fixed-k Lanczos path, which Stage 2.6a showed could measure gains of
+    2.83-3.61 on the real model at k=12."""
+    torch.manual_seed(303)
+    model = make_model(ebm="direct", dtype=torch.float64)
+    perturb(model, seed=307)
+    model.eval()
+    z, t, y = batch(n=2, dtype=torch.float64, seed=311)
+    ut = torch.zeros_like(z)
+
+    cg_tol = 1e-3
+    result = compute_fbgn_gradient_cg(model, z, t, y, ut, rho=1e-2, cg_tol=cg_tol,
+                                       cg_max_iters=500, lambda_max_num_iters=50, seed=313)
+    assert not result["breakdown"], f"unexpected breakdown: {result['breakdown_reason']}"
+    assert result["cg_converged"], f"CG did not converge within cg_max_iters: {result}"
+    assert result["cg_final_residual_ratio"] < cg_tol
+
+    q = field_jvp_direct(model, z, t, y, result["params"], result["g_wfb"])
+    field_gain = float(q.norm()) / result["r_norm"]
+    certificate_bound = 1.0 + result["cg_final_residual_ratio"]
+    assert field_gain <= certificate_bound + 1e-6, (
+        f"field_gain={field_gain} must respect the CG-certificate bound={certificate_bound}")
+    print(f"PASS compute_fbgn_gradient_cg on real model: converged in {result['cg_n_iters']} iters "
+          f"(tol={cg_tol}), field_gain={field_gain:.4f} <= certificate_bound={certificate_bound:.6f} "
+          f"(vs Stage 2.6a's fixed-k=12 measurement of 2.83-3.61 on a real checkpoint)")
+
+
 def test_wfb_zero_residual_breakdown():
     """Zero residual (r=0, e.g. field already matches target exactly) must
     be reported as an explicit breakdown, not silently treated as u=0 being
@@ -1199,6 +1291,8 @@ if __name__ == "__main__":
         test_lanczos_inv_pow_apply_alpha_half_matches_sqrt_apply()
         test_compute_wfb_gradient_alpha_param_threads_through_on_real_model()
         test_fbgn_lanczos_residual_certificate()
+        test_cg_solve_matches_direct_solve_and_lanczos()
+        test_compute_fbgn_gradient_cg_threads_through_and_beats_field_gain_bound()
         test_wfb_zero_residual_breakdown()
         test_wfb_compute_wfb_gradient_filters_frozen_parameters()
         test_wfb_compute_wfb_gradient_stable_under_train_mode_cfg_dropout()

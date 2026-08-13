@@ -35,6 +35,9 @@ WFB_K="${WFB_K:-96}"
 ARMIJO_C1="${ARMIJO_C1:-1e-4}"
 BACKTRACK_FACTOR="${BACKTRACK_FACTOR:-0.5}"
 MAX_BACKTRACKS="${MAX_BACKTRACKS:-6}"
+SOLVER="${SOLVER:-lanczos}"
+CG_TOL="${CG_TOL:-1e-3}"
+CG_MAX_ITERS="${CG_MAX_ITERS:-500}"
 WORK_DIR="/tmp/masked-eqm-wfbstage3-${SLURM_JOB_ID}"
 RESULTS_DIR="$RESULTS_ROOT/${RUN_TAG}_job${SLURM_JOB_ID}"
 
@@ -50,7 +53,7 @@ pip install --quiet timm 'diffusers==0.27.2' 'huggingface_hub==0.23.5' 'transfor
 echo "=== FP64 CPU unit tests (must pass before any GPU work) ==="
 python -u tests/test_fb_direct_exact_hvp.py
 
-echo "Stage 3 configuration: ALPHA=$ALPHA RUN_TAG=$RUN_TAG GLOBAL_SEED=$GLOBAL_SEED MAX_STEPS=$MAX_STEPS WFB_RHO=$WFB_RHO WFB_K=$WFB_K ARMIJO_C1=$ARMIJO_C1 BACKTRACK_FACTOR=$BACKTRACK_FACTOR MAX_BACKTRACKS=$MAX_BACKTRACKS RESULTS_DIR=$RESULTS_DIR"
+echo "Stage 3 configuration: ALPHA=$ALPHA RUN_TAG=$RUN_TAG GLOBAL_SEED=$GLOBAL_SEED MAX_STEPS=$MAX_STEPS WFB_RHO=$WFB_RHO WFB_K=$WFB_K ARMIJO_C1=$ARMIJO_C1 BACKTRACK_FACTOR=$BACKTRACK_FACTOR MAX_BACKTRACKS=$MAX_BACKTRACKS SOLVER=$SOLVER CG_TOL=$CG_TOL CG_MAX_ITERS=$CG_MAX_ITERS RESULTS_DIR=$RESULTS_DIR"
 
 python -u experiments/direct_energy/wfb_stage3_lm_trainer.py \
     --ckpt-direct "$CKPT_DIRECT_LATE" \
@@ -62,6 +65,9 @@ python -u experiments/direct_energy/wfb_stage3_lm_trainer.py \
     --armijo-c1 "$ARMIJO_C1" \
     --backtrack-factor "$BACKTRACK_FACTOR" \
     --max-backtracks "$MAX_BACKTRACKS" \
+    --solver "$SOLVER" \
+    --cg-tol "$CG_TOL" \
+    --cg-max-iters "$CG_MAX_ITERS" \
     --seed "$GLOBAL_SEED" \
     --results-dir "$RESULTS_DIR" \
     --run-tag "$RUN_TAG" 2>&1 | tee wfbstage3.log

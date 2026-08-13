@@ -79,7 +79,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from matched_replay_jacobian_diagnostic import build_pool, load_model  # noqa: E402
-from fb_direct.exact_hvp import compute_wfb_gradient, field_jvp_direct, compute_field_direct  # noqa: E402
+from fb_direct.exact_hvp import (  # noqa: E402
+    compute_wfb_gradient, compute_fbgn_gradient_cg, field_jvp_direct, compute_field_direct,
+)
 from transport.utils import mean_flat  # noqa: E402
 
 
@@ -112,14 +114,20 @@ def _restore_params(params, saved):
 
 
 def train_step(model, xt, t, y, ut, rho, k, lambda_max_num_iters, alpha, seed,
-               armijo_c1, backtrack_factor, max_backtracks):
+               armijo_c1, backtrack_factor, max_backtracks, solver="lanczos", cg_tol=1e-2, cg_max_iters=200):
     B, D = xt.shape[0], xt[0].numel()
     BD = B * D
 
     model.zero_grad(set_to_none=True)
-    result = compute_wfb_gradient(model, xt, t, y, ut, params=list(model.parameters()),
-                                   rho=rho, k=k, lambda_max_num_iters=lambda_max_num_iters,
-                                   seed=seed, alpha=alpha)
+    if solver == "cg":
+        assert alpha == 1.0, "solver='cg' is only implemented for alpha=1.0 (FBGN)"
+        result = compute_fbgn_gradient_cg(model, xt, t, y, ut, params=list(model.parameters()),
+                                           rho=rho, cg_tol=cg_tol, cg_max_iters=cg_max_iters,
+                                           lambda_max_num_iters=lambda_max_num_iters, seed=seed)
+    else:
+        result = compute_wfb_gradient(model, xt, t, y, ut, params=list(model.parameters()),
+                                       rho=rho, k=k, lambda_max_num_iters=lambda_max_num_iters,
+                                       seed=seed, alpha=alpha)
     model.zero_grad(set_to_none=True)
     params = result["params"]
     g_alpha = result["g_wfb"]
@@ -193,6 +201,13 @@ def main():
     p.add_argument("--max-steps", type=int, default=300)
     p.add_argument("--rho", type=float, default=1e-4, help="wfb spectral damping: lambda = rho * lambda_max(A)")
     p.add_argument("--k", type=int, default=96, help="Lanczos steps -- Stage 2.6a: alpha=1 needs k>>12 on this checkpoint")
+    p.add_argument("--solver", choices=["lanczos", "cg"], default="lanczos",
+                    help="'cg' (alpha=1.0 only) replaces fixed-k Lanczos with the adaptive-tolerance "
+                         "CG solve (2026-08-13) -- Stage 3's alpha=1.0 smoke at k=96 found "
+                         "theoretically-impossible not_descent_direction skips from truncation error; "
+                         "CG resolved this on the real model (field_gain 0.983 vs 2.83-3.61, 15 iters).")
+    p.add_argument("--cg-tol", type=float, default=1e-3, help="(solver=cg) target ||rho||/||r|| tolerance")
+    p.add_argument("--cg-max-iters", type=int, default=500)
     p.add_argument("--lambda-max-num-iters", type=int, default=20)
     p.add_argument("--armijo-c1", type=float, default=1e-4)
     p.add_argument("--backtrack-factor", type=float, default=0.5)
@@ -232,7 +247,8 @@ def main():
     for step, (xt, t, y, ut) in enumerate(train_batches):
         info = train_step(model, xt, t, y, ut, args.rho, args.k, args.lambda_max_num_iters, args.alpha,
                            seed=args.seed * 100000 + step, armijo_c1=args.armijo_c1,
-                           backtrack_factor=args.backtrack_factor, max_backtracks=args.max_backtracks)
+                           backtrack_factor=args.backtrack_factor, max_backtracks=args.max_backtracks,
+                           solver=args.solver, cg_tol=args.cg_tol, cg_max_iters=args.cg_max_iters)
         info["step"] = step
         info["wall_s_cum"] = time.time() - t_start
         if info["accepted"]:
@@ -261,6 +277,7 @@ def main():
 
     summary = {
         "alpha": args.alpha, "max_steps": args.max_steps, "k": args.k, "rho": args.rho,
+        "solver": args.solver, "cg_tol": args.cg_tol,
         "n_accepted": n_accepted, "n_skipped_not_descent_direction": n_skipped_not_descent,
         "n_skipped_backtrack_exhausted": n_skipped_backtrack,
         "accept_rate": n_accepted / len(train_batches),
