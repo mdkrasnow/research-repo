@@ -75,6 +75,43 @@ asserted), which closes both gaps: an eta-scan at FIXED direction, and the
 independent trust bank. `d_V >= 0` decides H2 outright — by first-order Taylor,
 no step size and no damping can rescue an ascent direction.
 
+## Stage 3A verdict (job 38985448, 2026-08-13) — H2 is causal
+
+Answered at `start`, the healthy checkpoint FBGN training actually began from
+(and ONLY there — see the gotcha about fbgn100/300 below):
+
+| quantity | value |
+|---|---|
+| FBGN cosine with independent-batch gradient `C_V` | **0.00108** |
+| raw-direct minibatch gradient `C_V` | 0.0395 |
+| FBGN `d_V` descent rate (eta-INDEPENDENT) | **4/8** |
+| trust bank worsened at `eta*/8` | **8/8**, +0.0629, paired SE 0.013-0.020 |
+| `R_B` / `D_B`, `eta*` -> `eta*/8` | -10.685 -> +0.910 / 3.397 -> 0.459 |
+| damping x10 / x100 -> `C_V` | -0.0031 / -0.0083 |
+
+- **H1 is present but is a trust-region artifact.** `D_B` falls as O(eta) and
+  `R_B` -> 1, which is what a CORRECT linearization does; `eta* ~ 1.3` was simply
+  far outside the trust region. Nothing is wrong with the GN model itself.
+- **H2 is what survives eta -> 0**, and it decided the question: the direction is
+  not a descent direction for the population objective at all, so by first-order
+  Taylor no step size and no damping can rescue it.
+- **The pre-registered H1 repair failed its own falsifier.** Damping fixed the
+  local model and simultaneously killed independent-batch descent.
+
+Mechanism: at a converged checkpoint the B=8 GN system carries almost no
+population signal, and `(A + lam I)^{-1}` whitening amplifies precisely the
+small-curvature directions that only those 8 images constrain — a further 36x
+alignment loss. **FBGN removes 66-74% of its own batch's residual while retaining
+0.1% of the population gradient direction.** Certification makes this worse, not
+better. That is the whole reconciliation of "100% Armijo acceptance + monotone
+same-batch reduction" with "monotone probe damage": both true, about different
+objectives.
+
+Report: `projects/masked-EqM/documentation/wfb-eqm-stage3a-report-2026-08-13.md`.
+Open branch: Stage 3B (job 39024136) tests whether `C(B) = cos(g_B, g_ref)` rises
+faster than the sqrt(B) of pure noise-averaging. ~0.5 or below fires the
+pre-registered KILL and the thread is written up as a negative result.
+
 ## Load-bearing gotchas
 
 - **The probe is deterministic** — `build_pool` freezes `(xt, t, y, ut)` once
@@ -90,6 +127,17 @@ no step size and no damping can rescue an ascent direction.
 - `exact_field_vjp` negates the WHOLE accumulated `.grad` buffer, so a
   multi-batch gradient must harvest and sum per batch; naive accumulation across
   calls double-negates earlier batches.
+- **Never read the FBGN mechanism off `fbgn100`/`fbgn300`.** `||g_V||` is
+  74.6/192.2 there (vs 1.204 at `start`) and the raw-direct `C_V` is 0.98/0.88 —
+  the model is broken enough that almost anything descends, so their apparent
+  H1 signature measures distance-from-optimum, not mechanism. Only the checkpoint
+  a failure BEGAN from can explain it.
+- **A large reduction ratio `R_B` at a large step is not evidence of anything**,
+  and neither is 100% Armijo acceptance: at `eta*` here `R_B = -10.685` while
+  Armijo accepted every step for 300 steps.
+- **CG's own reported residual understated the true one ~1.9x** (0.0086 vs
+  0.0159). Always recompute `||r - (A + lam I)u|| / ||r||` from a fresh operator
+  application before calling a direction certified.
 
 Full write-up: `projects/masked-EqM/documentation/wfb-eqm-stage3-audit-2026-08-13.md`.
 Superseded interpretation: `documentation/wfb-eqm-stage3-postmortem-2026-08-13.md`.
