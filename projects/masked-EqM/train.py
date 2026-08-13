@@ -40,6 +40,14 @@ from fb_direct.exact_hvp import (
     compute_wfb_gradient,
 )
 from fb_direct.adaptive_clip import adaptive_clip_update, adaptive_clip_threshold
+from experiments.btm.fd import assert_no_double_backward
+from experiments.btm.image_losses import (
+    BTM_FD_MODES,
+    BTM_MODES,
+    BTMConfig,
+    btm_eval_target_match,
+    btm_loss,
+)
 from torchvision import datasets, transforms, models
 import matplotlib.pyplot as plt
 from sklearn.metrics import roc_auc_score
@@ -262,6 +270,20 @@ def main(args):
         structured_mask_weight=args.structured_mask_weight,
     )  # default: velocity;
     transport_sampler = Sampler(transport)
+    btm_cfg = None
+    if args.btm_mode is not None:
+        btm_cfg = BTMConfig(
+            mode=args.btm_mode,
+            interpolant=args.btm_interpolant,
+            tc=args.btm_tc,
+            kappa=args.btm_kappa,
+            fd_eps=args.fd_eps,
+            fd_k=args.fd_k,
+            fd_direction=args.fd_direction,
+            energy_difference_fp32=args.energy_difference_fp32,
+            fd_chunk=args.fd_chunk,
+        )
+        logger.info(f"BTM arm active: {btm_cfg}")
     vae = AutoencoderKL.from_pretrained(f"stabilityai/sd-vae-ft-{args.vae}").to(device)
     logger.info(f"EqM Parameters: {sum(p.numel() for p in model.parameters()):,}")
 
@@ -351,6 +373,14 @@ def main(args):
     def probe_field(raw_model):
         was_training = raw_model.training
         raw_model.eval()
+        if args.ebm == 'none':
+            # Vector arms have no scalar energy to differentiate; the probe
+            # field is the network output itself.  (Needed by --btm-mode
+            # btm_vector, which is the corrected-BTM gold-standard baseline.)
+            with torch.no_grad():
+                out = raw_model(probe_xt.detach(), probe_t, probe_y).detach()
+            raw_model.train(was_training)
+            return out
         z = probe_xt.detach().clone().requires_grad_(True)
         E = raw_model(z, probe_t, probe_y, energy_only=True)
         g = torch.autograd.grad(E.sum(), z, create_graph=False)[0].detach()
@@ -488,6 +518,25 @@ def main(args):
                 loss = torch.tensor(
                     wfb_result["r_norm"] ** 2 / wfb_result["r"].numel(), device=device,
                 )
+            elif args.btm_mode is not None:
+                # Corrected Beckmann-Transport-Model arm.  The ONLY thing that
+                # differs from the branch below is the (interpolant, target)
+                # pair and, for the FD arms, that the parameter gradient is
+                # obtained from scalar energy evaluations rather than from a
+                # create_graph=True input-gradient graph.  Optimizer, clipping,
+                # EMA, logging, checkpointing and DDP are shared verbatim.
+                loss, btm_stats = btm_loss(
+                    model, model.module, btm_cfg, transport, x, y,
+                )
+                opt.zero_grad()
+                if args.btm_mode in BTM_FD_MODES:
+                    # The backward runs inside the guard too, so the invariant
+                    # "no mixed d_theta d_x phi anywhere in this training step"
+                    # covers the whole step, not just loss construction.
+                    with assert_no_double_backward():
+                        loss.backward()
+                else:
+                    loss.backward()
             else:
                 model_kwargs = dict(y=y, return_act=args.disp, train=True)
                 loss_dict = transport.training_losses(model, x, model_kwargs)
@@ -612,6 +661,25 @@ def main(args):
                     # arm still learning"), and cos(field update, -residual) on that same probe
                     # (the field should keep moving toward reducing the residual even if the
                     # parameter-space gradient looks totally different under WFB).
+                    if btm_cfg is not None:
+                        record["btm_mode"] = btm_cfg.mode
+                        record["btm_tc"] = btm_cfg.tc
+                        record.update(btm_stats)
+                        if args.btm_eval_every > 0 and \
+                                (train_steps + 1) % args.btm_eval_every == 0:
+                            # EVALUATION ONLY: exact grad_x phi vs the BTM
+                            # target on the fixed probe batch.  This is how we
+                            # find out whether an FD-trained potential learns
+                            # the same conservative field the exact arm does.
+                            was_training = model.module.training
+                            model.module.eval()
+                            try:
+                                if btm_cfg.mode != "btm_vector":
+                                    record.update(btm_eval_target_match(
+                                        model.module, btm_cfg, transport,
+                                        _probe_x1, probe_y))
+                            finally:
+                                model.module.train(was_training)
                     field_pre = probe_field(model.module)
                     probe_r = field_pre - probe_ut
                     probe_loss_pre = float(mean_flat((field_pre - probe_ut) ** 2).mean())
@@ -1122,6 +1190,51 @@ if __name__ == "__main__":
              "scale) being stale for the new gradient geometry. Off by default.",
     )
 
+    # ---------------- corrected-BTM arms (arXiv:2608.01692v2) ----------------
+    # See documentation/btm-fd-scalar-plan-2026-08-13.md.  These replace the
+    # sampling target only; they reuse the entire training stack below.
+    parser.add_argument(
+        "--btm-mode", type=str, default=None,
+        choices=list(BTM_MODES),
+        help="train a corrected Beckmann-Transport-Model arm instead of the "
+             "legacy EqM target. 'btm_vector' requires --ebm none; every "
+             "scalar arm requires --ebm direct. The FD arms "
+             "(btm_scalar_fd_*) train the scalar potential using ONLY scalar "
+             "energy evaluations -- no create_graph=True input-gradient path, "
+             "enforced at runtime by fd.assert_no_double_backward().",
+    )
+    parser.add_argument(
+        "--btm-interpolant", type=str, default="self_stopping",
+        choices=["self_stopping", "linear", "eqm_legacy"],
+        help="BTM interpolant. 'self_stopping' is the paper's Appendix-H "
+             "piecewise choice (Idot_1 = 0); 'eqm_legacy' reproduces the "
+             "inconsistent eq.(16) target as a negative control.",
+    )
+    parser.add_argument("--btm-tc", type=float, default=0.8,
+                        help="breakpoint of the self-stopping interpolant; the "
+                             "paper does not publish a value for its image "
+                             "experiments, so this is swept on the toy first")
+    parser.add_argument("--btm-kappa", type=float, default=0.8,
+                        help="(--btm-interpolant eqm_legacy) c_t = (1-t)^kappa")
+    parser.add_argument("--fd-eps", type=float, default=1e-3,
+                        help="relative FD step: h = fd_eps * ||z||_2")
+    parser.add_argument("--fd-k", type=int, default=1,
+                        help="number of FD probe directions per sample")
+    parser.add_argument("--fd-direction", type=str, default="rademacher",
+                        choices=["rademacher"],
+                        help="FD probe distribution (E[u u^T] = I/d)")
+    parser.add_argument("--fd-chunk", type=int, default=None,
+                        help="max rows per forward call for the 2KB FD batch")
+    parser.add_argument(
+        "--energy-difference-fp32", type=lambda s: str(s).lower() not in
+        ("0", "false", "no"), default=True,
+        help="promote low-precision energy evaluations to fp32 before the "
+             "cancellation-prone FD subtraction (never demotes fp64)",
+    )
+    parser.add_argument("--btm-eval-every", type=int, default=0,
+                        help="evaluate exact grad_x phi vs the BTM target on a "
+                             "held-out batch every N steps (0 disables)")
+
     parse_transport_args(parser)
     args = parser.parse_args()
     if args.grad_log_every < 0:
@@ -1164,6 +1277,28 @@ if __name__ == "__main__":
         parser.error("--wfb-rho must be positive")
     if args.wfb_alpha < 0:
         parser.error("--wfb-alpha must be >= 0 (0=direct, 0.5=WFB, 1=FBGN)")
+    if args.btm_mode is not None:
+        if args.btm_mode == "btm_vector" and args.ebm != "none":
+            parser.error("--btm-mode btm_vector requires --ebm none "
+                         "(it trains an unconstrained vector field)")
+        if args.btm_mode != "btm_vector" and args.ebm != "direct":
+            parser.error(f"--btm-mode {args.btm_mode} requires --ebm direct "
+                         "(scalar energy head)")
+        if args.exact_fwrev or args.wfb_backward:
+            parser.error("--btm-mode is a self-contained training branch and "
+                         "is mutually exclusive with --exact-fwrev/--wfb-backward")
+        if args.disp:
+            parser.error("--btm-mode does not support --disp")
+        if args.fd_k < 1:
+            parser.error("--fd-k must be >= 1")
+        if args.fd_eps <= 0:
+            parser.error("--fd-eps must be positive")
+        if not 0.0 < args.btm_tc < 1.0:
+            parser.error("--btm-tc must lie in (0, 1)")
+    else:
+        for flag, default in (("fd_eps", 1e-3), ("fd_k", 1)):
+            if getattr(args, flag) != default:
+                parser.error(f"--{flag.replace('_','-')} requires --btm-mode")
     if args.reset_adam_state and args.ckpt is None:
         parser.error("--reset-adam-state has no effect without --ckpt (no loaded optimizer state to reset)")
     args.save_epochs = None if args.save_epochs is None else {
