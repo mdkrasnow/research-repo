@@ -42,17 +42,17 @@
       "gate": "probe-loss trajectory over 300 steps, compared against WFB's -- does WFB's preconditioning beat the raw-direction floor under identical globalization"
     },
     {
-      "run_id": "wfb_stage3_smoke_alpha1p0_cg",
-      "job_id": "38905464",
+      "run_id": "wfb_stage3_full_alpha1p0_cg",
+      "job_id": "38909657",
       "partition": "seas_gpu",
       "status": "pending",
-      "description": "Stage 3 smoke (20 steps): alpha=1.0 FBGN via CG adaptive-tolerance solve (--solver cg, cg_tol=1e-3), replacing the fixed-k=96 Lanczos path that showed decisive failure in job 38900551. Submitted to seas_gpu (gpu_test slots occupied by the two 300-step full runs).",
+      "description": "Stage 3 FULL run (300 steps): alpha=1.0 FBGN via CG adaptive-tolerance solve (cg_tol=1e-3) -- corrected third arm alongside WFB (38903397) and direct (38904393), same seed/checkpoint. Smoke (38905464) passed with 0 skips of any kind.",
       "submitted_at": "2026-08-13",
       "git_sha": "b1d6afe",
       "sbatch_path": "projects/masked-EqM/slurm/jobs/wfb_stage3_lm_trainer_seasgpu.sbatch",
-      "expected_runtime": "~15-20min (20 steps, CG converges in ~15 iters vs Lanczos's 96 -- should be faster than the Lanczos-based smoke)",
+      "expected_runtime": "~5-9h (300 steps, CG iters variable per batch, smoke averaged ~55s/step)",
       "phase": "3",
-      "gate": "smoke pass (no crash, finite losses, no theoretically-impossible not_descent_direction skips) before full CG-FBGN 300-step run"
+      "gate": "probe-loss trajectory over 300 steps vs WFB and direct arms"
     }
   ],
   "completed_runs": [
@@ -13407,6 +13407,22 @@
       "exit_code": 0,
       "final_metric": [
         "DECISIVE NEGATIVE: probe_loss 10.767->19.762 (+8.995) over 20 steps -- ~33x worse than WFB's +0.269 and ~97x worse than direct's +0.093 over the same 20 steps. accept_rate=0.85 (3/20 steps hit skip_reason=not_descent_direction, i.e. r.q_alpha<=0 -- THEORETICALLY IMPOSSIBLE in exact arithmetic since A(A+lambda I)^{-1} is PSD; direct evidence that k=96 Lanczos truncation error is still large enough on some batches to flip this sign, consistent with Stage 2.6a's finding that k=96 field-gain medians (0.69-0.70) were not yet fully converged). Matches Stage 2.6b's massively-negative rho finding for FBGN's own eta_star. DECISION: do NOT launch a full 300-step FBGN run at k=96 -- this diagnostic already shows severe, consistent failure (2.6b rho + this smoke's probe-loss blowup), and burning ~5-6 GPU-hours on it would not be testing the FBGN GEOMETRY fairly, only its current truncated (k=96) approximation. FBGN is BLOCKED pending the adaptive-tolerance CG solve (the reviewer's original Stage 2.6 proposal: solve (A+lambda I)u=r via CG to a residual tolerance ||rho||/||r|| < ~1e-2, not a fixed k) -- redirecting overnight compute to WFB (already running, 300 steps) and alpha=0/direct (negative control, launching now) instead, per Maximum-1-retune-per-failing-direction discipline."
+      ]
+    },
+    {
+      "run_id": "wfb_stage3_smoke_alpha1p0_cg",
+      "job_id": "38905464",
+      "partition": "seas_gpu",
+      "status": "completed",
+      "description": "Stage 3 smoke (20 steps): alpha=1.0 FBGN via CG adaptive-tolerance solve (cg_tol=1e-3)",
+      "submitted_at": "2026-08-13",
+      "git_sha": "b1d6afe",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/wfb_stage3_lm_trainer_seasgpu.sbatch",
+      "phase": "3",
+      "gate": "smoke pass before full CG-FBGN run",
+      "exit_code": 0,
+      "final_metric": [
+        "MECHANISM FIXED: accept_rate=1.0, ZERO skips of any kind (0 not_descent_direction, 0 backtrack_exhausted) across all 20 steps -- vs the Lanczos-k=96 smoke's 0.85 accept rate with 3 theoretically-impossible not_descent_direction failures. probe_loss 10.767->14.460 (+3.693) -- ~2.4x BETTER than Lanczos-FBGN's +8.995, though still worse than WFB's +0.269 and direct's +0.093 at this smoke length (consistent with the established high batch-to-batch noise floor at n=20 steps, not necessarily the 300-step trend). Per-step wall time variable (~40-100s, CG iteration count varies per batch, unlike Lanczos's fixed k=96 cost) but total wall 1097s, comparable to the Lanczos smoke's 1269s. DECISION: smoke PASS -- launching full 300-step CG-FBGN run as the corrected third arm alongside WFB (38903397) and direct (38904393)."
       ]
     }
   ],
