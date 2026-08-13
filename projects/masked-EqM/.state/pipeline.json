@@ -29,17 +29,17 @@
       "gate": "does WFB or FBGN dominate at the OPTIMAL step size, with rho close to 1 confirming local linearization validity"
     },
     {
-      "run_id": "wfb_stage3_smoke_alpha0p0",
-      "job_id": "38893227",
+      "run_id": "wfb_stage3_smoke_alpha0p5",
+      "job_id": "38899724",
       "partition": "gpu_test",
       "status": "running",
-      "description": "Stage 3 smoke test (20 steps): alpha=0.0 direct/negative-control, no-Adam Armijo backtracking trainer -- confirm no crashes/finite losses before full 300-step run",
+      "description": "Stage 3 smoke (20 steps): alpha=0.5 WFB, no-Adam Armijo backtracking trainer",
       "submitted_at": "2026-08-13",
-      "git_sha": "96acd6e",
+      "git_sha": "7bc4e9d",
       "sbatch_path": "projects/masked-EqM/slurm/jobs/wfb_stage3_lm_trainer.sbatch",
-      "expected_runtime": "~20-30min (20 steps, k=96)",
+      "expected_runtime": "~20-25min (20 steps, k=96)",
       "phase": "3",
-      "gate": "smoke pass (no crash, finite losses) before full 300-step 3-arm run"
+      "gate": "smoke pass before full 300-step run"
     }
   ],
   "completed_runs": [
@@ -13335,6 +13335,20 @@
         "Field-gain median vs k -- spike: k12=2.80 k24=1.56 k48=0.78 k96=0.69; control: k12=3.61 k24=2.19 k48=1.00 k96=0.70. k=12 medians reproduce Stage 2.5's 2.83/3.41 almost exactly, confirming k=12 truncation (not a bound violation) as the cause; gain collapses toward <=1 by k=96 on both. Loose certificate gain<=1+rho/r NEVER violated (certificate_violations=0 at every k, all 8 batches). CAVEAT (unresolved): the tighter identity rho_m=-ell_m, exact to 1e-8 on the fp64 CPU synthetic test, does NOT hold tightly on the real fp32 GPU model -- identity_err stays 35-280 vs r_norm~500-600 (~20-45% relative) and GROWS with k rather than shrinking. Leading hypothesis (unverified): lambda_max here is huge (4-8e5, condition number 1e3-1e4), and single-reorthogonalization Lanczos in fp32 is known to lose orthogonality under this spectral spread at k~50-100, breaking the Q_m^T Q_m=I assumption the rho=-ell derivation needs -- without necessarily invalidating the independently-measured field-gain trend (read off a real re-application of A, not recurrence byproducts). Needs explicit ||Q^T Q - I|| reporting at large k to confirm before treating this as settled."
       ],
       "out_json": "--out write failed (holylabs disk quota, known recurring issue) -- full data recovered from stdout/log (wfb_stage2_6_residual_certificate_38724217.log)"
+    },
+    {
+      "run_id": "wfb_stage3_smoke_alpha0p0",
+      "job_id": "38893227",
+      "partition": "gpu_test",
+      "status": "completed",
+      "description": "Stage 3 smoke (20 steps): alpha=0.0 direct/negative-control, no-Adam Armijo backtracking trainer",
+      "submitted_at": "2026-08-13",
+      "git_sha": "96acd6e",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/wfb_stage3_lm_trainer.sbatch",
+      "phase": "3",
+      "gate": "smoke pass before full 300-step run",
+      "exit_code": 0,
+      "final_metric": "accept_rate=1.0 (n_bt=0 every step -- eta_star itself tiny, eta_used~2.6e-06), SAME-batch loss decreased every step (Armijo satisfied trivially), but HELD-OUT probe loss got WORSE (10.767->10.860, +0.093) over 20 steps. Expected negative-control signature: raw/direct's locally-accepted step does not generalize -- consistent with its known unbounded per-mode field-update conditioning making the step overfit to the single training batch. Smoke PASS (no crash, finite losses); proceeding to alpha=0.5/1.0 smokes."
     }
   ],
   "debugging_notes": [
