@@ -1205,6 +1205,163 @@ def compute_fbgn_gradient_cg(model, xt, t, y, ut, params=None, rho=1e-4, cg_tol=
     }
 
 
+# ---------------------------------------------------------------------------
+# Microbatched (stacked) Gauss-Newton operator
+# ---------------------------------------------------------------------------
+#
+# WHY THIS EXISTS (2026-08-13, Stage 3A/3B). Every FBGN direction so far was
+# built from a single minibatch of 8 images, and the Stage 3 audit raised the
+# hypothesis (H2) that FBGN solves ITS OWN batch's local problem correctly while
+# that problem is simply the wrong one -- in which case no step size and no
+# damping can help, and the only repair is a LARGER stochastic model.
+#
+# Enlarging the GN model batch is NOT the same as solving several GN systems and
+# averaging their parameter directions. The correct object stacks the residuals
+# of J microbatches into one field-space vector and solves ONE shifted system
+# against the stacked operator:
+#
+#     r     = [r_1; ...; r_J]                 (stacked residual)
+#     M p   = [M_1 p; ...; M_J p]             (block-column JVP)
+#     M^T v = sum_j M_j^T v_j                 (block-row VJP -- a SUM, because
+#                                              every block shares one theta)
+#     A v   = M M^T v = [M_1 (sum_j M_j^T v_j); ...; M_J (sum_j M_j^T v_j)]
+#
+# Note A is emphatically NOT block-diagonal: the coupling through the shared
+# theta in `sum_j M_j^T v_j` is exactly the cross-microbatch information that
+# averaging J independent solves throws away. Averaging J solves of
+# (A_j + lambda I) u_j = r_j computes sum_j M_j^T (A_j+lambda I)^{-1} r_j, which
+# is a DIFFERENT operator (it inverts each block separately, ignoring the
+# cross-terms) and would have to be labelled as a different algorithm.
+#
+# Implementation note: all microbatches share a shape, so a stacked field-space
+# vector is just a tensor with the J microbatches concatenated along dim 0. That
+# lets the existing, already-validated _cg_solve_shifted_system_generic and
+# _estimate_lambda_max_generic be reused verbatim -- they only ever need
+# gram_mv_fn, a dot product and a norm, all of which are the ordinary tensor
+# operations on the concatenated representation.
+
+def stacked_mixed_gram_mv(model, micro_batches, params, v):
+    """A v for the STACKED operator A = M M^T over `micro_batches`.
+
+    `micro_batches` is a list of (xt, t, y) triples, all of the same shape.
+    `v` is a stacked field-space tensor of shape (J*B, C, H, W) whose j-th chunk
+    corresponds to micro_batches[j]. Returns A v with the same stacked shape.
+
+    Cost: J VJPs + J JVPs per application (vs 1 + 1 for the single-batch
+    operator), i.e. the stacked solve is ~J times more expensive per CG
+    iteration -- that is the true price of the larger stochastic model.
+    """
+    params = list(params)
+    J = len(micro_batches)
+    chunks = torch.chunk(v, J, dim=0)
+    if len(chunks) != J:
+        raise ValueError(f"stacked_mixed_gram_mv: v's dim-0 size {v.shape[0]} is not divisible into "
+                         f"{J} equal microbatch chunks")
+
+    # M^T v = sum_j M_j^T v_j  -- the SUM is what couples the microbatches
+    # through the shared theta. Harvested per batch and summed manually because
+    # exact_field_vjp negates the WHOLE accumulated .grad buffer (accumulating
+    # across calls would re-negate earlier terms).
+    Mtv = [torch.zeros_like(p) for p in params]
+    for (xt, t, y), vj in zip(micro_batches, chunks):
+        model.zero_grad(set_to_none=True)
+        exact_field_vjp(model, xt, t, y, vj.contiguous())
+        for acc, p in zip(Mtv, params):
+            if p.grad is not None:
+                acc.add_(p.grad.detach())
+    model.zero_grad(set_to_none=True)
+
+    # M (M^T v) = [M_1 Mtv; ...; M_J Mtv]
+    out = [field_jvp_direct(model, xt, t, y, params, Mtv) for (xt, t, y) in micro_batches]
+    return torch.cat(out, dim=0).detach()
+
+
+def stacked_estimate_lambda_max(model, micro_batches, params, num_iters=20, seed=0, tol=1e-3):
+    """Top eigenvalue of the STACKED A = M M^T, via the same power iteration."""
+    xt0 = micro_batches[0][0]
+    J = len(micro_batches)
+    gen = torch.Generator(device="cpu")
+    gen.manual_seed(seed)
+    shape = (xt0.shape[0] * J,) + tuple(xt0.shape[1:])
+    v0 = torch.randn(shape, generator=gen).to(xt0.device, xt0.dtype)
+    return _estimate_lambda_max_generic(
+        lambda v: stacked_mixed_gram_mv(model, micro_batches, params, v), v0,
+        num_iters=num_iters, tol=tol)
+
+
+def compute_fbgn_gradient_cg_microbatched(model, micro_batches, params=None, rho=1e-4,
+                                          cg_tol=1e-2, cg_max_iters=200,
+                                          lambda_max_num_iters=20, seed=0, lam_override=None):
+    """FBGN over a model batch assembled from J microbatches, solved as ONE
+    stacked system (see the block comment above for why this is not the same as
+    averaging J separate solves).
+
+    `micro_batches`: list of (xt, t, y, ut) tuples, all the same shape.
+    Returns the same contract as compute_fbgn_gradient_cg, plus `n_micro` and
+    the stacked `r`.
+    """
+    params_in = list(params) if params is not None else list(model.parameters())
+    params = [p for p in params_in if p.requires_grad]
+    if not params:
+        raise RuntimeError("compute_fbgn_gradient_cg_microbatched: no trainable parameters")
+    if not micro_batches:
+        raise ValueError("compute_fbgn_gradient_cg_microbatched: micro_batches is empty")
+
+    triples = [(xt, t, y) for (xt, t, y, _) in micro_batches]
+
+    r_parts = []
+    for (xt, t, y, ut) in micro_batches:
+        model.zero_grad(set_to_none=True)
+        field = compute_field_direct(model, xt, t, y)
+        r_parts.append((field - ut).detach())
+    r = torch.cat(r_parts, dim=0)
+    if not torch.isfinite(r).all():
+        raise RuntimeError("compute_fbgn_gradient_cg_microbatched: stacked residual is non-finite")
+    r_norm = float(r.norm())
+
+    lam_result = stacked_estimate_lambda_max(model, triples, params,
+                                             num_iters=lambda_max_num_iters, seed=seed)
+    lambda_max = lam_result["lambda_max"]
+    lam = rho * lambda_max if lam_override is None else lam_override
+
+    cg = _cg_solve_shifted_system_generic(
+        lambda v: stacked_mixed_gram_mv(model, triples, params, v), r, lam,
+        tol=cg_tol, max_iters=cg_max_iters)
+    u = cg["u"]
+    if u is None or not torch.isfinite(u).all():
+        raise RuntimeError("compute_fbgn_gradient_cg_microbatched: CG produced a non-finite/absent u")
+
+    # g = M^T u = sum_j M_j^T u_j
+    J = len(triples)
+    u_chunks = torch.chunk(u, J, dim=0)
+    g_wfb = [torch.zeros_like(p) for p in params]
+    for (xt, t, y), uj in zip(triples, u_chunks):
+        model.zero_grad(set_to_none=True)
+        exact_field_vjp(model, xt, t, y, uj.contiguous())
+        for acc, p in zip(g_wfb, params):
+            if p.grad is not None:
+                acc.add_(p.grad.detach())
+    model.zero_grad(set_to_none=True)
+    g_wfb_norm = sum(float((gp ** 2).sum()) for gp in g_wfb) ** 0.5
+
+    return {
+        "params": params, "n_micro": J,
+        "g_wfb": g_wfb, "g_wfb_norm": g_wfb_norm,
+        # u is returned so callers can recompute the TRUE residual
+        # ||r - (A + lam I)u|| / ||r|| from a fresh operator application, rather than
+        # trusting CG's recursively-updated residual (which drifts).
+        "u": cg["u"],
+        "r": r, "r_norm": r_norm,
+        "lambda_max": lambda_max, "lambda_max_history": lam_result["history"], "lam": lam,
+        "alpha": 1.0,
+        "cg_n_iters": cg["n_iters"], "cg_converged": cg["converged"],
+        "cg_final_residual_ratio": cg["final_residual_ratio"],
+        "breakdown": cg["breakdown"] and cg["breakdown_reason"] not in ("max_iters_exceeded_without_tol",),
+        "breakdown_reason": cg["breakdown_reason"],
+    }
+
+
+
 def _lanczos_inv_sqrt_apply_generic(gram_mv_fn, r, lam, k=8, reorth=True, eps=1e-10):
     """alpha=1/2 (WFB) specialization of _lanczos_inv_pow_apply_generic, kept
     as a thin named wrapper for backward compatibility with existing
