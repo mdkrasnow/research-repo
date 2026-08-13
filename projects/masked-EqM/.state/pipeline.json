@@ -16,17 +16,17 @@
   ],
   "active_runs": [
     {
-      "run_id": "wfb_stage3b_bscan",
-      "job_id": "39024136",
+      "run_id": "wfb_stage3b_bscan_retry",
+      "job_id": "39030308",
       "partition": "gpu_test",
       "status": "pending",
-      "description": "Stage 3B batch-size discriminator for H2. Gradient-only scan of C(B)=cos(g_B,g_ref) at the start checkpoint for B in {8,16,32,64,128}, n_rep=8, g_ref over 256 independent examples, plus a stacked-GN arm at B_model=32 (ONE stacked solve, not an average of 4 solves). Tests the Stage 3A mechanism's sharp prediction: if B=8 is merely signal-starved, C(B) must rise FASTER than the sqrt(B) of pure noise-averaging. No training, no optimizer, apply/evaluate/revert only.",
+      "description": "Stage 3B batch-size discriminator for H2, resubmit of 39024136 with the dense-Jacobian test bounded to a small parameter subset. Gradient-only scan of C(B)=cos(g_B,g_ref) at the start checkpoint for B in {8,16,32,64,128}, n_rep=8, g_ref over 256 independent examples, plus a stacked-GN arm at B_model=32 (ONE stacked solve).",
       "submitted_at": "2026-08-13",
-      "git_sha": "30037a1",
+      "git_sha": "9bb9ffe",
       "sbatch_path": "projects/masked-EqM/slurm/jobs/wfb_stage3b_batchsize.sbatch",
       "expected_runtime": "~2-4h",
       "phase": "3",
-      "gate": "Pre-registered: measured exponent > 0.65 -> batch size is a real lever, proceed to the Stage 3C 50-step causal test at the smallest sufficient B. Exponent ~0.5 or below -> pure noise-averaging, minibatch and population objectives are decoupled at this checkpoint at every affordable B, and the Stage 3B/3C KILL condition fires. Neither branch authorizes a 300-step run."
+      "gate": "Pre-registered: measured exponent > 0.65 -> batch size is a real lever, proceed to the Stage 3C 50-step causal test. Exponent ~0.5 or below -> pure noise-averaging and the Stage 3B/3C KILL condition fires. Neither branch authorizes a 300-step run."
     }
   ],
   "completed_runs": [
@@ -13498,6 +13498,20 @@
       "final_metric": "start ckpt: FBGN C_V=0.00108 (vs raw-direct 0.0395), d_V descent 4/8, 8/8 trust batches worsen at eta*/8 (+0.063, ~4sigma); R_B -10.685 -> +0.910 and D_B 3.397 -> 0.459 as eta -> eta*/8; damping (10x/100x lam) drove C_V NEGATIVE. Verdict: H2 (stochastic over-solving) is causal; H1 is a trust-region artifact and its pre-registered repair FAILED its falsifier.",
       "duration": "01:08:54",
       "report": "projects/masked-EqM/documentation/wfb-eqm-stage3a-report-2026-08-13.md"
+    },
+    {
+      "run_id": "wfb_stage3b_bscan",
+      "job_id": "39024136",
+      "partition": "gpu_test",
+      "status": "failed",
+      "description": "Stage 3B batch-size discriminator for H2. Gradient-only scan of C(B)=cos(g_B,g_ref) at the start checkpoint for B in {8,16,32,64,128}, n_rep=8, g_ref over 256 independent examples, plus a stacked-GN arm at B_model=32 (ONE stacked solve, not an average of 4 solves). Tests the Stage 3A mechanism's sharp prediction: if B=8 is merely signal-starved, C(B) must rise FASTER than the sqrt(B) of pure noise-averaging. No training, no optimizer, apply/evaluate/revert only.",
+      "submitted_at": "2026-08-13",
+      "git_sha": "30037a1",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/wfb_stage3b_batchsize.sbatch",
+      "expected_runtime": "~2-4h",
+      "phase": "3",
+      "gate": "Pre-registered: measured exponent > 0.65 -> batch size is a real lever, proceed to the Stage 3C 50-step causal test at the smallest sufficient B. Exponent ~0.5 or below -> pure noise-averaging, minibatch and population objectives are decoupled at this checkpoint at every affordable B, and the Stage 3B/3C KILL condition fires. Neither branch authorizes a 300-step run.",
+      "error": "oom_kill in the CPU test gate: test_stacked_microbatch_gn.py's _explicit_M materialized a dense M of (192, ~33e6) in FP64 ~ 50 GB, past the job's 64 GB. No GPU work ran; no scientific result lost."
     }
   ],
   "debugging_notes": [
