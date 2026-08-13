@@ -1503,3 +1503,70 @@ this thread" in the prior update draft; wanted that correction visible before an
 framing (paper draft, next PI sync) builds on the superseded read. Next step on this thread is to
 propose a new lever or escalate to a structural fix, informed by this session's Stage A
 top-k-subspace diagnostic once it completes (job 38326556).
+
+## 2026-08-13 — WFB-EqM: FBGN's Lanczos truncation diagnosed and fixed (CG); no-Adam
+Gauss-Newton training (3-arm comparison) in flight (DRAFT, not sent)
+
+**Trigger**: significant pivot (Lanczos -> CG for the FBGN arm) + a from-scratch training
+mechanism (replacing Adam with a theoretically-grounded line search) now running toward its
+first real signal. Not yet a final result -- flagging for visibility given the arc of findings.
+
+**Where this thread stands.** Stage 2's 2x2 factorial (loaded vs reset Adam state, x exact vs
+WFB backward) falsified the simple "WFB just needs a bigger step" hypothesis: matching WFB's
+step size to exact-fwrev's via Adam reset made WFB net WORSE (44% positive-cosine vs 75% loaded),
+while the same reset had no effect on exact-fwrev. The reviewer's account: WFB (`g = M^T(A+lam
+I)^-0.5 r`) bounds the PARAMETER gradient's per-mode gain but leaves the INDUCED FIELD UPDATE
+`M g` still carrying one power of `sigma_i`, unbounded -- Adam's coordinate-wise normalization,
+being geometry-blind, can silently re-inflate exactly the magnitude WFB's raw smallness was
+accidentally suppressing. The proposed fix: FBGN (`alpha=1`, full damped Gauss-Newton), whose
+induced field gain `sigma_i^2/(sigma_i^2+lam)` is bounded in [0,1] for every mode.
+
+**A genuine correctness puzzle, then a clean resolution.** Stage 2.5 measured FBGN's induced
+field gain at 2.83-3.61 on real severe batches -- apparently violating the exact theorem
+`||Mg||/||r|| <= 1`. Traced this to Lanczos truncation: by the three-term recurrence, applying
+the TRUE operator to a k-step-truncated solution leaks a term into the (k+1)-th Krylov
+direction; derived the exact identity `rho_m = -ell_m` (the linear-system residual equals this
+leakage, sign-flipped) and the certificate `||q_m||/||r|| <= 1 + ||rho_m||/||r||` -- confirmed
+to 1e-8 on a synthetic fp64 operator, and confirmed on the REAL model (Stage 2.6a): k=12's
+median gain of 2.80-3.61 collapses to 0.69-0.70 by k=96, exactly as the certificate predicts.
+Not a bug -- a genuine finite-Krylov-subspace truncation effect, now provably diagnosable rather
+than merely suspicious.
+
+**Stage 2.6b (optimal step size, removing the earlier step-size confound) sharpened the read
+further**: at its own locally-optimal linearized step, WFB's quadratic model is trustworthy
+(rho ~0.66-1.38 across a trust-region bracket); FBGN's is NOT even at k=96 (rho -0.2 to -30,
+same-batch loss sometimes exploding). But neither arm's single locally-optimal step generalizes
+to a held-out probe batch (0% improvement rate for both) -- read as ordinary single-batch
+overfitting (standard for any single Gauss-Newton step), not an alpha-specific problem, since
+the alpha=0 negative control shows the identical pattern.
+
+**Stage 3**: built a from-scratch no-Adam trainer -- Armijo backtracking line search (Nocedal &
+Wright Alg 3.1) directly on `g_alpha`, no momentum, no coordinate-wise rescaling. Three-arm
+20-step smoke (alpha=0 direct as negative control, 0.5 WFB, 1.0 FBGN, k=96 Lanczos): direct and
+WFB behaved reasonably (100% accept, probe-loss deltas +0.09 / +0.27, within this length's noise
+floor); FBGN at k=96 showed 3/20 steps hitting `not_descent_direction` -- a skip condition that
+is THEORETICALLY IMPOSSIBLE in exact arithmetic (`A(A+lam I)^-1` is PSD) -- and its probe loss
+blew up (+8.99), ~33-97x worse than the other two arms. This is k=96 Lanczos truncation, the
+SAME mechanism Stage 2.6a already characterized, now visibly breaking a live training loop, not
+just a diagnostic.
+
+**Fix, same night**: implemented matrix-free CG (Hestenes-Stiefel) for the shifted system
+`(A+lam I)u=r` -- since `A` is PSD and `lam>0`, this is textbook SPD, and CG is an ADAPTIVE-COST,
+exact-tolerance method (stops once the true residual ratio is below a target, e.g. 1e-3) rather
+than a fixed-budget truncation. CPU-validated against a direct solve and full-k Lanczos (both
+rtol<=1e-4); on the real model, converged in 15 iterations to field_gain=0.983 (vs Lanczos-k=12's
+2.83-3.61). Rerunning FBGN's 20-step smoke with CG: 0 skips of ANY kind (vs 3 theoretically-
+impossible ones), probe-loss delta +3.69 -- ~2.4x better than the Lanczos version, mechanism
+fully clean even though still not yet beating WFB/direct at this short length.
+
+**Currently running** (started ~04:50, ETA ~5-9h): all three arms at the full 300 steps, same
+seed/checkpoint, judged on the PROBE-LOSS TRAJECTORY (not any single step, given the established
+batch-to-batch noise floor) per the promotion/kill rules in
+`documentation/wfb-eqm-stage3-proposal-2026-08-13.md`.
+
+**Ask of PI**: no decision needed yet -- results aren't in. Flagging now because (a) the
+Lanczos-truncation mechanism (certificate derivation + CG fix) is a clean, reusable piece of
+numerical-methods work that generalizes beyond this specific experiment, and (b) the "no-Adam
+Gauss-Newton via line search" direction is a bigger swing than the incremental alpha-family work
+so far -- want visibility before it either promotes or gets killed per the pre-registered rule.
+Will follow up with the 300-step result once all three arms complete.
