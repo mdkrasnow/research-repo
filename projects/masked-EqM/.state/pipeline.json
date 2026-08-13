@@ -16,19 +16,6 @@
   ],
   "active_runs": [
     {
-      "run_id": "wfb_stage3_smoke_alpha1p0",
-      "job_id": "38900551",
-      "partition": "gpu_test",
-      "status": "running",
-      "description": "Stage 3 smoke (20 steps): alpha=1.0 FBGN, no-Adam Armijo backtracking trainer",
-      "submitted_at": "2026-08-13",
-      "git_sha": "7bc4e9d",
-      "sbatch_path": "projects/masked-EqM/slurm/jobs/wfb_stage3_lm_trainer.sbatch",
-      "expected_runtime": "~20-25min (20 steps, k=96)",
-      "phase": "3",
-      "gate": "smoke pass before full 300-step run"
-    },
-    {
       "run_id": "wfb_stage3_full_alpha0p5",
       "job_id": "38903397",
       "partition": "gpu_test",
@@ -40,6 +27,19 @@
       "expected_runtime": "~5-6h (300 steps, k=96, ~65s/step)",
       "phase": "3",
       "gate": "probe-loss trajectory over 300 steps: net-negative -> promote; flat/worsening -> kill per proposal doc kill rule"
+    },
+    {
+      "run_id": "wfb_stage3_full_alpha0p0",
+      "job_id": "38904393",
+      "partition": "gpu_test",
+      "status": "running",
+      "description": "Stage 3 FULL run (300 steps): alpha=0.0 direct/negative-control, no-Adam Armijo backtracking trainer -- paired with the WFB full run (38903397, same seed/checkpoint) for the matched comparison. FBGN full run BLOCKED pending CG solve (see completed_runs note on job 38900551).",
+      "submitted_at": "2026-08-13",
+      "git_sha": "7bc4e9d",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/wfb_stage3_lm_trainer.sbatch",
+      "expected_runtime": "~5-6h (300 steps, k=96, ~65s/step)",
+      "phase": "3",
+      "gate": "probe-loss trajectory over 300 steps, compared against WFB's -- does WFB's preconditioning beat the raw-direction floor under identical globalization"
     }
   ],
   "completed_runs": [
@@ -13379,6 +13379,22 @@
       "gate": "smoke pass before full 300-step run",
       "exit_code": 0,
       "final_metric": "accept_rate=1.0, n_bt=0 EVERY step (matches Stage 2.6b: WFB's local model is trustworthy, eta_star accepted on first try every time), same-batch dL consistently -1.0 to -1.9 across all 20 steps. probe_loss WORSENED 10.767->11.036 (+0.269), slightly MORE than alpha=0's +0.093 over the same 20 steps. Read with caution: L_before swings 8.2-12.8 across steps (huge batch-to-batch noise) -- a 20-step probe-loss delta is not a reliable trend signal, only a smoke test (no crash, finite losses, sane step behavior) -- PASS. Real generalization read must come from the 300-step trajectory, not this smoke."
+    },
+    {
+      "run_id": "wfb_stage3_smoke_alpha1p0",
+      "job_id": "38900551",
+      "partition": "gpu_test",
+      "status": "completed",
+      "description": "Stage 3 smoke (20 steps): alpha=1.0 FBGN, no-Adam Armijo backtracking trainer",
+      "submitted_at": "2026-08-13",
+      "git_sha": "7bc4e9d",
+      "sbatch_path": "projects/masked-EqM/slurm/jobs/wfb_stage3_lm_trainer.sbatch",
+      "phase": "3",
+      "gate": "smoke pass before full 300-step run",
+      "exit_code": 0,
+      "final_metric": [
+        "DECISIVE NEGATIVE: probe_loss 10.767->19.762 (+8.995) over 20 steps -- ~33x worse than WFB's +0.269 and ~97x worse than direct's +0.093 over the same 20 steps. accept_rate=0.85 (3/20 steps hit skip_reason=not_descent_direction, i.e. r.q_alpha<=0 -- THEORETICALLY IMPOSSIBLE in exact arithmetic since A(A+lambda I)^{-1} is PSD; direct evidence that k=96 Lanczos truncation error is still large enough on some batches to flip this sign, consistent with Stage 2.6a's finding that k=96 field-gain medians (0.69-0.70) were not yet fully converged). Matches Stage 2.6b's massively-negative rho finding for FBGN's own eta_star. DECISION: do NOT launch a full 300-step FBGN run at k=96 -- this diagnostic already shows severe, consistent failure (2.6b rho + this smoke's probe-loss blowup), and burning ~5-6 GPU-hours on it would not be testing the FBGN GEOMETRY fairly, only its current truncated (k=96) approximation. FBGN is BLOCKED pending the adaptive-tolerance CG solve (the reviewer's original Stage 2.6 proposal: solve (A+lambda I)u=r via CG to a residual tolerance ||rho||/||r|| < ~1e-2, not a fixed k) -- redirecting overnight compute to WFB (already running, 300 steps) and alpha=0/direct (negative control, launching now) instead, per Maximum-1-retune-per-failing-direction discipline."
+      ]
     }
   ],
   "debugging_notes": [
