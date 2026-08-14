@@ -28,16 +28,18 @@ MANIFEST = os.path.join(PROJECT, "results", "btm", "manifest.jsonl")
 
 PHASES = {
     "IIA": dict(epochs=80, max_steps=20000, save_epochs="1",
-                seeds=3, nproc=4, partition="seas_gpu",
+                seeds=1, nproc=4, partition="seas_gpu",
                 arms=("btm_vector", "btm_scalar_exact",
                       "btm_scalar_fd_directional",
                       "btm_scalar_fd_directional4")),
+    # seeds=1 per the 2026-08-14 user decision to skip replicates and decide
+    # from seed 0; conclusions rest on dense within-run trajectories instead.
     "IIB": dict(epochs=15, max_steps=None, save_epochs="1,2,5,10,15",
-                seeds=3, nproc=4, partition="seas_gpu",
+                seeds=1, nproc=4, partition="seas_gpu",
                 arms=("btm_vector", "btm_scalar_exact",
                       "btm_scalar_fd_directional")),
     "IIC": dict(epochs=80, max_steps=None, save_epochs="1,2,5,10,20,40,80",
-                seeds=3, nproc=4, partition="seas_gpu",
+                seeds=1, nproc=4, partition="seas_gpu",
                 arms=("btm_vector", "btm_scalar_exact",
                       "btm_scalar_fd_directional")),
 }
