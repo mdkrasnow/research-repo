@@ -74,15 +74,56 @@ finding about FD: a legacy-trained model is supposed to fail this test.
 
 ---
 
-## 1. Toy stage (Experiment I) — five-atom benchmark
-
-*Pending completion of job 39062340; tables and gate verdict inserted on completion.*
+## 1. Toy stage (Experiment I) — five-atom benchmark: **GATE PASS 6/6**
 
 Frozen `t_c = 0.9` from the stage-1 sweep (worst-arm criterion over
 `{0.5, 0.7, 0.8, 0.9}`; worst-arm mean MAE 0.0111 → 0.0100 → 0.0093 → 0.0080,
 monotone in `t_c`). FD step size frozen at `eps_fd = 3e-3` from the stage-0 calibration
 ladder run at four points along a real training trajectory (eps* stayed 3e-3 from step
 250 to step 6000 — the plateau does not move materially as the toy energy scale grows).
+
+### Table A — toy transport (ring geometry, 10 seeds/arm, 100k fresh x0 per model)
+
+| arm | mass MAE (mean±std) | median | unresolved | R_weak (median) | stable |
+|---|---|---|---|---|---|
+| V vector BTM | 0.0086 ± 0.0039 | 0.0073 | 0.0011 | 0.049 | 10/10 |
+| G scalar exact | 0.0081 ± 0.0030 | 0.0076 | 0.0010 | 0.044 | 10/10 |
+| A action exact | 0.0051 ± 0.0021 | 0.0052 | 0.0009 | 0.042 | 10/10 |
+| **D FD directional (K=1)** | 0.0087 ± 0.0034 | **0.0084** | 0.0010 | 0.059 | 10/10 |
+| F FD action (K=1) | 0.0055 ± 0.0024 | 0.0049 | 0.0010 | 0.043 | 10/10 |
+| — EqM legacy (vector) | 0.0202 ± 0.0053 | 0.0197 | 0.0016 | **0.752** | 10/10 |
+| — EqM legacy (scalar) | 0.0208 ± 0.0053 | 0.0202 | 0.0022 | **0.745** | 10/10 |
+
+For scale, the paper reports BTM 0.005 and EqM 0.102 on its own (unpublished) atom
+coordinates. Our BTM arms land at 0.005–0.009, matching its BTM figure. Our legacy
+control is milder than its 0.102 — the ring geometry is symmetric, which cancels much of
+the schedule-induced reweighting — but it is still 2.4–2.7× worse than every BTM arm,
+and on the **weak conservation residual it is ~15× worse** (0.75 vs 0.04–0.06).
+
+The residual is the sharper discriminator, and it is the more meaningful one: it
+measures, in our own harness, the paper's §2.7 claim that the `c_t`-scaled target does
+not enforce `div(nu b) = mu0 - mu1`. Mass MAE depends on benchmark geometry; the
+divergence-equation violation does not.
+
+### Pre-registered gate for Arm D — all six conditions
+
+| # | condition | result |
+|---|---|---|
+| 1 | FD estimator numerically validated | PASS — calibration ladder, plateau chosen not minimum h |
+| 2 | stable across seeds | PASS — 10/10 |
+| 3 | `MAE_D <= max(0.015, 2*MAE_V)` | PASS — 0.0084 ≤ 0.015 |
+| 4 | decisively beats legacy-EqM control | PASS — 2.34× (needs > 2×) |
+| 5 | no mixed input–parameter derivative | PASS — guard, with Arm G as positive control |
+| 6 | exact field transports to the right modes | PASS — unresolved 0.0010 |
+
+### Interpretation: Outcome A of the pre-registered decision table
+
+V, G **and** D all succeed. The corrected BTM target is what does the work: *every*
+scalar arm, exact or finite-difference, reaches vector-BTM transport quality, while both
+legacy controls fail. Finite differences are **viable** at this scale but are **not
+required** for it — the toy cannot separate G from D on stability because **G does not
+destabilize here**. The late-training pathology is an image-scale phenomenon, and
+separating G from D on it is the entire purpose of Experiment II.
 
 ---
 
@@ -114,6 +155,29 @@ ladder run at four points along a real training trajectory (eps* stayed 3e-3 fro
 Stage 3A already decided the mechanism: at the healthy start checkpoint the certified
 CG-Gauss-Newton direction has `C_V = 0.00108` with the independent-batch gradient and is
 an ascent direction on 4/8 batches — `eta`-independent, so no step size and no damping
-can rescue it. The pre-registered damping repair failed its own falsifier. Stage 3B
-(job 39064005) is running purely to attach a measured `C(B)` exponent to the write-up.
-No further FBGN compute is authorized beyond it.
+can rescue it. The pre-registered damping repair failed its own falsifier. Stage 3B (job 39064005) has now run, and **the thread closes as a negative result.**
+
+Measured `C(B) = cos(g_B, g_ref)` at the start checkpoint, n=8 reps per B:
+
+| B | 8 | 16 | 32 | 64 | 128 |
+|---|---|---|---|---|---|
+| mean | +0.005 | +0.166 | +0.231 | **−0.033** | +0.089 |
+| SD | 0.040 | 0.053 | 0.077 | 0.102 | 0.070 |
+| z vs 0 | +0.4 | +8.8 | +8.5 | −0.9 | +3.6 |
+
+The script printed `C(B) ~ B^0.784 ... exponent materially ABOVE 1/2: batch size is a
+real lever`. **That conclusion is not supported and is not adopted.** `R^2 = 0.286`, and
+the series is non-monotonic: `B=32 -> B=64` is a **5.9-sigma decrease** with a negative
+mean at B=64. A monotone increasing `C(B)` is rejected by that single comparison, so the
+fitted exponent summarizes a model the data reject rather than measuring a scaling law.
+The pre-registered threshold (`exponent > 0.65`) nominally passes, but its precondition
+— that `C(B)` follows a power law — is violated, so it cannot be read as a pass.
+
+This is the same failure mode already recorded for this thread ("a large reduction ratio
+`R_B` at a large step is not evidence of anything"): a canned interpretation string
+applied to a statistic whose preconditions were never checked.
+
+Honest read: alignment with the population gradient stays small (≤ 0.23) and
+draw-noise-dominated at every affordable B. Arm 2 (stacked GN at `B_model=32`) crashed
+on an empty micro-batch list and is deliberately **not** being fixed — it was contingent
+on arm 1 establishing the lever. No further FBGN compute is authorized.
