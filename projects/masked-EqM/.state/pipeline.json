@@ -42,19 +42,6 @@
    "submitted_at": "2026-08-13"
   },
   {
-   "description": "FBGN CLOSURE ONLY. Stage 3B batch-size discriminator with the @torch.no_grad/bank_loss defect fixed. Measures the C(B)=cos(g_B,g_ref) exponent at the start checkpoint for B in {8,...,128}.",
-   "expected_runtime": "~2-4h",
-   "gate": "Closure only. Stage 3A already decided the mechanism (H2 causal, damping falsified). No further FBGN compute is authorized beyond attaching a measured exponent to the write-up.",
-   "git_sha": "e225877582d925dba75a1d885333ffa2dffcd3be",
-   "job_id": "39064005",
-   "partition": "seas_gpu",
-   "phase": "3",
-   "run_id": "wfb_stage3b_closure",
-   "sbatch_path": "projects/masked-EqM/slurm/jobs/wfb_stage3b_batchsize.sbatch",
-   "status": "running",
-   "submitted_at": "2026-08-13"
-  },
-  {
    "description": "Experiment II Phase II-A stability run: arm btm_vector (btm_mode=btm_vector, ebm=none, fd_k=1, fd_eps=0.001, tc=0.9), seed 0, 20000 steps, global batch 256, 4 GPUs. Corrected-BTM self-stopping interpolant.",
    "expected_runtime": "~4-8h",
    "gate": "Phase II-A: does the arm train at all, and does any arm catastrophically fail identically across seeds (-> do not advance it). Key comparison G vs D on clip rate, grad-norm growth, exact-target cosine and throughput.",
@@ -212,6 +199,22 @@
   }
  ],
  "completed_runs": [
+  {
+   "completed_at": "2026-08-13",
+   "description": "FBGN closure: Stage 3B batch-size discriminator, C(B)=cos(g_B,g_ref) at the start checkpoint.",
+   "error": "ValueError: compute_fbgn_gradient_cg_microbatched: micro_batches is empty (exact_hvp.py:1308), arm 2 only",
+   "exit_code": "1:0",
+   "final_metric": "ARM 1 COMPLETE (the pre-registered discriminator); ARM 2 crashed (empty micro_batches in compute_fbgn_gradient_cg_microbatched) and is NOT worth fixing -- it was contingent on arm 1 showing batch size is a lever, which arm 1 does not show. Measured C(B), n=8 reps: B=8 +0.005+-0.040, B=16 +0.166+-0.053, B=32 +0.231+-0.077, B=64 -0.033+-0.102, B=128 +0.089+-0.070. Script reported 'exponent 0.784 > 0.5 -> batch size is a real lever', but R^2=0.286 and the series is NON-MONOTONIC: B=32 -> B=64 is a 5.9-sigma DECREASE and the B=64 mean is negative. A monotone power law is rejected by that comparison alone, so the fitted exponent summarizes a model the data reject and CANNOT be used to pass the gate. Honest read: alignment stays small (<=0.23) and draw-noise-dominated at every affordable B. This does not authorize the Stage 3C causal test or any further FBGN compute.",
+   "gate": "Pre-registered: exponent > 0.65 -> batch size is a real lever; ~0.5 or below -> KILL.",
+   "git_sha": "e225877",
+   "job_id": "39064005",
+   "partition": "seas_gpu",
+   "phase": "3",
+   "run_id": "wfb_stage3b_closure",
+   "sbatch_path": "projects/masked-EqM/slurm/jobs/wfb_stage3b_batchsize.sbatch",
+   "status": "failed",
+   "submitted_at": "2026-08-13"
+  },
   {
    "completed_at": "2026-08-13",
    "description": "FD calibration + per-arm parameter-gradient noise + weak-conservation residual on the frozen late-training --ebm direct checkpoint 2825000.pt.",
