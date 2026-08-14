@@ -16,8 +16,27 @@
  ],
  "active_runs": [
   {
+   "description": "Phase II-A relaunch, STAGED: vector BTM arm, seed 0, 4 GPUs on seas_gpu (80 GB cards, so batch 64/GPU is safe), global batch 256, 20000 steps, NUM_WORKERS=8, log every 25 steps for early throughput signal. Launched ALONE; remaining arms follow in small batches only after this one demonstrates a sane steps/sec.",
+   "expected_runtime": "~6-10h",
+   "gate": "Demonstrates steps/sec on this filesystem at concurrency 1 -> stage the remaining arms (G, D K=1, D K=4) and seeds at that concurrency.",
+   "git_sha": "3a6b7ac2dda381aa1979b90c449d1215e9742059",
+   "job_id": "39077320",
+   "partition": "seas_gpu",
+   "phase": "BTM-II-A",
+   "run_id": "btm_IIA_btm_vector_s0",
+   "sbatch_path": "projects/masked-EqM/slurm/jobs/btm_image_arm.sbatch",
+   "status": "pending",
+   "submitted_at": "2026-08-13"
+  }
+ ],
+ "completed_runs": [
+  {
+   "completed_at": "2026-08-13",
    "description": "Throughput probe after the CORRECTED storage diagnosis: single GPU, global batch 64, 40 steps, log every 5, NUM_WORKERS=12, running ALONE. Establishes the achievable steps/sec on this filesystem so Phase II-A can be staged at a concurrency the ~3 MB/s-per-stream ImageNet path can actually sustain.",
+   "error": "torch.cuda.OutOfMemoryError in diffusers autoencoder_kl.encode, batch 64 on a 19.62 GiB MIG slice",
+   "exit_code": "1:0",
    "expected_runtime": "~30min",
+   "final_metric": "FAILED with CUDA OOM in vae.encode -- but DIAGNOSTICALLY VALUABLE, and it separates two independent problems. (a) Data loading took 5 SECONDS (21:56:52 dataset -> 21:56:57 training), so the ImageNet filesystem is fine once jobs are not competing; the earlier stalls were self-inflicted I/O contention from 12 concurrent jobs. (b) This failure is unrelated: global batch 64 on ONE gpu_test MIG slice (19.62 GiB) OOMs inside the VAE encoder, which allocates 2 GiB on top of 18.5 GiB in use. Partition/batch mismatch, not a code fault -- seas_gpu's 80 GB cards hold 64 images/GPU comfortably.",
    "gate": "Produces steps/sec -> relaunch Phase II-A staged in small batches at that concurrency. Still no progress alone with 12 workers -> escalate, since 27 files/s measured would then not explain it.",
    "git_sha": "3a6b7ac2dda381aa1979b90c449d1215e9742059",
    "job_id": "39076148",
@@ -25,11 +44,9 @@
    "phase": "BTM-II-A-debug",
    "run_id": "btm_probe_1gpu",
    "sbatch_path": "projects/masked-EqM/slurm/jobs/btm_image_arm.sbatch",
-   "status": "running",
+   "status": "failed",
    "submitted_at": "2026-08-13"
-  }
- ],
- "completed_runs": [
+  },
   {
    "completed_at": "2026-08-13",
    "description": "DIAGNOSTIC: BTM vector arm on ONE GPU at global batch 32 -- the repository's own proven recipe -- 60 steps, log every 10. Tests the BTM loss path without DDP, and doubles as the fallback Phase II configuration. Now running ALONE after all competing jobs were cancelled, which makes it a direct test of the filesystem-contention hypothesis.",
