@@ -148,6 +148,54 @@ required** for it — the toy cannot separate G from D on stability because **G 
 destabilize here**. The late-training pathology is an image-scale phenomenon, and
 separating G from D on it is the entire purpose of Experiment II.
 
+### Table B' — FD (K, eps) grid on the toy (5 seeds per cell)
+
+| arm | K | eps=1e-3 | eps=3e-3 | eps=9e-3 |
+|---|---|---|---|---|
+| D FD directional | 1 | 0.0106 | 0.0106 | 0.0107 |
+| D FD directional | 4 | **0.0078** | **0.0078** | **0.0078** |
+| D FD directional | 8 | 0.0085 | 0.0086 | 0.0085 |
+| F FD action | 1 | 0.0062 | 0.0061 | 0.0058 |
+| F FD action | 4 | 0.0079 | 0.0079 | 0.0084 |
+| F FD action | 8 | 0.0086 | 0.0085 | 0.0083 |
+
+(median mass MAE; all cells 5/5 stable.)
+
+Two robustness facts, both useful:
+
+- **`h` is irrelevant across the plateau.** Median MAE is identical to three
+  decimals from `eps = 1e-3` to `9e-3` at fixed `K`. The plateau found by
+  calibration on a frozen model also holds *through training* — Arm D is not
+  balanced on a knife-edge in `h`.
+- **`K` matters only mildly.** `K=1` (0.0106) already clears the 0.015 gate;
+  `K=4` improves it to 0.0078 and `K=8` does not improve further. Per §15 this
+  is the interesting outcome: the cheap setting works, and extra directions buy
+  a modest refinement rather than being a requirement.
+
+### The FD variance penalty is DIMENSION-dependent — the toy understates it
+
+Toy gradient-noise (d = 2), noise scale / mean pairwise cosine at step 6000:
+
+| arm | noise scale | pairwise cos |
+|---|---|---|
+| G scalar exact | 1.00 | 0.521 |
+| A action exact | 1.32 | 0.438 |
+| D FD directional K=1 | 0.69 | 0.611 |
+| F FD action K=1 | 3.05 | 0.254 |
+
+At `d = 2` Arm D's estimator is **no worse than exact** — it is even slightly
+better at this checkpoint. At `d = 4096` (§0.2) the same estimator is **31×
+noisier**. This is the expected scaling: one directional probe recovers one
+scalar projection of a `d`-dimensional residual, so the variance penalty grows
+with dimension while the *bias* stays at the `O(h^2)` level measured in §0.1.
+
+**Consequence for how the toy result should be read.** The five-atom gate
+establishes that FD training reaches the correct conservative solution and is
+numerically sound. It does **not**, and structurally cannot, establish that the
+estimator's variance is tolerable at image dimension — the toy is 2048× too
+small in `d` for that question. Arm F illustrates the danger: it is the *best*
+arm on the toy (0.0049) and the *worst* estimator at image scale (cos 0.049).
+
 ---
 
 ## 2. Implementation defects found and fixed (each one would have produced a wrong answer)
