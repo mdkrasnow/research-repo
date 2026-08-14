@@ -47,6 +47,14 @@ collaborators (or a fresh clone) can see.
   the reduction ratio is confounded with step length) and load-bearing gotchas (probe slice
   moves with `--max-steps`; the FP64 toy is linear at default init).
   See `memory/topics/wfb-eqm-fbgn-stage3.md`.
+- **Corrected-BTM / FD-scalar campaign** (branch `btm-fd-scalar`, active 2026-08-13):
+  the current primary optimization thread, replacing FBGN. Tests whether the mixed
+  input-parameter derivative -- not the nonexistence of a scalar transport potential --
+  is what breaks explicit scalar EqM late in training, by training the corrected BTM
+  solution with scalar function evaluations only. Toy gate PASSED 6/6 in two geometries;
+  FD numerics validated at real B/2 scale; FD estimator VARIANCE identified as the risk.
+  Includes the load-bearing label-dropout gotcha that silently destroys any finite
+  difference on this architecture. See `memory/topics/btm-fd-scalar-campaign.md`.
 - **Scalar-energy EqM proposal** (external ChatGPT conversation, 2026-07-21, unevaluated):
   candidate masked-EqM direction — train scalar `E(x)` directly instead of the vector
   field, sample by descending `∇E(x)`. Not yet run through the project's mandatory
