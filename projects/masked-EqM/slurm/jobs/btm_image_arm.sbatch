@@ -32,7 +32,7 @@ nvidia-smi
 GIT_SHA="${GIT_SHA:?set GIT_SHA}"
 GIT_URL="${GIT_URL:-https://github.com/mdkrasnow/research-repo.git}"
 REPO_ROOT="/n/home03/mkrasnow/research-repo"
-BTM_MODE="${BTM_MODE:?set BTM_MODE}"
+BTM_MODE="${BTM_MODE:?set BTM_MODE (use 'none' for the vanilla-EqM control path)}"
 EBM="${EBM:?set EBM}"
 GLOBAL_SEED="${GLOBAL_SEED:?set GLOBAL_SEED}"
 RUN_TAG="${RUN_TAG:?set RUN_TAG}"
@@ -43,6 +43,7 @@ BTM_INTERPOLANT="${BTM_INTERPOLANT:-self_stopping}"
 FD_EPS="${FD_EPS:-1e-3}"
 FD_K="${FD_K:-1}"
 NPROC="${NPROC:-4}"
+LOG_EVERY="${LOG_EVERY:-50}"
 GLOBAL_BATCH="${GLOBAL_BATCH:-256}"
 MAX_STEPS_ARG=""
 if [ -n "${MAX_STEPS:-}" ]; then MAX_STEPS_ARG="--max-steps ${MAX_STEPS}"; fi
@@ -68,15 +69,21 @@ pip install --quiet timm diffusers accelerate torchdiffeq wandb torchvision pyte
 # GPU-hours are spent on it.
 python -m pytest tests/test_btm_math.py tests/test_btm_image_conventions.py -q
 
+# BTM_MODE=none runs the repository's ORIGINAL training path untouched -- the
+# control that separates "our BTM branch hangs" from "4-GPU DDP hangs here".
+if [ "$BTM_MODE" = "none" ]; then
+  BTM_ARGS=""
+else
+  BTM_ARGS="--btm-mode $BTM_MODE --btm-interpolant $BTM_INTERPOLANT --btm-tc $BTM_TC --fd-eps $FD_EPS --fd-k $FD_K --btm-eval-every ${BTM_EVAL_EVERY:-500}"
+fi
+
 MASTER_PORT=$((29500 + RANDOM % 1000))
 CMD="python -m torch.distributed.run --nnodes=1 --nproc_per_node=$NPROC --master_port=$MASTER_PORT train.py \
   --model EqM-B/2 --data-path $IMAGENET_PATH --num-classes 1000 \
   --global-batch-size $GLOBAL_BATCH --epochs $EPOCHS --save-epochs $SAVE_EPOCHS \
-  --image-size 256 --log-every 50 --ckpt-every 999999999 \
+  --image-size 256 --log-every $LOG_EVERY --ckpt-every 999999999 \
   --results-dir $RESULTS_DIR --ebm $EBM --global-seed $GLOBAL_SEED \
-  --btm-mode $BTM_MODE --btm-interpolant $BTM_INTERPOLANT --btm-tc $BTM_TC \
-  --fd-eps $FD_EPS --fd-k $FD_K --grad-log-every ${GRAD_LOG_EVERY:-50} \
-  --btm-eval-every ${BTM_EVAL_EVERY:-500} $MAX_STEPS_ARG $CKPT_ARG"
+  --grad-log-every ${GRAD_LOG_EVERY:-50} $BTM_ARGS $MAX_STEPS_ARG $CKPT_ARG"
 echo "$CMD"
 eval "$CMD" 2>&1 | tee train.log
 EXIT_CODE=${PIPESTATUS[0]}
