@@ -16,20 +16,6 @@
  ],
  "active_runs": [
   {
-   "description": "Phase II-A relaunch, STAGED: vector BTM arm, seed 0, 4 GPUs on seas_gpu (80 GB cards, so batch 64/GPU is safe), global batch 256, 20000 steps, NUM_WORKERS=8, log every 25 steps for early throughput signal. Launched ALONE; remaining arms follow in small batches only after this one demonstrates a sane steps/sec.",
-   "expected_runtime": "~6-10h",
-   "final_metric": "TRAINING HEALTHY: 3.26-3.69 steps/sec at global batch 256 on 4 GPUs (~845 img/s), train loss ~0.98 and falling. Confirms the earlier Phase II-A stalls were entirely self-inflicted I/O contention, not code and not a broken filesystem.",
-   "gate": "Demonstrates steps/sec on this filesystem at concurrency 1 -> stage the remaining arms (G, D K=1, D K=4) and seeds at that concurrency.",
-   "git_sha": "3a6b7ac2dda381aa1979b90c449d1215e9742059",
-   "job_id": "39077320",
-   "partition": "seas_gpu",
-   "phase": "BTM-II-A",
-   "run_id": "btm_IIA_btm_vector_s0",
-   "sbatch_path": "projects/masked-EqM/slurm/jobs/btm_image_arm.sbatch",
-   "status": "running",
-   "submitted_at": "2026-08-13"
-  },
-  {
    "description": "CLEAN RERUN of Phase II-A btm_scalar_exact K=1, seed 0, after fixing frozen_label_dropout (conditioning now bitwise frozen, asserted) and adding exact per-direction gradient accumulation for K>1. 4 GPUs, global batch 256, 20000 steps, btm-eval-every 250 for a denser target-cosine trace.",
    "expected_runtime": "~2-4h",
    "gate": "The campaign's central comparison. G vs D on late-training clip rate, grad-norm growth, and exact evaluation-time target cosine. Outcome B (G destabilizes, D stable, similar field) supports the hypothesis; Outcome C (D fails on estimator variance) refutes the FD route; Outcome A (both fine) says the corrected BTM target was the missing ingredient.",
@@ -67,9 +53,37 @@
    "sbatch_path": "projects/masked-EqM/slurm/jobs/btm_image_arm.sbatch",
    "status": "pending",
    "submitted_at": "2026-08-13"
+  },
+  {
+   "description": "CLEAN RERUN of the vector BTM baseline, seed 0, at the fixed sha so its label-dropout rate (10%) matches the clean G/D reruns. 4 GPUs, global batch 256, 20000 steps, btm-eval-every 250.",
+   "expected_runtime": "~1.5h",
+   "gate": "Gold-standard corrected-BTM baseline that G and D are read against.",
+   "git_sha": "0f965808fa439855444d6ba01c6b56ef7c0cecf6",
+   "job_id": "39090739",
+   "partition": "seas_gpu",
+   "phase": "BTM-II-A",
+   "run_id": "btm_IIA_V_s0",
+   "sbatch_path": "projects/masked-EqM/slurm/jobs/btm_image_arm.sbatch",
+   "status": "pending",
+   "submitted_at": "2026-08-13"
   }
  ],
  "completed_runs": [
+  {
+   "completed_at": "2026-08-13",
+   "description": "Phase II-A relaunch, STAGED: vector BTM arm, seed 0, 4 GPUs on seas_gpu (80 GB cards, so batch 64/GPU is safe), global batch 256, 20000 steps, NUM_WORKERS=8, log every 25 steps for early throughput signal. Launched ALONE; remaining arms follow in small batches only after this one demonstrates a sane steps/sec.",
+   "expected_runtime": "~6-10h",
+   "final_metric": "COMPLETED all 20000 steps, train loss 0.9768 -> 0.8545, 4.47 steps/sec. USABLE as a throughput and sanity reference, but NOT as the matched baseline: btm_loss wraps every arm in frozen_label_dropout, and the pre-fix version pre-dropped labels AND let the forward drop them again, so this run saw an effective CFG dropout of ~19% instead of 10%. Not FD-corrupted (the vector arm does one forward and has no finite difference), but no longer recipe-matched to the clean G/D reruns. Superseded for comparison purposes by 39090739.",
+   "gate": "Demonstrates steps/sec on this filesystem at concurrency 1 -> stage the remaining arms (G, D K=1, D K=4) and seeds at that concurrency.",
+   "git_sha": "3a6b7ac2dda381aa1979b90c449d1215e9742059",
+   "job_id": "39077320",
+   "partition": "seas_gpu",
+   "phase": "BTM-II-A",
+   "run_id": "btm_IIA_btm_vector_s0",
+   "sbatch_path": "projects/masked-EqM/slurm/jobs/btm_image_arm.sbatch",
+   "status": "completed",
+   "submitted_at": "2026-08-13"
+  },
   {
    "completed_at": "2026-08-13",
    "description": "Phase II-A staged relaunch: arm btm_scalar_fd_directional (ebm=direct, fd_k=4, fd_eps=1e-3, tc=0.9), seed 0, 4 GPUs, global batch 256, 20000 steps, NUM_WORKERS=8. Launched only after the vector arm demonstrated 3.3 steps/sec at concurrency 1.",
@@ -14031,6 +14045,6 @@
   "prompt": "",
   "value": false
  },
- "next_action": "Phase II-A CLEAN RERUN in flight (39090540 G, 39090541 D K=1, 39090542 D K=4) at sha 0f96580. The earlier G/D runs are INVALIDATED by a frozen_label_dropout bug -- do not cite 39078775/39078777 results. Vector baseline 39077320 is unaffected (ebm=none has no scalar-energy FD path) and completed its 20000 steps. WHEN THE THREE FINISH: python -m experiments.btm.analyze_image on the run dirs under /n/netscratch/ydu_lab/Lab/mkrasnow_eqm/btm/ for Tables C and D, then read G vs D. Then launch seeds 1-2, STAGED at <=4 concurrent 4-GPU jobs (12 at once starved the ~3 MB/s-per-stream ImageNet path).",
+ "next_action": "Phase II-A CLEAN RERUN in flight (39090540 G, 39090541 D K=1, 39090542 D K=4) at sha 0f96580. The earlier G/D runs are INVALIDATED by a frozen_label_dropout bug -- do not cite 39078775/39078777 results. Vector baseline 39077320 completed 20000 steps but ran at ~19% effective label dropout (double-drop), so it is a throughput/sanity reference only; the matched baseline is the clean rerun 39090739. WHEN THE THREE FINISH: python -m experiments.btm.analyze_image on the run dirs under /n/netscratch/ydu_lab/Lab/mkrasnow_eqm/btm/ for Tables C and D, then read G vs D. Then launch seeds 1-2, STAGED at <=4 concurrent 4-GPU jobs (12 at once starved the ~3 MB/s-per-stream ImageNet path).",
  "phase": "masked-field-shaping-primary"
 }
