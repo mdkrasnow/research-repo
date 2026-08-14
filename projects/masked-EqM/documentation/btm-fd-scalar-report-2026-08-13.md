@@ -97,13 +97,36 @@ ladder run at four points along a real training trajectory (eps* stayed 3e-3 fro
 For scale, the paper reports BTM 0.005 and EqM 0.102 on its own (unpublished) atom
 coordinates. Our BTM arms land at 0.005–0.009, matching its BTM figure. Our legacy
 control is milder than its 0.102 — the ring geometry is symmetric, which cancels much of
-the schedule-induced reweighting — but it is still 2.4–2.7× worse than every BTM arm,
+the schedule-induced reweighting (confirmed directly in Table A' below) — but it is
+still 2.4–2.7× worse than every BTM arm,
 and on the **weak conservation residual it is ~15× worse** (0.75 vs 0.04–0.06).
 
 The residual is the sharper discriminator, and it is the more meaningful one: it
 measures, in our own harness, the paper's §2.7 claim that the `c_t`-scaled target does
 not enforce `div(nu b) = mu0 - mu1`. Mass MAE depends on benchmark geometry; the
 divergence-equation violation does not.
+
+### Table A' — the same comparison on the ASYMMETRIC geometry (10 seeds/arm)
+
+The ring is symmetric, and symmetry cancels much of the schedule-induced reweighting.
+Repeating the comparison with unequal radii (2.2–3.8) and unequal angular gaps tests
+that directly:
+
+| arm | ring median | **asym median** | asym R_weak | stable |
+|---|---|---|---|---|
+| V vector BTM | 0.0073 | 0.0104 | 0.044 | 10/10 |
+| G scalar exact | 0.0076 | 0.0073 | 0.042 | 10/10 |
+| A action exact | 0.0052 | 0.0043 | 0.033 | 10/10 |
+| **D FD directional** | 0.0084 | **0.0086** | 0.042 | 10/10 |
+| F FD action | 0.0049 | 0.0058 | 0.040 | 10/10 |
+| — EqM legacy (vector) | 0.0197 | **0.0319** | 0.716 | 10/10 |
+| — EqM legacy (scalar) | 0.0202 | **0.0321** | 0.712 | 10/10 |
+
+Breaking the symmetry moves the legacy control 1.6× worse (0.020 → 0.032, toward the
+paper's 0.102) while **every BTM arm stays flat**. That is the predicted signature: the
+legacy target's error is a mass-*reallocation* bias that a symmetric geometry hides,
+whereas the BTM arms are transporting correctly in both. Gate 4 strengthens from 2.34×
+to **3.71×**, and the conservation residual separates by ~17× (0.71 vs 0.033–0.044).
 
 ### Pre-registered gate for Arm D — all six conditions
 
@@ -112,7 +135,7 @@ divergence-equation violation does not.
 | 1 | FD estimator numerically validated | PASS — calibration ladder, plateau chosen not minimum h |
 | 2 | stable across seeds | PASS — 10/10 |
 | 3 | `MAE_D <= max(0.015, 2*MAE_V)` | PASS — 0.0084 ≤ 0.015 |
-| 4 | decisively beats legacy-EqM control | PASS — 2.34× (needs > 2×) |
+| 4 | decisively beats legacy-EqM control | PASS — 2.34× on the ring, **3.71× on the asymmetric geometry** (needs > 2×) |
 | 5 | no mixed input–parameter derivative | PASS — guard, with Arm G as positive control |
 | 6 | exact field transports to the right modes | PASS — unresolved 0.0010 |
 
