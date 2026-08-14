@@ -16,20 +16,61 @@
  ],
  "active_runs": [
   {
-   "description": "Experiment I: five-atom corrected-BTM benchmark. FD step-size calibration (stage 0), tc sweep over {0.5,0.7,0.8,0.9} (stage 1), 7 arms x 10 seeds main comparison (stage 2), FD (K,eps) grid (stage 3), parameter-gradient noise per arm (stage 4).",
+   "description": "Experiment I: five-atom corrected-BTM benchmark, stages 0-4 (FD calibration, tc sweep, 7 arms x 10 seeds, FD (K,eps) grid, gradient-noise).",
    "expected_runtime": "~1-3h",
-   "gate": "Pre-registered toy gate for Arm D: MAE_D <= max(0.015, 2*MAE_V), stable across seeds, decisively beats the legacy-EqM negative control, FD estimator numerically validated, no mixed input-parameter derivative during training. PASS -> proceed to the ImageNet B/2 pilot.",
-   "git_sha": "736b29539394d10a7024bdb6d52af227a6fe72b8",
-   "job_id": "39061193",
+   "gate": "Arm D: MAE_D <= max(0.015, 2*MAE_V), >=10 stable seeds, beats legacy-EqM control by >2x, FD validated, unresolved < 5%. PASS -> ImageNet B/2 pilot.",
+   "git_sha": "4df2b8f919768de3e148f7ac344fef843f4f36fb",
+   "job_id": "39062340",
    "partition": "gpu_test",
    "phase": "BTM-I",
    "run_id": "btm_toy5_campaign",
    "sbatch_path": "projects/masked-EqM/slurm/jobs/btm_toy_campaign.sbatch",
    "status": "running",
    "submitted_at": "2026-08-13"
+  },
+  {
+   "description": "FD calibration + per-arm gradient noise + weak-conservation residual on the FROZEN late-training --ebm direct checkpoint (2825000.pt). Frozen weights, no optimizer. Answers whether a central difference on this scalar energy is numerically usable at the energy scale training actually reaches.",
+   "expected_runtime": "~1-2h",
+   "gate": "Diagnostic, no pass/fail: a usable eps plateau (rel RMSE well under 1, zero non-finite) is a PREREQUISITE for the FD image arms; its absence would kill Arm D at image scale before any training.",
+   "git_sha": "5d0a42fcf17f32aa5bf06cf10189fe7664e8ea22",
+   "job_id": "39062911",
+   "partition": "gpu_test",
+   "phase": "BTM-II-derisk",
+   "run_id": "btm_imgdiag_late",
+   "sbatch_path": "projects/masked-EqM/slurm/jobs/btm_image_diagnostics.sbatch",
+   "status": "running",
+   "submitted_at": "2026-08-13"
+  },
+  {
+   "description": "Same diagnostics at INITIALIZATION (no checkpoint) -- the other end of the energy-scale range, so the eps plateau can be compared early vs late.",
+   "expected_runtime": "~1h",
+   "gate": "Diagnostic; pairs with btm_imgdiag_late to show whether eps* moves with the energy scale.",
+   "git_sha": "5d0a42fcf17f32aa5bf06cf10189fe7664e8ea22",
+   "job_id": "39062923",
+   "partition": "seas_gpu",
+   "phase": "BTM-II-derisk",
+   "run_id": "btm_imgdiag_init",
+   "sbatch_path": "projects/masked-EqM/slurm/jobs/btm_image_diagnostics.sbatch",
+   "status": "pending",
+   "submitted_at": "2026-08-13"
   }
  ],
  "completed_runs": [
+  {
+   "completed_at": "2026-08-13",
+   "description": "First submission of the five-atom BTM campaign.",
+   "exit_code": "1:0",
+   "final_metric": "Died at the pre-training unit-test gate: the cluster python has no pytest module. Infrastructure only, no science attempted. Fixed by adding pytest to the sbatch pip install; resubmitted as 39062340.",
+   "gate": "n/a",
+   "git_sha": "736b295",
+   "job_id": "39061193",
+   "partition": "gpu_test",
+   "phase": "BTM-I",
+   "run_id": "btm_toy5_campaign_v1",
+   "sbatch_path": "projects/masked-EqM/slurm/jobs/btm_toy_campaign.sbatch",
+   "status": "failed",
+   "submitted_at": "2026-08-13"
+  },
   {
    "completed_at": "2026-08-13",
    "description": "Stage 3B batch-size discriminator (H2), resubmit of 39024136.",
