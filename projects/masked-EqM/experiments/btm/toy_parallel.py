@@ -99,6 +99,7 @@ def main():
                          "machine add INDEPENDENT seeds to the same comparison")
     ap.add_argument("--tc-seeds", type=int, default=3)
     ap.add_argument("--grid-seeds", type=int, default=5)
+    ap.add_argument("--geometry", default="ring", choices=["ring", "asym"])
     ap.add_argument("--tc", type=float, default=0.8)
     ap.add_argument("--eps-fd", type=float, default=3e-3)
     args = ap.parse_args()
@@ -114,7 +115,8 @@ def main():
     import torch
     torch.set_num_threads(args.threads)
     base = ToyConfig(steps=args.steps, batch=args.batch, eval_n=args.eval_n,
-                     tc=args.tc, eps_fd=args.eps_fd, device="cpu")
+                     tc=args.tc, eps_fd=args.eps_fd, device="cpu",
+                     geometry=args.geometry)
     jobs = enumerate_jobs(args, base)
     jobs = [j for i, j in enumerate(jobs) if i % args.nshards == args.shard]
     print(f"shard {args.shard}/{args.nshards}: {len(jobs)} runs, "

@@ -34,19 +34,36 @@ from .models import build_model, count_params
 from .objectives import FD_ARMS, compute_loss, FDConfig
 
 ATOM_WEIGHTS = (0.30, 0.30, 0.15, 0.15, 0.10)
-ATOM_RADIUS = 3.0
 
 
-def atoms(device="cpu", dtype=torch.float32) -> torch.Tensor:
-    ang = torch.arange(5, dtype=torch.float64) * (2 * math.pi / 5)
-    pts = torch.stack([torch.cos(ang), torch.sin(ang)], dim=1) * ATOM_RADIUS
+# Two atom geometries.  "ring" is 5 equally spaced points on a radius-3 circle.
+# It is clean and well separated, but it is SYMMETRIC, and symmetry turns out to
+# mask most of the legacy-EqM mass-allocation bias: on the ring the legacy
+# control lands near MAE ~0.015 rather than the 0.102 the BTM paper reports,
+# because with equal spacing the c_t-induced distortion is nearly the same for
+# every basin and largely cancels in the MAE.  "asym" deliberately breaks that:
+# unequal radii and unequal angular gaps, so basins differ in size a priori and
+# a schedule-induced reweighting cannot cancel.  The paper does not publish its
+# coordinates; both of ours are documented benchmark VARIANTS, and the unequal
+# WEIGHTS -- the essential property -- are identical in each.
+ATOM_GEOMETRIES = {
+    "ring": [(3.0, 0.0), (3.0, 72.0), (3.0, 144.0), (3.0, 216.0), (3.0, 288.0)],
+    "asym": [(3.4, 0.0), (2.6, 55.0), (3.8, 150.0), (2.2, 205.0), (3.0, 300.0)],
+}
+
+
+def atoms(device="cpu", dtype=torch.float32, geometry="ring") -> torch.Tensor:
+    spec = ATOM_GEOMETRIES[geometry]
+    r = torch.tensor([s[0] for s in spec], dtype=torch.float64)
+    a = torch.tensor([s[1] for s in spec], dtype=torch.float64) * math.pi / 180.0
+    pts = torch.stack([r * torch.cos(a), r * torch.sin(a)], dim=1)
     return pts.to(device=device, dtype=dtype)
 
 
-def sample_mu1(n, device, generator=None, dtype=torch.float32):
+def sample_mu1(n, device, generator=None, dtype=torch.float32, geometry="ring"):
     w = torch.tensor(ATOM_WEIGHTS, device=device, dtype=torch.float64)
     idx = torch.multinomial(w, n, replacement=True, generator=generator)
-    return atoms(device, dtype)[idx], idx
+    return atoms(device, dtype, geometry)[idx], idx
 
 
 def sample_mu0(n, device, generator=None, dtype=torch.float32):
@@ -75,11 +92,12 @@ class ToyConfig:
     freeze_tol: float = 0.05    # |b| below this -> particle declared frozen
     resolve_tol: float = 0.25   # distance to nearest atom for "resolved"
     grad_clip: float = 0.0      # 0 disables; kept for parity with image stage
+    geometry: str = "ring"      # ring | asym  (see ATOM_GEOMETRIES)
 
 
 def make_batch(cfg: ToyConfig, interp, n, device, generator):
     x0 = sample_mu0(n, device, generator)
-    x1, _ = sample_mu1(n, device, generator)
+    x1, _ = sample_mu1(n, device, generator, geometry=cfg.geometry)
     t = torch.rand(n, device=device, generator=generator)
     z, zdot = interp.interpolate(t, x0, x1)
     return {"z": z, "zdot": zdot, "x0": x0, "x1": x1, "t": t}
@@ -152,7 +170,7 @@ def _nearest_atom(x, A):
 def evaluate_transport(cfg: ToyConfig, model):
     """Integrate xdot = b(x) to convergence; report basin masses."""
     device = torch.device(cfg.device)
-    A = atoms(device)
+    A = atoms(device, geometry=cfg.geometry)
     b = field_fn(cfg.arm, model)
 
     gen = torch.Generator(device=device)
@@ -235,7 +253,7 @@ def weak_conservation_residual(cfg: ToyConfig, model, n=200_000, n_probe=32):
         raise AssertionError("nu must come from a true interpolant")
 
     x0 = sample_mu0(n, device, gen)
-    x1, _ = sample_mu1(n, device, gen)
+    x1, _ = sample_mu1(n, device, gen, geometry=cfg.geometry)
     t = torch.rand(n, device=device, generator=gen)
     z, _ = interp.interpolate(t, x0, x1)
 
@@ -298,7 +316,8 @@ def run(cfg: ToyConfig, out_dir=None, verbose=True):
                      and math.isfinite(tinfo["history"][-1]["loss"]))
     if out_dir:
         os.makedirs(out_dir, exist_ok=True)
-        tag = f"{cfg.arm}_tc{cfg.tc}_K{cfg.K}_eps{cfg.eps_fd}_seed{cfg.seed}"
+        tag = (f"{cfg.arm}_{cfg.geometry}_tc{cfg.tc}_K{cfg.K}"
+               f"_eps{cfg.eps_fd}_seed{cfg.seed}")
         with open(os.path.join(out_dir, f"{tag}.json"), "w") as f:
             json.dump(rec, f, indent=1)
         torch.save(model.state_dict(), os.path.join(out_dir, f"{tag}.pt"))

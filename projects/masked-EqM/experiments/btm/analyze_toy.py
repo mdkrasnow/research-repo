@@ -58,7 +58,7 @@ def table_a(rows, stage="main"):
         if r.get("stage") != stage or "config" not in r:
             continue
         c = r["config"]
-        key = (c["arm"], c["K"], c["eps_fd"], c["tc"])
+        key = (c["arm"], c["K"], c["eps_fd"], c["tc"], c.get("geometry", "ring"))
         groups[key].append(r)
 
     lines = ["| arm | K | eps_fd | seeds | mass MAE (mean±std) | median | "
@@ -66,7 +66,7 @@ def table_a(rows, stage="main"):
              "|---|---|---|---|---|---|---|---|---|"]
     out = {}
     for key in sorted(groups, key=lambda k: (list(ARM_LABEL).index(k[0]), k[1], k[2])):
-        arm, K, eps, tc = key
+        arm, K, eps, tc, geom = key
         rs = groups[key]
         maes = [r["mass_mae"] for r in rs]
         m, s, n = _agg(maes)
@@ -79,10 +79,10 @@ def table_a(rows, stage="main"):
             f"| {ARM_LABEL.get(arm, arm)} | {K if scalar_fd else '-'} | "
             f"{eps:g} | {n} | {m:.4f} ± {s:.4f} | {med:.4f} | {unres:.4f} | "
             f"{wc:.3f} | {nstable}/{n} |")
-        out[f"{arm}|K{K}|eps{eps:g}"] = {
+        out[f"{arm}|K{K}|eps{eps:g}|{geom}"] = {
             "mean": m, "std": s, "median": med, "n": n,
             "unresolved": unres, "weak_residual": wc,
-            "n_stable": nstable, "tc": tc}
+            "n_stable": nstable, "tc": tc, "geometry": geom}
     return "\n".join(lines), out
 
 

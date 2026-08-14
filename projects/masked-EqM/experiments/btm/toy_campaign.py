@@ -200,6 +200,7 @@ def main():
     ap.add_argument("--eval-n", type=int, default=100_000)
     ap.add_argument("--seeds", type=int, default=10)
     ap.add_argument("--stages", default="0,1,2,3,4")
+    ap.add_argument("--geometry", default="ring", choices=["ring", "asym"])
     ap.add_argument("--tc", type=float, default=None,
                     help="skip stage 1 and use this frozen tc")
     ap.add_argument("--eps-fd", type=float, default=None,
@@ -211,7 +212,7 @@ def main():
     stages = {s.strip() for s in args.stages.split(",")}
 
     base = ToyConfig(device=args.device, steps=args.steps, batch=args.batch,
-                     eval_n=args.eval_n)
+                     eval_n=args.eval_n, geometry=args.geometry)
     _log(f"base config: {asdict(base)}")
 
     eps = args.eps_fd
