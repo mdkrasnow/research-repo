@@ -28,7 +28,8 @@ BATCH="${BATCH:-1024}"
 EVAL_N="${EVAL_N:-100000}"
 SEEDS="${SEEDS:-10}"
 STAGES="${STAGES:-0,1,2,3,4}"
-OUT_REL="results/btm/toy5_job${SLURM_JOB_ID}"
+GEOMETRY="${GEOMETRY:-ring}"
+OUT_REL="results/btm/toy5_${GEOMETRY}_job${SLURM_JOB_ID}"
 
 mkdir -p "$WORK_DIR"
 cd "$WORK_DIR"
@@ -50,7 +51,8 @@ python -m pytest tests/test_btm_math.py -q
 
 python -m experiments.btm.toy_campaign \
   --out-dir "$OUT_REL" --device "$DEV" --steps "$STEPS" --batch "$BATCH" \
-  --eval-n "$EVAL_N" --seeds "$SEEDS" --stages "$STAGES" 2>&1 | tee toy.log
+  --eval-n "$EVAL_N" --seeds "$SEEDS" --stages "$STAGES" \
+  --geometry "$GEOMETRY" ${TC:+--tc $TC} ${EPS_FD:+--eps-fd $EPS_FD} 2>&1 | tee toy.log
 
 mkdir -p "$REPO_ROOT/projects/masked-EqM/results/btm"
 rsync -a "$OUT_REL/" "$REPO_ROOT/projects/masked-EqM/$OUT_REL/"
