@@ -95,15 +95,21 @@ def frozen_label_dropout(raw_model, y):
     (§27 shared randomness) is not confounded by conditioning noise either.
     """
     emb = raw_model.y_embedder
-    was_training = emb.training
-    if was_training and emb.dropout_prob > 0:
+    saved_prob = emb.dropout_prob
+    # NOTE: models.py calls `self.y_embedder(y, self.training)` -- it passes the
+    # EqM MODULE's training flag, not the embedder's. So emb.eval() does NOT
+    # disable token_drop; the labels would be dropped a second time, with fresh
+    # randomness on every forward. Zeroing dropout_prob is what actually
+    # disables it, because LabelEmbedder.forward gates on
+    # `use_dropout = self.dropout_prob > 0`.
+    if raw_model.training and saved_prob > 0:
         with torch.no_grad():
             y = emb.token_drop(y)
-        emb.eval()
+        emb.dropout_prob = 0.0
     try:
         yield y
     finally:
-        emb.train(was_training)
+        emb.dropout_prob = saved_prob
 
 
 def phi_closure(raw_model, t, y):
@@ -197,6 +203,70 @@ def _btm_loss_inner(model, raw_model, cfg, t, x0, x1, z, zdot, y, d, stats,
             return loss, stats
 
     raise ValueError(f"unknown btm mode {cfg.mode!r}")
+
+
+def btm_fd_backward_accumulate(model, raw_model, cfg: BTMConfig, transport,
+                              x1, y, generator=None):
+    """FD training step with PER-DIRECTION gradient accumulation.
+
+    `directional_fd` stacks all 2*K*B evaluations into ONE forward so the
+    network sees a single large batch.  That is the right call for speed at
+    K=1, but at K=4 with 64 images/GPU it means 512 images of retained
+    activations and it OOMs an 80 GB A100 (observed: 75 GiB allocated, job
+    39078779).  Chunking the forward does NOT fix it, because autograd keeps
+    every chunk's graph alive until backward.
+
+    Because the loss is a MEAN over K independent directions,
+
+        L = (1/K) sum_k (D_{h,u_k} phi(z) - u_k^T Idot)^2
+
+    and the directions share no graph, backward-ing each term with weight 1/K
+    and accumulating into .grad is EXACTLY equivalent to backward-ing the sum,
+    while holding only 2*B activations at a time.  Effective batch, data, and
+    the resulting gradient are unchanged -- so G-vs-D comparability at matched
+    batch size is preserved, which is the whole point of the experiment.
+
+    Returns (loss_value_detached, stats).  The caller must NOT call backward
+    again.
+    """
+    interp = build_image_interpolant(cfg)
+    t, x0, x1, z, zdot = btm_sample(transport, interp, x1, generator)
+    d = _d(z)
+    stats = {}
+    total = 0.0
+    with frozen_label_dropout(raw_model, y) as yy:
+        phi = phi_closure(raw_model, t, yy)
+        with assert_no_double_backward():
+            u_all = rademacher_directions(z.shape, cfg.fd_k, device=z.device,
+                                          dtype=z.dtype, generator=generator)
+            gaps, hs = [], []
+            for k in range(cfg.fd_k):
+                u = u_all[k:k + 1]                      # [1, B, ...]
+                D, h, gap = directional_fd(
+                    phi, z.detach(), u, cfg.fd_eps,
+                    fp32_subtract=cfg.energy_difference_fp32,
+                    chunk=cfg.fd_chunk)
+                if cfg.mode == "btm_scalar_fd_directional":
+                    with torch.no_grad():
+                        proj = torch.einsum("kb...,b...->kb", u, zdot).to(D.dtype)
+                    loss_k = ((D - proj) ** 2).mean()
+                else:
+                    loss_k = (D ** 2).mean()
+                (loss_k / cfg.fd_k).backward()
+                total += float(loss_k.detach()) / cfg.fd_k
+                gaps.append(float(gap.detach().abs().mean()))
+                hs.append(float(h.mean()))
+            if cfg.mode == "btm_scalar_fd_action":
+                E0 = raw_model(x0, t, yy, energy_only=True)
+                E1 = raw_model(x1, t, yy, energy_only=True)
+                endpoints = 2.0 * (E1.mean() - E0.mean()) / d
+                endpoints.backward()
+                total += float(endpoints.detach())
+                stats["loss_endpoint"] = float(endpoints.detach())
+    stats["fd_h_mean"] = sum(hs) / len(hs)
+    stats["fd_gap_abs"] = sum(gaps) / len(gaps)
+    stats["fd_accumulated"] = True
+    return total, stats
 
 
 def btm_eval_target_match(raw_model, cfg: BTMConfig, transport, x1, y):

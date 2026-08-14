@@ -175,3 +175,88 @@ def test_build_image_interpolant_dispatch():
     assert isinstance(
         build_image_interpolant(BTMConfig(interpolant="self_stopping", tc=0.6)),
         SelfStoppingInterpolant)
+
+
+def test_frozen_label_dropout_makes_phi_bitwise_deterministic():
+    """The FD numerator is meaningless unless conditioning is IDENTICAL.
+
+    Regression test for a real bug: models.py calls
+    `self.y_embedder(y, self.training)` -- it passes the EqM MODULE's training
+    flag, not the embedder's -- so putting the embedder in eval() does NOT
+    disable token_drop.  Labels were pre-dropped and then dropped AGAIN with
+    fresh randomness on every forward, and `token_drop` draws per ROW, so
+    phi(z+hu) and phi(z-hu) for the same sample got independent conditioning
+    even inside one stacked forward.  At dropout_prob=0.1 that corrupts ~10% of
+    finite-difference pairs, turning the numerator into a conditioning
+    difference instead of a ~1e-3 directional derivative.
+    """
+    torch.manual_seed(0)
+    m = _tiny("direct")
+    with torch.no_grad():
+        for p in m.parameters():
+            p.add_(torch.randn_like(p) * 0.02)
+    m.train()                      # the regime the bug lived in
+    assert m.y_embedder.dropout_prob > 0
+    z = torch.randn(6, 4, 8, 8)
+    t = torch.rand(6)
+    y = torch.randint(0, 10, (6,))
+    from experiments.btm.image_losses import frozen_label_dropout
+    with frozen_label_dropout(m, y) as yy:
+        phi = phi_closure(m, t, yy)
+        a, b, c = phi(z).detach(), phi(z).detach(), phi(z).detach()
+    assert torch.equal(a, b) and torch.equal(a, c), (
+        float((a - b).abs().max()), float((a - c).abs().max()))
+    # and dropout must be restored afterwards
+    assert m.y_embedder.dropout_prob > 0
+
+
+def test_fd_per_direction_accumulation_equals_stacked_gradient():
+    """K>1 accumulation must give the SAME gradient as the single stacked call.
+
+    This is what licenses running Arm D at K=4 with per-direction accumulation
+    (2*B activations live) instead of one 2*K*B forward, which OOMs an 80 GB
+    A100.  Effective batch and gradient are unchanged, so G-vs-D stays matched.
+    """
+    from experiments.btm.image_losses import frozen_label_dropout
+    from experiments.btm.fd import rademacher_directions, directional_fd
+
+    torch.manual_seed(0)
+    m1 = _tiny("direct")
+    torch.manual_seed(0)
+    m2 = _tiny("direct")
+    with torch.no_grad():
+        for a, b in zip(m1.parameters(), m2.parameters()):
+            n = torch.randn_like(a) * 0.02
+            a.add_(n)
+            b.add_(n)
+    B, K = 6, 4
+    z = torch.randn(B, 4, 8, 8)
+    zdot = torch.randn(B, 4, 8, 8)
+    t = torch.rand(B)
+    y = torch.randint(0, 10, (B,))
+    u = rademacher_directions(z.shape, K,
+                              generator=torch.Generator().manual_seed(11))
+    proj = torch.einsum("kb...,b...->kb", u, zdot)
+
+    torch.manual_seed(5)
+    with frozen_label_dropout(m1, y) as y1:
+        D, _, _ = directional_fd(phi_closure(m1, t, y1), z, u, 1e-3)
+        loss = ((D - proj.to(D.dtype)) ** 2).mean()
+        m1.zero_grad()
+        loss.backward()
+    g1 = torch.cat([p.grad.reshape(-1) for p in m1.parameters()
+                    if p.grad is not None])
+
+    torch.manual_seed(5)
+    with frozen_label_dropout(m2, y) as y2:
+        phi2 = phi_closure(m2, t, y2)
+        m2.zero_grad()
+        for k in range(K):
+            Dk, _, _ = directional_fd(phi2, z, u[k:k + 1], 1e-3)
+            ((((Dk - proj[k:k + 1].to(Dk.dtype)) ** 2).mean()) / K).backward()
+    g2 = torch.cat([p.grad.reshape(-1) for p in m2.parameters()
+                    if p.grad is not None])
+
+    cos = float(torch.nn.functional.cosine_similarity(g1[None], g2[None]))
+    rel = float((g1 - g2).norm() / (g1.norm() + 1e-30))
+    assert cos > 0.9999 and rel < 1e-3, (cos, rel)

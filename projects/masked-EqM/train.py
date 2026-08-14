@@ -43,6 +43,7 @@ from fb_direct.adaptive_clip import adaptive_clip_update, adaptive_clip_threshol
 from experiments.btm.fd import assert_no_double_backward
 from experiments.btm.image_losses import (
     BTM_FD_MODES,
+    btm_fd_backward_accumulate,
     BTM_MODES,
     BTMConfig,
     btm_eval_target_match,
@@ -525,18 +526,32 @@ def main(args):
                 # obtained from scalar energy evaluations rather than from a
                 # create_graph=True input-gradient graph.  Optimizer, clipping,
                 # EMA, logging, checkpointing and DDP are shared verbatim.
-                loss, btm_stats = btm_loss(
-                    model, model.module, btm_cfg, transport, x, y,
-                )
-                opt.zero_grad()
-                if args.btm_mode in BTM_FD_MODES:
-                    # The backward runs inside the guard too, so the invariant
-                    # "no mixed d_theta d_x phi anywhere in this training step"
-                    # covers the whole step, not just loss construction.
-                    with assert_no_double_backward():
-                        loss.backward()
+                if args.btm_mode in BTM_FD_MODES and btm_cfg.fd_k > 1:
+                    # K > 1 stacks 2*K*B activations in one forward and OOMs an
+                    # 80 GB A100 at K=4 (job 39078779). Accumulate per direction
+                    # instead: the loss is a mean over K independent directions,
+                    # so this is EXACTLY the same gradient with 2*B activations
+                    # live at a time, and the effective batch is unchanged --
+                    # which keeps G-vs-D matched on batch size.
+                    opt.zero_grad()
+                    loss_val, btm_stats = btm_fd_backward_accumulate(
+                        model, model.module, btm_cfg, transport, x, y,
+                    )
+                    loss = torch.tensor(loss_val, device=device)
                 else:
-                    loss.backward()
+                    loss, btm_stats = btm_loss(
+                        model, model.module, btm_cfg, transport, x, y,
+                    )
+                    opt.zero_grad()
+                    if args.btm_mode in BTM_FD_MODES:
+                        # The backward runs inside the guard too, so the
+                        # invariant "no mixed d_theta d_x phi anywhere in this
+                        # training step" covers the whole step, not just loss
+                        # construction.
+                        with assert_no_double_backward():
+                            loss.backward()
+                    else:
+                        loss.backward()
             else:
                 model_kwargs = dict(y=y, return_act=args.disp, train=True)
                 loss_dict = transport.training_losses(model, x, model_kwargs)
