@@ -32,6 +32,7 @@
   {
    "description": "Phase II-A staged relaunch: arm btm_scalar_exact (ebm=direct, fd_k=1, fd_eps=1e-3, tc=0.9), seed 0, 4 GPUs, global batch 256, 20000 steps, NUM_WORKERS=8. Launched only after the vector arm demonstrated 3.3 steps/sec at concurrency 1.",
    "expected_runtime": "~2h",
+   "final_metric": "RUNNING: 2.43-2.48 steps/sec (vs vector arm 4.47) -- the ~1.8x slowdown is the expected cost of the create_graph=True double-backward, and is itself a Table C datapoint. Loss 1.03 -> 0.97 over steps 925-2875.",
    "gate": "Phase II-A: no arm catastrophically fails; then read clip rate, grad-norm growth and exact-target cosine per training window. The load-bearing comparison is G (39078775) vs D (39078777/39078779).",
    "git_sha": "3a6b7ac2dda381aa1979b90c449d1215e9742059",
    "job_id": "39078775",
@@ -39,7 +40,7 @@
    "phase": "BTM-II-A",
    "run_id": "btm_IIA_btm_scalar_exact_s0",
    "sbatch_path": "projects/masked-EqM/slurm/jobs/btm_image_arm.sbatch",
-   "status": "pending",
+   "status": "running",
    "submitted_at": "2026-08-13"
   },
   {
@@ -48,6 +49,7 @@
    "gate": "Phase II-A: no arm catastrophically fails; then read clip rate, grad-norm growth and exact-target cosine per training window. The load-bearing comparison is G (39078775) vs D (39078777/39078779).",
    "git_sha": "3a6b7ac2dda381aa1979b90c449d1215e9742059",
    "job_id": "39078777",
+   "note": "SLURM estimated start ~2026-08-14T06:00-06:47 (Priority). Deliberately NOT shrinking NPROC or GLOBAL_BATCH to schedule sooner: D must run the IDENTICAL recipe to G or the central G-vs-D comparison is confounded by batch size.",
    "partition": "seas_gpu",
    "phase": "BTM-II-A",
    "run_id": "btm_IIA_btm_scalar_fd_directional_s0",
@@ -61,6 +63,7 @@
    "gate": "Phase II-A: no arm catastrophically fails; then read clip rate, grad-norm growth and exact-target cosine per training window. The load-bearing comparison is G (39078775) vs D (39078777/39078779).",
    "git_sha": "3a6b7ac2dda381aa1979b90c449d1215e9742059",
    "job_id": "39078779",
+   "note": "SLURM estimated start ~2026-08-14T06:00-06:47 (Priority). Deliberately NOT shrinking NPROC or GLOBAL_BATCH to schedule sooner: D must run the IDENTICAL recipe to G or the central G-vs-D comparison is confounded by batch size.",
    "partition": "seas_gpu",
    "phase": "BTM-II-A",
    "run_id": "btm_IIA_btm_scalar_fd_directional4_s0",
@@ -13984,6 +13987,6 @@
   "prompt": "",
   "value": false
  },
- "next_action": "Stage 3B batch-size discriminator queued. Gradient-only scan of C(B)=cos(g_B, g_ref) at the start checkpoint for B in {8,16,32,64,128} plus a stacked-GN arm at B_model=32. Pre-registered read: exponent > 0.65 -> batch size is a real lever, proceed to Stage 3C 50-step causal test; exponent ~0.5 (pure noise-averaging) or below -> the Stage 3B/3C KILL condition fires and the FBGN thread is written up as a negative result. Do NOT launch another 300-step FBGN run under any branch.",
+ "next_action": "Phase II-A seed 0 in flight: V (39077320) and G (39078775) training healthy; D K=1 (39078777) and D K=4 (39078779) queued for ~06:00 2026-08-14. WHEN ALL FOUR FINISH: run `python -m experiments.btm.analyze_image <results dirs>` to emit Tables C and D (clip rate / grad-norm growth / update ratio, and exact-target cosine + MSE by early/mid/late window), then compare G vs D. If no arm catastrophically failed, launch seeds 1 and 2 for all four arms -- STAGED, at most ~4 concurrent 4-GPU jobs, because 12 simultaneous ImageNet readers starved the ~3 MB/s-per-stream holylfs06 path badly enough that none reached step 50 in 20 minutes. Results root: /n/netscratch/ydu_lab/Lab/mkrasnow_eqm/btm/. Throughput reference: vector 4.5 steps/sec, exact-scalar 2.45 steps/sec at global batch 256 on 4 GPUs.",
  "phase": "masked-field-shaping-primary"
 }
