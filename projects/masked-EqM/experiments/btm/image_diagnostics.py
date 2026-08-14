@@ -110,6 +110,18 @@ def main():
     torch.manual_seed(args.seed)
     torch.backends.cuda.matmul.allow_tf32 = False   # TF32 destroyed a previous
     torch.backends.cudnn.allow_tf32 = False         # gate; never on for FD work
+    if args.ebm != "none":
+        # train.py does exactly this for every scalar-energy run: the fused
+        # SDPA kernels have no double-backward implementation, so Arm G /
+        # Arm A (which differentiate through grad_z E) raise
+        # "derivative for aten::_scaled_dot_product_efficient_attention_backward
+        # is not implemented" without it.  The FD arms do not need it, but the
+        # arms must share a backend or their gradients are not comparable.
+        torch.backends.cuda.enable_flash_sdp(False)
+        torch.backends.cuda.enable_mem_efficient_sdp(False)
+        if hasattr(torch.backends.cuda, "enable_cudnn_sdp"):
+            torch.backends.cuda.enable_cudnn_sdp(False)
+        torch.backends.cuda.enable_math_sdp(True)
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model, vae, dl = build(args, device)
     transport = create_transport("Linear", "velocity", "None", 0, 0)

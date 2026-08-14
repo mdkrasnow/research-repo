@@ -68,7 +68,7 @@ def enumerate_jobs(args, base: ToyConfig):
                                  asdict(replace(base, arm=arm, tc=tc, seed=s))))
     if "2" in stages:
         for arm in ALL_ARMS:
-            for s in range(args.seeds):
+            for s in range(args.seed_offset, args.seed_offset + args.seeds):
                 jobs.append(("main", asdict(replace(base, arm=arm, tc=args.tc,
                                                     seed=s))))
     if "3" in stages:
@@ -94,6 +94,9 @@ def main():
     ap.add_argument("--batch", type=int, default=1024)
     ap.add_argument("--eval-n", type=int, default=100_000)
     ap.add_argument("--seeds", type=int, default=10)
+    ap.add_argument("--seed-offset", type=int, default=0,
+                    help="run seeds [offset, offset+seeds); lets a second "
+                         "machine add INDEPENDENT seeds to the same comparison")
     ap.add_argument("--tc-seeds", type=int, default=3)
     ap.add_argument("--grid-seeds", type=int, default=5)
     ap.add_argument("--tc", type=float, default=0.8)
