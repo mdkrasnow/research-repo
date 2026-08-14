@@ -113,6 +113,32 @@
    "sbatch_path": "projects/masked-EqM/slurm/jobs/btm_image_arm.sbatch",
    "status": "pending",
    "submitted_at": "2026-08-14"
+  },
+  {
+   "description": "Phase II-C: vector arm CONTINUED from its own epoch15 checkpoint to EPOCH 60 (~300k total steps, batch 256), 48h limit, ckpt every 25k for resumability.",
+   "expected_runtime": "~14h (V) / ~26h (G) for the remaining 45 epochs",
+   "gate": "REACHES THE FAILURE REGIME. Legacy direct CV explodes 0.44->50 between 2.2M and 2.5M steps at batch 32 = ~epoch 55. II-B stopped at epoch 15, i.e. entirely BEFORE the regime where legacy direct fails, so its G~V parity result cannot yet be read as an improvement. Epoch 60 crosses the onset. PASS = G clip rate stays ~0 and CV stays O(0.1-0.5) through epoch 60 while legacy direct reached CV 40-50 there.",
+   "git_sha": "b097f108f8089f07560158e88a9901d342dad3b2",
+   "job_id": "39216096",
+   "partition": "seas_gpu",
+   "phase": "BTM-II-C",
+   "run_id": "btm_IIC_V_s0",
+   "sbatch_path": "projects/masked-EqM/slurm/jobs/btm_image_arm.sbatch",
+   "status": "pending",
+   "submitted_at": "2026-08-14"
+  },
+  {
+   "description": "Phase II-C: scalar exact arm CONTINUED from its own epoch15 checkpoint to EPOCH 60 (~300k total steps, batch 256), 48h limit, ckpt every 25k for resumability.",
+   "expected_runtime": "~14h (V) / ~26h (G) for the remaining 45 epochs",
+   "gate": "REACHES THE FAILURE REGIME. Legacy direct CV explodes 0.44->50 between 2.2M and 2.5M steps at batch 32 = ~epoch 55. II-B stopped at epoch 15, i.e. entirely BEFORE the regime where legacy direct fails, so its G~V parity result cannot yet be read as an improvement. Epoch 60 crosses the onset. PASS = G clip rate stays ~0 and CV stays O(0.1-0.5) through epoch 60 while legacy direct reached CV 40-50 there.",
+   "git_sha": "b097f108f8089f07560158e88a9901d342dad3b2",
+   "job_id": "39216098",
+   "partition": "seas_gpu",
+   "phase": "BTM-II-C",
+   "run_id": "btm_IIC_G_s0",
+   "sbatch_path": "projects/masked-EqM/slurm/jobs/btm_image_arm.sbatch",
+   "status": "pending",
+   "submitted_at": "2026-08-14"
   }
  ],
  "completed_runs": [
@@ -14184,6 +14210,6 @@
   "prompt": "",
   "value": false
  },
- "next_action": "Phase II-B running: 39134331 (G, ~35k/75k) + 39134332 (D K=1, ~18k/75k). V (39134329) COMPLETE at 75k. D K=4 (39134360) CANCELLED -- redundant, 6.6x cost, would not finish. HEADLINE SO FAR: G MATCHES V on target cosine at matched steps (G 0.700 @35k vs V 0.696 @34k) with no pathology in any arm (all grad-norm medians decline monotonically, clip rate 0.000 everywhere). D K=1 appears to PLATEAU near 0.59-0.60 rather than track toward G -- suggestive of an FD variance ceiling, but only 17 eval points, do NOT over-read. NEXT: FID on V epoch15 with a total-integration-time sweep T in {0.75, 1.5, 3.0}. The legacy harness default is 250 x 0.003 = 0.75, tuned for legacy EqM; BTM's self-stopping interpolant has Idot_1 = 0, so under-integrating truncates transport while over-integrating is harmless. Fix the winning T and reuse it for EVERY arm.",
+ "next_action": "Phase II-C LAUNCHED to epoch 60 (39216096 V, 39216098 G), continued from the epoch15 checkpoints. This is the decisive run: the legacy direct pathology (flat median grad-norm, CV exploding 0.44->50, damage beyond p95) onsets at ~epoch 55, and all II-B results stop at epoch 15. Read CV and clip rate per window and compare against the legacy direct table in memory/2026-08-14.md. Warm-start rescue arms 39212315/39212324 (from step 3.0M, CV~50) are the cheap complement and answer REPAIR; II-C answers PREVENTION.",
  "phase": "masked-field-shaping-primary"
 }
