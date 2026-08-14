@@ -269,6 +269,41 @@ def btm_fd_backward_accumulate(model, raw_model, cfg: BTMConfig, transport,
     return total, stats
 
 
+def btm_eval_target_match_vector(model, cfg: BTMConfig, transport, x1, y):
+    """EVALUATION-ONLY Table-D row for the VECTOR arm.
+
+    Without this the vector baseline has a training loss but no target-cosine,
+    so the scalar arms' cosines have no measured ceiling to be read against --
+    0.68 means something very different if V reaches 0.70 than if V reaches
+    0.95.  Same probe construction and same reported quantities as the scalar
+    version, but the field is the network output directly rather than grad phi.
+    """
+    interp = build_image_interpolant(cfg)
+    t, x0, x1, z, zdot = btm_sample(transport, interp, x1)
+    d = _d(z)
+    with torch.no_grad(), frozen_label_dropout(model, y) as yy:
+        field = model(z, t, yy)
+        f = field.reshape(z.shape[0], -1)
+        u = zdot.reshape(z.shape[0], -1)
+        mse = ((f - u) ** 2).sum(1) / d
+        cos = torch.nn.functional.cosine_similarity(f, u, dim=1)
+        ratio = f.norm(dim=1) / (u.norm(dim=1) + 1e-12)
+        near = t > cfg.tc
+        out = {
+            "target_mse_per_dim": float(mse.mean()),
+            "target_cosine": float(cos.mean()),
+            "target_norm_ratio": float(ratio.mean()),
+            "field_norm": float(f.norm(dim=1).mean()),
+        }
+        if near.any():
+            out["target_cosine_near_data"] = float(cos[near].mean())
+            out["target_mse_near_data"] = float(mse[near].mean())
+        if (~near).any():
+            out["target_cosine_far"] = float(cos[~near].mean())
+            out["target_mse_far"] = float(mse[~near].mean())
+    return out
+
+
 def btm_eval_target_match(raw_model, cfg: BTMConfig, transport, x1, y):
     """EVALUATION-ONLY: exact grad_x phi vs Idot on a held-out batch.
 

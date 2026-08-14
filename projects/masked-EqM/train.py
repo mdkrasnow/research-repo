@@ -47,6 +47,7 @@ from experiments.btm.image_losses import (
     BTM_MODES,
     BTMConfig,
     btm_eval_target_match,
+    btm_eval_target_match_vector,
     btm_loss,
 )
 from torchvision import datasets, transforms, models
@@ -689,7 +690,11 @@ def main(args):
                             was_training = model.module.training
                             model.module.eval()
                             try:
-                                if btm_cfg.mode != "btm_vector":
+                                if btm_cfg.mode == "btm_vector":
+                                    record.update(btm_eval_target_match_vector(
+                                        model.module, btm_cfg, transport,
+                                        _probe_x1, probe_y))
+                                else:
                                     record.update(btm_eval_target_match(
                                         model.module, btm_cfg, transport,
                                         _probe_x1, probe_y))
