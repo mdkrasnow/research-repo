@@ -55,6 +55,13 @@ collaborators (or a fresh clone) can see.
   FD numerics validated at real B/2 scale; FD estimator VARIANCE identified as the risk.
   Includes the load-bearing label-dropout gotcha that silently destroys any finite
   difference on this architecture. See `memory/topics/btm-fd-scalar-campaign.md`.
+- **Telemetry event log** (`projects/masked-EqM/telemetry/`, built 2026-08-14): the run
+  instrumentation rewrite. Content-addressed `run_uid` (logical experiment) + `exec_id`
+  (physical execution, since a SLURM requeue reuses the job id), a guaranteed terminal
+  record via a five-layer ladder, and completeness-gated aggregation with absolute analysis
+  windows. Replaces identity-by-path-parsing and run-relative windows, both of which could
+  silently invert the Phase II-A conclusion. Includes declared invariants aimed at the
+  `frozen_label_dropout` bug class. See `memory/topics/telemetry-event-log.md`.
 - **Scalar-energy EqM proposal** (external ChatGPT conversation, 2026-07-21, unevaluated):
   candidate masked-EqM direction — train scalar `E(x)` directly instead of the vector
   field, sample by descending `∇E(x)`. Not yet run through the project's mandatory

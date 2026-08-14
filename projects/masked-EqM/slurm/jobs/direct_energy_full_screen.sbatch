@@ -9,6 +9,7 @@
 #SBATCH --time=12:00:00
 #SBATCH --partition=seas_gpu
 #SBATCH --gres=gpu:1
+#SBATCH --open-mode=append
 set -euo pipefail
 
 module load python/3.10.13-fasrc01 2>/dev/null || true

@@ -9,6 +9,7 @@
 #SBATCH --time=18:00:00
 #SBATCH --partition=seas_gpu
 #SBATCH --gres=gpu:1
+#SBATCH --open-mode=append
 
 # Stage 1 matched longer-training curve (2026-07-20): does the cutoff-0.10
 # Fourier delta_G effect grow with more training? Retrains gaussian/mask/

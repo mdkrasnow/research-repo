@@ -9,6 +9,7 @@
 #SBATCH --time=12:00:00
 #SBATCH --partition=gpu_test
 #SBATCH --gres=gpu:1
+#SBATCH --open-mode=append
 set -euo pipefail
 
 # WFB-EqM Stage 2.6b: optimal linearized step-size (eta_alpha* = r.q_alpha /

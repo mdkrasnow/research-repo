@@ -9,6 +9,7 @@
 #SBATCH --time=8:00:00
 #SBATCH --partition=gpu_test
 #SBATCH --gres=gpu:1
+#SBATCH --open-mode=append
 set -euo pipefail
 
 # WFB-EqM Stage 3B: the batch-size discriminator for H2.

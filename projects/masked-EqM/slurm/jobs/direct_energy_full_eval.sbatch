@@ -10,6 +10,7 @@
 #SBATCH --partition=seas_gpu
 #SBATCH --gres=gpu:1
 #SBATCH --array=0-8%2
+#SBATCH --open-mode=append
 set -euo pipefail
 
 # Matched post-training FID evaluation for the user-directed real-scale

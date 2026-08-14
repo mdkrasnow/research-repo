@@ -24,13 +24,27 @@ NAME_PATTERNS = {
 }
 
 
-def find_file(base_patterns, epoch, suffix):
-    for d in RAW:
-        for pat in base_patterns:
-            candidate = f"{d}/{pat.format(epoch)}{suffix}"
-            if os.path.exists(candidate):
-                return candidate
-    return None
+def find_file(base_patterns, epoch, suffix, roots=None):
+    """Resolve exactly one file for (arm, epoch, suffix), or fail loudly.
+
+    A directory-outer / pattern-inner search silently prefers a pre-incident
+    file in an earlier directory over the corrected re-run in a later one, and
+    the frozen-manifest index-set assertion downstream cannot catch it: a stale
+    file evaluated over the same manifest has an identical index set.  So the
+    resolution is made unambiguous by construction -- collect ALL candidates and
+    treat multiplicity as an error the operator must resolve, rather than
+    silently picking one by search order.
+    """
+    roots = RAW if roots is None else roots
+    matches = [c for d in roots for pat in base_patterns
+               if os.path.exists(c := f"{d}/{pat.format(epoch)}{suffix}")]
+    if len(matches) > 1:
+        raise AssertionError(
+            f"ambiguous file resolution for epoch {epoch} {suffix}: {matches}. "
+            "Multiple naming variants exist for this arm; delete or archive the "
+            "stale ones so exactly one candidate remains."
+        )
+    return matches[0] if matches else None
 
 
 def load_fourier(base_patterns, epoch):

@@ -4,11 +4,23 @@ Fourier severity-curve analysis: 6 cutoffs (0.05,0.10,0.15,0.20,0.30,0.4181),
 Hierarchical paired bootstrap (resample seeds, then images) for delta_G/delta_M
 at each cutoff, Holm-corrected across the 12 tests (2 deltas x 6 cutoffs).
 """
-import json, math, os
+import json, math, os, zlib
 
 SP = os.path.dirname(os.path.abspath(__file__))
 SEEDS = [0, 1, 2, 3, 4]
 NEW_CUTOFFS = ["0.05", "0.1", "0.15"]
+
+def stable_seed(tag, key):
+    """Process-stable analysis seed.
+
+    ``hash()`` on a tuple containing a str is salted per interpreter process
+    (PYTHONHASHSEED), so seeding the bootstrap with it made every CI and every
+    p-value in this file change from run to run -- the exact nondeterminism the
+    hand-rolled LCG below was written to avoid.  A CRC32 over the encoded key is
+    a fixed function of the inputs, so reruns reproduce byte-identical numbers.
+    """
+    return zlib.crc32(f"{tag}|{key}".encode()) & 0xffff
+
 
 def rng_stream(seed):
     # deterministic LCG, no random module (avoid Date.now()-style nondeterminism concerns / keep simple)
@@ -150,8 +162,8 @@ for cutoff in CUTOFFS:
         per_seed_mse["mask"].append(sum(m_mse)/len(m_mse))
         per_seed_mse["gm"].append(sum(gm_mse)/len(gm_mse))
 
-    reps_g = hierarchical_bootstrap(seed_g_minus_gm, 10000, seed_val=hash(("g", cutoff)) & 0xffff)
-    reps_m = hierarchical_bootstrap(seed_m_minus_gm, 10000, seed_val=hash(("m", cutoff)) & 0xffff)
+    reps_g = hierarchical_bootstrap(seed_g_minus_gm, 10000, seed_val=stable_seed("g", cutoff))
+    reps_m = hierarchical_bootstrap(seed_m_minus_gm, 10000, seed_val=stable_seed("m", cutoff))
     ci_g = ci95(reps_g)
     ci_m = ci95(reps_m)
     p_g = two_sided_p(reps_g)

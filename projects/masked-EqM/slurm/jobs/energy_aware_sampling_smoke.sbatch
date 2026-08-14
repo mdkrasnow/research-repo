@@ -9,6 +9,7 @@
 #SBATCH --time=02:00:00
 #SBATCH --partition=gpu_test
 #SBATCH --gres=gpu:1
+#SBATCH --open-mode=append
 set -euo pipefail
 module load python/3.10.13-fasrc01 2>/dev/null || true; module load cuda/11.8.0-fasrc01 2>/dev/null || true
 W=/tmp/eqm-armijo-smoke-$SLURM_JOB_ID; R=/n/home03/mkrasnow/energy_aware_sampling/epoch15_armijo/smoke_$SLURM_JOB_ID

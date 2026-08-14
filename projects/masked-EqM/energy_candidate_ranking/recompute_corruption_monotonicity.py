@@ -28,13 +28,36 @@ def cluster_boot(values: np.ndarray, sources: np.ndarray, repetitions: int, seed
     return float(values.mean()), [float(np.quantile(sampled, .025)), float(np.quantile(sampled, .975))]
 
 
+def ordered_levels(config: dict) -> tuple[float, ...]:
+    """Return the corruption ladder as a strictly increasing tuple starting at clean.
+
+    The monotonicity endpoint is computed by zipping consecutive levels, so the
+    ladder's ORDER is load-bearing: an unsorted config silently turns a
+    "does energy increase with corruption" comparison into its converse.  The
+    ordering is therefore a validated requirement of the config, not an
+    incidental property of how it happened to be written.
+    """
+    severities = [float(s) for s in config["corruption_severities"]]
+    if len(set(severities)) != len(severities):
+        raise ValueError(f"corruption_severities must be unique, got {severities}")
+    if any(s <= 0. for s in severities):
+        raise ValueError(f"corruption_severities must be positive (0 is the clean anchor), got {severities}")
+    if severities != sorted(severities):
+        raise ValueError(
+            "corruption_severities must be listed in strictly increasing order; "
+            f"got {severities}. Ordering is required because the monotonicity "
+            "endpoint compares consecutive levels pairwise."
+        )
+    return (0., *severities)
+
+
 def main(args: argparse.Namespace) -> None:
     original = json.loads(args.metrics.read_text())
     rows = list(csv.DictReader(args.candidates.open()))
     by = {(row["group"], int(row["source_id"])): row for row in rows}
     sources = sorted({int(row["source_id"]) for row in rows})
     families = ("real", "generated_none", "generated_dot", "generated_direct")
-    levels = (0., *original["config"]["corruption_severities"])
+    levels = ordered_levels(original["config"])
     result_rows = []
     for si, score in enumerate(SCORES):
         comparisons, clusters = [], []
@@ -46,9 +69,17 @@ def main(args: argparse.Namespace) -> None:
                     comparisons.append(float(by[(hi_group, source)][score]) > float(by[(lo_group, source)][score]))
                     clusters.append(source)
         estimate, ci = cluster_boot(np.asarray(comparisons), np.asarray(clusters), original["config"]["bootstrap_replicates"], original["config"]["seed"] + 30 + si)
-        result_rows.append({"score": score, "metric": "corruption_increases_all_families_clean_included", "estimate": estimate, "ci95": ci,
+        result_rows.append({"score": score, "metric": "corruption_increases_all_families_clean_included",
+                            # Explicit join key into the bank being corrected: consumers must not
+                            # re-derive it by string surgery on `metric`.
+                            "corrects_metric": "corruption_increases_all_families",
+                            "estimate": estimate, "ci95": ci,
                             "pairs_per_source": len(comparisons) // len(sources), "families": list(families), "levels": list(levels)})
-    args.output.write_text(json.dumps({"source_metrics": str(args.metrics), "correction": "included clean-to-first-corruption transition", "metrics": result_rows}, indent=2) + "\n")
+    args.output.write_text(json.dumps({"source_metrics": str(args.metrics),
+                                       "source_metrics_resolved": str(args.metrics.resolve()),
+                                       "source_config_seed": original["config"]["seed"],
+                                       "correction": "included clean-to-first-corruption transition",
+                                       "metrics": result_rows}, indent=2) + "\n")
 
 
 if __name__ == "__main__":

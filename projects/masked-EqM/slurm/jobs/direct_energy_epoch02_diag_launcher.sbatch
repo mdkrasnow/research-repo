@@ -6,6 +6,7 @@
 #SBATCH --cpus-per-task=1
 #SBATCH --mem=1GB
 #SBATCH --time=04:00:00
+#SBATCH --open-mode=append
 set -euo pipefail
 
 while squeue -h -j 35377629,35377631 | grep -q .; do

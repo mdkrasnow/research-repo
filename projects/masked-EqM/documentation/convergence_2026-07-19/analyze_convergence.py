@@ -6,12 +6,24 @@ for delta_G(t)/delta_M(t) at each step, Holm-corrected across the 14 tests
 (2 deltas x 7 steps). Machinery ported verbatim from analyze_severity.py
 (severity-sweep 2026-07-16 experiment) with cutoff-dimension swapped for step.
 """
-import json, os
+import json, os, zlib
 
 SP = os.path.dirname(os.path.abspath(__file__))
 SEEDS = [0, 1, 2, 3, 4]
 STEPS = ["0", "25", "50", "100", "250", "500", "1000"]
 CUTOFF = "0.1"
+
+
+def stable_seed(tag, key):
+    """Process-stable analysis seed.
+
+    ``hash()`` on a tuple containing a str is salted per interpreter process
+    (PYTHONHASHSEED), so seeding the bootstrap with it made every CI and every
+    p-value in this file change from run to run -- the exact nondeterminism the
+    hand-rolled LCG below was written to avoid.  A CRC32 over the encoded key is
+    a fixed function of the inputs, so reruns reproduce byte-identical numbers.
+    """
+    return zlib.crc32(f"{tag}|{key}".encode()) & 0xffff
 
 
 def rng_stream(seed):
@@ -135,8 +147,8 @@ for step in STEPS:
         per_seed_mse["mask"].append(sum(m_mse) / len(m_mse))
         per_seed_mse["gm"].append(sum(gm_mse) / len(gm_mse))
 
-    reps_g = hierarchical_bootstrap(seed_g_minus_gm, 10000, seed_val=hash(("g", step)) & 0xffff)
-    reps_m = hierarchical_bootstrap(seed_m_minus_gm, 10000, seed_val=hash(("m", step)) & 0xffff)
+    reps_g = hierarchical_bootstrap(seed_g_minus_gm, 10000, seed_val=stable_seed("g", step))
+    reps_m = hierarchical_bootstrap(seed_m_minus_gm, 10000, seed_val=stable_seed("m", step))
     ci_g = ci95(reps_g)
     ci_m = ci95(reps_m)
     p_g = two_sided_p(reps_g)

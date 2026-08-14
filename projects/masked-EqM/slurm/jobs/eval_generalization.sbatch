@@ -9,6 +9,7 @@
 #SBATCH --time=02:30:00
 #SBATCH --partition=gpu_test
 #SBATCH --gres=gpu:1
+#SBATCH --open-mode=append
 
 # Cross-corruption generalization eval (see eval_generalization.py).
 # Single GPU, no DDP. Heavier than eval_masked_recovery.sbatch -- 9

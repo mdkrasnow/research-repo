@@ -13,6 +13,7 @@
 #SBATCH --time=12:00:00
 #SBATCH --partition=seas_gpu
 #SBATCH --gres=gpu:1
+#SBATCH --open-mode=append
 set -euo pipefail
 
 STAGE="${STAGE:?set STAGE=smoke|pilot|final}"; BUNDLE_ID="${BUNDLE_ID:-0}"

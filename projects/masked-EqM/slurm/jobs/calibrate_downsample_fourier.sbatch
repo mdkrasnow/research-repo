@@ -9,6 +9,7 @@
 #SBATCH --time=00:30:00
 #SBATCH --partition=gpu_test
 #SBATCH --gres=gpu:1
+#SBATCH --open-mode=append
 
 # One-shot calibration: finds downsample factor and fourier cutoff whose
 # pixel-space LPIPS vs clean matches the existing p=0.5 mask task's LPIPS

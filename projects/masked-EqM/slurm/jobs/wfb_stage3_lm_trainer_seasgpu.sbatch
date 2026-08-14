@@ -9,6 +9,7 @@
 #SBATCH --time=12:00:00
 #SBATCH --partition=seas_gpu
 #SBATCH --gres=gpu:1
+#SBATCH --open-mode=append
 set -euo pipefail
 
 # WFB-EqM Stage 3, seas_gpu variant (single GPU, no --exclusive/--constraint --

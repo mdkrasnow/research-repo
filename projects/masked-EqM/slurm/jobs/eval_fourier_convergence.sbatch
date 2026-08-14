@@ -9,6 +9,7 @@
 #SBATCH --time=03:30:00
 #SBATCH --partition=gpu_test
 #SBATCH --gres=gpu:1
+#SBATCH --open-mode=append
 
 # Recovery convergence-curve eval (single trajectory, records LPIPS/MSE at
 # multiple step counts) -- see eval_fourier_recovery.py --record-steps.

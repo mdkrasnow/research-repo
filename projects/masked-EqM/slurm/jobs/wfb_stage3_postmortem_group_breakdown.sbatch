@@ -9,6 +9,7 @@
 #SBATCH --time=04:00:00
 #SBATCH --partition=seas_gpu
 #SBATCH --gres=gpu:1
+#SBATCH --open-mode=append
 set -euo pipefail
 
 # WFB-EqM Stage 3 postmortem: backbone vs head breakdown of the lambda_max

@@ -8,6 +8,7 @@
 #SBATCH --mem=4GB
 #SBATCH --time=48:00:00
 #SBATCH --partition=shared
+#SBATCH --open-mode=append
 
 # Standing pruner for masked-EqM results dirs on holylabs.
 # Watches corruption_sanity_* dirs (all corruption families) and stage1_*

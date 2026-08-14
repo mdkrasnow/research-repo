@@ -6,6 +6,7 @@
 #SBATCH --cpus-per-task=1
 #SBATCH --mem=2GB
 #SBATCH --time=00:15:00
+#SBATCH --open-mode=append
 set -euo pipefail
 
 # Runs only after every FID-array task succeeds.  The Python aggregator itself

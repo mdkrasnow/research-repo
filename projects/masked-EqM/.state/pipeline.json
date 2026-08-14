@@ -24,19 +24,6 @@
  ],
  "active_runs": [
   {
-   "description": "Phase II-B: btm_vector K=1, seed 0, 15 EPOCHS (~75k steps, ~4x the II-A horizon), 4 GPUs, global batch 256, checkpoints at epochs 1/2/5/10/15, grad-log every 100, btm-eval every 1000.",
-   "expected_runtime": "~10-18h",
-   "gate": "Does G's clip rate / grad-norm start GROWING while D's stays flat? II-A showed no divergence at 20k steps, so II-B is the first horizon where the hypothesis can be tested at all. If neither degrades, the leading explanation becomes 'the corrected BTM target was the missing ingredient', not the mixed derivative.",
-   "git_sha": "381470927b2f85590c6411689d57436b46d0d4eb",
-   "job_id": "39134329",
-   "partition": "seas_gpu",
-   "phase": "BTM-II-B",
-   "run_id": "btm_IIB_V_s0",
-   "sbatch_path": "projects/masked-EqM/slurm/jobs/btm_image_arm.sbatch",
-   "status": "pending",
-   "submitted_at": "2026-08-14"
-  },
-  {
    "description": "Phase II-B: btm_scalar_exact K=1, seed 0, 15 EPOCHS (~75k steps, ~4x the II-A horizon), 4 GPUs, global batch 256, checkpoints at epochs 1/2/5/10/15, grad-log every 100, btm-eval every 1000.",
    "expected_runtime": "~10-18h",
    "gate": "Does G's clip rate / grad-norm start GROWING while D's stays flat? II-A showed no divergence at 20k steps, so II-B is the first horizon where the hypothesis can be tested at all. If neither degrades, the leading explanation becomes 'the corrected BTM target was the missing ingredient', not the mixed derivative.",
@@ -58,19 +45,6 @@
    "partition": "seas_gpu",
    "phase": "BTM-II-B",
    "run_id": "btm_IIB_D1_s0",
-   "sbatch_path": "projects/masked-EqM/slurm/jobs/btm_image_arm.sbatch",
-   "status": "pending",
-   "submitted_at": "2026-08-14"
-  },
-  {
-   "description": "Phase II-B: btm_scalar_fd_directional K=4, seed 0, 15 EPOCHS (~75k steps, ~4x the II-A horizon), 4 GPUs, global batch 256, checkpoints at epochs 1/2/5/10/15, grad-log every 100, btm-eval every 1000.",
-   "expected_runtime": "~10-18h",
-   "gate": "Does G's clip rate / grad-norm start GROWING while D's stays flat? II-A showed no divergence at 20k steps, so II-B is the first horizon where the hypothesis can be tested at all. If neither degrades, the leading explanation becomes 'the corrected BTM target was the missing ingredient', not the mixed derivative.",
-   "git_sha": "381470927b2f85590c6411689d57436b46d0d4eb",
-   "job_id": "39134360",
-   "partition": "seas_gpu",
-   "phase": "BTM-II-B",
-   "run_id": "btm_IIB_D4_s0",
    "sbatch_path": "projects/masked-EqM/slurm/jobs/btm_image_arm.sbatch",
    "status": "pending",
    "submitted_at": "2026-08-14"
@@ -14031,6 +14005,38 @@
    "sbatch_path": "projects/masked-EqM/slurm/jobs/wfb_stage3b_batchsize.sbatch",
    "status": "failed",
    "submitted_at": "2026-08-13"
+  },
+  {
+   "description": "Phase II-B: btm_vector K=1, seed 0, 15 EPOCHS (~75k steps, ~4x the II-A horizon), 4 GPUs, global batch 256, checkpoints at epochs 1/2/5/10/15, grad-log every 100, btm-eval every 1000.",
+   "duration": "04:44:19",
+   "exit_code": "0:0",
+   "expected_runtime": "~10-18h",
+   "final_metric": "75000 steps, 15 epochs, ckpts epoch01/02/05/10/15. target_cosine 0.708 / mse_per_dim 0.838 (median, 51k-68k window). late grad-norm median 0.076, clip rate 0.000. 4.51 steps/s.",
+   "gate": "Does G's clip rate / grad-norm start GROWING while D's stays flat? II-A showed no divergence at 20k steps, so II-B is the first horizon where the hypothesis can be tested at all. If neither degrades, the leading explanation becomes 'the corrected BTM target was the missing ingredient', not the mixed derivative.",
+   "git_sha": "381470927b2f85590c6411689d57436b46d0d4eb",
+   "job_id": "39134329",
+   "partition": "seas_gpu",
+   "phase": "BTM-II-B",
+   "run_id": "btm_IIB_V_s0",
+   "sbatch_path": "projects/masked-EqM/slurm/jobs/btm_image_arm.sbatch",
+   "status": "completed",
+   "submitted_at": "2026-08-14"
+  },
+  {
+   "cancel_reason": "Redundant + unaffordable. Its only unique role was the FD K-scaling check, already confirmed in II-A (noise ratio 2.168/1.200 = 1.81 ~ sqrt(4)). At 0.68 steps/s it costs 6.6x the vector baseline and would have hit the 24h wall at ~58k of 75k steps, producing an incomplete run. Deeper reason: D exists as the mechanism-isolating control for a G pathology, and through 35k steps G shows NO pathology (grad-norm declining monotonically, zero clips, cosine matching V). D K=1 retained as the FD representative.",
+   "description": "Phase II-B: btm_scalar_fd_directional K=4, seed 0, 15 EPOCHS (~75k steps, ~4x the II-A horizon), 4 GPUs, global batch 256, checkpoints at epochs 1/2/5/10/15, grad-log every 100, btm-eval every 1000.",
+   "duration": "05:04:34",
+   "expected_runtime": "~10-18h",
+   "final_metric": "CANCELLED at step ~6000 by user decision 2026-08-14. target_cosine 0.579 / mse 1.154 (4.5k-6k window), grad-norm median 1.09, clip 0.000.",
+   "gate": "Does G's clip rate / grad-norm start GROWING while D's stays flat? II-A showed no divergence at 20k steps, so II-B is the first horizon where the hypothesis can be tested at all. If neither degrades, the leading explanation becomes 'the corrected BTM target was the missing ingredient', not the mixed derivative.",
+   "git_sha": "381470927b2f85590c6411689d57436b46d0d4eb",
+   "job_id": "39134360",
+   "partition": "seas_gpu",
+   "phase": "BTM-II-B",
+   "run_id": "btm_IIB_D4_s0",
+   "sbatch_path": "projects/masked-EqM/slurm/jobs/btm_image_arm.sbatch",
+   "status": "cancelled",
+   "submitted_at": "2026-08-14"
   }
  ],
  "debugging_notes": [
@@ -14113,6 +14119,6 @@
   "prompt": "",
   "value": false
  },
- "next_action": "Phase II-A COMPLETE (all 4 arms, 20k steps, seed 0). Headline: with the corrected BTM target the EXACT scalar arm G is as healthy as the vector baseline V (late grad-norm 0.190 vs 0.133, same declining shape, zero clips in 20k steps, loss 0.877 vs 0.855), so there is NO pathology at this horizon for FD to rescue. FD arms are stable but behind at matched steps (cosine 0.583 K=1 / 0.614 K=4 vs G 0.692). Phase II-B launched at 15 epochs (39134329 V, 39134331 G, 39134332 D K=1, 39134360 D K=4). WHEN II-B FINISHES: analyze_image over its run dirs; the question is whether G's grad-norm/clip rate starts GROWING while D's stays flat. Also still TODO: compute V's target cosine post-hoc from a II-A checkpoint (V ran before the vector-eval commit), and FID via sample_gd.py + eval_fid.sbatch for the endpoint comparison.",
+ "next_action": "Phase II-B running: 39134331 (G, ~35k/75k) + 39134332 (D K=1, ~18k/75k). V (39134329) COMPLETE at 75k. D K=4 (39134360) CANCELLED -- redundant, 6.6x cost, would not finish. HEADLINE SO FAR: G MATCHES V on target cosine at matched steps (G 0.700 @35k vs V 0.696 @34k) with no pathology in any arm (all grad-norm medians decline monotonically, clip rate 0.000 everywhere). D K=1 appears to PLATEAU near 0.59-0.60 rather than track toward G -- suggestive of an FD variance ceiling, but only 17 eval points, do NOT over-read. NEXT: FID on V epoch15 with a total-integration-time sweep T in {0.75, 1.5, 3.0}. The legacy harness default is 250 x 0.003 = 0.75, tuned for legacy EqM; BTM's self-stopping interpolant has Idot_1 = 0, so under-integrating truncates transport while over-integrating is harmless. Fix the winning T and reuse it for EVERY arm.",
  "phase": "masked-field-shaping-primary"
 }

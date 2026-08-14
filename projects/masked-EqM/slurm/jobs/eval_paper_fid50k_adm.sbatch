@@ -11,6 +11,7 @@
 #SBATCH --constraint=h200
 #SBATCH --gres=gpu:4
 #SBATCH --exclusive
+#SBATCH --open-mode=append
 set -euo pipefail
 
 # Paper-comparable EqM-B/2 FID protocol:

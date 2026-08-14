@@ -8,6 +8,7 @@
 #SBATCH --mem=60GB
 #SBATCH --time=04:00:00
 #SBATCH --partition=shared
+#SBATCH --open-mode=append
 set -euo pipefail
 module load python/3.10.13-fasrc01 2>/dev/null || true
 GIT_SHA="${GIT_SHA:?set GIT_SHA}"

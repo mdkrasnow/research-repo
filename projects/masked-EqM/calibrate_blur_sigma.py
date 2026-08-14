@@ -33,6 +33,7 @@ from diffusers.models import AutoencoderKL
 import lpips
 
 from transport.corruption import mask_corrupt, blur_corrupt
+from telemetry.provenance import default_artifact_path, write_calibration_artifact
 
 
 def main():
@@ -48,8 +49,19 @@ def main():
     p.add_argument("--sigma-hi", type=float, default=8.0)
     p.add_argument("--tol", type=float, default=1e-3)
     p.add_argument("--max-iters", type=int, default=20)
+    # The validation subset is drawn with shuffle=True, so without a recorded,
+    # controllable seed the calibrated sigma is not reproducible even from
+    # identical code and data -- the artifact would document a number nobody can
+    # re-derive. Seeding here makes the derivation a function of its inputs.
+    p.add_argument("--seed", type=int, default=0)
+    p.add_argument("--out", type=str,
+                    default=default_artifact_path("blur_sigma_calibration.json"),
+                    help="JSON artifact recording the calibrated value and its provenance "
+                         "(default honours $CALIBRATION_OUT_DIR / $OUT_DIR so the file "
+                         "survives the job's /tmp work dir being deleted)")
     args = p.parse_args()
 
+    th.manual_seed(args.seed)
     device = "cuda" if th.cuda.is_available() else "cpu"
     vae = AutoencoderKL.from_pretrained(f"stabilityai/sd-vae-ft-{args.vae}").to(device)
     vae.eval()
@@ -117,11 +129,15 @@ def main():
             f"[{lo},{hi}] -> lpips=[{lpips_lo:.5f},{lpips_hi:.5f}]; widen --sigma-hi"
         )
 
+        converged = False
+        iters_used = 0
         for _ in range(args.max_iters):
+            iters_used += 1
             mid = 0.5 * (lo + hi)
             lpips_mid = lpips_dist(blur_corrupt(x1, mid))
             if abs(lpips_mid - mask_lpips) < args.tol:
                 lo = hi = mid
+                converged = True
                 break
             if lpips_mid < mask_lpips:
                 lo = mid
@@ -139,6 +155,44 @@ def main():
           f"lpips={blur_lpips:.6f} latent_mse={blur_latent_mse:.6f} pixel_mse={blur_pixel_mse:.6f}")
     print(f"RESULT sigma={sigma_star:.4f} mask_lpips={mask_lpips:.6f} blur_lpips={blur_lpips:.6f} "
           f"mask_latent_mse={mask_latent_mse:.6f} blur_latent_mse={blur_latent_mse:.6f}")
+
+    # The stdout line above is for humans; this artifact is the record. A
+    # constant that is hardcoded into a training config must be traceable to the
+    # inputs, data and code version that produced it, not to a SLURM log.
+    out_path = write_calibration_artifact(
+        args.out,
+        calibration="blur_sigma_lpips_matched_to_mask",
+        values={"sigma": sigma_star},
+        criterion={
+            "rule": "match pixel-space LPIPS(AlexNet) of blur_corrupt to that of "
+                    "mask_corrupt at the given mask_prob",
+            "target_lpips": mask_lpips,
+            "achieved_lpips": blur_lpips,
+            "abs_error": abs(blur_lpips - mask_lpips),
+            "tol": args.tol,
+            "converged": converged,
+            "iters_used": iters_used,
+            "max_iters": args.max_iters,
+            "search_interval": [args.sigma_lo, args.sigma_hi],
+        },
+        inputs=vars(args),
+        measurements={
+            "mask_lpips": mask_lpips,
+            "mask_latent_mse": mask_latent_mse,
+            "mask_pixel_mse": mask_pixel_mse,
+            "blur_lpips": blur_lpips,
+            "blur_latent_mse": blur_latent_mse,
+            "blur_pixel_mse": blur_pixel_mse,
+            "n_images_used": int(x1.shape[0]),
+        },
+        sources={
+            "data_path": args.data_path,
+            "vae": f"stabilityai/sd-vae-ft-{args.vae}",
+            "lpips_net": "alex",
+            "checkpoint": None,  # this calibration uses no trained EqM checkpoint
+        },
+    )
+    print(f"WROTE {out_path}")
 
 
 if __name__ == "__main__":

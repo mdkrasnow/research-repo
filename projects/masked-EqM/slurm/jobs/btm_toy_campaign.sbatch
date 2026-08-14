@@ -9,6 +9,7 @@
 #SBATCH --time=06:00:00
 #SBATCH --partition=gpu_test
 #SBATCH --gres=gpu:1
+#SBATCH --open-mode=append
 set -euo pipefail
 
 # Experiment I: the decisive five-atom BTM benchmark (arXiv:2608.01692v2 Sec 3).

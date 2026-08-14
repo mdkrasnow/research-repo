@@ -9,6 +9,7 @@
 #SBATCH --time=12:00:00
 #SBATCH --partition=gpu_test
 #SBATCH --gres=gpu:1
+#SBATCH --open-mode=append
 set -euo pipefail
 
 # WFB-EqM Stage 2.6a: FBGN Lanczos residual-certificate k-convergence check

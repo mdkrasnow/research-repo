@@ -5,6 +5,7 @@
 #SBATCH --mem=16G
 #SBATCH --time=01:00:00
 #SBATCH --output=projects/masked-EqM/slurm/logs/frozen-prior-aggregate-%j.out
+#SBATCH --open-mode=append
 set -euo pipefail
 WORK=/tmp/frozen-prior-aggregate-${SLURM_JOB_ID}; mkdir -p "$WORK"; cd "$WORK"
 git clone --depth=1 "${GIT_URL:?}" repo; cd repo; git fetch --depth=1 origin "${GIT_SHA:?}"; git checkout "$GIT_SHA"

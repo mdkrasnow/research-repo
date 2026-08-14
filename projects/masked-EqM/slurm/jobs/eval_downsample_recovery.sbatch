@@ -9,6 +9,7 @@
 #SBATCH --time=01:30:00
 #SBATCH --partition=gpu_test
 #SBATCH --gres=gpu:1
+#SBATCH --open-mode=append
 
 # Downsample-recovery eval (see eval_downsample_recovery.py). Single GPU, no DDP.
 # CKPT, FACTOR/FACTOR_GRID, OUT_NAME set via --export.

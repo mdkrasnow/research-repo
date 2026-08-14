@@ -9,6 +9,7 @@
 #SBATCH --time=00:30:00
 #SBATCH --partition=gpu_test
 #SBATCH --gres=gpu:1
+#SBATCH --open-mode=append
 
 # One-off: save clean + Fourier-corrupted PNGs (cutoffs 0.05/0.10/0.15) for
 # the fixed index set used in the severity-sweep qualitative grids. Reuses

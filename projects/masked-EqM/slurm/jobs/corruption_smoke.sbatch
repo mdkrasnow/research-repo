@@ -9,6 +9,7 @@
 #SBATCH --time=00:40:00
 #SBATCH --partition=gpu_test
 #SBATCH --gres=gpu:1
+#SBATCH --open-mode=append
 
 # Smoke test for structured start-state corruption (masked-EqM).
 # Runs a few hundred steps of EqM-B/2 on real IN-1K with CORRUPTION_MODE

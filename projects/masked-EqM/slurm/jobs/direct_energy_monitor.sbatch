@@ -6,6 +6,7 @@
 #SBATCH --cpus-per-task=1
 #SBATCH --mem=1GB
 #SBATCH --time=3-00:00:00
+#SBATCH --open-mode=append
 set -euo pipefail
 
 REPO_ROOT="${REPO_ROOT:-/n/home03/mkrasnow/research-repo}"

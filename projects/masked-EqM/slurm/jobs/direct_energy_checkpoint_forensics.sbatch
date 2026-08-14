@@ -10,6 +10,7 @@
 #SBATCH --partition=seas_gpu
 #SBATCH --gres=gpu:1
 #SBATCH --array=0-3
+#SBATCH --open-mode=append
 set -euo pipefail
 module load python/3.10.13-fasrc01 2>/dev/null || true
 module load cuda/11.8.0-fasrc01 2>/dev/null || true

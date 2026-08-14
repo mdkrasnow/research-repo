@@ -9,6 +9,7 @@
 #SBATCH --time=01:00:00
 #SBATCH --partition=gpu_test
 #SBATCH --gres=gpu:1
+#SBATCH --open-mode=append
 
 # Masked-recovery eval (see eval_masked_recovery.py). Single GPU, no DDP.
 # CKPT, HARD_CONSTRAIN, OUT_NAME set via --export.

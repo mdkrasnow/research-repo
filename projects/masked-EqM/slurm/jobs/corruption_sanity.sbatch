@@ -9,6 +9,7 @@
 #SBATCH --time=11:00:00
 #SBATCH --partition=gpu_test
 #SBATCH --gres=gpu:1
+#SBATCH --open-mode=append
 
 # Real sanity run for structured start-state corruption (masked-EqM).
 # Writes --results-dir directly to holylabs (network-mounted on compute

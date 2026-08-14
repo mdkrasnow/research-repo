@@ -10,5 +10,6 @@
 #SBATCH --partition=gpu_test
 #SBATCH --gres=gpu:1
 #SBATCH --dependency=afterok:37389012
+#SBATCH --open-mode=append
 
 exec bash /n/home03/mkrasnow/research-repo/projects/masked-EqM/slurm/jobs/masked_field_shaping_eval.sbatch

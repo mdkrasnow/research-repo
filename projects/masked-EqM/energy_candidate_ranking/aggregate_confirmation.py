@@ -32,6 +32,99 @@ REQUIRED_CONFIG = {
 }
 
 
+CLEAN_SUFFIX = "_clean_included"
+
+
+def corrected_metric_name(row: dict) -> str:
+    """Metric name in the bank that this correction row replaces.
+
+    Newer sidecars carry the join key explicitly (``corrects_metric``).  Older
+    ones only encode it in the metric name, in which case the suffix is stripped
+    as a SUFFIX -- ``str.replace`` would delete any interior occurrence too.
+    """
+    if row.get("corrects_metric"):
+        return row["corrects_metric"]
+    metric = row["metric"]
+    if not metric.endswith(CLEAN_SUFFIX):
+        raise ValueError(f"correction row metric {metric!r} does not end with {CLEAN_SUFFIX!r}; "
+                         "cannot determine which bank metric it corrects")
+    return metric[: -len(CLEAN_SUFFIX)]
+
+
+def same_metrics_file(recorded: str, resolved_input: Path) -> bool:
+    """Does a recorded provenance path denote this input bank?
+
+    Sidecars written before this join existed record a REPO-RELATIVE path
+    (``projects/masked-EqM/results/.../metrics.json``), which cannot be resolved
+    without knowing the cwd of the run that produced it.  Identity is therefore
+    tested as: identical after resolution, or one path's components are a suffix
+    of the other's.  Suffix agreement is still an identity test on the recorded
+    provenance -- uniqueness of the match is enforced by the caller -- unlike a
+    positional zip, which tests nothing at all.
+    """
+    recorded_path = Path(recorded)
+    if recorded_path.is_absolute() and recorded_path.resolve() == resolved_input:
+        return True
+    a, b = recorded_path.parts, resolved_input.parts
+    if not a or not b:
+        return False
+    short, long = (a, b) if len(a) <= len(b) else (b, a)
+    return long[-len(short):] == short
+
+
+def match_corrections(inputs: list[Path], banks: list[dict],
+                      correction_paths: list[Path]) -> list[tuple[dict, Path]]:
+    """Join corrections to banks on RECORDED PROVENANCE, never on argument position.
+
+    The two file families glob in different orders, so a positional zip silently
+    attaches each correction to the wrong bank and every downstream number is
+    wrong while the run reports success.  Each sidecar records the metrics file
+    it was computed from; that recorded path (and, when present, the source
+    config seed) is the join key, and the join must be a bijection.
+    """
+    if len(correction_paths) != len(banks):
+        raise ValueError("provide exactly one corruption correction per input bank")
+    resolved_inputs = [Path(path).resolve() for path in inputs]
+    if len(set(map(str, resolved_inputs))) != len(resolved_inputs):
+        raise ValueError(f"an input bank was supplied more than once: {[str(p) for p in inputs]}")
+    matched: list[tuple[dict, Path] | None] = [None] * len(banks)
+    for correction_path in correction_paths:
+        correction = json.loads(Path(correction_path).read_text())
+        candidates = [correction.get("source_metrics_resolved"), correction.get("source_metrics")]
+        source = next((c for c in candidates if c), None)
+        if not source:
+            raise ValueError(f"{correction_path} records no source_metrics provenance; cannot join")
+        hits = {i for c in candidates if c for i, p in enumerate(resolved_inputs)
+                if same_metrics_file(c, p)}
+        if len(hits) != 1:
+            raise ValueError(f"{correction_path} was computed from {source}, which does not resolve to "
+                             f"exactly one of the input banks {[str(p) for p in inputs]} (matched {len(hits)})")
+        index = hits.pop()
+        if matched[index] is not None:
+            raise ValueError(f"two corrections claim the same source bank {inputs[index]}")
+        seed = correction.get("source_config_seed")
+        if seed is not None and seed != banks[index]["config"].get("seed"):
+            raise ValueError(f"{correction_path} records source seed {seed} but {inputs[index]} "
+                             f"has seed {banks[index]['config'].get('seed')}")
+        matched[index] = (correction, Path(correction_path))
+    unmatched = [str(inputs[i]) for i, c in enumerate(matched) if c is None]
+    if unmatched:
+        raise ValueError(f"no corruption correction resolved to input banks: {unmatched}")
+    return matched
+
+
+def apply_correction(bank: dict, correction: dict, correction_path: Path) -> None:
+    """Replace corrected rows in-place; a correction that matches nothing is an error."""
+    replacements = {(row["score"], corrected_metric_name(row)):
+                    {**row, "metric": corrected_metric_name(row)}
+                    for row in correction["metrics"]}
+    present = {(row["score"], row["metric"]) for row in bank["metrics"]}
+    missing = sorted(set(replacements) - present)
+    if missing:
+        raise ValueError(f"{correction_path} contains correction rows with no matching bank row: {missing}")
+    bank["metrics"] = [replacements.get((row["score"], row["metric"]), row) for row in bank["metrics"]]
+
+
 def ci_over_banks(values: np.ndarray, repetitions: int, seed: int) -> list[float]:
     """Bootstrap the mean over immutable independent banks."""
     rng = np.random.default_rng(seed)
@@ -42,20 +135,18 @@ def ci_over_banks(values: np.ndarray, repetitions: int, seed: int) -> list[float
 def main(args: argparse.Namespace) -> None:
     banks = [json.loads(path.read_text()) for path in args.inputs]
     if args.corruption_corrections:
-        if len(args.corruption_corrections) != len(banks):
-            raise ValueError("provide exactly one corruption correction per input bank")
-        for bank, correction_path in zip(banks, args.corruption_corrections):
-            correction = json.loads(correction_path.read_text())
-            replacements = {(row["score"], row["metric"].replace("_clean_included", "")):
-                            {**row, "metric": row["metric"].replace("_clean_included", "")}
-                            for row in correction["metrics"]}
-            bank["metrics"] = [replacements.get((row["score"], row["metric"]), row)
-                               for row in bank["metrics"]]
+        corrections = match_corrections(args.inputs, banks, args.corruption_corrections)
+        for bank, (correction, correction_path) in zip(banks, corrections):
+            apply_correction(bank, correction, correction_path)
     for path, bank in zip(args.inputs, banks):
         bad = {key: (bank["config"].get(key), value) for key, value in REQUIRED_CONFIG.items()
                if bank["config"].get(key) != value}
         if bad:
             raise ValueError(f"{path} is not an immutable confirmation bank: {bad}")
+        severities = bank["config"].get("corruption_severities")
+        if severities is not None and list(severities) != sorted(severities):
+            raise ValueError(f"{path} lists corruption_severities out of increasing order: {severities}; "
+                             "the corruption monotonicity endpoint compares consecutive levels pairwise")
     seeds = [bank["config"]["seed"] for bank in banks]
     if len(set(seeds)) != len(seeds):
         raise ValueError(f"confirmation seeds must be unique, got {seeds}")

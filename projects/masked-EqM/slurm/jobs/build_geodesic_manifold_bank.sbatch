@@ -7,6 +7,7 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=64GB
 #SBATCH --time=04:00:00
+#SBATCH --open-mode=append
 set -euo pipefail
 module load python/3.10.13-fasrc01; module load cuda/11.8.0-fasrc01
 : "${GIT_SHA:?}"

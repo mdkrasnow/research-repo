@@ -9,6 +9,7 @@
 #SBATCH --time=00:30:00
 #SBATCH --partition=gpu_test
 #SBATCH --gres=gpu:1
+#SBATCH --open-mode=append
 
 # Energy-ordering check (see eval_energy_ordering.py). Single GPU, no DDP,
 # forward passes only -- no training/sampling, should be fast (~5-10min).

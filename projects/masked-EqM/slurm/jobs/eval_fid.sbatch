@@ -9,6 +9,7 @@
 #SBATCH --time=01:30:00
 #SBATCH --partition=gpu_test
 #SBATCH --gres=gpu:1
+#SBATCH --open-mode=append
 
 # Sanity-scale FID (see eval_fid.py). Single GPU, no DDP. Not the paper-scale
 # 50k-sample protocol -- a few thousand samples to check masking doesn't wreck
@@ -33,7 +34,12 @@ pip install --quiet timm 'diffusers==0.27.2' 'huggingface_hub==0.23.5' 'transfor
 
 CKPT="${CKPT:?CKPT must be set}"
 VAL_PATH="${VAL_PATH:-/n/holylabs/ydu_lab/Lab/raywang4/imagenet/val}"
-OUT_NAME="${OUT_NAME:-fid}"
+# No default. A shared default (`fid`) meant two arms invoked without OUT_NAME
+# both wrote $OUT_DIR/fid.json and $OUT_DIR/fid_samples/, so whichever finished
+# second silently destroyed the other's result. Correctness used to live in the
+# caller (the queue script exports OUT_NAME); requiring it here makes the
+# collision unrepresentable instead of merely unlikely.
+OUT_NAME="${OUT_NAME:?OUT_NAME must be set -- a shared default silently overwrites the other arm FID result}"
 EBM="${EBM:-none}"
 MODEL="${MODEL:-EqM-B/2}"
 

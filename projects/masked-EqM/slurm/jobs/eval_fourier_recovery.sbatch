@@ -9,6 +9,7 @@
 #SBATCH --time=01:30:00
 #SBATCH --partition=gpu_test
 #SBATCH --gres=gpu:1
+#SBATCH --open-mode=append
 
 # Fourier-recovery eval (see eval_fourier_recovery.py). Single GPU, no DDP.
 # CKPT, CUTOFF/CUTOFF_GRID, OUT_NAME set via --export.

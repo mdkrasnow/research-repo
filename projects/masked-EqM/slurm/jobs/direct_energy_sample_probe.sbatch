@@ -9,6 +9,7 @@
 #SBATCH --time=00:20:00
 #SBATCH --partition=gpu_test
 #SBATCH --gres=gpu:1
+#SBATCH --open-mode=append
 set -euo pipefail
 module load python/3.10.13-fasrc01 2>/dev/null || true; module load cuda/11.8.0-fasrc01 2>/dev/null || true
 ARMS=(none dot direct);EBM="${ARMS[$SLURM_ARRAY_TASK_ID]}";WORK_DIR="/tmp/masked-eqm-probe-${SLURM_JOB_ID}";REPO_ROOT="/n/home03/mkrasnow/research-repo";GIT_URL="${GIT_URL:-https://github.com/mdkrasnow/research-repo.git}";GIT_SHA="${GIT_SHA:?}";CKPT="$REPO_ROOT/projects/masked-EqM/results/direct_energy_campaign/stage3_pilot_v2/${EBM}_seed0/step1000.pt";RESULTS="results/direct_energy_campaign/stage4_sample_probe_v2/${EBM}_seed0"

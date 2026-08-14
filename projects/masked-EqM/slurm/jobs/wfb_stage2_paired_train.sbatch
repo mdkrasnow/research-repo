@@ -11,6 +11,7 @@
 #SBATCH --constraint=h200
 #SBATCH --gres=gpu:4
 #SBATCH --exclusive
+#SBATCH --open-mode=append
 set -euo pipefail
 
 # WFB-EqM Stage 2: very short paired training test (spec Section 9). Copied from the

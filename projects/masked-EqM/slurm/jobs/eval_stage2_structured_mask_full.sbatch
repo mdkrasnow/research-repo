@@ -10,6 +10,7 @@
 #SBATCH --partition=seas_gpu
 #SBATCH --gres=gpu:1
 #SBATCH --array=0-8%6
+#SBATCH --open-mode=append
 
 # Full preregistered Stage 2 evaluation, one array task per matched
 # checkpoint. Each task runs the frozen cutoff-0.10 Fourier recovery

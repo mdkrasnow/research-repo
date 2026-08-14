@@ -9,6 +9,7 @@
 #SBATCH --time=11:00:00
 #SBATCH --partition=gpu_test
 #SBATCH --gres=gpu:1
+#SBATCH --open-mode=append
 
 # Stage 2 structured-mask corruption (2026-07-22): 1-epoch controlled
 # comparison of gaussian-only / structured-mask-only / gaussian+structured-

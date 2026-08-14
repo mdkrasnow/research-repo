@@ -9,6 +9,7 @@
 #SBATCH --time=01:30:00
 #SBATCH --partition=gpu_test
 #SBATCH --gres=gpu:1
+#SBATCH --open-mode=append
 
 # Blur-recovery eval (see eval_blur_recovery.py). Single GPU, no DDP.
 # CKPT, SIGMA/SIGMA_GRID, OUT_NAME set via --export.

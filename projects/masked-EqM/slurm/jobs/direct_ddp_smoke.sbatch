@@ -7,6 +7,7 @@
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=16GB
 #SBATCH --time=00:20:00
+#SBATCH --open-mode=append
 set -euo pipefail
 module load python/3.10.13-fasrc01 2>/dev/null || true
 module load cuda/11.8.0-fasrc01 2>/dev/null || true

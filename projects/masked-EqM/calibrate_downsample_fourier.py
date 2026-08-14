@@ -19,6 +19,7 @@ from diffusers.models import AutoencoderKL
 import lpips
 
 from transport.corruption import mask_corrupt, downsample_corrupt, fourier_corrupt
+from telemetry.provenance import default_artifact_path, write_calibration_artifact
 
 
 def main():
@@ -32,8 +33,18 @@ def main():
     p.add_argument("--mask-prob", type=float, default=0.5)
     p.add_argument("--tol", type=float, default=1e-3)
     p.add_argument("--max-iters", type=int, default=20)
+    # See calibrate_blur_sigma.py: the validation subset is drawn with
+    # shuffle=True, so an unrecorded seed makes the calibrated constants
+    # irreproducible from identical code and data.
+    p.add_argument("--seed", type=int, default=0)
+    p.add_argument("--out", type=str,
+                    default=default_artifact_path("downsample_fourier_calibration.json"),
+                    help="JSON artifact recording the calibrated values and their provenance "
+                         "(default honours $CALIBRATION_OUT_DIR / $OUT_DIR so the file "
+                         "survives the job's /tmp work dir being deleted)")
     args = p.parse_args()
 
+    th.manual_seed(args.seed)
     device = "cuda" if th.cuda.is_available() else "cpu"
     vae = AutoencoderKL.from_pretrained(f"stabilityai/sd-vae-ft-{args.vae}").to(device)
     vae.eval()
@@ -93,11 +104,16 @@ def main():
         assert (lpips_lo >= target_lpips) != (lpips_hi >= target_lpips) or abs(lpips_lo - lpips_hi) < 1e-6, (
             f"target={target_lpips:.4f} not bracketed: lo({lo})={lpips_lo:.4f} hi({hi})={lpips_hi:.4f}"
         )
+        search_interval = [lo, hi]
+        converged = False
+        iters_used = 0
         for _ in range(args.max_iters):
+            iters_used += 1
             mid = 0.5 * (lo + hi)
             lpips_mid = lpips_dist(corrupt_fn(mid))
             if abs(lpips_mid - target_lpips) < args.tol:
                 lo = hi = mid
+                converged = True
                 break
             if higher_is_less_corrupt:
                 # increasing param -> less corrupt -> lpips decreases as param increases
@@ -110,7 +126,16 @@ def main():
                     hi = mid
                 else:
                     lo = mid
-        return 0.5 * (lo + hi)
+        # Returning the search diagnostics alongside the value, rather than the
+        # bare float, is what lets the artifact distinguish "bisection met tol"
+        # from "bisection hit the iteration cap and this is wherever it stopped".
+        return 0.5 * (lo + hi), {
+            "converged": converged,
+            "iters_used": iters_used,
+            "max_iters": args.max_iters,
+            "search_interval": search_interval,
+            "tol": args.tol,
+        }
 
     with th.no_grad():
         mask_z0 = mask_corrupt(x1, args.mask_prob)
@@ -120,7 +145,7 @@ def main():
         print(f"mask target: lpips={mask_lpips:.6f} latent_mse={mask_latent_mse:.6f} pixel_mse={mask_pixel_mse:.6f}")
 
         # Downsample: factor=1 -> no corruption (lpips~0), larger factor -> more corrupt (lpips increases)
-        ds_factor = binary_search(lambda f: downsample_corrupt(x1, f), 1.05, 16.0, mask_lpips, higher_is_less_corrupt=False)
+        ds_factor, ds_search = binary_search(lambda f: downsample_corrupt(x1, f), 1.05, 16.0, mask_lpips, higher_is_less_corrupt=False)
         ds_z0 = downsample_corrupt(x1, ds_factor)
         ds_lpips = lpips_dist(ds_z0)
         ds_latent_mse = latent_mse(ds_z0)
@@ -128,7 +153,7 @@ def main():
         print(f"downsample (factor={ds_factor:.4f}): lpips={ds_lpips:.6f} latent_mse={ds_latent_mse:.6f} pixel_mse={ds_pixel_mse:.6f}")
 
         # Fourier: cutoff=1 -> no corruption (lpips~0), smaller cutoff -> more corrupt (lpips increases)
-        fc_cutoff = binary_search(lambda c: fourier_corrupt(x1, c), 0.02, 1.0, mask_lpips, higher_is_less_corrupt=True)
+        fc_cutoff, fc_search = binary_search(lambda c: fourier_corrupt(x1, c), 0.02, 1.0, mask_lpips, higher_is_less_corrupt=True)
         fc_z0 = fourier_corrupt(x1, fc_cutoff)
         fc_lpips = lpips_dist(fc_z0)
         fc_latent_mse = latent_mse(fc_z0)
@@ -137,6 +162,43 @@ def main():
 
     print(f"RESULT downsample_factor={ds_factor:.4f} fourier_cutoff={fc_cutoff:.4f} "
           f"mask_lpips={mask_lpips:.6f} ds_lpips={ds_lpips:.6f} fc_lpips={fc_lpips:.6f}")
+
+    # See calibrate_blur_sigma.py: stdout is for humans, this file is the record
+    # that makes the hardcoded config constants auditable.
+    out_path = write_calibration_artifact(
+        args.out,
+        calibration="downsample_fourier_lpips_matched_to_mask",
+        values={"downsample_factor": ds_factor, "fourier_cutoff": fc_cutoff},
+        criterion={
+            "rule": "match pixel-space LPIPS(AlexNet) of each corruption to that "
+                    "of mask_corrupt at the given mask_prob",
+            "target_lpips": mask_lpips,
+            "downsample": dict(ds_search, achieved_lpips=ds_lpips,
+                               abs_error=abs(ds_lpips - mask_lpips)),
+            "fourier": dict(fc_search, achieved_lpips=fc_lpips,
+                            abs_error=abs(fc_lpips - mask_lpips)),
+        },
+        inputs=vars(args),
+        measurements={
+            "mask_lpips": mask_lpips,
+            "mask_latent_mse": mask_latent_mse,
+            "mask_pixel_mse": mask_pixel_mse,
+            "ds_lpips": ds_lpips,
+            "ds_latent_mse": ds_latent_mse,
+            "ds_pixel_mse": ds_pixel_mse,
+            "fc_lpips": fc_lpips,
+            "fc_latent_mse": fc_latent_mse,
+            "fc_pixel_mse": fc_pixel_mse,
+            "n_images_used": int(x1.shape[0]),
+        },
+        sources={
+            "data_path": args.data_path,
+            "vae": f"stabilityai/sd-vae-ft-{args.vae}",
+            "lpips_net": "alex",
+            "checkpoint": None,  # this calibration uses no trained EqM checkpoint
+        },
+    )
+    print(f"WROTE {out_path}")
 
 
 if __name__ == "__main__":

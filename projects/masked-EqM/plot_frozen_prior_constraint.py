@@ -8,22 +8,40 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
 
+from analyze_frozen_prior_constraint import load_rows
+
 
 ARMS = ('gaussian', 'bernoulli', 'mixed')
 MODES = ('none', 'hard', 'soft')
 
 
 def rows_at(root):
-    records=[]
-    for path in Path(root).rglob('*.jsonl'):
-        records.extend(json.loads(x) for x in path.read_text().splitlines() if x)
-    good=[r for r in records if r.get('completion_status')=='ok']
-    if not good: raise RuntimeError('no completed records')
-    return good
+    """Admission policy is the analyzer's, verbatim.
+
+    Previously this kept ``completion_status=='ok'`` and carried on while the
+    strict analyzer hard-failed on the same directory -- so a figure could be
+    published from a non-random surviving subset of exactly the data the
+    analyzer refused.  Sharing ``load_rows`` makes the two admissions identical
+    by construction (fail-closed on non-ok/non-finite records and on duplicate
+    record ids), so the figure cannot outlive the analysis.
+    """
+    return load_rows(root)
 
 
 def arm(r):
-    return r.get('model_arm', r['checkpoint_id'].split('_seed')[0])
+    """Arm identity comes from the first-class field, never from a name fallback.
+
+    ``r.get('model_arm', <fallback>)`` returns None when the key is present but
+    null, and a ``_seed``-split fallback returns a token that is in no plot's
+    arm list -- either way the arm silently disappears from every figure with no
+    error and no visible gap.
+    """
+    value = r.get('model_arm')
+    if value is None:
+        raise RuntimeError(f"record {r.get('record_id')!r} has no model_arm; refusing to guess the arm")
+    if value not in ARMS:
+        raise RuntimeError(f"record {r.get('record_id')!r} has unrecognized model_arm {value!r}; expected one of {ARMS}")
+    return value
 
 
 def grouped_mean(rows, metric, where=lambda r: True):
@@ -69,7 +87,11 @@ def main(args):
     fig,ax=plt.subplots(figsize=(6,4)); effects=[]; labels=[]
     for a in ARMS:
         key=lambda r:(r['checkpoint_id'],r['sample_id'],r['mask_family'],r['requested_visible_fraction'])
-        none={key(r):r for r in rows if arm(r)==a and r['projection_mode']=='none'}; hard={key(r):r for r in rows if arm(r)==a and r['projection_mode']=='hard'}
+        none_rows=[r for r in rows if arm(r)==a and r['projection_mode']=='none']; hard_rows=[r for r in rows if arm(r)==a and r['projection_mode']=='hard']
+        none={key(r):r for r in none_rows}; hard={key(r):r for r in hard_rows}
+        # Collapsing to a dict silently keeps only the LAST record when re-run shards
+        # overlap; the analyzer treats that as fatal and so must the figure.
+        if len(none)!=len(none_rows) or len(hard)!=len(hard_rows): raise RuntimeError(f'duplicate pair keys for arm {a}')
         common=sorted(set(none)&set(hard)); diff=[none[k]['lpips_missing_composite']-hard[k]['lpips_missing_composite'] for k in common]
         if diff: effects.append(diff); labels.append(a)
     if effects: ax.boxplot(effects,labels=labels,showfliers=False); ax.axhline(0,color='k',lw=.8); ax.set_ylabel('LPIPS none - hard (positive favors hard)'); ax.set_title('Hard-projection improvement'); ax.grid(axis='y',alpha=.25)

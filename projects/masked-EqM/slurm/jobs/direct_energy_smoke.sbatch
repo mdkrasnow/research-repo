@@ -9,6 +9,7 @@
 #SBATCH --time=00:20:00
 #SBATCH --partition=gpu_test
 #SBATCH --gres=gpu:1
+#SBATCH --open-mode=append
 
 # GPU implementation smoke only: no dataset, checkpoints, or training metric.
 set -euo pipefail

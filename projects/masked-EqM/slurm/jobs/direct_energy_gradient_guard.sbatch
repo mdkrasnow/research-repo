@@ -10,6 +10,7 @@
 #SBATCH --partition=seas_gpu
 #SBATCH --constraint=h200
 #SBATCH --gres=gpu:4
+#SBATCH --open-mode=append
 set -euo pipefail
 
 module load python/3.10.13-fasrc01 2>/dev/null || true

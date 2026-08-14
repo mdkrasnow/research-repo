@@ -9,6 +9,7 @@
 #SBATCH --time=00:30:00
 #SBATCH --partition=gpu_test
 #SBATCH --gres=gpu:1
+#SBATCH --open-mode=append
 
 # One-shot calibration: finds blur sigma whose clean-vs-corrupted latent
 # MSE matches the existing p=0.5 mask task's MSE (see calibrate_blur_sigma.py).
