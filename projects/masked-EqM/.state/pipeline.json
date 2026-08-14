@@ -16,19 +16,6 @@
  ],
  "active_runs": [
   {
-   "description": "Experiment I: five-atom corrected-BTM benchmark, stages 0-4 (FD calibration, tc sweep, 7 arms x 10 seeds, FD (K,eps) grid, gradient-noise).",
-   "expected_runtime": "~1-3h",
-   "gate": "Arm D: MAE_D <= max(0.015, 2*MAE_V), >=10 stable seeds, beats legacy-EqM control by >2x, FD validated, unresolved < 5%. PASS -> ImageNet B/2 pilot.",
-   "git_sha": "4df2b8f919768de3e148f7ac344fef843f4f36fb",
-   "job_id": "39062340",
-   "partition": "gpu_test",
-   "phase": "BTM-I",
-   "run_id": "btm_toy5_campaign",
-   "sbatch_path": "projects/masked-EqM/slurm/jobs/btm_toy_campaign.sbatch",
-   "status": "running",
-   "submitted_at": "2026-08-13"
-  },
-  {
    "description": "DIAGNOSTIC: BTM vector arm on ONE GPU at global batch 32 -- the repository's own proven recipe -- 60 steps, log every 10. Tests the BTM loss path without DDP, and doubles as the fallback Phase II configuration. Now running ALONE after all competing jobs were cancelled, which makes it a direct test of the filesystem-contention hypothesis.",
    "expected_runtime": "~30min",
    "gate": "If it now produces steps/sec logs alone on the filesystem, the stall was self-inflicted concurrency and Phase II-A relaunches staged in small batches. If it still stalls alone, the ImageNet path itself is the problem and an alternative data path must be used.",
@@ -43,6 +30,21 @@
   }
  ],
  "completed_runs": [
+  {
+   "completed_at": "2026-08-13",
+   "description": "Experiment I: five-atom corrected-BTM benchmark, stages 0-4 (FD calibration, tc sweep, 7 arms x 10 seeds, FD (K,eps) grid, gradient-noise).",
+   "expected_runtime": "~1-3h",
+   "final_metric": "COMPLETE, all 5 stages, GATE PASS 6/6. Medians (ring): V .0073, G .0076, A .0052, D .0084, F .0049, legacy_vector .0197, legacy_scalar .0202; R_weak .042-.059 BTM vs .745-.752 legacy. FD (K,eps) grid: h irrelevant across 1e-3..9e-3 (MAE identical to 3 decimals at fixed K); K=1 .0106, K=4 .0078, K=8 .0085. Toy gradnoise at d=2: D K=1 noise_scale 0.69 vs G 1.00 -- FD is NO WORSE than exact at d=2, versus 31x worse at d=4096, so the FD variance penalty is dimension-dependent and the toy structurally understates it.",
+   "gate": "Arm D: MAE_D <= max(0.015, 2*MAE_V), >=10 stable seeds, beats legacy-EqM control by >2x, FD validated, unresolved < 5%. PASS -> ImageNet B/2 pilot.",
+   "git_sha": "4df2b8f919768de3e148f7ac344fef843f4f36fb",
+   "job_id": "39062340",
+   "partition": "gpu_test",
+   "phase": "BTM-I",
+   "run_id": "btm_toy5_campaign",
+   "sbatch_path": "projects/masked-EqM/slurm/jobs/btm_toy_campaign.sbatch",
+   "status": "completed",
+   "submitted_at": "2026-08-13"
+  },
   {
    "completed_at": "2026-08-13",
    "description": "CONTROL: repository's ORIGINAL training path (BTM_MODE=none, --btm-mode flag absent), 4 GPUs, batch 256, 60 steps. Separates 'our BTM branch hangs' from 'this launch configuration hangs'.",
