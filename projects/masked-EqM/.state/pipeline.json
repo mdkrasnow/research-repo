@@ -14,7 +14,21 @@
    "title": "Results-dir race: two concurrent same-corruption-mode jobs silently mixed checkpoints"
   }
  ],
- "active_runs": [],
+ "active_runs": [
+  {
+   "description": "Throughput probe after the CORRECTED storage diagnosis: single GPU, global batch 64, 40 steps, log every 5, NUM_WORKERS=12, running ALONE. Establishes the achievable steps/sec on this filesystem so Phase II-A can be staged at a concurrency the ~3 MB/s-per-stream ImageNet path can actually sustain.",
+   "expected_runtime": "~30min",
+   "gate": "Produces steps/sec -> relaunch Phase II-A staged in small batches at that concurrency. Still no progress alone with 12 workers -> escalate, since 27 files/s measured would then not explain it.",
+   "git_sha": "3a6b7ac2dda381aa1979b90c449d1215e9742059",
+   "job_id": "39076148",
+   "partition": "gpu_test",
+   "phase": "BTM-II-A-debug",
+   "run_id": "btm_probe_1gpu",
+   "sbatch_path": "projects/masked-EqM/slurm/jobs/btm_image_arm.sbatch",
+   "status": "running",
+   "submitted_at": "2026-08-13"
+  }
+ ],
  "completed_runs": [
   {
    "completed_at": "2026-08-13",
@@ -13910,8 +13924,8 @@
   "step4_mixture_arm_B": "RESOLVED (2026-07-06) - 2-way gaussian+mask mixture (weights 1.0/1.0/0.0), same eval protocol. mean_masked_mse=0.13692, normalized_gap=0.464. Falls between isolated mask (0.568) and 3-arm mixture (0.449) as expected, but notably closer to the 3-arm mixture than to isolated mask -- confirms the 3-arm mixture's underperformance vs isolated mask is NOT primarily fourier-specific drag (arm B still loses ~0.10 gap vs pure mask despite excluding fourier entirely). Read together with step3's negative fourier result: the gap-closing recipe (gaussian:mask:fourier 1:1:1 vs 1:1:0 vs mask-only) suggests BOTH effects are real -- gradient-budget dilution (any mixing with gaussian reduces the pure-mask signal) AND fourier's own negative contribution. Fourier's negative pull is smaller in magnitude here (only 1/3 weight) than shown by its isolated -0.720 result, consistent with a real but diluted drag."
  },
  "needs_user_input": {
-  "prompt": "BLOCKED (external): Phase II-A cannot run because the ImageNet training data on /n/holylfs06/LABS/kempner_shared/Everyone/testbed/vision/imagenet_1k/ILSVRC2012_img_train is currently pathologically slow -- `ls` of a single class directory and reading 32 files each exceed 120s, though `ls` of the dataset root returns in 4ms. Isolated with two controls that exonerate our code: a VANILLA run with --btm-mode absent stalled identically, and a single-GPU run at the repo's own recipe (batch 32) also stalled. /n/netscratch/ydu_lab/Lab/jslee/imagenet has all 1000 class dirs but they are EMPTY, and /n/holylabs/ydu_lab/Lab/raywang4/imagenet is inaccessible -- no usable alternate copy found. NEEDED: either wait for the filesystem to recover and relaunch, or point IMAGENET_PATH at a known-good populated ImageNet-1k train tree. Everything upstream is complete: toy gate PASS 6/6 in two geometries, FD numerics validated at real B/2 scale, per-arm gradient-noise quantified, FBGN closed negative.",
-  "value": true
+  "prompt": "",
+  "value": false
  },
  "next_action": "Stage 3B batch-size discriminator queued. Gradient-only scan of C(B)=cos(g_B, g_ref) at the start checkpoint for B in {8,16,32,64,128} plus a stacked-GN arm at B_model=32. Pre-registered read: exponent > 0.65 -> batch size is a real lever, proceed to Stage 3C 50-step causal test; exponent ~0.5 (pure noise-averaging) or below -> the Stage 3B/3C KILL condition fires and the FBGN thread is written up as a negative result. Do NOT launch another 300-step FBGN run under any branch.",
  "phase": "masked-field-shaping-primary"
