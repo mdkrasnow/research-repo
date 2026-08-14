@@ -44,6 +44,11 @@ FD_EPS="${FD_EPS:-1e-3}"
 FD_K="${FD_K:-1}"
 NPROC="${NPROC:-4}"
 LOG_EVERY="${LOG_EVERY:-50}"
+# ImageNet on holylfs06 measures ~27 cold files/s, ~3 MB/s per stream, so the
+# dataloader -- not the GPU -- sets the pace. More workers, and FEW concurrent
+# jobs: 5 simultaneous 4-GPU jobs (80 workers) starved each other badly enough
+# that none reached step 50 in 20+ minutes.
+NUM_WORKERS="${NUM_WORKERS:-8}"
 GLOBAL_BATCH="${GLOBAL_BATCH:-256}"
 MAX_STEPS_ARG=""
 if [ -n "${MAX_STEPS:-}" ]; then MAX_STEPS_ARG="--max-steps ${MAX_STEPS}"; fi
@@ -82,6 +87,7 @@ CMD="python -m torch.distributed.run --nnodes=1 --nproc_per_node=$NPROC --master
   --model EqM-B/2 --data-path $IMAGENET_PATH --num-classes 1000 \
   --global-batch-size $GLOBAL_BATCH --epochs $EPOCHS --save-epochs $SAVE_EPOCHS \
   --image-size 256 --log-every $LOG_EVERY --ckpt-every 999999999 \
+  --num-workers $NUM_WORKERS \
   --results-dir $RESULTS_DIR --ebm $EBM --global-seed $GLOBAL_SEED \
   --grad-log-every ${GRAD_LOG_EVERY:-50} $BTM_ARGS $MAX_STEPS_ARG $CKPT_ARG"
 echo "$CMD"
