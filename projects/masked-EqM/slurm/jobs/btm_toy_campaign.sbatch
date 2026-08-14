@@ -39,7 +39,7 @@ git fetch --depth=50 origin '+refs/heads/*:refs/remotes/origin/*'
 git checkout "$GIT_SHA" || { git fetch --unshallow origin; git checkout "$GIT_SHA"; }
 cd projects/masked-EqM
 
-pip install --quiet timm 2>/dev/null || true
+pip install --quiet timm pytest 2>/dev/null || true
 python -c "import torch; print('torch', torch.__version__, 'cuda', torch.cuda.is_available())"
 
 DEV=$(python -c "import torch; print('cuda' if torch.cuda.is_available() else 'cpu')")

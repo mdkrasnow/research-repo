@@ -31,6 +31,8 @@ MAX_GRAD_NORM="${MAX_GRAD_NORM:-}"
 GRAD_LOG_EVERY="${GRAD_LOG_EVERY:-0}"
 EXACT_FWREV="${EXACT_FWREV:-0}"
 GP_LAMBDA="${GP_LAMBDA:-0.0}"
+WEIGHT_DECAY="${WEIGHT_DECAY:-0.0}"
+ENERGY_ZLOSS_LAMBDA="${ENERGY_ZLOSS_LAMBDA:-0.0}"
 MAX_STEPS="${MAX_STEPS:-}"
 export ENTITY="${ENTITY:-none}"
 export PROJECT="${PROJECT:-none}"
@@ -66,17 +68,17 @@ git checkout "$GIT_SHA" || { git fetch --unshallow origin; git checkout "$GIT_SH
 cd projects/masked-EqM
 pip install --quiet timm diffusers accelerate torchdiffeq wandb torchvision
 
-CMD="python -m torch.distributed.run --nnodes=1 --nproc_per_node=4 --master_port=$MASTER_PORT train.py --model EqM-B/2 --data-path $IMAGENET_PATH --num-classes 1000 --global-batch-size 32 --epochs $EPOCHS --save-epochs $SAVE_EPOCHS --image-size 256 --log-every 50 --ckpt-every $CKPT_EVERY --results-dir $RESULTS_DIR --ebm $EBM --global-seed $GLOBAL_SEED --ckpt $CKPT --num-workers 4 --grad-log-every $GRAD_LOG_EVERY"
+CMD="python -m torch.distributed.run --nnodes=1 --nproc_per_node=4 --master_port=$MASTER_PORT train.py --model EqM-B/2 --data-path $IMAGENET_PATH --num-classes 1000 --global-batch-size 32 --epochs $EPOCHS --save-epochs $SAVE_EPOCHS --image-size 256 --log-every 50 --ckpt-every $CKPT_EVERY --results-dir $RESULTS_DIR --ebm $EBM --global-seed $GLOBAL_SEED --ckpt $CKPT --num-workers 4 --grad-log-every $GRAD_LOG_EVERY --weight-decay $WEIGHT_DECAY"
 if [[ -n "$MAX_GRAD_NORM" ]]; then
   CMD+=" --max-grad-norm $MAX_GRAD_NORM"
 fi
 if [[ "$EXACT_FWREV" == "1" ]]; then
-  CMD+=" --exact-fwrev --gp-lambda $GP_LAMBDA"
+  CMD+=" --exact-fwrev --gp-lambda $GP_LAMBDA --energy-zloss-lambda $ENERGY_ZLOSS_LAMBDA"
 fi
 if [[ -n "$MAX_STEPS" ]]; then
   CMD+=" --max-steps $MAX_STEPS"
 fi
-echo "Continuation configuration: EPOCHS=$EPOCHS SAVE_EPOCHS=$SAVE_EPOCHS CKPT_EVERY=$CKPT_EVERY CKPT=$CKPT RESULTS_DIR=$RESULTS_DIR MAX_GRAD_NORM=${MAX_GRAD_NORM:-disabled} GRAD_LOG_EVERY=$GRAD_LOG_EVERY EXACT_FWREV=$EXACT_FWREV GP_LAMBDA=$GP_LAMBDA MAX_STEPS=${MAX_STEPS:-unlimited}"
+echo "Continuation configuration: EPOCHS=$EPOCHS SAVE_EPOCHS=$SAVE_EPOCHS CKPT_EVERY=$CKPT_EVERY CKPT=$CKPT RESULTS_DIR=$RESULTS_DIR MAX_GRAD_NORM=${MAX_GRAD_NORM:-disabled} GRAD_LOG_EVERY=$GRAD_LOG_EVERY EXACT_FWREV=$EXACT_FWREV GP_LAMBDA=$GP_LAMBDA WEIGHT_DECAY=$WEIGHT_DECAY ENERGY_ZLOSS_LAMBDA=$ENERGY_ZLOSS_LAMBDA MAX_STEPS=${MAX_STEPS:-unlimited}"
 echo "$CMD"
 eval "$CMD" 2>&1 | tee train.log
 EXIT_CODE=${PIPESTATUS[0]}
