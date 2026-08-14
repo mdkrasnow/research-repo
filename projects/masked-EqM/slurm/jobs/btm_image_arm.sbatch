@@ -132,7 +132,7 @@ eqm_telemetry_begin \
 CMD="python -m torch.distributed.run --nnodes=1 --nproc_per_node=$NPROC --master_port=$MASTER_PORT train.py \
   --model EqM-B/2 --data-path $IMAGENET_PATH --num-classes 1000 \
   --global-batch-size $GLOBAL_BATCH --epochs $EPOCHS --save-epochs $SAVE_EPOCHS \
-  --image-size 256 --log-every $LOG_EVERY --ckpt-every 999999999 \
+  --image-size 256 --log-every $LOG_EVERY --ckpt-every ${CKPT_EVERY:-999999999} \
   --num-workers $NUM_WORKERS \
   --results-dir $RESULTS_DIR --ebm $EBM --global-seed $GLOBAL_SEED \
   --grad-log-every ${GRAD_LOG_EVERY:-50} $BTM_ARGS $MAX_STEPS_ARG $CKPT_ARG"
