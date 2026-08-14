@@ -169,8 +169,20 @@ def main():
         for mode, K in arms:
             cfg = BTMConfig(mode=mode, tc=args.tc, fd_eps=args.eps_fd, fd_k=K,
                             fd_chunk=args.batch * 4)
-            grads, t0, peak = [], time.time(), 0
-            torch.cuda.reset_peak_memory_stats() if device == "cuda" else None
+            t0, peak = time.time(), 0
+            if device == "cuda":
+                torch.cuda.reset_peak_memory_stats()
+            # Streaming accumulators.  Storing n full gradients is not an
+            # option at B/2 (130M params x 4B = 0.52 GiB EACH; 64 of them OOM
+            # -killed job 39063725).  Two running vectors suffice, exactly:
+            #   S1  = sum_i g_i          -> |E g|^2 = |S1/n|^2
+            #   s2  = sum_i |g_i|^2      -> E|g|^2  = s2/n
+            #   E|g - gbar|^2 = E|g|^2 - |gbar|^2                (exact)
+            #   Sn  = sum_i g_i/|g_i|    -> mean pairwise cosine
+            #         = (|Sn|^2 - n) / (n(n-1))                  (exact)
+            S1 = Sn = None
+            s2 = 0.0
+            nb = 0
             for _ in range(args.n_grad_batches):
                 x1, y = next_batch()
                 model.zero_grad(set_to_none=True)
@@ -180,38 +192,43 @@ def main():
                         loss.backward()
                 else:
                     loss.backward()
-                grads.append(torch.cat([
+                g = torch.cat([
                     (p.grad.detach().reshape(-1) if p.grad is not None
                      else torch.zeros(p.numel(), device=device))
-                    for p in model.parameters()]).float().cpu())
+                    for p in model.parameters()]).double()
+                gn = g.norm()
+                if S1 is None:
+                    S1 = torch.zeros_like(g)
+                    Sn = torch.zeros_like(g)
+                S1 += g
+                Sn += g / (gn + 1e-30)
+                s2 += float(gn ** 2)
+                nb += 1
+                del g
             if device == "cuda":
                 peak = torch.cuda.max_memory_allocated() / 2 ** 30
             model.zero_grad(set_to_none=True)
-            G = torch.stack(grads).double()
-            gbar = G.mean(0)
-            dev = G - gbar
-            Gn = G / (G.norm(dim=1, keepdim=True) + 1e-30)
-            n = Gn.shape[0]
-            idx = torch.triu_indices(n, n, offset=1)
-            cos = (Gn[idx[0]] * Gn[idx[1]]).sum(1)
+            n = nb
+            mean_norm_sq = float((S1 / n).pow(2).sum())
+            E_norm_sq = s2 / n
+            noise = max(0.0, E_norm_sq - mean_norm_sq)
+            mean_cos = (float(Sn.pow(2).sum()) - n) / (n * (n - 1))
             rec = {
-                "mode": mode, "K": K, "n_batches": args.n_grad_batches,
-                "E_norm_sq": float((G ** 2).sum(1).mean()),
-                "mean_norm_sq": float((gbar ** 2).sum()),
-                "noise_norm_sq": float((dev ** 2).sum(1).mean()),
-                "mean_pairwise_cosine": float(cos.mean()),
-                "median_pairwise_cosine": float(cos.median()),
-                "seconds_per_step": (time.time() - t0) / args.n_grad_batches,
+                "mode": mode, "K": K, "n_batches": n,
+                "E_norm_sq": E_norm_sq,
+                "mean_norm_sq": mean_norm_sq,
+                "noise_norm_sq": noise,
+                "mean_pairwise_cosine": mean_cos,
+                "seconds_per_step": (time.time() - t0) / n,
                 "peak_mem_GiB": peak,
             }
-            rec["noise_scale"] = rec["noise_norm_sq"] / (rec["mean_norm_sq"] + 1e-30)
-            rec["snr"] = rec["mean_norm_sq"] / (rec["noise_norm_sq"] + 1e-30)
+            rec["noise_scale"] = noise / (mean_norm_sq + 1e-30)
+            rec["snr"] = mean_norm_sq / (noise + 1e-30)
             res[f"{mode}|K{K}"] = rec
             print(f"gradnoise {mode} K={K}: noise_scale {rec['noise_scale']:.4g} "
-                  f"cos {rec['mean_pairwise_cosine']:.4f} "
-                  f"{rec['seconds_per_step']:.2f}s/step "
+                  f"cos {mean_cos:.4f} {rec['seconds_per_step']:.2f}s/step "
                   f"peak {peak:.1f}GiB", flush=True)
-            del G, grads
+            del S1, Sn
         out["results"]["gradnoise"] = res
 
     # ----------------------------------------------------------------- weak
