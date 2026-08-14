@@ -40,7 +40,11 @@ GIT_URL="${GIT_URL:-https://github.com/mdkrasnow/research-repo.git}"
 CKPT="${CKPT:?set CKPT}"
 # No default: a shared default name means two arms silently overwrite each
 # other's result file.  Same reasoning as eval_fid.sbatch.
-OUT_NAME="${OUT_NAME:?set OUT_NAME -- a shared default silently overwrites another arm's FID}"
+# NOTE: no apostrophe in this message.  Bash quote-processes the word in
+# ${VAR:?word} even inside double quotes, so a lone ' opens a quote and the
+# whole script dies with "unexpected EOF" at parse time -- before the first
+# command runs, which is why it fails in 2 seconds with no useful output.
+OUT_NAME="${OUT_NAME:?set OUT_NAME -- a shared default silently overwrites the other arm FID result}"
 EBM="${EBM:-none}"
 MODEL="${MODEL:-EqM-B/2}"
 STEPSIZE="${STEPSIZE:-0.003}"
