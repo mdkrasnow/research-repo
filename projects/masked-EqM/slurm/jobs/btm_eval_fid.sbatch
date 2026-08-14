@@ -52,7 +52,10 @@ TOTAL_TIME="${TOTAL_TIME:-0.75}"
 NUM_SAMPLES="${NUM_SAMPLES:-2000}"
 BATCH_SIZE="${BATCH_SIZE:-32}"
 VAL_PATH="${VAL_PATH:-/n/holylabs/ydu_lab/Lab/raywang4/imagenet/val}"
-OUT_DIR="${OUT_DIR:-/n/holylabs/ydu_lab/Lab/mkrasnow_eqm/masked-EqM/eval_results}"
+# netscratch, NOT holylabs: the holylabs GROUP quota is exhausted (EDQUOT), and
+# it killed two completed FID computations at the final write.  netscratch has
+# 579T free and is where every BTM training run already writes.
+OUT_DIR="${OUT_DIR:-/n/netscratch/ydu_lab/Lab/mkrasnow_eqm/btm/eval_results}"
 
 # Integer step count from the requested horizon, then report the horizon that
 # was ACTUALLY integrated -- rounding must never be silent, because the whole

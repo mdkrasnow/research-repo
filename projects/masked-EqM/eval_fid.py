@@ -133,10 +133,24 @@ def main(args):
         "stepsize": args.stepsize,
         "fid": fid_value,
     }
-    os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
-    with open(args.out, "w") as f:
-        json.dump(result, f, indent=2)
-    print(f"fid={fid_value:.4f} over {args.num_samples} samples -> {args.out}")
+    # Emit to stdout BEFORE persisting.  The SLURM log is the write-ahead record:
+    # a full-line JSON dump on stdout means the result survives any failure of the
+    # output filesystem.  This ordering is not cosmetic -- jobs 39206395/39206444
+    # completed ~20 minutes of sampling, then died inside open(args.out, "w") on a
+    # holylabs EDQUOT, and because the print came after the write the finished FID
+    # was unrecoverable and the whole computation had to be repeated.
+    print(f"fid={fid_value:.4f} over {args.num_samples} samples", flush=True)
+    print("RESULT_JSON " + json.dumps(result, sort_keys=True), flush=True)
+
+    try:
+        os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
+        with open(args.out, "w") as f:
+            json.dump(result, f, indent=2)
+        print(f"wrote {args.out}", flush=True)
+    except OSError as e:
+        # Do NOT fail the job: the number is already durable on stdout above.
+        print(f"WARNING: could not persist to {args.out}: {e}", flush=True)
+        print("Recover with: grep RESULT_JSON <this log>", flush=True)
 
 
 if __name__ == "__main__":
