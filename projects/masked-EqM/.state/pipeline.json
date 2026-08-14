@@ -30,36 +30,51 @@
    "submitted_at": "2026-08-13"
   },
   {
-   "description": "Phase II-A staged relaunch: arm btm_scalar_exact (ebm=direct, fd_k=1, fd_eps=1e-3, tc=0.9), seed 0, 4 GPUs, global batch 256, 20000 steps, NUM_WORKERS=8. Launched only after the vector arm demonstrated 3.3 steps/sec at concurrency 1.",
-   "expected_runtime": "~2h",
-   "final_metric": "RUNNING: 2.43-2.48 steps/sec (vs vector arm 4.47) -- the ~1.8x slowdown is the expected cost of the create_graph=True double-backward, and is itself a Table C datapoint. Loss 1.03 -> 0.97 over steps 925-2875.",
-   "gate": "Phase II-A: no arm catastrophically fails; then read clip rate, grad-norm growth and exact-target cosine per training window. The load-bearing comparison is G (39078775) vs D (39078777/39078779).",
-   "git_sha": "3a6b7ac2dda381aa1979b90c449d1215e9742059",
-   "job_id": "39078775",
+   "description": "CLEAN RERUN of Phase II-A btm_scalar_exact K=1, seed 0, after fixing frozen_label_dropout (conditioning now bitwise frozen, asserted) and adding exact per-direction gradient accumulation for K>1. 4 GPUs, global batch 256, 20000 steps, btm-eval-every 250 for a denser target-cosine trace.",
+   "expected_runtime": "~2-4h",
+   "gate": "The campaign's central comparison. G vs D on late-training clip rate, grad-norm growth, and exact evaluation-time target cosine. Outcome B (G destabilizes, D stable, similar field) supports the hypothesis; Outcome C (D fails on estimator variance) refutes the FD route; Outcome A (both fine) says the corrected BTM target was the missing ingredient.",
+   "git_sha": "0f965808fa439855444d6ba01c6b56ef7c0cecf6",
+   "job_id": "39090540",
    "partition": "seas_gpu",
    "phase": "BTM-II-A",
-   "run_id": "btm_IIA_btm_scalar_exact_s0",
-   "sbatch_path": "projects/masked-EqM/slurm/jobs/btm_image_arm.sbatch",
-   "status": "running",
-   "submitted_at": "2026-08-13"
-  },
-  {
-   "description": "Phase II-A staged relaunch: arm btm_scalar_fd_directional (ebm=direct, fd_k=1, fd_eps=1e-3, tc=0.9), seed 0, 4 GPUs, global batch 256, 20000 steps, NUM_WORKERS=8. Launched only after the vector arm demonstrated 3.3 steps/sec at concurrency 1.",
-   "expected_runtime": "~2h",
-   "gate": "Phase II-A: no arm catastrophically fails; then read clip rate, grad-norm growth and exact-target cosine per training window. The load-bearing comparison is G (39078775) vs D (39078777/39078779).",
-   "git_sha": "3a6b7ac2dda381aa1979b90c449d1215e9742059",
-   "job_id": "39078777",
-   "note": "SLURM estimated start ~2026-08-14T06:00-06:47 (Priority). Deliberately NOT shrinking NPROC or GLOBAL_BATCH to schedule sooner: D must run the IDENTICAL recipe to G or the central G-vs-D comparison is confounded by batch size.",
-   "partition": "seas_gpu",
-   "phase": "BTM-II-A",
-   "run_id": "btm_IIA_btm_scalar_fd_directional_s0",
+   "run_id": "btm_IIA_G_s0",
    "sbatch_path": "projects/masked-EqM/slurm/jobs/btm_image_arm.sbatch",
    "status": "pending",
    "submitted_at": "2026-08-13"
   },
   {
+   "description": "CLEAN RERUN of Phase II-A btm_scalar_fd_directional K=1, seed 0, after fixing frozen_label_dropout (conditioning now bitwise frozen, asserted) and adding exact per-direction gradient accumulation for K>1. 4 GPUs, global batch 256, 20000 steps, btm-eval-every 250 for a denser target-cosine trace.",
+   "expected_runtime": "~2-4h",
+   "gate": "The campaign's central comparison. G vs D on late-training clip rate, grad-norm growth, and exact evaluation-time target cosine. Outcome B (G destabilizes, D stable, similar field) supports the hypothesis; Outcome C (D fails on estimator variance) refutes the FD route; Outcome A (both fine) says the corrected BTM target was the missing ingredient.",
+   "git_sha": "0f965808fa439855444d6ba01c6b56ef7c0cecf6",
+   "job_id": "39090541",
+   "partition": "seas_gpu",
+   "phase": "BTM-II-A",
+   "run_id": "btm_IIA_D1_s0",
+   "sbatch_path": "projects/masked-EqM/slurm/jobs/btm_image_arm.sbatch",
+   "status": "pending",
+   "submitted_at": "2026-08-13"
+  },
+  {
+   "description": "CLEAN RERUN of Phase II-A btm_scalar_fd_directional K=4, seed 0, after fixing frozen_label_dropout (conditioning now bitwise frozen, asserted) and adding exact per-direction gradient accumulation for K>1. 4 GPUs, global batch 256, 20000 steps, btm-eval-every 250 for a denser target-cosine trace.",
+   "expected_runtime": "~2-4h",
+   "gate": "The campaign's central comparison. G vs D on late-training clip rate, grad-norm growth, and exact evaluation-time target cosine. Outcome B (G destabilizes, D stable, similar field) supports the hypothesis; Outcome C (D fails on estimator variance) refutes the FD route; Outcome A (both fine) says the corrected BTM target was the missing ingredient.",
+   "git_sha": "0f965808fa439855444d6ba01c6b56ef7c0cecf6",
+   "job_id": "39090542",
+   "partition": "seas_gpu",
+   "phase": "BTM-II-A",
+   "run_id": "btm_IIA_D4_s0",
+   "sbatch_path": "projects/masked-EqM/slurm/jobs/btm_image_arm.sbatch",
+   "status": "pending",
+   "submitted_at": "2026-08-13"
+  }
+ ],
+ "completed_runs": [
+  {
+   "completed_at": "2026-08-13",
    "description": "Phase II-A staged relaunch: arm btm_scalar_fd_directional (ebm=direct, fd_k=4, fd_eps=1e-3, tc=0.9), seed 0, 4 GPUs, global batch 256, 20000 steps, NUM_WORKERS=8. Launched only after the vector arm demonstrated 3.3 steps/sec at concurrency 1.",
    "expected_runtime": "~2h",
+   "final_metric": "INVALIDATED (D FD K=4). Ran with a broken frozen_label_dropout: models.py passes the EqM MODULE's training flag to y_embedder, so emb.eval() never disabled token_drop. Labels were pre-dropped then re-dropped with fresh randomness every forward, and token_drop draws PER ROW, so phi(z+hu) and phi(z-hu) for the same sample got independent conditioning even inside one stacked forward -- corrupting ~10% of FD pairs at dropout_prob=0.1. Any Arm-D conclusion from these runs is an artifact. 39078779 additionally OOM'd on an 80 GB A100 because K=4 stacks 2*K*B activations. Superseded by the clean reruns 39090540/41/42.",
    "gate": "Phase II-A: no arm catastrophically fails; then read clip rate, grad-norm growth and exact-target cosine per training window. The load-bearing comparison is G (39078775) vs D (39078777/39078779).",
    "git_sha": "3a6b7ac2dda381aa1979b90c449d1215e9742059",
    "job_id": "39078779",
@@ -68,11 +83,40 @@
    "phase": "BTM-II-A",
    "run_id": "btm_IIA_btm_scalar_fd_directional4_s0",
    "sbatch_path": "projects/masked-EqM/slurm/jobs/btm_image_arm.sbatch",
-   "status": "pending",
+   "status": "failed",
    "submitted_at": "2026-08-13"
-  }
- ],
- "completed_runs": [
+  },
+  {
+   "completed_at": "2026-08-13",
+   "description": "Phase II-A staged relaunch: arm btm_scalar_fd_directional (ebm=direct, fd_k=1, fd_eps=1e-3, tc=0.9), seed 0, 4 GPUs, global batch 256, 20000 steps, NUM_WORKERS=8. Launched only after the vector arm demonstrated 3.3 steps/sec at concurrency 1.",
+   "expected_runtime": "~2h",
+   "final_metric": "INVALIDATED (D FD K=1). Ran with a broken frozen_label_dropout: models.py passes the EqM MODULE's training flag to y_embedder, so emb.eval() never disabled token_drop. Labels were pre-dropped then re-dropped with fresh randomness every forward, and token_drop draws PER ROW, so phi(z+hu) and phi(z-hu) for the same sample got independent conditioning even inside one stacked forward -- corrupting ~10% of FD pairs at dropout_prob=0.1. Any Arm-D conclusion from these runs is an artifact. 39078779 additionally OOM'd on an 80 GB A100 because K=4 stacks 2*K*B activations. Superseded by the clean reruns 39090540/41/42.",
+   "gate": "Phase II-A: no arm catastrophically fails; then read clip rate, grad-norm growth and exact-target cosine per training window. The load-bearing comparison is G (39078775) vs D (39078777/39078779).",
+   "git_sha": "3a6b7ac2dda381aa1979b90c449d1215e9742059",
+   "job_id": "39078777",
+   "note": "SLURM estimated start ~2026-08-14T06:00-06:47 (Priority). Deliberately NOT shrinking NPROC or GLOBAL_BATCH to schedule sooner: D must run the IDENTICAL recipe to G or the central G-vs-D comparison is confounded by batch size.",
+   "partition": "seas_gpu",
+   "phase": "BTM-II-A",
+   "run_id": "btm_IIA_btm_scalar_fd_directional_s0",
+   "sbatch_path": "projects/masked-EqM/slurm/jobs/btm_image_arm.sbatch",
+   "status": "cancelled",
+   "submitted_at": "2026-08-13"
+  },
+  {
+   "completed_at": "2026-08-13",
+   "description": "Phase II-A staged relaunch: arm btm_scalar_exact (ebm=direct, fd_k=1, fd_eps=1e-3, tc=0.9), seed 0, 4 GPUs, global batch 256, 20000 steps, NUM_WORKERS=8. Launched only after the vector arm demonstrated 3.3 steps/sec at concurrency 1.",
+   "expected_runtime": "~2h",
+   "final_metric": "INVALIDATED (G exact). Ran with a broken frozen_label_dropout: models.py passes the EqM MODULE's training flag to y_embedder, so emb.eval() never disabled token_drop. Labels were pre-dropped then re-dropped with fresh randomness every forward, and token_drop draws PER ROW, so phi(z+hu) and phi(z-hu) for the same sample got independent conditioning even inside one stacked forward -- corrupting ~10% of FD pairs at dropout_prob=0.1. Any Arm-D conclusion from these runs is an artifact. 39078779 additionally OOM'd on an 80 GB A100 because K=4 stacks 2*K*B activations. Superseded by the clean reruns 39090540/41/42.",
+   "gate": "Phase II-A: no arm catastrophically fails; then read clip rate, grad-norm growth and exact-target cosine per training window. The load-bearing comparison is G (39078775) vs D (39078777/39078779).",
+   "git_sha": "3a6b7ac2dda381aa1979b90c449d1215e9742059",
+   "job_id": "39078775",
+   "partition": "seas_gpu",
+   "phase": "BTM-II-A",
+   "run_id": "btm_IIA_btm_scalar_exact_s0",
+   "sbatch_path": "projects/masked-EqM/slurm/jobs/btm_image_arm.sbatch",
+   "status": "cancelled",
+   "submitted_at": "2026-08-13"
+  },
   {
    "completed_at": "2026-08-13",
    "description": "Throughput probe after the CORRECTED storage diagnosis: single GPU, global batch 64, 40 steps, log every 5, NUM_WORKERS=12, running ALONE. Establishes the achievable steps/sec on this filesystem so Phase II-A can be staged at a concurrency the ~3 MB/s-per-stream ImageNet path can actually sustain.",
@@ -13987,6 +14031,6 @@
   "prompt": "",
   "value": false
  },
- "next_action": "Phase II-A seed 0 in flight: V (39077320) and G (39078775) training healthy; D K=1 (39078777) and D K=4 (39078779) queued for ~06:00 2026-08-14. WHEN ALL FOUR FINISH: run `python -m experiments.btm.analyze_image <results dirs>` to emit Tables C and D (clip rate / grad-norm growth / update ratio, and exact-target cosine + MSE by early/mid/late window), then compare G vs D. If no arm catastrophically failed, launch seeds 1 and 2 for all four arms -- STAGED, at most ~4 concurrent 4-GPU jobs, because 12 simultaneous ImageNet readers starved the ~3 MB/s-per-stream holylfs06 path badly enough that none reached step 50 in 20 minutes. Results root: /n/netscratch/ydu_lab/Lab/mkrasnow_eqm/btm/. Throughput reference: vector 4.5 steps/sec, exact-scalar 2.45 steps/sec at global batch 256 on 4 GPUs.",
+ "next_action": "Phase II-A CLEAN RERUN in flight (39090540 G, 39090541 D K=1, 39090542 D K=4) at sha 0f96580. The earlier G/D runs are INVALIDATED by a frozen_label_dropout bug -- do not cite 39078775/39078777 results. Vector baseline 39077320 is unaffected (ebm=none has no scalar-energy FD path) and completed its 20000 steps. WHEN THE THREE FINISH: python -m experiments.btm.analyze_image on the run dirs under /n/netscratch/ydu_lab/Lab/mkrasnow_eqm/btm/ for Tables C and D, then read G vs D. Then launch seeds 1-2, STAGED at <=4 concurrent 4-GPU jobs (12 at once starved the ~3 MB/s-per-stream ImageNet path).",
  "phase": "masked-field-shaping-primary"
 }
