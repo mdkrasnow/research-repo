@@ -115,13 +115,24 @@ def norm(a):
     return math.sqrt(max(0.0, sum(float((x * x).sum()) for x in a)))
 
 
-@torch.no_grad()
 def bank_loss(model, batches):
-    """Mean loss over the bank, in the repo's convention: mean_flat((f-u)^2).mean()."""
+    """Mean loss over the bank, in the repo's convention: mean_flat((f-u)^2).mean().
+
+    NOT @torch.no_grad: the field of a scalar-energy model IS an input
+    gradient, so compute_field_direct must build a first-order graph in z
+    (`torch.autograd.grad(E.sum(), z)`).  Decorating this function with
+    no_grad made E.sum() a leaf and killed both Stage 3B submissions
+    (39024136, 39030308) with "element 0 of tensors does not require grad".
+    Only the ACCUMULATION is kept gradient-free, via float() on each term and
+    detach inside compute_field_direct's caller; no parameter graph survives
+    the loop.
+    """
     tot, n = 0.0, 0
     for xt, t, y, ut in batches:
-        field = compute_field_direct(model, xt, t, y)
-        tot += float(((field - ut) ** 2).mean(dim=tuple(range(1, xt.dim()))).sum())
+        field = compute_field_direct(model, xt, t, y).detach()
+        with torch.no_grad():
+            tot += float(((field - ut) ** 2).mean(
+                dim=tuple(range(1, xt.dim()))).sum())
         n += xt.shape[0]
     return tot / n
 
