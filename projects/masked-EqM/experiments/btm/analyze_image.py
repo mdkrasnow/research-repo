@@ -95,6 +95,8 @@ def summarize(rows, tag, arm, seed):
             "delta_theta_median": st.median(dtn) if dtn else float("nan"),
             "param_norm_median": st.median(pn) if pn else float("nan"),
         }
+        # train.py logs delta_theta_norm but not param_norm, so Delta/||theta||
+        # is only available when a run recorded it; NaN is honest here.
         if dtn and pn:
             rec["update_over_param"] = rec["delta_theta_median"] / (
                 rec["param_norm_median"] + 1e-30)
@@ -122,14 +124,29 @@ def main():
                            recursive=True):
             tag = os.path.basename(os.path.dirname(os.path.dirname(p)))
             arm, seed = "?", "?"
+            # Long-form mode names first, then the short RUN_TAG aliases the
+            # launcher actually uses (btm_IIA_V_s0 / _G_ / _D1_ / _D4_).
             for k in ARM_OF:
                 if k in p or k in tag:
                     arm = k
+            if arm == "?":
+                for alias, k in (("_V_", "btm_vector"),
+                                 ("_G_", "btm_scalar_exact"),
+                                 ("_D4_", "btm_scalar_fd_directional"),
+                                 ("_D1_", "btm_scalar_fd_directional")):
+                    if alias in tag:
+                        arm = k
+                        break
+            ksuffix = (" K=4" if "_D4_" in tag
+                       else " K=1" if "_D1_" in tag else "")
             if "_s" in tag:
                 seed = tag.rsplit("_s", 1)[-1][:1]
             rows = load_run(p)
             if rows:
-                allrecs += summarize(rows, tag, arm, seed)
+                recs = summarize(rows, tag, arm, seed)
+                for r in recs:
+                    r["label"] = ARM_OF.get(arm, arm) + ksuffix
+                allrecs += recs
 
     if not allrecs:
         print("no gradient_metrics.jsonl found under: " + ", ".join(args.roots))
@@ -140,7 +157,7 @@ def main():
           "unclipped max | clip rate % | Δθ (med) | Δθ/‖θ‖ |")
     print("|---|---|---|---|---|---|---|---|---|---|")
     for r in sorted(allrecs, key=lambda r: (r["arm"], r["seed"], r["steps"])):
-        print(f"| {ARM_OF.get(r['arm'], r['arm'])} | {r['seed']} | {r['window']} "
+        print(f"| {r['label']} | {r['seed']} | {r['window']} "
               f"| {r['steps']} | {r['grad_norm_median']:.4g} "
               f"| {r['grad_norm_p95']:.4g} | {r['unclipped_max']:.4g} "
               f"| {r['clip_rate_pct']:.2f} | {r.get('delta_theta_median', float('nan')):.3g} "
@@ -155,7 +172,7 @@ def main():
         if "target_cosine" not in r:
             continue
         g = lambda k: r.get(k, float("nan"))
-        print(f"| {ARM_OF.get(r['arm'], r['arm'])} | {r['seed']} | {r['window']} "
+        print(f"| {r['label']} | {r['seed']} | {r['window']} "
               f"| {g('target_cosine'):.4f} | {g('target_cosine_near_data'):.4f} "
               f"| {g('target_cosine_far'):.4f} | {g('target_mse_per_dim'):.4g} "
               f"| {g('target_norm_ratio'):.3f} | {g('E_mean'):.4g} "
@@ -167,7 +184,7 @@ def main():
     by = defaultdict(list)
     for r in allrecs:
         if r["window"] == "late":
-            by[r["arm"]].append(r)
+            by[r["label"]].append(r)
     print("| arm | seeds | late clip rate % | late target cosine |")
     print("|---|---|---|---|")
     for arm, rs in sorted(by.items()):
@@ -178,7 +195,7 @@ def main():
                 return "n/a"
             return (f"{st.mean(v):.4g} ± {st.stdev(v):.3g}" if len(v) > 1
                     else f"{v[0]:.4g}")
-        print(f"| {ARM_OF.get(arm, arm)} | {len(rs)} | {ms(cr)} | {ms(tc)} |")
+        print(f"| {arm} | {len(rs)} | {ms(cr)} | {ms(tc)} |")
 
     if args.out:
         with open(args.out, "w") as f:
