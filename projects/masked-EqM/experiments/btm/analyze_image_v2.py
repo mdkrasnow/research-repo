@@ -151,10 +151,24 @@ def build_report(root: str, *, campaign: Optional[str], phase: Optional[str],
     }
 
     if not admitted:
-        report["verdict"] = (
-            "NO ANALYZABLE RUNS. Every selected run failed the completeness gate; "
-            "see 'quarantined' for why. No table is produced, because any table "
-            "built from these runs would compare non-comparable step ranges.")
+        # "Nothing matched the selector" and "everything matched but was rejected"
+        # are different failures with different fixes -- a typo in --campaign
+        # /--phase versus genuinely unusable data. Reporting the first as the
+        # second sends the reader to inspect data quality for a run set that was
+        # never even looked at. (Hit for real: `--phase II` selects nothing,
+        # because the specs carry phase "IIA".)
+        if not report["quarantined"]:
+            report["verdict"] = (
+                f"NO RUNS SELECTED. No run under {root!r} matched "
+                f"campaign={campaign!r}, phase={phase!r}, so nothing was "
+                "evaluated for completeness. Check the selector against the "
+                "`campaign`/`phase` fields in the runs' spec.json.")
+        else:
+            report["verdict"] = (
+                "NO ANALYZABLE RUNS. Every selected run failed the completeness "
+                "gate; see 'quarantined' for why. No table is produced, because "
+                "any table built from these runs would compare non-comparable "
+                "step ranges.")
         return report
 
     executions = [e for _, e in admitted]
@@ -413,8 +427,19 @@ def main() -> int:
 
     # Non-zero exit when the report is not a valid basis for a decision, so a
     # pipeline cannot consume an invalid table and proceed.
-    return 1 if report["verdict"].split(":")[0] in ("INVALID", "CONFOUNDED",
-                                                    "NO ANALYZABLE RUNS") else 0
+    #
+    # This was a denylist of failure sentinels split on ":". Two ways it leaked,
+    # both silently exiting 0 on an unusable report:
+    #   - the sentinels it listed are followed by ". ", not ":", so
+    #     "NO ANALYZABLE RUNS. Every selected run..." split on ":" returns the
+    #     whole string, which matches nothing. The guard never fired for it.
+    #   - "NOT COMPARABLE:" (differing planned horizons) was never in the list
+    #     at all, so a confounded comparison also exited 0.
+    # A denylist has to be extended in lockstep with every new verdict, and
+    # forgetting is silent and fails open. Exactly one verdict means the report
+    # is decision-grade, so test for that one and treat everything else -- including
+    # verdicts added later -- as failure. Fails closed by construction.
+    return 0 if report["verdict"].startswith("OK") else 1
 
 
 if __name__ == "__main__":
