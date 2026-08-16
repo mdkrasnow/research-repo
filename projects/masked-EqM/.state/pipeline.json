@@ -22,73 +22,7 @@
    "title": "Results-dir race: two concurrent same-corruption-mode jobs silently mixed checkpoints"
   }
  ],
- "active_runs": [
-  {
-   "description": "Phase II-B: btm_scalar_fd_directional K=1, seed 0, 15 EPOCHS (~75k steps, ~4x the II-A horizon), 4 GPUs, global batch 256, checkpoints at epochs 1/2/5/10/15, grad-log every 100, btm-eval every 1000.",
-   "expected_runtime": "~10-18h",
-   "gate": "Does G's clip rate / grad-norm start GROWING while D's stays flat? II-A showed no divergence at 20k steps, so II-B is the first horizon where the hypothesis can be tested at all. If neither degrades, the leading explanation becomes 'the corrected BTM target was the missing ingredient', not the mixed derivative.",
-   "git_sha": "381470927b2f85590c6411689d57436b46d0d4eb",
-   "job_id": "39134332",
-   "partition": "seas_gpu",
-   "phase": "BTM-II-B",
-   "run_id": "btm_IIB_D1_s0",
-   "sbatch_path": "projects/masked-EqM/slurm/jobs/btm_image_arm.sbatch",
-   "status": "pending",
-   "submitted_at": "2026-08-14"
-  },
-  {
-   "description": "NEGATIVE CONTROL cell \"legacy x vector\" of the 2x2 target x parametrization design. BTM_MODE=none (original repo training path untouched), EBM=none, 15 epochs, seed 0, identical config to the BTM II-B arms. Supplies the LEGACY scalar-vs-vector FID gap AT OUR HORIZON, which is what makes \"BTM closes the gap\" a testable claim.",
-   "expected_runtime": "~5h (vector) / ~9h (scalar, double-backward)",
-   "gate": "Delta_legacy = FID(legacy scalar) - FID(legacy vector) at epoch 15. If Delta_legacy is ~0 at this horizon, epoch 15 CANNOT test the claim and Phase II-C (80 epochs) is mandatory. If Delta_legacy > 0 and Delta_BTM ~ 0, the corrected target closes the gap.",
-   "git_sha": "e5b6023d943f5dd1e6d1957abb4fd2377777f447",
-   "job_id": "39210676",
-   "partition": "seas_gpu",
-   "phase": "BTM-II-B",
-   "run_id": "btm_IIB_LEGACYvec_s0",
-   "sbatch_path": "projects/masked-EqM/slurm/jobs/btm_image_arm.sbatch",
-   "status": "pending",
-   "submitted_at": "2026-08-14"
-  },
-  {
-   "description": "NEGATIVE CONTROL cell \"legacy x scalar\" of the 2x2 target x parametrization design. BTM_MODE=none (original repo training path untouched), EBM=direct, 15 epochs, seed 0, identical config to the BTM II-B arms. Supplies the LEGACY scalar-vs-vector FID gap AT OUR HORIZON, which is what makes \"BTM closes the gap\" a testable claim.",
-   "expected_runtime": "~5h (vector) / ~9h (scalar, double-backward)",
-   "gate": "Delta_legacy = FID(legacy scalar) - FID(legacy vector) at epoch 15. If Delta_legacy is ~0 at this horizon, epoch 15 CANNOT test the claim and Phase II-C (80 epochs) is mandatory. If Delta_legacy > 0 and Delta_BTM ~ 0, the corrected target closes the gap.",
-   "git_sha": "e5b6023d943f5dd1e6d1957abb4fd2377777f447",
-   "job_id": "39210680",
-   "partition": "seas_gpu",
-   "phase": "BTM-II-B",
-   "run_id": "btm_IIB_LEGACYscalar_s0",
-   "sbatch_path": "projects/masked-EqM/slurm/jobs/btm_image_arm.sbatch",
-   "status": "pending",
-   "submitted_at": "2026-08-14"
-  },
-  {
-   "description": "Phase II-C: vector arm CONTINUED from its own epoch15 checkpoint to EPOCH 60 (~300k total steps, batch 256), 48h limit, ckpt every 25k for resumability.",
-   "expected_runtime": "~14h (V) / ~26h (G) for the remaining 45 epochs",
-   "gate": "REACHES THE FAILURE REGIME. Legacy direct CV explodes 0.44->50 between 2.2M and 2.5M steps at batch 32 = ~epoch 55. II-B stopped at epoch 15, i.e. entirely BEFORE the regime where legacy direct fails, so its G~V parity result cannot yet be read as an improvement. Epoch 60 crosses the onset. PASS = G clip rate stays ~0 and CV stays O(0.1-0.5) through epoch 60 while legacy direct reached CV 40-50 there.",
-   "git_sha": "b097f108f8089f07560158e88a9901d342dad3b2",
-   "job_id": "39216096",
-   "partition": "seas_gpu",
-   "phase": "BTM-II-C",
-   "run_id": "btm_IIC_V_s0",
-   "sbatch_path": "projects/masked-EqM/slurm/jobs/btm_image_arm.sbatch",
-   "status": "pending",
-   "submitted_at": "2026-08-14"
-  },
-  {
-   "description": "Phase II-C: scalar exact arm CONTINUED from its own epoch15 checkpoint to EPOCH 60 (~300k total steps, batch 256), 48h limit, ckpt every 25k for resumability.",
-   "expected_runtime": "~14h (V) / ~26h (G) for the remaining 45 epochs",
-   "gate": "REACHES THE FAILURE REGIME. Legacy direct CV explodes 0.44->50 between 2.2M and 2.5M steps at batch 32 = ~epoch 55. II-B stopped at epoch 15, i.e. entirely BEFORE the regime where legacy direct fails, so its G~V parity result cannot yet be read as an improvement. Epoch 60 crosses the onset. PASS = G clip rate stays ~0 and CV stays O(0.1-0.5) through epoch 60 while legacy direct reached CV 40-50 there.",
-   "git_sha": "b097f108f8089f07560158e88a9901d342dad3b2",
-   "job_id": "39216098",
-   "partition": "seas_gpu",
-   "phase": "BTM-II-C",
-   "run_id": "btm_IIC_G_s0",
-   "sbatch_path": "projects/masked-EqM/slurm/jobs/btm_image_arm.sbatch",
-   "status": "pending",
-   "submitted_at": "2026-08-14"
-  }
- ],
+ "active_runs": [],
  "completed_runs": [
   {
    "completed_at": "2026-08-14",
@@ -14132,6 +14066,102 @@
    "sbatch_path": "projects/masked-EqM/slurm/jobs/btm_eval_fid.sbatch",
    "status": "failed",
    "submitted_at": "2026-08-14"
+  },
+  {
+   "description": "Phase II-B: btm_scalar_fd_directional K=1, seed 0, 15 EPOCHS (~75k steps, ~4x the II-A horizon), 4 GPUs, global batch 256, checkpoints at epochs 1/2/5/10/15, grad-log every 100, btm-eval every 1000.",
+   "expected_runtime": "~10-18h",
+   "gate": "Does G's clip rate / grad-norm start GROWING while D's stays flat? II-A showed no divergence at 20k steps, so II-B is the first horizon where the hypothesis can be tested at all. If neither degrades, the leading explanation becomes 'the corrected BTM target was the missing ingredient', not the mixed derivative.",
+   "git_sha": "381470927b2f85590c6411689d57436b46d0d4eb",
+   "job_id": "39134332",
+   "outcome": "Phase II-B D FD K=1: FAILED after 11:08:26 (exit 1).",
+   "partition": "seas_gpu",
+   "phase": "BTM-II-B",
+   "run_id": "btm_IIB_D1_s0",
+   "sbatch_path": "projects/masked-EqM/slurm/jobs/btm_image_arm.sbatch",
+   "status": "failed",
+   "submitted_at": "2026-08-14"
+  },
+  {
+   "description": "NEGATIVE CONTROL cell \"legacy x vector\" of the 2x2 target x parametrization design. BTM_MODE=none (original repo training path untouched), EBM=none, 15 epochs, seed 0, identical config to the BTM II-B arms. Supplies the LEGACY scalar-vs-vector FID gap AT OUR HORIZON, which is what makes \"BTM closes the gap\" a testable claim.",
+   "expected_runtime": "~5h (vector) / ~9h (scalar, double-backward)",
+   "gate": "Delta_legacy = FID(legacy scalar) - FID(legacy vector) at epoch 15. If Delta_legacy is ~0 at this horizon, epoch 15 CANNOT test the claim and Phase II-C (80 epochs) is mandatory. If Delta_legacy > 0 and Delta_BTM ~ 0, the corrected target closes the gap.",
+   "git_sha": "e5b6023d943f5dd1e6d1957abb4fd2377777f447",
+   "job_id": "39210676",
+   "outcome": "Legacy 2x2 negative control (vector): OSError [Errno 122] Disk quota exceeded.",
+   "partition": "seas_gpu",
+   "phase": "BTM-II-B",
+   "run_id": "btm_IIB_LEGACYvec_s0",
+   "sbatch_path": "projects/masked-EqM/slurm/jobs/btm_image_arm.sbatch",
+   "status": "failed",
+   "submitted_at": "2026-08-14"
+  },
+  {
+   "description": "NEGATIVE CONTROL cell \"legacy x scalar\" of the 2x2 target x parametrization design. BTM_MODE=none (original repo training path untouched), EBM=direct, 15 epochs, seed 0, identical config to the BTM II-B arms. Supplies the LEGACY scalar-vs-vector FID gap AT OUR HORIZON, which is what makes \"BTM closes the gap\" a testable claim.",
+   "expected_runtime": "~5h (vector) / ~9h (scalar, double-backward)",
+   "gate": "Delta_legacy = FID(legacy scalar) - FID(legacy vector) at epoch 15. If Delta_legacy is ~0 at this horizon, epoch 15 CANNOT test the claim and Phase II-C (80 epochs) is mandatory. If Delta_legacy > 0 and Delta_BTM ~ 0, the corrected target closes the gap.",
+   "git_sha": "e5b6023d943f5dd1e6d1957abb4fd2377777f447",
+   "job_id": "39210680",
+   "outcome": "Legacy 2x2 negative control (scalar): OSError [Errno 122] Disk quota exceeded.",
+   "partition": "seas_gpu",
+   "phase": "BTM-II-B",
+   "run_id": "btm_IIB_LEGACYscalar_s0",
+   "sbatch_path": "projects/masked-EqM/slurm/jobs/btm_image_arm.sbatch",
+   "status": "failed",
+   "submitted_at": "2026-08-14"
+  },
+  {
+   "description": "Phase II-C: vector arm CONTINUED from its own epoch15 checkpoint to EPOCH 60 (~300k total steps, batch 256), 48h limit, ckpt every 25k for resumability.",
+   "expected_runtime": "~14h (V) / ~26h (G) for the remaining 45 epochs",
+   "gate": "REACHES THE FAILURE REGIME. Legacy direct CV explodes 0.44->50 between 2.2M and 2.5M steps at batch 32 = ~epoch 55. II-B stopped at epoch 15, i.e. entirely BEFORE the regime where legacy direct fails, so its G~V parity result cannot yet be read as an improvement. Epoch 60 crosses the onset. PASS = G clip rate stays ~0 and CV stays O(0.1-0.5) through epoch 60 while legacy direct reached CV 40-50 there.",
+   "git_sha": "b097f108f8089f07560158e88a9901d342dad3b2",
+   "job_id": "39216096",
+   "outcome": "Phase II-C V: HUNG 35.5h, 0 steps, 0 ckpts. Blocked in fstat on holylfs06 ImageNet (Lustre data path stalled). Cancelled 2026-08-16.",
+   "partition": "seas_gpu",
+   "phase": "BTM-II-C",
+   "run_id": "btm_IIC_V_s0",
+   "sbatch_path": "projects/masked-EqM/slurm/jobs/btm_image_arm.sbatch",
+   "status": "cancelled",
+   "submitted_at": "2026-08-14"
+  },
+  {
+   "description": "Phase II-C: scalar exact arm CONTINUED from its own epoch15 checkpoint to EPOCH 60 (~300k total steps, batch 256), 48h limit, ckpt every 25k for resumability.",
+   "expected_runtime": "~14h (V) / ~26h (G) for the remaining 45 epochs",
+   "gate": "REACHES THE FAILURE REGIME. Legacy direct CV explodes 0.44->50 between 2.2M and 2.5M steps at batch 32 = ~epoch 55. II-B stopped at epoch 15, i.e. entirely BEFORE the regime where legacy direct fails, so its G~V parity result cannot yet be read as an improvement. Epoch 60 crosses the onset. PASS = G clip rate stays ~0 and CV stays O(0.1-0.5) through epoch 60 while legacy direct reached CV 40-50 there.",
+   "git_sha": "b097f108f8089f07560158e88a9901d342dad3b2",
+   "job_id": "39216098",
+   "outcome": "Phase II-C G: HUNG 35.5h, 0 steps, 0 ckpts. Same holylfs06 stall. Cancelled 2026-08-16.",
+   "partition": "seas_gpu",
+   "phase": "BTM-II-C",
+   "run_id": "btm_IIC_G_s0",
+   "sbatch_path": "projects/masked-EqM/slurm/jobs/btm_image_arm.sbatch",
+   "status": "cancelled",
+   "submitted_at": "2026-08-14"
+  },
+  {
+   "arm": "btm_vector",
+   "description": "Phase II-C relaunch after the probe-worker-pool fix, epoch15 -> epoch60.",
+   "git_sha": "537ac3e5183c92346af9051fa309ef5f69e1800b",
+   "job_id": "39567834",
+   "outcome": "Cancelled after 3h03m with ZERO training steps. Same root cause as 39216096/98: /n/holylfs06 Lustre DATA path stalled (single-JPEG read >20s; listdir of 1000 classes instant; all 33 OSTs report active). Infrastructure, not the arm.",
+   "partition": "seas_gpu",
+   "phase": "BTM-II-C",
+   "run_id": "btm_IIC_V_s0",
+   "sbatch_path": "projects/masked-EqM/slurm/jobs/btm_image_arm.sbatch",
+   "status": "cancelled",
+   "submitted_at": "2026-08-16"
+  },
+  {
+   "arm": "btm_scalar_exact",
+   "description": "Phase II-C relaunch after the probe-worker-pool fix, epoch15 -> epoch60.",
+   "git_sha": "537ac3e5183c92346af9051fa309ef5f69e1800b",
+   "job_id": "39567835",
+   "outcome": "Cancelled after 3h03m with ZERO training steps. Same root cause as 39216096/98: /n/holylfs06 Lustre DATA path stalled (single-JPEG read >20s; listdir of 1000 classes instant; all 33 OSTs report active). Infrastructure, not the arm.",
+   "partition": "seas_gpu",
+   "phase": "BTM-II-C",
+   "run_id": "btm_IIC_G_s0",
+   "sbatch_path": "projects/masked-EqM/slurm/jobs/btm_image_arm.sbatch",
+   "status": "cancelled",
+   "submitted_at": "2026-08-16"
   }
  ],
  "debugging_notes": [
@@ -14211,9 +14241,9 @@
   "step4_mixture_arm_B": "RESOLVED (2026-07-06) - 2-way gaussian+mask mixture (weights 1.0/1.0/0.0), same eval protocol. mean_masked_mse=0.13692, normalized_gap=0.464. Falls between isolated mask (0.568) and 3-arm mixture (0.449) as expected, but notably closer to the 3-arm mixture than to isolated mask -- confirms the 3-arm mixture's underperformance vs isolated mask is NOT primarily fourier-specific drag (arm B still loses ~0.10 gap vs pure mask despite excluding fourier entirely). Read together with step3's negative fourier result: the gap-closing recipe (gaussian:mask:fourier 1:1:1 vs 1:1:0 vs mask-only) suggests BOTH effects are real -- gradient-budget dilution (any mixing with gaussian reduces the pure-mask signal) AND fourier's own negative contribution. Fourier's negative pull is smaller in magnitude here (only 1/3 weight) than shown by its isolated -0.720 result, consistent with a real but diluted drag."
  },
  "needs_user_input": {
-  "prompt": "",
-  "value": false
+  "prompt": "BLOCKED ON CLUSTER INFRASTRUCTURE: /n/holylfs06 (the canonical ImageNet copy) has a stalled Lustre data path -- a single JPEG read times out at >20s while metadata ops are instant and all 33 OSTs report active. This has killed four Phase II-C job-attempts (~38 A100-hours, zero training steps). No healthy full-resolution ImageFolder copy of ImageNet exists elsewhere on the cluster (imagenet1k-256 and hlakkaraju_lab/imagenet both have the 1000-class skeleton but EMPTY class dirs; the raywang4/holylabs copy is gone). Options: (a) wait for FASRC to clear holylfs06 and auto-resubmit, (b) open an RC ticket, (c) stage a dataset copy onto netscratch once reads recover. Phase II-C cannot proceed until ImageNet is readable.",
+  "value": true
  },
- "next_action": "Phase II-C LAUNCHED to epoch 60 (39216096 V, 39216098 G), continued from the epoch15 checkpoints. This is the decisive run: the legacy direct pathology (flat median grad-norm, CV exploding 0.44->50, damage beyond p95) onsets at ~epoch 55, and all II-B results stop at epoch 15. Read CV and clip rate per window and compare against the legacy direct table in memory/2026-08-14.md. Warm-start rescue arms 39212315/39212324 (from step 3.0M, CV~50) are the cheap complement and answer REPAIR; II-C answers PREVENTION.",
+ "next_action": "BLOCKED: /n/holylfs06 ImageNet data path stalled. Phase II-C (the decisive epoch-15->60 run that crosses the ~epoch-55 CV-explosion onset) is submitted-and-killed 2x. RESUBMIT COMMAND IS READY -- both arms, GIT_SHA=537ac3e, warm-started from the II-B epoch15 checkpoints, SAVE_EPOCHS must be exported via the environment (NOT --export=..., whose comma split silently truncates it to \"20\"). Poll holylfs06 with a timed single-file read; when it returns <1s, resubmit. UNBLOCKED WORK MEANWHILE: log/telemetry analysis for Tables C and D (all inputs on netscratch/home, no ImageNet reads).",
  "phase": "masked-field-shaping-primary"
 }
