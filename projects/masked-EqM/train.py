@@ -380,7 +380,43 @@ def main(args):
     # measure one-step functional progress (held-out field-MSE delta L) and field-update/
     # residual alignment (cosine) -- never touches training data statistics or any .grad
     # beyond a pure eval-mode forward + z-grad-only probe.
-    _probe_x, _probe_y_raw = next(iter(loader))
+    # INVARIANT: at most one multiprocess DataLoader worker pool is live per rank.
+    #
+    # This used to read `next(iter(loader))`, which builds a SECOND
+    # _MultiProcessingDataLoaderIter -- a full `num_workers`-process pool per
+    # rank (32 processes at 4x8) plus a pin_memory thread -- to fetch ONE batch,
+    # then drops it on the floor. The abandoned iterator is torn down only by
+    # refcount-triggered __del__/_shutdown_workers, racing against the epoch
+    # loop's own `for x, y in loader` pool coming up on the same slow holylfs06
+    # mount. Phase II-C deadlocked here twice (jobs 39216096/39216098): both
+    # main processes parked in _try_get_data at this line for 35.5h with 0% GPU
+    # utilisation, while their workers sat idle holding open ImageNet JPEG fds.
+    #
+    # The probe needs one deterministic batch, not a worker pool. Building it
+    # through a num_workers=0 loader over the SAME dataset and the SAME sampler
+    # yields bit-identical images (DistributedSampler.__iter__ is a pure
+    # function of (epoch, seed, rank) and holds no cursor) with no second pool
+    # and no shutdown race -- making the deadlock unrepresentable rather than
+    # merely unlikely. Cost is one serial read of `local_batch_size` JPEGs.
+    #
+    # The global RNG state is snapshotted and restored across the fetch so this
+    # construction is provably side-effect-free on the training RNG stream: the
+    # two loaders draw `_base_seed` and any transform randomness from different
+    # places, and arm-to-arm identity of the stream is what the comment above
+    # depends on.
+    _probe_rng_state = torch.get_rng_state()
+    _probe_loader = DataLoader(
+        dataset,
+        batch_size=local_batch_size,
+        shuffle=False,
+        sampler=sampler,
+        num_workers=0,
+        pin_memory=False,
+        drop_last=True,
+    )
+    _probe_x, _probe_y_raw = next(iter(_probe_loader))
+    del _probe_loader
+    torch.set_rng_state(_probe_rng_state)
     _probe_x = _probe_x.to(device)
     probe_y = _probe_y_raw.to(device)
     with torch.no_grad():
