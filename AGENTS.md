@@ -258,6 +258,15 @@ Maximum **1 retune per failing direction** (CLAUDE.md hard rule). No retune inde
 - Cluster jobs auto-clone repo to `/tmp/project-job-$SLURM_JOB_ID`, checkout `GIT_SHA`, run, cleanup. NO manual code maintenance on cluster.
 - Only `slurm/` synced to cluster (sbatch + log structure).
 
+### Partition policy from the PI (2026-08-17, Yilun — HARD, overrides wait-time optimization)
+- **`kempner_h100` is OFF LIMITS.** Do not submit there, ever, regardless of queue state.
+- **`kempner_requeue` is explicitly allowed** and should be considered alongside seas_gpu/gpu_test.
+- Note what `kempner_requeue` is: a **preemptible** partition. Jobs there can be killed and
+  requeued at any time, so anything submitted to it MUST carry `#SBATCH --requeue`,
+  `#SBATCH --open-mode=append`, and step-based checkpointing (`CKPT_EVERY`) dense enough
+  that a preemption costs little. `btm_image_arm.sbatch` already satisfies all three.
+  Long single-leg runs with sparse checkpoints are a bad fit and will lose work.
+
 ### Partition selection
 - **Pick by ACTUAL wait time, not habit. ALWAYS check before submitting:** `squeue -u $USER --start`, `squeue --start -p <part>` (est start), `sinfo -p <part> -o '%P %a %D %t %G'` (idle nodes) across gpu_test/seas_gpu/gpu. Submit to best real priority NOW. (Lesson 2026-06-29: `gpu` backlogged ~24h overnight while seas_gpu cleared hourly + gpu_test idle — lost a night.)
 - **If a job fits gpu_test, put it there** (higher priority, 12h cap). Fits = inference/smokes/≤12h. gpu_test cards are MIG-sliced A100 3g.20gb: **single-GPU works** (inference light); **4-GPU DDP does NOT** (MIG can't multi-rank NCCL → "Duplicate GPU detected"). Convert multi-GPU inference to `--nproc_per_node=1 --batch-size 16` to use gpu_test. Verified clean for B/2 selection+segmented (n=10k ≈ 0.7 img/s single-GPU). gpu_test QOS ~2 concurrent/user → overflow to seas_gpu.
