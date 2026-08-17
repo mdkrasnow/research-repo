@@ -1,0 +1,77 @@
+TABLE D.1 -- BTM target matching at eval (Phase II-B, ImageNet B/2, tc=0.9)
+target_cosine = cos(model field, corrected BTM population target b*). Eval-only;
+never in the training graph. 'near_data' / 'far' split the interpolant by gamma.
+
+arm                             n  maxstep |  cos ALL  cos near  cos far |  mse/dim | |f| ratio |    E mean    E std
+--------------------------------------------------------------------------------------------------------------------
+V   vector BTM                 75    75000 |   0.7081    0.6047   0.7180 |   0.8398 |    0.7135 |      +nan      nan
+G   scalar exact               75    75000 |   0.7046    0.5602   0.7200 |   0.8634 |    0.7843 | +1098.779 1188.311
+D1  FD directional K=1         66    66000 |   0.6061    0.5276   0.6169 |   1.0814 |    0.6952 |  +911.286  828.712
+D4  FD directional K=4         11    11000 |   0.6106    0.5238   0.6134 |   1.1089 |    0.6409 |  +722.873  859.315
+
+STEP-MATCHED (final 20% of the window [0, S] for each S):
+--- through step 11700 ---
+  V   vector BTM               n=  11  cos 0.6840  near 0.6394  far 0.6948  mse/dim 0.8767
+  G   scalar exact             n=  11  cos 0.6853  near 0.5441  far 0.6933  mse/dim 0.9320
+  D1  FD directional K=1       n=  11  cos 0.5692  near 0.4453  far 0.5773  mse/dim 1.1817
+  D4  FD directional K=4       n=  11  cos 0.6106  near 0.5238  far 0.6134  mse/dim 1.1089
+
+--- through step 22800 ---
+  V   vector BTM               n=  22  cos 0.6850  near 0.5804  far 0.6943  mse/dim 0.8788
+  G   scalar exact             n=  22  cos 0.6874  near 0.5341  far 0.7114  mse/dim 0.8946
+  D1  FD directional K=1       n=  22  cos 0.5783  near 0.4783  far 0.5892  mse/dim 1.1164
+  D4  FD directional K=4       n=  11  cos 0.6106  near 0.5238  far 0.6134  mse/dim 1.1089
+
+--- through step 66900 ---
+  V   vector BTM               n=  66  cos 0.7059  near 0.6028  far 0.7169  mse/dim 0.8382
+  G   scalar exact             n=  66  cos 0.6972  near 0.5547  far 0.7135  mse/dim 0.8694
+  D1  FD directional K=1       n=  66  cos 0.6061  near 0.5276  far 0.6169  mse/dim 1.0814
+  D4  FD directional K=4       n=  11  cos 0.6106  near 0.5238  far 0.6134  mse/dim 1.1089
+
+--- through step 75000 ---
+  V   vector BTM               n=  75  cos 0.7081  near 0.6047  far 0.7180  mse/dim 0.8398
+  G   scalar exact             n=  75  cos 0.7046  near 0.5602  far 0.7200  mse/dim 0.8634
+  D1  FD directional K=1       n=  66  cos 0.6061  near 0.5276  far 0.6169  mse/dim 1.0814
+  D4  FD directional K=4       n=  11  cos 0.6106  near 0.5238  far 0.6134  mse/dim 1.1089
+
+
+READING (new, 2026-08-17)
+=========================
+The headline "G 0.7046 vs V 0.7081" hides a systematic ASYMMETRY that the split
+columns expose:
+
+                     cos far      cos near_data
+  V vector BTM        0.7180         0.6047
+  G scalar exact      0.7200         0.5602      <- G is HIGHER far, LOWER near
+
+G matches (in fact slightly exceeds) the vector arm on the FAR field, and is
+worse than it only NEAR the data manifold, by 0.045 -- a gap ~13x the far-field
+gap of 0.002, and stable across every step-matched window from 11.7k to 75k
+(near: 0.6394/0.5441, 0.5804/0.5341, 0.6028/0.5547, 0.6047/0.5602).
+
+This localizes the cost of the conservative parametrization. b_theta = grad_x
+phi_theta is not uniformly worse at fitting the corrected BTM target; it is
+worse specifically where the target is most structured, which is also where
+sample quality is determined. It is the same region the legacy EqM target
+degenerates in (c(gamma) -> 0 as gamma -> 1). That two different scalar
+formulations both lose accuracy in the same region is a hint that the difficulty
+is a property of representing this field as a gradient near the manifold, not an
+artifact of either objective.
+
+CAVEAT: this is a within-arm eval diagnostic, not a sample-quality measurement.
+It predicts where FID differences should appear if they appear; it does not
+establish that they do. Table D (FID at the frozen T=3.0 operating point) is
+what tests it, and is blocked on the holylfs06 val split.
+
+D1/D4 plateau at ~0.61 against V/G's 0.70-0.71, confirming the FD variance
+ceiling from TABLE_B. K=4 is better than K=1 early (0.6106 at 11k vs 0.5692 at
+11.7k), consistent with lower estimator variance, but D1 at 66.9k still only
+reaches 0.6061 -- more directions help and do not close the gap.
+
+E_mean ~ +1099 with E_std ~ +1188 for G confirms the potential is NOT calibrated,
+as pre-registered ("do not interpret E as calibrated -log p_data"). Only its
+gradient is claimed to be meaningful.
+
+The two LEGACY arms emit no target_cosine records at all -- they are not trained
+against the corrected BTM target, so there is no b* to compare to. They appear
+in TABLE_C (optimizer behaviour, which is arm-agnostic) and cannot appear here.
