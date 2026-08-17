@@ -105,6 +105,33 @@ RESULTS_DIR="$RESULTS_ROOT/${RUN_TAG}_job${SLURM_JOB_ID}"
 mkdir -p "$RESULTS_DIR"
 
 # ---------------------------------------------------------------------------
+# AUTO-RESUME FROM THIS RUN'S OWN NEWEST CHECKPOINT.
+#
+# Mandatory on a preemptible partition, which gpu_requeue is. Without it a
+# requeued job re-reads the seed `CKPT` env var and restarts from the phase's
+# STARTING weights (II-B epoch 15) on every single preemption -- so under
+# frequent preemption it makes no net progress and may never finish, while
+# looking perfectly healthy in the log each time.
+#
+# SLURM reuses the job id across a requeue, so RESULTS_DIR is stable across
+# attempts and the previous attempt's checkpoints are exactly where this looks.
+# A fresh SUBMISSION gets a new id and therefore an empty dir, correctly falling
+# back to the seed checkpoint.
+#
+# Newest-by-mtime, not by name: step checkpoints (0100000.pt) and epoch
+# checkpoints (epoch20.pt) interleave in one directory and do not sort into a
+# single consistent order, so a name sort can silently pick an OLDER state.
+LATEST_OWN=$(find "$RESULTS_DIR" -name '*.pt' -type f -printf '%T@ %p\n' 2>/dev/null \
+             | sort -rn | head -1 | cut -d' ' -f2-)
+if [ -n "$LATEST_OWN" ]; then
+  eqm_log "auto-resume: attempt ${SLURM_RESTART_COUNT:-0} resuming from this run's own
+       newest checkpoint $LATEST_OWN (seed CKPT=${CKPT:-none} ignored -- it is only for
+       the first attempt)"
+  CKPT="$LATEST_OWN"
+  CKPT_ARG="--ckpt $CKPT"
+fi
+
+# ---------------------------------------------------------------------------
 # DATA-READINESS PREFLIGHT.
 #
 # Phase II-C burned ~38 A100-hours across four attempts at ZERO training steps

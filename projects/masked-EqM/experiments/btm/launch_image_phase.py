@@ -33,14 +33,14 @@ RESULTS_ROOT = "/n/netscratch/ydu_lab/Lab/mkrasnow_eqm/btm"
 
 PHASES = {
     "IIA": dict(epochs=80, max_steps=20000, save_epochs="1",
-                seeds=1, nproc=4, partition="seas_gpu",
+                seeds=1, nproc=4, partition="gpu_requeue",
                 arms=("btm_vector", "btm_scalar_exact",
                       "btm_scalar_fd_directional",
                       "btm_scalar_fd_directional4")),
     # seeds=1 per the 2026-08-14 user decision to skip replicates and decide
     # from seed 0; conclusions rest on dense within-run trajectories instead.
     "IIB": dict(epochs=15, max_steps=None, save_epochs="1,2,5,10,15",
-                seeds=1, nproc=4, partition="seas_gpu",
+                seeds=1, nproc=4, partition="gpu_requeue",
                 arms=("btm_vector", "btm_scalar_exact",
                       "btm_scalar_fd_directional")),
     # II-C is the DECISIVE phase and its checkpoint schedule is load-bearing.
@@ -74,7 +74,7 @@ PHASES = {
                 # 25k steps (~5 epochs) bounds what a wall-clock kill can
                 # destroy, independently of where the epoch boundaries fall.
                 ckpt_every=10000,
-                seeds=1, nproc=4, partition="seas_gpu",
+                seeds=1, nproc=4, partition="gpu_requeue",
                 arms=("btm_vector", "btm_scalar_exact",
                       "btm_scalar_fd_directional"),
                 # II-C continues each arm from its OWN II-B epoch-15 weights.
@@ -189,6 +189,12 @@ def build_cmds(args):
             # to the run tag; without it every arm's log is named `btm-image`.
             cmd = (f"cd /n/home03/mkrasnow/research-repo && {' '.join(env)} "
                    f"sbatch -p {spec['partition']} --job-name={tag} "
+                   # gpu_requeue mixes full cards with MIG slices
+                   # (nvidia_a100_3g.20gb), and MIG cannot do multi-rank NCCL
+                   # ("Duplicate GPU detected"). A bare --gres=gpu:4 is a
+                   # coin flip that fails ~3 min in; pin the full card.
+                   + (f"--gres=gpu:nvidia_a100-sxm4-80gb:{spec['nproc']} "
+                      if spec['partition'] == "gpu_requeue" else "")
                    + (f"-t {spec['time']} " if spec.get("time") else "")
                    + "projects/masked-EqM/slurm/jobs/btm_image_arm.sbatch")
             cmds.append((tag, arm, mode, ebm, fd_k, s, spec, cmd))

@@ -260,7 +260,23 @@ Maximum **1 retune per failing direction** (CLAUDE.md hard rule). No retune inde
 
 ### Partition policy from the PI (2026-08-17, Yilun — HARD, overrides wait-time optimization)
 - **`kempner_h100` is OFF LIMITS.** Do not submit there, ever, regardless of queue state.
-- **`kempner_requeue` is explicitly allowed** and should be considered alongside seas_gpu/gpu_test.
+- **`seas_gpu` is OFF LIMITS** (second message, 10:35). Do not submit there either.
+- **`gpu_requeue` is the designated partition.** `kempner_requeue` was named first but we
+  have no kempner account association (`sacctmgr` shows only `ydu_lab`), so submissions
+  there fail with "Invalid account or account/partition combination". `gpu_requeue` works
+  under `ydu_lab`.
+- **`gpu_requeue` is PREEMPTIBLE and MIG-mixed.** Two consequences, both load-bearing:
+  1. *MIG roulette.* The pool mixes full cards (`nvidia_a100-sxm4-80gb:4`,
+     `nvidia_h100_80gb_hbm3:4`) with MIG slices (`nvidia_a100_3g.20gb:8`). MIG cannot do
+     multi-rank NCCL — "Duplicate GPU detected: rank 1 and rank 0 both on CUDA device". For
+     any multi-GPU DDP job, PIN the type:
+     `--gres=gpu:nvidia_a100-sxm4-80gb:4` (or the h100 equivalent). Do not use a bare
+     `--gres=gpu:4` there.
+  2. *Preemption is the norm, not the exception.* A job WILL be killed and requeued. That
+     makes auto-resume mandatory, not optional: a requeued job that restarts from its
+     seed `CKPT` env var re-runs from epoch 15 every time and may never finish. See the
+     RESUME block in `btm_image_arm.sbatch`, which prefers the newest checkpoint in the
+     run's own results dir and falls back to `CKPT` only on the first attempt.
 - Note what `kempner_requeue` is: a **preemptible** partition. Jobs there can be killed and
   requeued at any time, so anything submitted to it MUST carry `#SBATCH --requeue`,
   `#SBATCH --open-mode=append`, and step-based checkpointing (`CKPT_EVERY`) dense enough
