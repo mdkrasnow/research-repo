@@ -132,6 +132,20 @@ def main(args):
         "sampler": args.sampler,
         "stepsize": args.stepsize,
         "fid": fid_value,
+        # PROVENANCE OF THE REFERENCE SET.  An FID is a distance to a specific
+        # reference distribution, so a bare `fid` number is not interpretable and
+        # -- worse -- two FIDs computed against different reference sets are not
+        # comparable while looking exactly as comparable as any other pair.  This
+        # was not hypothetical: 27 files defaulted to a since-deleted ImageNet
+        # copy, and the FID JSONs written before 2026-08-17 record no reference
+        # path at all, so it is now impossible to confirm from the artifacts
+        # which split they used.  Recording the path, class count and image
+        # count makes a mismatched pair detectable after the fact.
+        "ref_data_path": args.data_path,
+        "ref_num_classes": len(dataset.classes),
+        "ref_num_images": len(dataset),
+        "ref_seed": args.seed,
+        "image_size": args.image_size,
     }
     # Emit to stdout BEFORE persisting.  The SLURM log is the write-ahead record:
     # a full-line JSON dump on stdout means the result survives any failure of the
