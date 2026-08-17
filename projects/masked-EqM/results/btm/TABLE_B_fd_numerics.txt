@@ -1,0 +1,63 @@
+TABLE B -- Finite-difference numerical accuracy and estimator variance
+=====================================================================
+
+B.1  FD ACCURACY vs STEP SIZE
+-----------------------------
+Ground truth = exact autograd directional derivative on the same inputs.
+Frozen late `direct` checkpoint 2825000.pt, K=4, TF32 OFF, FD subtraction in
+FP32 or better. Three independent jobs agree.
+
+  eps_fd      1e-4     3e-4     1e-3     3e-3     1e-2     3e-2
+  rel RMSE   6.1e-3   2.8e-3   6.3e-4   2.1e-4   1.6e-4   1.2e-3
+
+  corr 1.00000 throughout; zero non-finite; cancellation ratio <= 4e-3.
+
+Textbook U-curve with a broad plateau over 1e-3 .. 1e-2 -- 4-5 significant
+digits at the energy scale training actually reaches. Per the pre-registered
+rule ("do not choose the smallest h; choose the stable plateau") the operating
+point is eps_fd = 1e-3.
+
+VERDICT: **FD numerics are NOT the risk.** The directional derivative of the
+scalar potential is recovered to ~4 significant digits at real B/2 scale.
+
+
+B.2  FD ESTIMATOR VARIANCE
+--------------------------
+B=8, eps=1e-3, n=64 minibatches. "noise scale" = gradient-noise scale;
+"mean pairwise cos" = cosine between per-minibatch gradient estimates.
+
+  arm                 noise scale   mean pairwise cos   s/step   peak mem
+  G  exact                  0.203               0.856     0.16    6.9 GiB
+  A  action exact           0.341               0.768     0.23    9.9 GiB
+  D  FD K=1                 6.30                0.124     0.14    6.3 GiB
+  D  FD K=4                 1.95                0.333     0.30   16.6 GiB
+
+VERDICT: **FD VARIANCE is the risk, and it is structural, not a tuning
+artifact.**
+
+This is worth stating precisely, because the obvious fix does not work. The
+directional estimator is
+
+    g_hat = u * [phi(x + h u) - phi(x - h u)] / (2h),    E[g_hat] = u u^T grad phi
+
+Its dominant variance is the variance of u u^T g over the Rademacher direction
+u, which is **independent of h**. So enlarging h -- even though the accuracy
+plateau in B.1 would permit 1e-2, and rel RMSE there is actually BETTER than at
+1e-3 (1.6e-4 vs 6.3e-4) -- does NOT reduce the noise scale. Float-cancellation
+noise is already negligible (cancel ratio <= 4e-3); it is not what dominates.
+
+The variance is intrinsic to probing a d = 4*32*32 = 4096-dimensional gradient
+with K directions per step: one Rademacher probe recovers a rank-1 projection.
+The only lever is K, and it pays the expected price -- K=4 cuts the noise scale
+3.2x (6.30 -> 1.95) and raises pairwise cosine 2.7x (0.124 -> 0.333), but costs
+2.1x the wall clock and 2.6x the peak memory.
+
+CROSS-REFERENCE (a first-class negative result for FD): at 4-GPU DDP scale the
+cost ordering INVERTS relative to this single-GPU microbenchmark. FD costs 2.7x
+(K=1) and 6.6x (K=4) the vector arm's wall clock, where the microbenchmark above
+shows D K=1 as the CHEAPEST arm per step (0.14 s/step vs G's 0.16). Single-GPU
+per-step timings do not predict DDP wall clock for these arms.
+
+CONSEQUENCE observed in Phase II-B: D K=1 plateaus at target cosine ~0.60 while
+G reaches 0.7046 and V 0.7081 (914 records -- a variance ceiling, not slow
+convergence), and D's median gradient norm sits at ~26x V's. See TABLE_C.
