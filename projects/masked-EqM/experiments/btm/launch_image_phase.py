@@ -73,7 +73,7 @@ PHASES = {
                 # alone leaves a 5-10 epoch gap; a step-based checkpoint every
                 # 25k steps (~5 epochs) bounds what a wall-clock kill can
                 # destroy, independently of where the epoch boundaries fall.
-                ckpt_every=25000,
+                ckpt_every=10000,
                 seeds=1, nproc=4, partition="seas_gpu",
                 arms=("btm_vector", "btm_scalar_exact",
                       "btm_scalar_fd_directional"),
