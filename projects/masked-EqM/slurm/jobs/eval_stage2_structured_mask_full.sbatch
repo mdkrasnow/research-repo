@@ -51,7 +51,7 @@ CKPTS=(
 
 RUN_TAG="${RUN_TAGS[$TASK_ID]}"
 CKPT="${CKPTS[$TASK_ID]}"
-VAL_PATH="${VAL_PATH:-/n/holylabs/ydu_lab/Lab/raywang4/imagenet/val}"
+VAL_PATH="${VAL_PATH:-/n/holylfs06/LABS/kempner_shared/Everyone/testbed/vision/imagenet_1k/val}"
 MANIFEST="/n/holylabs/ydu_lab/Lab/mkrasnow_eqm/masked-EqM/eval_results/manifest_fourier_repl_1024.json"
 OUT_DIR="${OUT_DIR:-/n/home03/mkrasnow/masked-EqM-stage2-eval}"
 WORK_DIR="/tmp/masked-eqm-stage2-eval-${SLURM_ARRAY_JOB_ID}-${TASK_ID}"

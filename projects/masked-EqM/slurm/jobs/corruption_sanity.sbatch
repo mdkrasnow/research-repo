@@ -51,7 +51,7 @@ cd projects/masked-EqM
 echo "=== Installing dependencies ===" >&2
 pip install --quiet timm diffusers accelerate torchdiffeq wandb torchvision 2>&1 | tail -10
 
-IMAGENET_PATH="${IMAGENET_PATH:-/n/holylabs/ydu_lab/Lab/raywang4/imagenet/train}"
+IMAGENET_PATH="${IMAGENET_PATH:-/n/holylfs06/LABS/kempner_shared/Everyone/testbed/vision/imagenet_1k/ILSVRC2012_img_train}"
 CORRUPTION_MODE="${CORRUPTION_MODE:-gaussian}"
 REPO_ROOT="/n/home03/mkrasnow/research-repo"
 # home03 has a 95GB hard quota (past incident: archived diff-EqM results

@@ -27,7 +27,7 @@ git remote add origin "${GIT_URL:?}"; git fetch --depth=50 origin main; git chec
 cd projects/masked-EqM
 python -m pip install --quiet timm diffusers accelerate torchvision lpips
 
-VAL=/n/holylabs/ydu_lab/Lab/raywang4/imagenet/val
+VAL=/n/holylfs06/LABS/kempner_shared/Everyone/testbed/vision/imagenet_1k/val
 OUT_ROOT="${OUT_ROOT:-/n/home03/mkrasnow/frozen-prior-constraint}"
 mkdir -p "$OUT_ROOT/$STAGE"
 mapfile -t ARMS < <(python -c 'import json; [print(x["id"]+"|"+x["path"]) for x in json.load(open("configs/frozen_prior_constraint_checkpoints.json"))["arms"]]')

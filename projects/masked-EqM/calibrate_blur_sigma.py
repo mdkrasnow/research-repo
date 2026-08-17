@@ -39,7 +39,7 @@ from telemetry.provenance import default_artifact_path, write_calibration_artifa
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--data-path", type=str,
-                    default="/n/holylabs/ydu_lab/Lab/raywang4/imagenet/val")
+                    default="/n/holylfs06/LABS/kempner_shared/Everyone/testbed/vision/imagenet_1k/val")
     p.add_argument("--vae", type=str, choices=["ema", "mse"], default="ema")
     p.add_argument("--image-size", type=int, default=256)
     p.add_argument("--num-images", type=int, default=256)

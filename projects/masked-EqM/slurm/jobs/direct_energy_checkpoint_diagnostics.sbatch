@@ -28,7 +28,7 @@ spec_args=()
 IFS=';' read -ra specs <<< "${CKPT_SPECS:?}"
 for spec in "${specs[@]}"; do spec_args+=(--ckpt "$spec"); done
 python experiments/direct_energy/checkpoint_diagnostics.py \
-  --data-path /n/holylabs/ydu_lab/Lab/raywang4/imagenet/train \
+  --data-path /n/holylfs06/LABS/kempner_shared/Everyone/testbed/vision/imagenet_1k/ILSVRC2012_img_train \
   --output "${OUT:-/n/holylabs/ydu_lab/Lab/mkrasnow_eqm/masked-EqM/results/direct_energy_campaign/training_diagnostics/checkpoint_metrics.jsonl}" \
   "${spec_args[@]}"
 rm -rf "$WORK_DIR"

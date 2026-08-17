@@ -23,5 +23,5 @@ CKPT="$REPO_ROOT/projects/masked-EqM/results/direct_energy_campaign/stage3_pilot
 RESULTS="results/direct_energy_campaign/stage8_off_trajectory/${EBM}_seed0.json"
 mkdir -p "$WORK_DIR"; cd "$WORK_DIR"; git init .; git remote add origin "$GIT_URL"; git fetch --depth=50 origin main; git checkout "$GIT_SHA" || { git fetch --unshallow origin; git checkout "$GIT_SHA"; }; cd projects/masked-EqM
 pip install --quiet timm diffusers torchvision
-python experiments/direct_energy/off_trajectory.py --data-path "${IMAGENET_PATH:-/n/holylabs/ydu_lab/Lab/raywang4/imagenet/train}" --ckpt "$CKPT" --output "$RESULTS" --ebm "$EBM" 2>&1 | tee offtraj.log
+python experiments/direct_energy/off_trajectory.py --data-path "${IMAGENET_PATH:-/n/holylfs06/LABS/kempner_shared/Everyone/testbed/vision/imagenet_1k/ILSVRC2012_img_train}" --ckpt "$CKPT" --output "$RESULTS" --ebm "$EBM" 2>&1 | tee offtraj.log
 mkdir -p "$REPO_ROOT/projects/masked-EqM/results/direct_energy_campaign/stage8_off_trajectory"; cp "$RESULTS" "$REPO_ROOT/projects/masked-EqM/$RESULTS"; cp offtraj.log "$REPO_ROOT/projects/masked-EqM/slurm/logs/direct_offtraj_${EBM}_${SLURM_JOB_ID}.log"; rm -rf "$WORK_DIR"

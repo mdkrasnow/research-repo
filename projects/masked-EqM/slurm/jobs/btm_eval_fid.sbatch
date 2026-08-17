@@ -51,7 +51,9 @@ STEPSIZE="${STEPSIZE:-0.003}"
 TOTAL_TIME="${TOTAL_TIME:-0.75}"
 NUM_SAMPLES="${NUM_SAMPLES:-2000}"
 BATCH_SIZE="${BATCH_SIZE:-32}"
-VAL_PATH="${VAL_PATH:-/n/holylabs/ydu_lab/Lab/raywang4/imagenet/val}"
+# VAL_PATH is resolved after the checkout (eqm_resolve_imagenet_val, below) --
+# the reference set is not defaulted inline here, because a wrong reference set
+# does not crash, it silently rebases every FID in the table.
 # netscratch, NOT holylabs: the holylabs GROUP quota is exhausted (EDQUOT), and
 # it killed two completed FID computations at the final write.  netscratch has
 # 579T free and is where every BTM training run already writes.
@@ -72,6 +74,8 @@ git remote add origin "$GIT_URL"
 git fetch --depth=50 origin '+refs/heads/*:refs/remotes/origin/*'
 git checkout "$GIT_SHA" || { git fetch --unshallow origin; git checkout "$GIT_SHA"; }
 cd projects/masked-EqM
+source slurm/lib/telemetry_env.sh
+eqm_resolve_imagenet_val
 pip install --quiet timm 'diffusers==0.27.2' 'huggingface_hub==0.23.5' \
     'transformers==4.40.2' accelerate torchvision pytorch-fid 2>&1 | tail -5
 

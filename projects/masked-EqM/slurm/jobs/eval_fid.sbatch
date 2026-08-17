@@ -33,7 +33,13 @@ cd "$WORK_DIR/projects/masked-EqM"
 pip install --quiet timm 'diffusers==0.27.2' 'huggingface_hub==0.23.5' 'transformers==4.40.2' accelerate torchvision pytorch-fid 2>&1 | tail -10
 
 CKPT="${CKPT:?CKPT must be set}"
-VAL_PATH="${VAL_PATH:-/n/holylabs/ydu_lab/Lab/raywang4/imagenet/val}"
+# The FID reference set is resolved, not defaulted inline. The old literal
+# default here pointed at the retired holylabs copy, which no longer exists --
+# and a wrong reference set does not crash, it silently rebases every FID in the
+# table. eqm_resolve_imagenet_val pins the canonical split and fails closed on
+# both the retired path and a nonexistent directory. See slurm/lib (E).
+source "$WORK_DIR/projects/masked-EqM/slurm/lib/telemetry_env.sh"
+eqm_resolve_imagenet_val
 # No default. A shared default (`fid`) meant two arms invoked without OUT_NAME
 # both wrote $OUT_DIR/fid.json and $OUT_DIR/fid_samples/, so whichever finished
 # second silently destroyed the other's result. Correctness used to live in the

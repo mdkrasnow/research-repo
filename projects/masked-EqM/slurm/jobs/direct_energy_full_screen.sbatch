@@ -23,7 +23,7 @@ GIT_SHA="${GIT_SHA:?}"
 EBM="${EBM:?set EBM to none, dot, or direct}"
 GLOBAL_SEED="${GLOBAL_SEED:?set GLOBAL_SEED}"
 RUN_TAG="${RUN_TAG:?set RUN_TAG}"
-IMAGENET_PATH="${IMAGENET_PATH:-/n/holylabs/ydu_lab/Lab/raywang4/imagenet/train}"
+IMAGENET_PATH="${IMAGENET_PATH:-/n/holylfs06/LABS/kempner_shared/Everyone/testbed/vision/imagenet_1k/ILSVRC2012_img_train}"
 RESULTS_ROOT="${RESULTS_ROOT:-/n/holylabs/ydu_lab/Lab/mkrasnow_eqm/masked-EqM/results/direct_energy_full}"
 RESULTS_DIR="$RESULTS_ROOT/${RUN_TAG}_job${SLURM_JOB_ID}"
 

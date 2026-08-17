@@ -42,7 +42,7 @@ cd projects/masked-EqM
 pip install --quiet timm diffusers accelerate torchvision lpips 2>&1 | tail -10
 
 CKPT="${CKPT:?CKPT must be set}"
-VAL_PATH="${VAL_PATH:-/n/holylabs/ydu_lab/Lab/raywang4/imagenet/val}"
+VAL_PATH="${VAL_PATH:-/n/holylfs06/LABS/kempner_shared/Everyone/testbed/vision/imagenet_1k/val}"
 OUT_NAME="${OUT_NAME:-fourier_recovery}"
 CUTOFF_ARGS="--cutoff ${CUTOFF:-0.25}"
 if [ -n "${CUTOFF_GRID:-}" ]; then

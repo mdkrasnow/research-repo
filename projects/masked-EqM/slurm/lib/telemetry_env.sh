@@ -179,6 +179,36 @@ eqm_resolve_imagenet() {
   eqm_log "IMAGENET_PATH=$IMAGENET_PATH"
 }
 
+# The validation split, used only as the FID reference set.  Same invariant as
+# eqm_resolve_imagenet: the retired copy and the canonical copy must never be
+# mixed within one comparison.  A stale VAL_PATH is MORE dangerous here than a
+# stale train path, because a wrong reference set does not crash -- it silently
+# rebases every FID in the table, and FIDs computed against two different
+# reference sets are not comparable even though nothing downstream can tell.
+EQM_IMAGENET_VAL_CANONICAL="/n/holylfs06/LABS/kempner_shared/Everyone/testbed/vision/imagenet_1k/val"
+EQM_IMAGENET_VAL_RETIRED="/n/holylabs/ydu_lab/Lab/raywang4/imagenet/val"
+
+eqm_resolve_imagenet_val() {
+  VAL_PATH="${VAL_PATH:-$EQM_IMAGENET_VAL_CANONICAL}"
+  if [ "$VAL_PATH" = "$EQM_IMAGENET_VAL_RETIRED" ] && \
+     [ -z "${EQM_ALLOW_RETIRED_IMAGENET:-}" ]; then
+    eqm_die "VAL_PATH points at the retired copy
+       $EQM_IMAGENET_VAL_RETIRED
+       which no longer exists; the canonical FID reference set is
+       $EQM_IMAGENET_VAL_CANONICAL
+       Set EQM_ALLOW_RETIRED_IMAGENET=1 only to reproduce a pre-retirement FID,
+       and record that in pipeline.json -- the number is not comparable to any
+       FID in the current tables."
+  fi
+  # Fail closed on a nonexistent reference set.  Without this the FID job runs
+  # to completion against an empty ImageFolder and emits a meaningless number.
+  if [ ! -d "$VAL_PATH" ]; then
+    eqm_die "VAL_PATH=$VAL_PATH does not exist or is not a directory."
+  fi
+  export VAL_PATH
+  eqm_log "VAL_PATH=$VAL_PATH"
+}
+
 # ---------------------------------------------------------------------------
 # (G) deterministic MASTER_PORT.
 # ---------------------------------------------------------------------------

@@ -17,7 +17,7 @@ module load cuda/11.8.0-fasrc01 2>/dev/null || true
 GIT_SHA="${GIT_SHA:?set GIT_SHA}"
 ROOT="${CHECKPOINT_ROOT:-/n/netscratch/ydu_lab/Lab/mkrasnow_eqm/direct_energy_longer_retry/longer40_direct_seed0_ckpt50k_job36359213/000-EqM-B-2-Linear-velocity-None-ebm-direct/checkpoints}"
 OUT_ROOT="${OUT_ROOT:-/n/netscratch/ydu_lab/Lab/mkrasnow_eqm/direct_energy_checkpoint_forensics/fid500}"
-VAL="${VAL_PATH:-/n/holylabs/ydu_lab/Lab/raywang4/imagenet/val}"
+VAL="${VAL_PATH:-/n/holylfs06/LABS/kempner_shared/Everyone/testbed/vision/imagenet_1k/val}"
 STEPS=(1450000 1500000 1550000 1600000)
 WORK="/tmp/eqm-forensic-fid-${SLURM_JOB_ID}"
 mkdir -p "$WORK" "$OUT_ROOT"
