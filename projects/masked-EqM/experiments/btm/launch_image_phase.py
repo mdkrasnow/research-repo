@@ -59,6 +59,21 @@ PHASES = {
                 # but only at the price of another full queue wait, which is
                 # currently ~6h.
                 time="48:00:00",
+                # 48h is seas_gpu's MaxTime, not a choice -- it cannot be
+                # raised. At the throughput actually measured on the degraded
+                # filesystem (vector 2.00 steps/s, scalar 1.14) the SCALAR arms
+                # do not reach epoch 60 in one job, and worse, they do not reach
+                # epoch 55 either: G lands at ~54.4 and legacy_scalar at ~41.4.
+                # Epoch 55 is the onset this entire phase exists to cross, so a
+                # single-leg schedule would spend 48h x 8 GPUs and stop just
+                # short of the only region that matters.
+                #
+                # The scalar arms therefore need two legs, and the thing that
+                # makes a second leg cheap is checkpoint density. SAVE_EPOCHS
+                # alone leaves a 5-10 epoch gap; a step-based checkpoint every
+                # 25k steps (~5 epochs) bounds what a wall-clock kill can
+                # destroy, independently of where the epoch boundaries fall.
+                ckpt_every=25000,
                 seeds=1, nproc=4, partition="seas_gpu",
                 arms=("btm_vector", "btm_scalar_exact",
                       "btm_scalar_fd_directional"),
@@ -157,6 +172,8 @@ def build_cmds(args):
             ]
             if spec["max_steps"]:
                 env.append(f"MAX_STEPS={spec['max_steps']}")
+            if spec.get("ckpt_every"):
+                env.append(f"CKPT_EVERY={spec['ckpt_every']}")
             ckpt = spec.get("resume_from", {}).get(arm)
             if ckpt:
                 env.append(f"CKPT={ckpt}")
