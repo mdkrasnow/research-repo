@@ -1,7 +1,7 @@
 ---
 name: wfb-eqm-fbgn-stage3
 description: Stage 3 of the fb_direct scalar-energy optimization track — certified CG-FBGN reduces every one of its own minibatches yet worsens the held-out EqM field objective; audit, retraction, and the H1-vs-H2 discriminator
-status: active
+status: superseded
 ---
 
 # WFB-EqM Stage 3: FBGN optimizes each minibatch but worsens the population field
@@ -108,9 +108,21 @@ same-batch reduction" with "monotone probe damage": both true, about different
 objectives.
 
 Report: `projects/masked-EqM/documentation/wfb-eqm-stage3a-report-2026-08-13.md`.
-Open branch: Stage 3B (job 39024136) tests whether `C(B) = cos(g_B, g_ref)` rises
-faster than the sqrt(B) of pure noise-averaging. ~0.5 or below fires the
-pre-registered KILL and the thread is written up as a negative result.
+## Stage 3B: the KILL fired (2026-08-13); thread CLOSED 2026-08-17
+
+Measured `C(B) = cos(g_B, g_ref)`, n=8 reps: B=8 +0.005+-0.040, B=16
++0.166+-0.053, B=32 +0.231+-0.077, B=64 **-0.033+-0.102**, B=128 +0.089+-0.070.
+
+The script printed "exponent 0.784 > 0.5 -> batch size is a real lever". **Do
+not use that to pass the gate.** R^2=0.286, the series is non-monotonic, and
+B=32 -> B=64 is a 5.9-sigma DECREASE with a negative mean at B=64. A monotone
+power law is rejected by that comparison alone, so the fitted exponent
+summarizes a model the data reject -- a number, not a measurement. Honest read:
+alignment stays <=0.23 and draw-noise-dominated at every affordable B. KILL
+fires; Stage 3C is NOT authorized.
+
+Closure document (mission brief 24): `documentation/fbgn-closure-2026-08-17.md`.
+Successor thread: [[btm-fd-scalar-campaign]].
 
 ## Load-bearing gotchas
 

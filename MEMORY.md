@@ -40,8 +40,9 @@ collaborators (or a fresh clone) can see.
   cross-session record of conversations/results spanning all projects (not just the
   active one), separate from Claude Code's private per-session memory. See
   `memory/2026-07-21.md`.
-- **WFB-EqM / FBGN Stage 3** (fb_direct scalar-energy optimization track, active as of
-  2026-08-13): certified CG Gauss-Newton reduces every one of its own minibatches yet
+- **WFB-EqM / FBGN Stage 3** (fb_direct scalar-energy optimization track, CLOSED
+  2026-08-17 as a negative result -- Stage 3B KILL fired; closure write-up at
+  `projects/masked-EqM/documentation/fbgn-closure-2026-08-17.md`): certified CG Gauss-Newton reduces every one of its own minibatches yet
   worsens the held-out field objective — and so does the raw-direct negative control.
   Includes two durable corrections (the "lambda_max growth caused it" claim is retracted;
   the reduction ratio is confounded with step length) and load-bearing gotchas (probe slice
