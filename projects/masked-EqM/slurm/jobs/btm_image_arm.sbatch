@@ -99,6 +99,51 @@ eqm_prelude "/n/netscratch/ydu_lab/Lab/mkrasnow_eqm/btm"   # sets RESULTS_ROOT,
 RESULTS_DIR="$RESULTS_ROOT/${RUN_TAG}_job${SLURM_JOB_ID}"
 mkdir -p "$RESULTS_DIR"
 
+# ---------------------------------------------------------------------------
+# DATA-READINESS PREFLIGHT.
+#
+# Phase II-C burned ~38 A100-hours across four attempts at ZERO training steps
+# because /n/holylfs06 developed an intermittent Lustre fault: metadata ops stay
+# instant and `ls` of the dataset root returns immediately, but a subset of
+# JPEG reads block forever in fstat. Every existing check passed -- the path
+# exists, the class count is right, the dataset "contains 1,281,167 images" --
+# and then the loader wedged.
+#
+# The invariant a path check cannot express is DATA IS ACTUALLY READABLE, so
+# read some. Random fresh paths, never a fixed set: re-reading the same files
+# hits cache and makes a sick filesystem look well (exactly what fooled the
+# 2026-08-17 recovery probe). A hard per-file timeout converts an unbounded
+# hang into a fast, attributable failure.
+eqm_log "preflight: sampling ImageNet reads under a hard timeout"
+timeout 180 python - "$IMAGENET_PATH" <<'PREFLIGHT' || {
+import os, random, sys, time
+root = sys.argv[1]
+classes = os.listdir(root)
+random.shuffle(classes)
+n = 0
+t0 = time.time()
+for c in classes[:24]:
+    d = os.path.join(root, c)
+    files = os.listdir(d)
+    if not files:
+        raise SystemExit(f"preflight: class dir {d} is EMPTY")
+    for f in random.sample(files, min(2, len(files))):
+        with open(os.path.join(d, f), "rb") as fh:
+            fh.read()
+        n += 1
+dt = time.time() - t0
+print(f"preflight: {n} random reads in {dt:.1f}s ({n/dt:.1f}/s)", flush=True)
+# Healthy is ~20-100 reads/s. Below 2/s the loader cannot feed 4 GPUs and the
+# job would crawl rather than train -- also worth refusing.
+if n / dt < 2.0:
+    raise SystemExit(f"preflight: read throughput {n/dt:.2f}/s is too low")
+PREFLIGHT
+  eqm_die "ImageNet at $IMAGENET_PATH is not readable at a usable rate (or the
+       preflight itself timed out, which means reads are HANGING). This is an
+       infrastructure fault, not an experiment result. Refusing to hold
+       $NPROC GPUs idle -- see memory/2026-08-16.md and 2026-08-17.md."
+}
+
 # Hard gate: the BTM mathematics must be validated on THIS commit before any
 # GPU-hours are spent on it.
 python -m pytest tests/test_btm_math.py tests/test_btm_image_conventions.py -q
@@ -143,8 +188,55 @@ echo "$CMD"
 # 120-second warning 24 hours late.  The inner `exit ${PIPESTATUS[0]}` preserves
 # the pre-existing guarantee that the trainer's status -- not tee's -- is what
 # this script exits with.
+# PROGRESS WATCHDOG.
+#
+# The preflight above closes the one stall cause we have diagnosed. This closes
+# the CLASS. The invariant is: a training job must make measurable progress or
+# terminate. Anything that violates it -- a wedged filesystem, a NCCL deadlock,
+# a dataloader worker race, a cause not yet seen -- is caught by the same check,
+# because the check is on the observable (steps advancing) rather than on any
+# particular mechanism.
+#
+# A stalled job is strictly worse than a failed one: it is indistinguishable
+# from a slow one in `squeue`, it holds the allocation for the full wall clock,
+# and it produces no evidence of why. Failing fast converts it into a dated log
+# line and a freed allocation.
+#
+# STALL_TIMEOUT is generous by design (default 45 min). Resume from a checkpoint,
+# the VAE warm-up and the first epoch's page-cache miss can all legitimately
+# take many minutes, and a watchdog that fires on a slow-but-live job would be
+# worse than none. It only ever fires on a job that has genuinely stopped.
+STALL_TIMEOUT="${STALL_TIMEOUT:-2700}"
+( # watchdog subshell -- exits on its own when train.log stops existing/growing
+  last_step=""; last_change=$SECONDS
+  while sleep 60; do
+    # If the trainer is gone, so are we.
+    kill -0 "$$" 2>/dev/null || exit 0
+    [ -f train.log ] || continue
+    cur=$(grep -o '(step=[0-9]*)' train.log 2>/dev/null | tail -1)
+    if [ -n "$cur" ] && [ "$cur" != "$last_step" ]; then
+      last_step="$cur"; last_change=$SECONDS
+    fi
+    if [ $((SECONDS - last_change)) -ge "$STALL_TIMEOUT" ]; then
+      echo "[watchdog] FATAL: no step progress for ${STALL_TIMEOUT}s" \
+           "(last seen: ${last_step:-NONE}). Killing the job rather than" \
+           "holding $NPROC GPUs to the wall clock." >&2
+      # Whole process group: torch.distributed.run's children must go too.
+      kill -TERM -$$ 2>/dev/null || kill -TERM "$$" 2>/dev/null
+      exit 1
+    fi
+  done
+) &
+WATCHDOG_PID=$!
+# Deliberately NOT `trap ... EXIT` to reap this: an EXIT trap here would REPLACE
+# the telemetry sealer's trap (bash keeps one handler per signal), silently
+# removing the guarantee that every run emits a terminal record -- trading a
+# stalled-job defect for a lost-telemetry defect. The explicit kill below covers
+# the normal path; on an abnormal exit the subshell is in the job's process
+# group and SLURM reaps it with everything else.
 EXIT_CODE=0
 eqm_run bash -c "$CMD 2>&1 | tee train.log; exit \${PIPESTATUS[0]}" || EXIT_CODE=$?
+kill "$WATCHDOG_PID" 2>/dev/null || true
 
 # Seal BEFORE `rm -rf "$WORK_DIR"`: the EXIT trap runs the sealer out of the
 # checked-out tree, which lives inside WORK_DIR.  Deleting it first would leave
