@@ -22,7 +22,36 @@
    "title": "Results-dir race: two concurrent same-corruption-mode jobs silently mixed checkpoints"
   }
  ],
- "active_runs": [],
+ "active_runs": [
+  {
+   "description": "Phase II-C (5th attempt): btm_vector continued from its OWN II-B epoch15 checkpoint to EPOCH 60, ckpts at 20/30/40/50/55/60 (the previous schedule jumped 40->80 and had NO checkpoint in the onset band). tc=0.9 asserted to match II-B. First submission carrying the data-readiness preflight + progress watchdog, so a repeat of the holylfs06 stall costs ~3 min instead of ~35 h.",
+   "expected_runtime": "~14h (V) / ~26h (G) for the remaining 45 epochs",
+   "gate": "REACHES THE FAILURE REGIME. Legacy direct CV explodes 0.44->50 at ~epoch 55; every II-B result stops at epoch 15, i.e. entirely BEFORE the regime where legacy direct fails, so II-B's G~V parity cannot yet be read as an improvement. Epoch 60 crosses the onset. PASS = G clip rate stays ~0 and grad-norm CV stays O(0.1-0.5) through epoch 60 where legacy direct reached CV 40-50.",
+   "git_sha": "eba6fdf3372ed7b8458f42e652a7674738da176b",
+   "job_id": "39693487",
+   "partition": "seas_gpu",
+   "phase": "BTM-II-C",
+   "resume_from": "btm_IIB_V_s0_job39134329/...ebm-none/checkpoints/epoch15.pt",
+   "run_id": "btm_IIC_V_s0",
+   "sbatch_path": "projects/masked-EqM/slurm/jobs/btm_image_arm.sbatch",
+   "status": "pending",
+   "submitted_at": "2026-08-17"
+  },
+  {
+   "description": "Phase II-C (5th attempt): btm_scalar_exact continued from its OWN II-B epoch15 checkpoint to EPOCH 60, ckpts at 20/30/40/50/55/60 (the previous schedule jumped 40->80 and had NO checkpoint in the onset band). tc=0.9 asserted to match II-B. First submission carrying the data-readiness preflight + progress watchdog, so a repeat of the holylfs06 stall costs ~3 min instead of ~35 h.",
+   "expected_runtime": "~14h (V) / ~26h (G) for the remaining 45 epochs",
+   "gate": "REACHES THE FAILURE REGIME. Legacy direct CV explodes 0.44->50 at ~epoch 55; every II-B result stops at epoch 15, i.e. entirely BEFORE the regime where legacy direct fails, so II-B's G~V parity cannot yet be read as an improvement. Epoch 60 crosses the onset. PASS = G clip rate stays ~0 and grad-norm CV stays O(0.1-0.5) through epoch 60 where legacy direct reached CV 40-50.",
+   "git_sha": "eba6fdf3372ed7b8458f42e652a7674738da176b",
+   "job_id": "39693498",
+   "partition": "seas_gpu",
+   "phase": "BTM-II-C",
+   "resume_from": "btm_IIB_G_s0_job39134331/...ebm-direct/checkpoints/epoch15.pt",
+   "run_id": "btm_IIC_G_s0",
+   "sbatch_path": "projects/masked-EqM/slurm/jobs/btm_image_arm.sbatch",
+   "status": "pending",
+   "submitted_at": "2026-08-17"
+  }
+ ],
  "completed_runs": [
   {
    "completed_at": "2026-08-14",
@@ -14241,9 +14270,9 @@
   "step4_mixture_arm_B": "RESOLVED (2026-07-06) - 2-way gaussian+mask mixture (weights 1.0/1.0/0.0), same eval protocol. mean_masked_mse=0.13692, normalized_gap=0.464. Falls between isolated mask (0.568) and 3-arm mixture (0.449) as expected, but notably closer to the 3-arm mixture than to isolated mask -- confirms the 3-arm mixture's underperformance vs isolated mask is NOT primarily fourier-specific drag (arm B still loses ~0.10 gap vs pure mask despite excluding fourier entirely). Read together with step3's negative fourier result: the gap-closing recipe (gaussian:mask:fourier 1:1:1 vs 1:1:0 vs mask-only) suggests BOTH effects are real -- gradient-budget dilution (any mixing with gaussian reduces the pure-mask signal) AND fourier's own negative contribution. Fourier's negative pull is smaller in magnitude here (only 1/3 weight) than shown by its isolated -0.720 result, consistent with a real but diluted drag."
  },
  "needs_user_input": {
-  "prompt": "BLOCKED ON CLUSTER INFRASTRUCTURE: /n/holylfs06 (the canonical ImageNet copy) has a stalled Lustre data path -- a single JPEG read times out at >20s while metadata ops are instant and all 33 OSTs report active. This has killed four Phase II-C job-attempts (~38 A100-hours, zero training steps). No healthy full-resolution ImageFolder copy of ImageNet exists elsewhere on the cluster (imagenet1k-256 and hlakkaraju_lab/imagenet both have the 1000-class skeleton but EMPTY class dirs; the raywang4/holylabs copy is gone). Options: (a) wait for FASRC to clear holylfs06 and auto-resubmit, (b) open an RC ticket, (c) stage a dataset copy onto netscratch once reads recover. Phase II-C cannot proceed until ImageNet is readable.",
-  "value": true
+  "prompt": "",
+  "value": false
  },
- "next_action": "BLOCKED: /n/holylfs06 ImageNet data path stalled. Phase II-C (the decisive epoch-15->60 run that crosses the ~epoch-55 CV-explosion onset) is submitted-and-killed 2x. RESUBMIT COMMAND IS READY -- both arms, GIT_SHA=537ac3e, warm-started from the II-B epoch15 checkpoints, SAVE_EPOCHS must be exported via the environment (NOT --export=..., whose comma split silently truncates it to \"20\"). Poll holylfs06 with a timed single-file read; when it returns <1s, resubmit. UNBLOCKED WORK MEANWHILE: log/telemetry analysis for Tables C and D (all inputs on netscratch/home, no ImageNet reads).",
+ "next_action": "Phase II-C RESUBMITTED (39693487 V, 39693498 G) at SHA eba6fdf3 with a data-readiness preflight, so it will REFUSE in ~3 min rather than stall if /n/holylfs06 is still faulty (as of the 2026-08-17 probe it IS: a fresh random 120-file sample hung past 320s while yesterday's already-read files return in 0.05s from cache). Poll both jobs; a preflight refusal is an infrastructure signal, not an experimental result. Tables A, B and C are BUILT (results/btm/TABLE_*.txt). Remaining: Table D (FID for all arms at the frozen T=3.0 / 1000-step operating point) and Table E.",
  "phase": "masked-field-shaping-primary"
 }
