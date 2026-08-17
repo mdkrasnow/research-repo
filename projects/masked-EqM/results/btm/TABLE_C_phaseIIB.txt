@@ -1,0 +1,77 @@
+TABLE C -- Phase II-B optimizer behaviour (ImageNet B/2, global batch 256, tc=0.9, 4xA100 DDP)
+late = final 20% of each run's logged steps.  clip% over all gradient records.
+
+arm                               grec  maxstep    g med    g CV    g p95     g max  late med  late CV  clip%
+-------------------------------------------------------------------------------------------------------------
+V  vector BTM                      750    75000   0.0939   0.953    0.392     1.131    0.0747    0.142   0.00
+G  scalar exact                    750    75000   0.1543   0.781    0.420     2.882    0.1177    0.279   0.00
+D1 FD directional K=1              669    66900   2.4515   0.304    3.738    10.218    2.4079    0.165   0.00
+D4 FD directional K=4              117    11700   1.1366   0.291    1.616     3.851    1.0070    0.126   0.00
+LEGACY vector (neg ctrl)           543    54300   1.0426   1.030    4.348    16.585    0.8058    0.131   0.00
+LEGACY direct scalar (neg ctrl)    228    22800   2.9708   0.772    9.755    23.511    2.0613    0.196   0.00
+
+FD estimator health:
+  D1 FD directional K=1            fd_gap med 6.015e-02   h med 0.04786   target_rms med 1.325
+  D4 FD directional K=4            fd_gap med 5.983e-02   h med 0.04772   target_rms med n/a
+
+Weak-conservation / step probes (P_t, delta_theta_norm, eta_func):
+  V  vector BTM                    n= 750  P_t med 111.7 delta_theta_norm med 0.2222 eta_func med 537.6
+  G  scalar exact                  n= 750  P_t med 16.7 delta_theta_norm med 0.2227 eta_func med 74.26
+  D1 FD directional K=1            n= 669  P_t med 145.6 delta_theta_norm med 0.2193 eta_func med 718.5
+  D4 FD directional K=4            n= 117  P_t med 1408 delta_theta_norm med 0.2163 eta_func med 6255
+  LEGACY vector (neg ctrl)         n= 543  P_t med 1162 delta_theta_norm med 0.2223 eta_func med 5248
+  LEGACY direct scalar (neg ctrl)  n= 228  P_t med 3549 delta_theta_norm med 0.1463 eta_func med 2.25e+04
+
+Energy / potential diagnostics (scalar arms only):
+
+==============================================================================================================
+STEP-MATCHED PANEL -- all arms restricted to the SAME absolute window.
+The panel above compares different horizons (legacy arms were killed early by EDQUOT,
+D1 died at 66.9k, D4 was cancelled at 11.7k), so its 'late' columns are NOT comparable.
+Absolute windows make them comparable at the cost of horizon.
+
+--- window [0, 11700] steps ---
+arm                                  n    g med    g CV    g p95     g max    P_t med
+V  vector BTM                      117   0.2822   0.576    0.914     1.131      913.3
+G  scalar exact                    117   0.3426   0.702    0.665     2.882       1836
+D1 FD directional K=1              117   2.7527   0.407    4.865    10.218       -958
+D4 FD directional K=4              117   1.1366   0.291    1.616     3.851       1408
+LEGACY vector (neg ctrl)           117   2.7924   0.713    9.594    16.585       5001
+LEGACY direct scalar (neg ctrl)    117   4.4462   0.661   12.166    23.511       6370
+
+--- window [0, 22800] steps ---
+arm                                  n    g med    g CV    g p95     g max    P_t med
+V  vector BTM                      228   0.1825   0.744    0.665     1.131     -65.24
+G  scalar exact                    228   0.2403   0.755    0.613     2.882      495.6
+D1 FD directional K=1              228   2.6047   0.360    4.574    10.218      98.11
+D4 FD directional K=4              117   1.1366   0.291    1.616     3.851       1408
+LEGACY vector (neg ctrl)           228   1.7667   0.868    6.667    16.585       2389
+LEGACY direct scalar (neg ctrl)    228   2.9708   0.772    9.755    23.511       3549
+
+--- window [0, 54300] steps ---
+arm                                  n    g med    g CV    g p95     g max    P_t med
+V  vector BTM                      543   0.1067   0.921    0.450     1.131      150.9
+G  scalar exact                    543   0.1724   0.778    0.478     2.882      219.7
+D1 FD directional K=1              543   2.4731   0.324    3.841    10.218      155.5
+D4 FD directional K=4              117   1.1366   0.291    1.616     3.851       1408
+LEGACY vector (neg ctrl)           543   1.0426   1.030    4.348    16.585       1162
+LEGACY direct scalar (neg ctrl)    228   2.9708   0.772    9.755    23.511       3549
+
+--- window [0, 66900] steps ---
+arm                                  n    g med    g CV    g p95     g max    P_t med
+V  vector BTM                      669   0.0986   0.944    0.406     1.131      30.92
+G  scalar exact                    669   0.1596   0.783    0.442     2.882      11.24
+D1 FD directional K=1              669   2.4515   0.304    3.738    10.218      145.6
+D4 FD directional K=4              117   1.1366   0.291    1.616     3.851       1408
+LEGACY vector (neg ctrl)           543   1.0426   1.030    4.348    16.585       1162
+LEGACY direct scalar (neg ctrl)    228   2.9708   0.772    9.755    23.511       3549
+
+--- window [0, 75000] steps ---
+arm                                  n    g med    g CV    g p95     g max    P_t med
+V  vector BTM                      750   0.0939   0.953    0.392     1.131      111.7
+G  scalar exact                    750   0.1543   0.781    0.420     2.882       16.7
+D1 FD directional K=1              669   2.4515   0.304    3.738    10.218      145.6
+D4 FD directional K=4              117   1.1366   0.291    1.616     3.851       1408
+LEGACY vector (neg ctrl)           543   1.0426   1.030    4.348    16.585       1162
+LEGACY direct scalar (neg ctrl)    228   2.9708   0.772    9.755    23.511       3549
+

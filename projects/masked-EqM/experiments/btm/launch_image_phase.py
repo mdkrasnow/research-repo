@@ -26,6 +26,11 @@ PROJECT = os.path.dirname(os.path.dirname(HERE))
 REPO = os.path.dirname(os.path.dirname(PROJECT))
 MANIFEST = os.path.join(PROJECT, "results", "btm", "manifest.jsonl")
 
+# Must match `eqm_prelude` in slurm/jobs/btm_image_arm.sbatch. Kept as one
+# constant so a resume path cannot silently disagree with where the producing
+# run actually wrote.
+RESULTS_ROOT = "/n/netscratch/ydu_lab/Lab/mkrasnow_eqm/btm"
+
 PHASES = {
     "IIA": dict(epochs=80, max_steps=20000, save_epochs="1",
                 seeds=1, nproc=4, partition="seas_gpu",
@@ -38,10 +43,42 @@ PHASES = {
                 seeds=1, nproc=4, partition="seas_gpu",
                 arms=("btm_vector", "btm_scalar_exact",
                       "btm_scalar_fd_directional")),
-    "IIC": dict(epochs=80, max_steps=None, save_epochs="1,2,5,10,20,40,80",
+    # II-C is the DECISIVE phase and its checkpoint schedule is load-bearing.
+    # The legacy direct pathology (flat median grad-norm, CV exploding
+    # 0.44 -> 50) onsets at ~epoch 55; every II-B result stops at epoch 15,
+    # i.e. entirely BEFORE the failure regime, which is why II-B's G~V parity
+    # cannot yet be read as an improvement. The old schedule here
+    # ("1,2,5,10,20,40,80") jumps 40 -> 80 and so has NO checkpoint anywhere in
+    # the onset band -- a run that crossed the transition would leave no
+    # artifact from which to characterise it. Sample densely across 50-60.
+    "IIC": dict(epochs=60, max_steps=None,
+                save_epochs="20,30,40,50,55,60",
                 seeds=1, nproc=4, partition="seas_gpu",
                 arms=("btm_vector", "btm_scalar_exact",
-                      "btm_scalar_fd_directional")),
+                      "btm_scalar_fd_directional"),
+                # II-C continues each arm from its OWN II-B epoch-15 weights.
+                # Restarting from scratch would spend ~15 epochs of A100 time
+                # re-deriving a trajectory already measured, and -- worse --
+                # would make II-C's epoch-15 state a different random draw from
+                # II-B's, so the two phases could not be read as one curve.
+                # The interpolant parameters of a resumed phase are NOT free.
+                # II-B ran at tc=0.9; continuing from its epoch-15 weights under
+                # a different tc changes the regression TARGET at the resume
+                # boundary, so the two phases would no longer be one trajectory
+                # -- and nothing downstream would flag it, because the loss is
+                # finite and the curve is smooth on either side. Asserted in
+                # build_cmds against --tc.
+                resume_tc=0.9,
+                resume_from={
+                    "btm_vector":
+                        f"{RESULTS_ROOT}/btm_IIB_V_s0_job39134329/"
+                        "000-EqM-B-2-Linear-velocity-None-ebm-none/"
+                        "checkpoints/epoch15.pt",
+                    "btm_scalar_exact":
+                        f"{RESULTS_ROOT}/btm_IIB_G_s0_job39134331/"
+                        "000-EqM-B-2-Linear-velocity-None-ebm-direct/"
+                        "checkpoints/epoch15.pt",
+                }),
 }
 
 # arm -> (btm_mode, ebm, fd_k)
@@ -57,6 +94,17 @@ ARM_SPEC = {
 
 def build_cmds(args):
     spec = PHASES[args.phase]
+    # A resumed phase inherits its predecessor's interpolant, it does not get to
+    # re-choose it. Enforced here rather than documented, because the failure is
+    # silent: training continues, the loss stays finite, and the only symptom is
+    # that the two phases are no longer one trajectory.
+    if spec.get("resume_tc") is not None and args.tc != spec["resume_tc"]:
+        raise SystemExit(
+            f"--tc {args.tc} disagrees with the tc of the run being resumed "
+            f"({spec['resume_tc']}). Phase {args.phase} continues from "
+            f"checkpoints trained at tc={spec['resume_tc']}; changing tc at the "
+            f"resume boundary changes the regression target mid-trajectory and "
+            f"nothing downstream would detect it. Pass --tc {spec['resume_tc']}.")
     arms = args.arms.split(",") if args.arms else spec["arms"]
     n_seeds = args.seeds if args.seeds else spec["seeds"]
     cmds = []
@@ -76,8 +124,21 @@ def build_cmds(args):
             ]
             if spec["max_steps"]:
                 env.append(f"MAX_STEPS={spec['max_steps']}")
+            ckpt = spec.get("resume_from", {}).get(arm)
+            if ckpt:
+                env.append(f"CKPT={ckpt}")
+            # NOTE ON QUOTING: every variable above is passed through the SHELL
+            # environment (`VAR=val ... sbatch`), deliberately NOT through
+            # `sbatch --export=ALL,VAR=val`. SLURM splits --export on commas, so
+            # SAVE_EPOCHS="20,30,40,50,55,60" would arrive as "20" and the
+            # epoch-55/60 checkpoints -- the entire reason II-C exists -- would
+            # never be written, with no error anywhere. Do not "simplify" this
+            # into --export.
+            #
+            # --job-name is what makes %x in the sbatch's log directives resolve
+            # to the run tag; without it every arm's log is named `btm-image`.
             cmd = (f"cd /n/home03/mkrasnow/research-repo && {' '.join(env)} "
-                   f"sbatch -p {spec['partition']} "
+                   f"sbatch -p {spec['partition']} --job-name={tag} "
                    f"projects/masked-EqM/slurm/jobs/btm_image_arm.sbatch")
             cmds.append((tag, arm, mode, ebm, fd_k, s, spec, cmd))
     return cmds
@@ -115,6 +176,11 @@ def main():
             print(f"{tag}: {job_id or out.strip()[:120]}", flush=True)
         else:
             print(cmd)
+            # A dry run must not append to the experiment manifest. It used to,
+            # with status="planned", so every `--phase X` inspection left a row
+            # indistinguishable-by-position from a real submission and inflated
+            # the manifest with runs that never existed.
+            continue
         record({
             "run_tag": tag, "phase": args.phase, "arm": arm, "btm_mode": mode,
             "ebm": ebm, "fd_k": fd_k, "fd_eps": args.fd_eps, "tc": args.tc,
