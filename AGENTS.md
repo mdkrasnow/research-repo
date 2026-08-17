@@ -53,7 +53,7 @@ If state files disagree with what the user asks for, surface the conflict before
 {
   "run_id": "<human tag, e.g. v10_in1k_seed0>",
   "job_id": "<SLURM id, including _N for array tasks>",
-  "partition": "<gpu_test | gpu | seas_gpu>",
+  "partition": "<gpu_requeue | gpu_test>",  // seas_gpu and kempner_h100 are BANNED
   "status": "pending | running | completed | failed | cancelled | timeout",
   "description": "<one line: what + why + phase>",
   "submitted_at": "<ISO date>",
@@ -283,14 +283,35 @@ Maximum **1 retune per failing direction** (CLAUDE.md hard rule). No retune inde
   that a preemption costs little. `btm_image_arm.sbatch` already satisfies all three.
   Long single-leg runs with sparse checkpoints are a bad fit and will lose work.
 
-### Partition selection
-- **Pick by ACTUAL wait time, not habit. ALWAYS check before submitting:** `squeue -u $USER --start`, `squeue --start -p <part>` (est start), `sinfo -p <part> -o '%P %a %D %t %G'` (idle nodes) across gpu_test/seas_gpu/gpu. Submit to best real priority NOW. (Lesson 2026-06-29: `gpu` backlogged ~24h overnight while seas_gpu cleared hourly + gpu_test idle — lost a night.)
-- **If a job fits gpu_test, put it there** (higher priority, 12h cap). Fits = inference/smokes/≤12h. gpu_test cards are MIG-sliced A100 3g.20gb: **single-GPU works** (inference light); **4-GPU DDP does NOT** (MIG can't multi-rank NCCL → "Duplicate GPU detected"). Convert multi-GPU inference to `--nproc_per_node=1 --batch-size 16` to use gpu_test. Verified clean for B/2 selection+segmented (n=10k ≈ 0.7 img/s single-GPU). gpu_test QOS ~2 concurrent/user → overflow to seas_gpu.
-- ≥ 12h runtime / multi-GPU DDP → `seas_gpu` (full A100, fast all night, dodges MIG/bad nodes). `gpu` only if both backlogged AND >12h — chronic backlog, avoid for short jobs.
-- gpu_test 20G slices = OOM for mining variants (PGA = 3-4x activation memory). Mining variants → `seas_gpu`.
+### Partition selection (SUPERSEDED by the PI policy above — read that first)
+
+**The wait-time optimization below no longer decides anything.** `gpu_requeue` is the
+partition; `seas_gpu` and `kempner_h100` are banned. Do not "check which is fastest and
+submit there" — that is exactly what produced the 2026-08-17 complaint. What survives from
+the old guidance is only the per-partition mechanics:
+
+- **`gpu_requeue` (the one we use).** Preemptible, MIG-mixed. For multi-GPU DDP you MUST
+  pin a full card — `--gres=gpu:nvidia_a100-sxm4-80gb:4` (or the h100 equivalent) — because
+  a bare `--gres=gpu:4` can land on `nvidia_a100_3g.20gb` MIG slices, which cannot do
+  multi-rank NCCL and fail ~3 min in with "Duplicate GPU detected". Every job here needs
+  `#SBATCH --requeue`, `#SBATCH --open-mode=append`, dense `CKPT_EVERY`, and auto-resume
+  from the run's own newest checkpoint.
+- **`gpu_test`** — still fine for short single-GPU work (inference/smokes/≤12h), and it is
+  not covered by the ban. MIG-sliced A100 3g.20gb: single-GPU works, 4-GPU DDP does NOT.
+  QOS ~2 concurrent/user. Its 20G slices OOM on mining variants (PGA = 3-4x activation
+  memory).
+- **`seas_gpu` — BANNED.** Previously the default for ≥12h / multi-GPU DDP. Any older note
+  routing work there is stale; route to `gpu_requeue` with a pinned full card instead.
+- **`kempner_requeue`** — no account association (`sacctmgr` shows only `ydu_lab`), so
+  submissions fail with "Invalid account or account/partition combination". Would need the
+  association added before it is usable.
+- `gpu` — chronic backlog; not part of the current policy.
 
 ### QOS / partition diversification
-4+ simultaneous submissions → split across `gpu_test` + `gpu` to avoid `QOSMaxSubmitJobPerUserLimit`.
+`gpu_test` QOS caps ~2 concurrent per user (`QOSMaxSubmitJobPerUserLimit` on the 3rd).
+With `seas_gpu` banned there is no longer a second large partition to overflow into, so
+queue depth on `gpu_requeue` is absorbed by preemption-tolerance (requeue + dense
+checkpoints + auto-resume), not by spreading across partitions.
 
 ### Early polling
 After every submit → first poll ~60s post-submit (catch init errors: module load, pip, clone). Then resume normal interval (120s for short jobs, 1800s for long).
@@ -308,7 +329,12 @@ Mitigation: pruner_all_active.sbatch also runs `find $RESULTS_ROOT -name '.*.pt.
 
 ### gpu_requeue MIG roulette
 gpu_requeue picks nodes from a pool that includes MIG (sliced) cards. MIG-sliced cards cannot do multi-rank NCCL — `Duplicate GPU detected: rank 1 and rank 0 both on CUDA device 6000`. Symptoms: job FAILED ~3min after start, NCCL `ncclRemoteError` in stderr.
-Mitigation: for multi-GPU DDP jobs, use seas_gpu (full A100/H200) unless preempt-recoverable + lucky on node assignment. Single-GPU jobs OK on gpu_requeue.
+
+**Mitigation (updated 2026-08-17 — the old "use seas_gpu instead" is now BANNED):** pin the
+full card in the submission rather than switching partitions:
+`--gres=gpu:nvidia_a100-sxm4-80gb:4` (verified present on gpu_requeue, as is
+`nvidia_h100_80gb_hbm3:4`). The MIG type to avoid is `nvidia_a100_3g.20gb`. Single-GPU jobs
+are unaffected and may use a bare `--gres=gpu:1`.
 
 ### Job verification (do FIRST every session)
 1. For every `active_runs` entry: cross-check `scripts/cluster/status.sh <job_id>` or `sacct`.

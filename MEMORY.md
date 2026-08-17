@@ -63,6 +63,17 @@ collaborators (or a fresh clone) can see.
   windows. Replaces identity-by-path-parsing and run-relative windows, both of which could
   silently invert the Phase II-A conclusion. Includes declared invariants aimed at the
   `frozen_label_dropout` bug class. See `memory/topics/telemetry-event-log.md`.
+- **Cluster partition policy** (PI-mandated 2026-08-17, HARD): **`gpu_requeue` only.**
+  `seas_gpu` and `kempner_h100` are BANNED by Yilun; `kempner_requeue` was named but is
+  unusable (no account association -- only `ydu_lab`). Do NOT re-derive the partition from
+  wait times; that standing rule is what caused the complaint. `gpu_requeue` is preemptible
+  and MIG-mixed, so every job must pin a full card
+  (`--gres=gpu:nvidia_a100-sxm4-80gb:4`) and carry `--requeue`, `--open-mode=append`, dense
+  `CKPT_EVERY`, and auto-resume from its own newest checkpoint -- without auto-resume a
+  requeued job restarts from the phase's starting weights every time and makes no net
+  progress while looking healthy. Includes the two checkpoint traps that cost ~2h x 16 GPUs
+  (`CKPT_EVERY` counts from step 0, not the resume point; pick resume ckpt by mtime, not
+  name). See `memory/topics/cluster-partition-policy.md`.
 - **Scalar-energy EqM proposal** (external ChatGPT conversation, 2026-07-21, unevaluated):
   candidate masked-EqM direction — train scalar `E(x)` directly instead of the vector
   field, sample by descending `∇E(x)`. Not yet run through the project's mandatory
