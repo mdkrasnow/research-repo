@@ -14,8 +14,14 @@
 #SBATCH --cpus-per-task=16
 #SBATCH --mem=128GB
 #SBATCH --time=24:00:00
-#SBATCH --partition=seas_gpu
-#SBATCH --gres=gpu:4
+# PI 2026-08-17: seas_gpu and kempner_h100 are BANNED. The DEFAULT must be an allowed
+# partition, because a submission that omits -p silently inherits it -- a banned
+# default is one forgotten flag away from another complaint.
+#SBATCH --partition=gpu_requeue
+# Pin a FULL card, not a bare gpu:4. gpu_requeue mixes full A100/H100 nodes with
+# nvidia_a100_3g.20gb MIG slices, and MIG cannot do multi-rank NCCL -- a bare
+# request is a coin flip that fails ~3 min in with 'Duplicate GPU detected'.
+#SBATCH --gres=gpu:nvidia_a100-sxm4-80gb:4
 set -euo pipefail
 
 # Experiment II: corrected-BTM arms on the real ImageNet B/2 EqM recipe.
@@ -29,8 +35,11 @@ set -euo pipefail
 #   RUN_TAG     human tag for the results dir
 # Optional: EPOCHS SAVE_EPOCHS BTM_TC FD_EPS FD_K MAX_STEPS CKPT NPROC
 #
-# multi-GPU DDP => seas_gpu (full A100/H200).  gpu_test MIG slices cannot do
-# multi-rank NCCL ("Duplicate GPU detected"); use NPROC=1 there.
+# PARTITION (PI-mandated 2026-08-17): gpu_requeue ONLY -- seas_gpu and
+# kempner_h100 are BANNED. gpu_requeue is preemptible, hence --requeue,
+# --open-mode=append, dense CKPT_EVERY and the auto-resume block below.
+# MIG slices (gpu_test, and part of the gpu_requeue pool) cannot do multi-rank
+# NCCL ("Duplicate GPU detected"); use NPROC=1 there or pin a full card.
 #
 # TELEMETRY (this file is the migration exemplar -- see slurm/lib/README.md):
 #   --open-mode=append   a requeue must not truncate the previous attempt's log.
