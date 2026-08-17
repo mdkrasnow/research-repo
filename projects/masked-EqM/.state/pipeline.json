@@ -38,12 +38,11 @@
    "submitted_at": "2026-08-17"
   },
   {
-   "arm": "btm_scalar_exact",
-   "description": "Phase II-C 2x2 cell: corrected BTM x scalar (has mixed deriv). To EPOCH 60 at global batch 256, ckpts 20/30/40/50/55/60, 48h wall clock, warm-started from its own II-B checkpoint. Carries the data-readiness preflight (requeues on transient FS fault, bounded 8 attempts x 45min) and the progress watchdog.",
-   "expected_runtime": "~19h (vector arms) / ~34h (scalar arms)",
+   "description": "Phase II-C 2x2 cell, resubmitted with CKPT_EVERY=25000 (~5 epochs) so a wall-clock kill costs at most ~5 epochs. seas_gpu MaxTime is 48h and cannot be raised, so both scalar arms are expected to need a SECOND LEG resumed from their last step checkpoint.",
+   "expected_runtime": "~35h (vector) / ~55-71h i.e. TWO LEGS (scalar)",
    "gate": "2x2 CAUSAL DESIGN, target x parametrization. The mixed-derivative claim is only testable as an INTERACTION: does scalarization cost more under the legacy target than under the corrected one, past the ~epoch-55 onset? Reading the corrected row alone cannot answer it, because legacy VECTOR has no mixed derivative and is also badly behaved (TABLE_C p95 6.67 vs corrected V 0.665). PASS for the hypothesis = legacy_scalar degrades sharply past epoch 55 (CV -> O(10), clip rate rising) while legacy_vector does NOT, and btm_scalar_exact does NOT. If legacy_vector ALSO explodes, the mixed derivative is NOT the primary cause and the target is.",
-   "git_sha": "c6b802071f1bbd0d8d2d2df6044c0aaa692e7f2c",
-   "job_id": "39748410",
+   "git_sha": "450c9a40e9cc2ea3209cd9833a72bc5c0460a2c5",
+   "job_id": "39749076",
    "partition": "seas_gpu",
    "phase": "BTM-II-C",
    "run_id": "btm_IIC_G_s0",
@@ -52,12 +51,11 @@
    "submitted_at": "2026-08-17"
   },
   {
-   "arm": "none/ebm=none",
-   "description": "Phase II-C 2x2 cell: legacy target x vector -- THE MISSING CELL, never run past the onset. To EPOCH 60 at global batch 256, ckpts 20/30/40/50/55/60, 48h wall clock, warm-started from its own II-B checkpoint. Carries the data-readiness preflight (requeues on transient FS fault, bounded 8 attempts x 45min) and the progress watchdog.",
-   "expected_runtime": "~19h (vector arms) / ~34h (scalar arms)",
+   "description": "Phase II-C 2x2 cell, resubmitted with CKPT_EVERY=25000 (~5 epochs) so a wall-clock kill costs at most ~5 epochs. seas_gpu MaxTime is 48h and cannot be raised, so both scalar arms are expected to need a SECOND LEG resumed from their last step checkpoint.",
+   "expected_runtime": "~35h (vector) / ~55-71h i.e. TWO LEGS (scalar)",
    "gate": "2x2 CAUSAL DESIGN, target x parametrization. The mixed-derivative claim is only testable as an INTERACTION: does scalarization cost more under the legacy target than under the corrected one, past the ~epoch-55 onset? Reading the corrected row alone cannot answer it, because legacy VECTOR has no mixed derivative and is also badly behaved (TABLE_C p95 6.67 vs corrected V 0.665). PASS for the hypothesis = legacy_scalar degrades sharply past epoch 55 (CV -> O(10), clip rate rising) while legacy_vector does NOT, and btm_scalar_exact does NOT. If legacy_vector ALSO explodes, the mixed derivative is NOT the primary cause and the target is.",
-   "git_sha": "c6b802071f1bbd0d8d2d2df6044c0aaa692e7f2c",
-   "job_id": "39748416",
+   "git_sha": "450c9a40e9cc2ea3209cd9833a72bc5c0460a2c5",
+   "job_id": "39749081",
    "partition": "seas_gpu",
    "phase": "BTM-II-C",
    "run_id": "btm_IIC_LEGACYvec_s0",
@@ -66,12 +64,11 @@
    "submitted_at": "2026-08-17"
   },
   {
-   "arm": "none/ebm=direct",
-   "description": "Phase II-C 2x2 cell: legacy target x scalar -- the known-pathological cell, re-run at batch 256 to match the others (existing data is batch 32). To EPOCH 60 at global batch 256, ckpts 20/30/40/50/55/60, 48h wall clock, warm-started from its own II-B checkpoint. Carries the data-readiness preflight (requeues on transient FS fault, bounded 8 attempts x 45min) and the progress watchdog.",
-   "expected_runtime": "~19h (vector arms) / ~34h (scalar arms)",
+   "description": "Phase II-C 2x2 cell, resubmitted with CKPT_EVERY=25000 (~5 epochs) so a wall-clock kill costs at most ~5 epochs. seas_gpu MaxTime is 48h and cannot be raised, so both scalar arms are expected to need a SECOND LEG resumed from their last step checkpoint.",
+   "expected_runtime": "~35h (vector) / ~55-71h i.e. TWO LEGS (scalar)",
    "gate": "2x2 CAUSAL DESIGN, target x parametrization. The mixed-derivative claim is only testable as an INTERACTION: does scalarization cost more under the legacy target than under the corrected one, past the ~epoch-55 onset? Reading the corrected row alone cannot answer it, because legacy VECTOR has no mixed derivative and is also badly behaved (TABLE_C p95 6.67 vs corrected V 0.665). PASS for the hypothesis = legacy_scalar degrades sharply past epoch 55 (CV -> O(10), clip rate rising) while legacy_vector does NOT, and btm_scalar_exact does NOT. If legacy_vector ALSO explodes, the mixed derivative is NOT the primary cause and the target is.",
-   "git_sha": "c6b802071f1bbd0d8d2d2df6044c0aaa692e7f2c",
-   "job_id": "39748424",
+   "git_sha": "450c9a40e9cc2ea3209cd9833a72bc5c0460a2c5",
+   "job_id": "39749083",
    "partition": "seas_gpu",
    "phase": "BTM-II-C",
    "run_id": "btm_IIC_LEGACYscalar_s0",
@@ -14249,6 +14246,51 @@
    "sbatch_path": "projects/masked-EqM/slurm/jobs/btm_image_arm.sbatch",
    "status": "cancelled",
    "submitted_at": "2026-08-17"
+  },
+  {
+   "arm": "btm_scalar_exact",
+   "description": "Phase II-C 2x2 cell: corrected BTM x scalar (has mixed deriv). To EPOCH 60 at global batch 256, ckpts 20/30/40/50/55/60, 48h wall clock, warm-started from its own II-B checkpoint. Carries the data-readiness preflight (requeues on transient FS fault, bounded 8 attempts x 45min) and the progress watchdog.",
+   "expected_runtime": "~19h (vector arms) / ~34h (scalar arms)",
+   "final_metric": "Cancelled while PENDING (no compute consumed) and resubmitted at SHA 450c9a4 with CKPT_EVERY=25000. Reason: at the throughput measured on the degraded filesystem the SCALAR arms reach only epoch 54.4 (G) and 41.4 (legacy scalar) inside seas_gpu's 48h MaxTime -- short of the epoch-55 onset the phase exists to cross.",
+   "gate": "2x2 CAUSAL DESIGN, target x parametrization. The mixed-derivative claim is only testable as an INTERACTION: does scalarization cost more under the legacy target than under the corrected one, past the ~epoch-55 onset? Reading the corrected row alone cannot answer it, because legacy VECTOR has no mixed derivative and is also badly behaved (TABLE_C p95 6.67 vs corrected V 0.665). PASS for the hypothesis = legacy_scalar degrades sharply past epoch 55 (CV -> O(10), clip rate rising) while legacy_vector does NOT, and btm_scalar_exact does NOT. If legacy_vector ALSO explodes, the mixed derivative is NOT the primary cause and the target is.",
+   "git_sha": "c6b802071f1bbd0d8d2d2df6044c0aaa692e7f2c",
+   "job_id": "39748410",
+   "partition": "seas_gpu",
+   "phase": "BTM-II-C",
+   "run_id": "btm_IIC_G_s0",
+   "sbatch_path": "projects/masked-EqM/slurm/jobs/btm_image_arm.sbatch",
+   "status": "cancelled",
+   "submitted_at": "2026-08-17"
+  },
+  {
+   "arm": "none/ebm=none",
+   "description": "Phase II-C 2x2 cell: legacy target x vector -- THE MISSING CELL, never run past the onset. To EPOCH 60 at global batch 256, ckpts 20/30/40/50/55/60, 48h wall clock, warm-started from its own II-B checkpoint. Carries the data-readiness preflight (requeues on transient FS fault, bounded 8 attempts x 45min) and the progress watchdog.",
+   "expected_runtime": "~19h (vector arms) / ~34h (scalar arms)",
+   "final_metric": "Cancelled while PENDING (no compute consumed) and resubmitted at SHA 450c9a4 with CKPT_EVERY=25000. Reason: at the throughput measured on the degraded filesystem the SCALAR arms reach only epoch 54.4 (G) and 41.4 (legacy scalar) inside seas_gpu's 48h MaxTime -- short of the epoch-55 onset the phase exists to cross.",
+   "gate": "2x2 CAUSAL DESIGN, target x parametrization. The mixed-derivative claim is only testable as an INTERACTION: does scalarization cost more under the legacy target than under the corrected one, past the ~epoch-55 onset? Reading the corrected row alone cannot answer it, because legacy VECTOR has no mixed derivative and is also badly behaved (TABLE_C p95 6.67 vs corrected V 0.665). PASS for the hypothesis = legacy_scalar degrades sharply past epoch 55 (CV -> O(10), clip rate rising) while legacy_vector does NOT, and btm_scalar_exact does NOT. If legacy_vector ALSO explodes, the mixed derivative is NOT the primary cause and the target is.",
+   "git_sha": "c6b802071f1bbd0d8d2d2df6044c0aaa692e7f2c",
+   "job_id": "39748416",
+   "partition": "seas_gpu",
+   "phase": "BTM-II-C",
+   "run_id": "btm_IIC_LEGACYvec_s0",
+   "sbatch_path": "projects/masked-EqM/slurm/jobs/btm_image_arm.sbatch",
+   "status": "cancelled",
+   "submitted_at": "2026-08-17"
+  },
+  {
+   "arm": "none/ebm=direct",
+   "description": "Phase II-C 2x2 cell: legacy target x scalar -- the known-pathological cell, re-run at batch 256 to match the others (existing data is batch 32). To EPOCH 60 at global batch 256, ckpts 20/30/40/50/55/60, 48h wall clock, warm-started from its own II-B checkpoint. Carries the data-readiness preflight (requeues on transient FS fault, bounded 8 attempts x 45min) and the progress watchdog.",
+   "expected_runtime": "~19h (vector arms) / ~34h (scalar arms)",
+   "final_metric": "Cancelled while PENDING (no compute consumed) and resubmitted at SHA 450c9a4 with CKPT_EVERY=25000. Reason: at the throughput measured on the degraded filesystem the SCALAR arms reach only epoch 54.4 (G) and 41.4 (legacy scalar) inside seas_gpu's 48h MaxTime -- short of the epoch-55 onset the phase exists to cross.",
+   "gate": "2x2 CAUSAL DESIGN, target x parametrization. The mixed-derivative claim is only testable as an INTERACTION: does scalarization cost more under the legacy target than under the corrected one, past the ~epoch-55 onset? Reading the corrected row alone cannot answer it, because legacy VECTOR has no mixed derivative and is also badly behaved (TABLE_C p95 6.67 vs corrected V 0.665). PASS for the hypothesis = legacy_scalar degrades sharply past epoch 55 (CV -> O(10), clip rate rising) while legacy_vector does NOT, and btm_scalar_exact does NOT. If legacy_vector ALSO explodes, the mixed derivative is NOT the primary cause and the target is.",
+   "git_sha": "c6b802071f1bbd0d8d2d2df6044c0aaa692e7f2c",
+   "job_id": "39748424",
+   "partition": "seas_gpu",
+   "phase": "BTM-II-C",
+   "run_id": "btm_IIC_LEGACYscalar_s0",
+   "sbatch_path": "projects/masked-EqM/slurm/jobs/btm_image_arm.sbatch",
+   "status": "cancelled",
+   "submitted_at": "2026-08-17"
   }
  ],
  "debugging_notes": [
@@ -14331,6 +14373,6 @@
   "prompt": "",
   "value": false
  },
- "next_action": "Phase II-C full 2x2 submitted (39748406 V, 39748410 G, 39748416 LEGACYvec, 39748424 LEGACYscalar) at SHA c6b8020. /n/holylfs06 is CONFIRMED BROKEN on compute nodes (probe 39693987: 3 reads in 240s then a D-state hang SLURM itself could not kill), so all four will requeue on preflight rather than run, until the filesystem recovers. That is the designed behaviour and costs no GPU time. ESCALATION: this has persisted ~2 days and warrants an RC ticket. Tables A, B, C, D.1 are BUILT; report draft at documentation/btm-fd-scalar-report.md with Table E graded and falsification conditions recorded in advance. FBGN thread CLOSED (documentation/fbgn-closure-2026-08-17.md).",
+ "next_action": "Phase II-C 2x2 live: 39748406 V (RUNNING, resumed at epoch 15, ~31h to ep60), 39749076 G, 39749081 LEGACYvec, 39749083 LEGACYscalar. holylfs06 RECOVERED this morning (preflight passes, training proceeds) but is DEGRADED: 2.00 steps/s vector / 1.14 scalar vs 3.9 / 2.46 historical. At that rate both SCALAR arms need a SECOND LEG to pass epoch 55 -- watch for TIMEOUT at 48h and resume from the latest 25k-step checkpoint. Tables A/B/C/D.1 built; report draft at documentation/btm-fd-scalar-report.md.",
  "phase": "masked-field-shaping-primary"
 }
