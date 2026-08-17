@@ -53,6 +53,12 @@ PHASES = {
     # artifact from which to characterise it. Sample densely across 50-60.
     "IIC": dict(epochs=60, max_steps=None,
                 save_epochs="20,30,40,50,55,60",
+                # The sbatch defaults to 24h; II-C needs more. ~300k steps at
+                # the measured 2.46 steps/s is ~34h for a scalar arm. Hitting
+                # the wall clock mid-run is recoverable (epoch ckpts + resume)
+                # but only at the price of another full queue wait, which is
+                # currently ~6h.
+                time="48:00:00",
                 seeds=1, nproc=4, partition="seas_gpu",
                 arms=("btm_vector", "btm_scalar_exact",
                       "btm_scalar_fd_directional"),
@@ -70,6 +76,14 @@ PHASES = {
                 # build_cmds against --tc.
                 resume_tc=0.9,
                 resume_from={
+                    "legacy_vector":
+                        f"{RESULTS_ROOT}/btm_IIB_LEGACYvec_s0_job39210676/"
+                        "r756900e96c4cf61f-EqM-B-2-Linear-velocity-None-ebm-none/"
+                        "checkpoints/epoch10.pt",
+                    "legacy_scalar":
+                        f"{RESULTS_ROOT}/btm_IIB_LEGACYscalar_s0_job39210680/"
+                        "re624577cb3276d07-EqM-B-2-Linear-velocity-None-ebm-direct/"
+                        "checkpoints/epoch02.pt",
                     "btm_vector":
                         f"{RESULTS_ROOT}/btm_IIB_V_s0_job39134329/"
                         "000-EqM-B-2-Linear-velocity-None-ebm-none/"
@@ -89,7 +103,26 @@ ARM_SPEC = {
     "btm_scalar_fd_directional": ("btm_scalar_fd_directional", "direct", 1),
     "btm_scalar_fd_directional4": ("btm_scalar_fd_directional", "direct", 4),
     "btm_scalar_fd_action": ("btm_scalar_fd_action", "direct", 1),
+    # BTM_MODE=none runs the repository's ORIGINAL (legacy-EqM-target) training
+    # path untouched. These two are the other row of the 2x2 -- same legacy
+    # target, differing ONLY in parametrization -- and they are what makes the
+    # mixed-derivative question answerable at all.
+    "legacy_vector": ("none", "none", 1),
+    "legacy_scalar": ("none", "direct", 1),
 }
+
+# The campaign's causal design, recorded so it cannot drift:
+#
+#                   vector (no grad_theta grad_x phi)   scalar (has it)
+#   legacy target   legacy_vector                       legacy_scalar
+#   corrected BTM   btm_vector                          btm_scalar_exact
+#
+# Reading only the corrected row cannot isolate the mixed derivative, because
+# the legacy VECTOR arm has no scalar parametrization and no mixed derivative
+# and is ALSO badly behaved (TABLE_C: p95 6.67 vs corrected V's 0.665). The
+# legacy row must therefore be run at the SAME batch size and to the SAME epoch
+# as the corrected row; the only legacy data past the ~epoch-55 onset is run
+# 36847271 at batch 32, which is not comparable to the corrected row's 256.
 
 
 def build_cmds(args):
@@ -139,7 +172,8 @@ def build_cmds(args):
             # to the run tag; without it every arm's log is named `btm-image`.
             cmd = (f"cd /n/home03/mkrasnow/research-repo && {' '.join(env)} "
                    f"sbatch -p {spec['partition']} --job-name={tag} "
-                   f"projects/masked-EqM/slurm/jobs/btm_image_arm.sbatch")
+                   + (f"-t {spec['time']} " if spec.get("time") else "")
+                   + "projects/masked-EqM/slurm/jobs/btm_image_arm.sbatch")
             cmds.append((tag, arm, mode, ebm, fd_k, s, spec, cmd))
     return cmds
 

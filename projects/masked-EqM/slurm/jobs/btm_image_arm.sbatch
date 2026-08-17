@@ -4,6 +4,11 @@
 #SBATCH --error=/n/home03/mkrasnow/research-repo/projects/masked-EqM/slurm/logs/btm-image-%x-%A.err
 #SBATCH --open-mode=append
 #SBATCH --signal=B:USR1@120
+# Required for the preflight's `scontrol requeue` to be permitted: without it
+# SLURM refuses the requeue and the transient-fault path silently degrades into
+# a plain exit, which is the behaviour it exists to replace. Pairs with
+# --open-mode=append so a requeued attempt does not truncate the prior log.
+#SBATCH --requeue
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=16
@@ -138,10 +143,32 @@ print(f"preflight: {n} random reads in {dt:.1f}s ({n/dt:.1f}/s)", flush=True)
 if n / dt < 2.0:
     raise SystemExit(f"preflight: read throughput {n/dt:.2f}/s is too low")
 PREFLIGHT
-  eqm_die "ImageNet at $IMAGENET_PATH is not readable at a usable rate (or the
-       preflight itself timed out, which means reads are HANGING). This is an
-       infrastructure fault, not an experiment result. Refusing to hold
-       $NPROC GPUs idle -- see memory/2026-08-16.md and 2026-08-17.md."
+  # An unreadable filesystem is a TRANSIENT INFRASTRUCTURE FAULT, not a verdict
+  # on the experiment, so the correct response is to give the allocation back
+  # and return to the queue -- not to die (which wastes the ~6h queue wait and
+  # requires a human to notice and resubmit) and not to wait in place (which
+  # holds $NPROC GPUs idle, the exact failure this preflight exists to prevent).
+  #
+  # Bounded: PREFLIGHT_MAX_REQUEUE attempts, after which it is no longer
+  # plausibly transient and a human should look. SLURM's own restart counter is
+  # the state, so this survives the job being killed between attempts.
+  ATTEMPT="${SLURM_RESTART_COUNT:-0}"
+  MAXTRY="${PREFLIGHT_MAX_REQUEUE:-8}"
+  if [ "$ATTEMPT" -lt "$MAXTRY" ]; then
+    eqm_log "preflight FAILED (attempt $((ATTEMPT+1))/$MAXTRY): ImageNet at
+       $IMAGENET_PATH is not readable at a usable rate, or the preflight itself
+       timed out, which means reads are HANGING. Releasing the allocation and
+       requeueing with a delay rather than holding $NPROC GPUs idle."
+    # --begin spaces the retries out; without it the job is eligible instantly
+    # and would spin through all its attempts against the same dead filesystem
+    # in minutes, burning the budget before any plausible recovery window.
+    scontrol requeue "$SLURM_JOB_ID" 2>/dev/null \
+      && scontrol update JobId="$SLURM_JOB_ID" StartTime=now+45minutes 2>/dev/null
+    exit 0
+  fi
+  eqm_die "ImageNet at $IMAGENET_PATH has been unreadable for $MAXTRY successive
+       attempts. This is no longer plausibly transient -- it needs a human and
+       probably an RC ticket. See memory/2026-08-16.md and 2026-08-17.md."
 }
 
 # Hard gate: the BTM mathematics must be validated on THIS commit before any
@@ -222,6 +249,15 @@ STALL_TIMEOUT="${STALL_TIMEOUT:-2700}"
            "(last seen: ${last_step:-NONE}). Killing the job rather than" \
            "holding $NPROC GPUs to the wall clock." >&2
       # Whole process group: torch.distributed.run's children must go too.
+      #
+      # CAVEAT, observed 2026-08-17 on probe job 39693987: a process blocked in
+      # a Lustre read is in UNINTERRUPTIBLE sleep (D state) and cannot be killed
+      # by any signal -- SLURM's own STEPD gave up on that job after 1215s and
+      # logged "JOB NOT ENDING WITH SIGNALS". So this kill is best-effort. It
+      # works for every stall whose process is still interruptible (NCCL
+      # deadlock, dataloader race, livelock); for a D-state filesystem hang the
+      # real defence is the PREFLIGHT above, which runs before any GPU work and
+      # while the process can still be killed.
       kill -TERM -$$ 2>/dev/null || kill -TERM "$$" 2>/dev/null
       exit 1
     fi
